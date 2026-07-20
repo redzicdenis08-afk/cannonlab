@@ -10,9 +10,12 @@ ARTIFACTS="$ROOT/lab-artifacts"
 VERSION="${CANNONLAB_MC_VERSION:-26.1.2}"
 SCENARIO="${CANNONLAB_SCENARIO:-probe-cloud-stress.yml}"
 USER_AGENT="CannonLab/0.3 (https://github.com/redzicdenis08-afk/cannonlab)"
+WORLDEDIT_VERSION_ID="yDUBafTJ"
 
 rm -rf "$WORK" "$ARTIFACTS"
 mkdir -p "$PLUGINS" "$DATA/cannons" "$DATA/scenarios" "$DATA/results" "$ARTIFACTS"
+exec > >(tee -a "$ARTIFACTS/cloud-smoke.log") 2>&1
+trap 'code=$?; echo "cloud-smoke.sh failed at line $LINENO with exit code $code"; exit $code' ERR
 
 printf 'Resolving Paper %s...\n' "$VERSION"
 BUILDS_JSON="$WORK/paper-builds.json"
@@ -21,7 +24,7 @@ curl --fail --location --silent --show-error --retry 3 \
   "https://fill.papermc.io/v3/projects/paper/versions/$VERSION/builds" \
   --output "$BUILDS_JSON"
 
-PAPER_URL="$(python3 - "$BUILDS_JSON" <<'PY'
+mapfile -t PAPER_INFO < <(python3 - "$BUILDS_JSON" <<'PY'
 from __future__ import annotations
 
 import json
@@ -41,23 +44,67 @@ if not builds:
 
 stable = [build for build in builds if str(build.get("channel", "")).upper() == "STABLE"]
 selected = stable[0] if stable else builds[0]
-try:
-    print(selected["downloads"]["server:default"]["url"])
-except KeyError as exc:
-    raise SystemExit(f"Paper build has no server:default download: {selected}") from exc
+download = selected.get("downloads", {}).get("server:default")
+if not isinstance(download, dict) or not download.get("url"):
+    raise SystemExit(f"Paper build has no server:default download: {selected}")
+
+print(download["url"])
+print(download.get("checksums", {}).get("sha256", ""))
 PY
-)"
+)
+PAPER_URL="${PAPER_INFO[0]}"
+PAPER_SHA256="${PAPER_INFO[1]:-}"
 
 curl --fail --location --silent --show-error --retry 3 \
   --header "User-Agent: $USER_AGENT" \
   "$PAPER_URL" \
   --output "$SERVER/server.jar"
+if [[ -n "$PAPER_SHA256" ]]; then
+  printf '%s  %s\n' "$PAPER_SHA256" "$SERVER/server.jar" | sha256sum --check --status
+  echo 'Paper SHA-256 verified.'
+fi
 
-printf 'Downloading WorldEdit 7.4.3...\n'
+printf 'Resolving official WorldEdit 7.4.3 Bukkit build from Modrinth...\n'
+WORLDEDIT_JSON="$WORK/worldedit-version.json"
 curl --fail --location --silent --show-error --retry 3 \
   --header "User-Agent: $USER_AGENT" \
-  "https://github.com/EngineHub/WorldEdit/releases/download/7.4.3/worldedit-bukkit-7.4.3.jar" \
-  --output "$PLUGINS/worldedit-bukkit-7.4.3.jar"
+  "https://api.modrinth.com/v2/version/$WORLDEDIT_VERSION_ID" \
+  --output "$WORLDEDIT_JSON"
+
+mapfile -t WORLDEDIT_INFO < <(python3 - "$WORLDEDIT_JSON" <<'PY'
+from __future__ import annotations
+
+import json
+import sys
+from pathlib import Path
+
+version = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+files = version.get("files", [])
+if not files:
+    raise SystemExit("Modrinth returned no WorldEdit files")
+
+jars = [entry for entry in files if str(entry.get("filename", "")).endswith(".jar")]
+if not jars:
+    raise SystemExit(f"WorldEdit version has no JAR file: {files}")
+selected = next((entry for entry in jars if entry.get("primary")), jars[0])
+print(selected["url"])
+print(selected.get("hashes", {}).get("sha512", ""))
+print(selected.get("filename", "worldedit-bukkit-7.4.3.jar"))
+PY
+)
+WORLDEDIT_URL="${WORLDEDIT_INFO[0]}"
+WORLDEDIT_SHA512="${WORLDEDIT_INFO[1]:-}"
+WORLDEDIT_FILENAME="${WORLDEDIT_INFO[2]:-worldedit-bukkit-7.4.3.jar}"
+WORLDEDIT_JAR="$PLUGINS/$WORLDEDIT_FILENAME"
+
+curl --fail --location --silent --show-error --retry 3 \
+  --header "User-Agent: $USER_AGENT" \
+  "$WORLDEDIT_URL" \
+  --output "$WORLDEDIT_JAR"
+if [[ -n "$WORLDEDIT_SHA512" ]]; then
+  printf '%s  %s\n' "$WORLDEDIT_SHA512" "$WORLDEDIT_JAR" | sha512sum --check --status
+  echo 'WorldEdit SHA-512 verified.'
+fi
 
 PLUGIN_JAR="$(find "$ROOT/build/libs" -maxdepth 1 -type f -name 'CannonLab-*.jar' -printf '%T@ %p\n' | sort -nr | head -n1 | cut -d' ' -f2-)"
 if [[ -z "$PLUGIN_JAR" || ! -f "$PLUGIN_JAR" ]]; then
