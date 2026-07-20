@@ -46,10 +46,14 @@ fi
 cd "$SOURCE"
 chmod +x gradlew
 ./gradlew --no-daemon --stacktrace applyAllPatches
-./gradlew --no-daemon --stacktrace createMojmapPaperclipJar
+
+# Paperweight 2.x renamed the old README task createMojmapPaperclipJar.
+# The runnable Mojang-mapped paperclip artifact is now produced by the
+# server subproject's createPaperclipJar task.
+./gradlew --no-daemon --stacktrace :sakura-server:createPaperclipJar
 
 mapfile -t CANDIDATES < <(
-  find "$SOURCE" -type f -path '*/build/libs/*.jar' \
+  find "$SOURCE/sakura-server/build/libs" -maxdepth 1 -type f -name '*.jar' \
     ! -name '*sources*' ! -name '*javadoc*' \
     -printf '%s %p\n' | sort -nr
 )
