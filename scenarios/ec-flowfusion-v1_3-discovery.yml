@@ -3,7 +3,7 @@ cannon:
   file: ec-flowfusion-v1_3.schem
   origin: {x: 0, y: 0, z: 0}
   fire-mode: redstone
-  fire-input: {x: 1, y: 2, z: 6}
+  fire-input: {x: 1, y: 3, z: 6}
   fire-pulse-ticks: 4
 limits:
   enforce-dispenser-limit: true
