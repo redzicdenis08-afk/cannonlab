@@ -1,0 +1,15 @@
+name: CannonLab
+version: ${version}
+main: io.github.redzicdenis08afk.cannonlab.CannonLabPlugin
+api-version: '1.21'
+authors: [Denis]
+description: Automated isolated cannon test laboratory.
+commands:
+  cannonlab:
+    description: CannonLab control command
+    usage: /cannonlab <status|reset|wall|fill|record|fire|smoke>
+    aliases: [cl]
+    permission: cannonlab.admin
+permissions:
+  cannonlab.admin:
+    default: op
