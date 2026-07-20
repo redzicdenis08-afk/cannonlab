@@ -11,6 +11,7 @@ VERSION="${CANNONLAB_MC_VERSION:-26.1.2}"
 SCENARIO="${CANNONLAB_SCENARIO:-probe-cloud-stress.yml}"
 SERVER_JAR_OVERRIDE="${CANNONLAB_SERVER_JAR:-}"
 SERVER_LABEL="${CANNONLAB_SERVER_LABEL:-Paper $VERSION}"
+TIMEOUT_SECONDS="${CANNONLAB_TIMEOUT_SECONDS:-600}"
 USER_AGENT="CannonLab/0.3 (https://github.com/redzicdenis08-afk/cannonlab)"
 WORLDEDIT_VERSION_ID="yDUBafTJ"
 
@@ -142,11 +143,11 @@ EOF
 
 STDOUT="$ARTIFACTS/server-stdout.log"
 STDERR="$ARTIFACTS/server-stderr.log"
-printf 'Starting headless %s runtime for scenario %s...\n' "$SERVER_LABEL" "$SCENARIO"
+printf 'Starting headless %s runtime for scenario %s with timeout %ss...\n' "$SERVER_LABEL" "$SCENARIO" "$TIMEOUT_SECONDS"
 set +e
 (
   cd "$SERVER"
-  timeout --signal=TERM --kill-after=30s 600s \
+  timeout --signal=TERM --kill-after=30s "${TIMEOUT_SECONDS}s" \
     java -Xms1G -Xmx3G "-Dcannonlab.scenario=$SCENARIO" -jar server.jar --nogui
 ) >"$STDOUT" 2>"$STDERR"
 SERVER_EXIT=$?
