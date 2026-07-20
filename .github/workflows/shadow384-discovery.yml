@@ -1,0 +1,80 @@
+name: Shadow384 Sakura Discovery
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-sakura:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Build CannonLab
+        run: gradle clean build --stacktrace
+      - name: Build pinned Sakura 26.1.2
+        run: bash scripts/build-sakura-26.1.2.sh
+      - name: Bundle runtime
+        run: |
+          mkdir -p bundle/build/libs
+          cp .sakura-26.1.2.jar bundle/sakura-26.1.2.jar
+          cp build/libs/CannonLab-*.jar bundle/build/libs/
+          sha256sum bundle/sakura-26.1.2.jar bundle/build/libs/CannonLab-*.jar > bundle/sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Shadow384-Sakura-runtime-${{ github.run_number }}
+          path: bundle/**
+          if-no-files-found: error
+          retention-days: 7
+
+  shadow384-discovery:
+    needs: build-sakura
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/download-artifact@v4
+        with:
+          name: Shadow384-Sakura-runtime-${{ github.run_number }}
+          path: downloaded
+      - name: Restore plugin
+        run: |
+          mkdir -p build/libs
+          cp downloaded/bundle/build/libs/CannonLab-*.jar build/libs/
+          (cd downloaded && sha256sum --check bundle/sha256.txt)
+      - name: Fire preserved Shadow384 on Sakura
+        env:
+          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/downloaded/bundle/sakura-26.1.2.jar
+          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 Shadow384 discovery
+          CANNONLAB_SCENARIO: shadow384-discovery.yml
+          CANNONLAB_EXPECTED_SHOTS: '1'
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '1'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '1'
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_TIMEOUT_SECONDS: '1200'
+          CANNONLAB_ARENA_RADIUS_X: '280'
+          CANNONLAB_ARENA_RADIUS_Y: '100'
+          CANNONLAB_ARENA_RADIUS_Z: '80'
+        run: bash scripts/cloud-smoke.sh
+      - name: Upload discovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shadow384-discovery-evidence-${{ github.run_number }}
+          path: lab-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30
