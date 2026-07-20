@@ -20,7 +20,7 @@ $ResultsTarget = Join-Path $PluginData 'results'
 
 New-Item -ItemType Directory -Force -Path $ServerRoot, $PluginsRoot, $PluginData, $CannonsTarget, $ScenariosTarget, $ResultsTarget | Out-Null
 
-$UserAgent = 'CannonLab/0.2 (https://github.com/redzicdenis08-afk/cannonlab)'
+$UserAgent = 'CannonLab/0.3 (https://github.com/redzicdenis08-afk/cannonlab)'
 $Headers = @{ 'User-Agent' = $UserAgent }
 
 # Prefer a manually supplied Sakura jar. Paper is only the infrastructure smoke-test fallback.
@@ -40,15 +40,53 @@ if (Test-Path $SakuraJar) {
     if (-not $Build) {
         throw "No Paper build found for $MinecraftVersion"
     }
-    $DownloadUrl = $Build.downloads.'server:default'.url
-    Invoke-WebRequest -Uri $DownloadUrl -Headers $Headers -OutFile $ServerJar
+
+    $Download = $Build.downloads.'server:default'
+    if (-not $Download -or -not $Download.url) {
+        throw 'Paper build did not contain a server:default download.'
+    }
+    Invoke-WebRequest -Uri $Download.url -Headers $Headers -OutFile $ServerJar
+
+    $ExpectedSha256 = $Download.checksums.sha256
+    if ($ExpectedSha256) {
+        $ActualSha256 = (Get-FileHash $ServerJar -Algorithm SHA256).Hash.ToLowerInvariant()
+        if ($ActualSha256 -ne $ExpectedSha256.ToLowerInvariant()) {
+            Remove-Item $ServerJar -Force
+            throw 'Paper SHA-256 verification failed.'
+        }
+        Write-Host 'Paper SHA-256 verified.'
+    }
 }
 
-$WorldEditJar = Join-Path $PluginsRoot 'worldedit-bukkit-7.4.3.jar'
-if (-not (Test-Path $WorldEditJar)) {
-    $WorldEditUrl = 'https://github.com/EngineHub/WorldEdit/releases/download/7.4.3/worldedit-bukkit-7.4.3.jar'
-    Write-Host 'Downloading WorldEdit 7.4.3...'
-    Invoke-WebRequest -Uri $WorldEditUrl -Headers $Headers -OutFile $WorldEditJar
+# WorldEdit does not publish GitHub release assets. Resolve the exact official
+# Bukkit 7.4.3 build from Modrinth version yDUBafTJ and verify its SHA-512.
+$WorldEditVersionId = 'yDUBafTJ'
+$WorldEditMetadata = Invoke-RestMethod -Uri "https://api.modrinth.com/v2/version/$WorldEditVersionId" -Headers $Headers
+$WorldEditFile = $WorldEditMetadata.files | Where-Object { $_.primary -and $_.filename.EndsWith('.jar') } | Select-Object -First 1
+if (-not $WorldEditFile) {
+    $WorldEditFile = $WorldEditMetadata.files | Where-Object { $_.filename.EndsWith('.jar') } | Select-Object -First 1
+}
+if (-not $WorldEditFile) {
+    throw 'Official WorldEdit 7.4.3 metadata contained no Bukkit JAR.'
+}
+
+$WorldEditJar = Join-Path $PluginsRoot $WorldEditFile.filename
+$NeedsWorldEditDownload = -not (Test-Path $WorldEditJar)
+if (-not $NeedsWorldEditDownload -and $WorldEditFile.hashes.sha512) {
+    $ExistingHash = (Get-FileHash $WorldEditJar -Algorithm SHA512).Hash.ToLowerInvariant()
+    $NeedsWorldEditDownload = $ExistingHash -ne $WorldEditFile.hashes.sha512.ToLowerInvariant()
+}
+if ($NeedsWorldEditDownload) {
+    Write-Host 'Downloading official WorldEdit 7.4.3 Bukkit build from Modrinth...'
+    Invoke-WebRequest -Uri $WorldEditFile.url -Headers $Headers -OutFile $WorldEditJar
+}
+if ($WorldEditFile.hashes.sha512) {
+    $ActualWorldEditHash = (Get-FileHash $WorldEditJar -Algorithm SHA512).Hash.ToLowerInvariant()
+    if ($ActualWorldEditHash -ne $WorldEditFile.hashes.sha512.ToLowerInvariant()) {
+        Remove-Item $WorldEditJar -Force
+        throw 'WorldEdit SHA-512 verification failed.'
+    }
+    Write-Host 'WorldEdit SHA-512 verified.'
 }
 
 $PluginJar = Get-ChildItem (Join-Path $RepoRoot 'build\libs\CannonLab-*.jar') | Sort-Object LastWriteTime -Descending | Select-Object -First 1
@@ -82,6 +120,8 @@ network-compression-threshold=-1
 enable-command-block=false
 generate-structures=false
 allow-flight=true
+pause-when-empty-seconds=-1
+max-tick-time=-1
 motd=CannonLab isolated test server
 '@ | Set-Content (Join-Path $ServerRoot 'server.properties') -Encoding ascii
 
