@@ -27,7 +27,7 @@ jobs:
           mkdir -p bundle/build/libs
           cp .sakura-26.1.2.jar bundle/sakura-26.1.2.jar
           cp build/libs/CannonLab-*.jar bundle/build/libs/
-          sha256sum bundle/sakura-26.1.2.jar bundle/build/libs/CannonLab-*.jar > bundle/sha256.txt
+          (cd bundle && sha256sum sakura-26.1.2.jar build/libs/CannonLab-*.jar > sha256.txt)
       - uses: actions/upload-artifact@v4
         with:
           name: Shadow384-Sakura-runtime-${{ github.run_number }}
@@ -52,11 +52,11 @@ jobs:
       - name: Restore plugin
         run: |
           mkdir -p build/libs
-          cp downloaded/bundle/build/libs/CannonLab-*.jar build/libs/
-          (cd downloaded && sha256sum --check bundle/sha256.txt)
+          cp downloaded/build/libs/CannonLab-*.jar build/libs/
+          (cd downloaded && sha256sum --check sha256.txt)
       - name: Fire preserved Shadow384 on Sakura
         env:
-          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/downloaded/bundle/sakura-26.1.2.jar
+          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/downloaded/sakura-26.1.2.jar
           CANNONLAB_SERVER_LABEL: Sakura 26.1.2 Shadow384 discovery
           CANNONLAB_SCENARIO: shadow384-discovery.yml
           CANNONLAB_EXPECTED_SHOTS: '1'
