@@ -18,10 +18,10 @@ jobs:
       - name: Decode deterministic schematic fixtures
         run: |
           mkdir -p .audit-input audit-artifacts
-          for fixture in cannons/*.schem.b64; do
-            output=".audit-input/$(basename "${fixture%.b64}")"
-            base64 --decode "$fixture" > "$output"
-          done
+          base64 --decode cannons/probe-one-dispenser.schem.b64 \
+            > .audit-input/probe-one-dispenser.schem
+          base64 --decode audit-fixtures/overflow-129.schem.b64 \
+            > .audit-input/overflow-129.schem
           sha256sum .audit-input/* | tee audit-artifacts/input-sha256.txt
 
       - name: Audit one-dispenser legal probe
@@ -45,37 +45,37 @@ jobs:
             exit 1
           fi
 
-      - name: Prove original Shadow cannon violates the chunk cap
+      - name: Prove chunk alignment changes legality
         run: |
           set +e
           python3 scripts/schem-audit.py \
-            .audit-input/Shadows_1sec_384osrb_box-watered.schem \
+            .audit-input/overflow-129.schem \
             --chunk-limit 128 \
-            --expect-dispensers 1558 \
-            --json-out audit-artifacts/original-shadow.json \
-            >audit-artifacts/original-shadow.stdout.json \
-            2>audit-artifacts/original-shadow.stderr.txt
+            --expect-dispensers 129 \
+            --expect-aligned-max 129 \
+            --json-out audit-artifacts/overflow-129.json \
+            >audit-artifacts/overflow-129.stdout.json \
+            2>audit-artifacts/overflow-129.stderr.txt
           code=$?
           set -e
-          echo "$code" > audit-artifacts/original-shadow.exit-code.txt
+          echo "$code" > audit-artifacts/overflow-129.exit-code.txt
           if [[ "$code" -ne 2 ]]; then
-            cat audit-artifacts/original-shadow.stderr.txt >&2 || true
-            echo "Expected original schematic audit to fail with exit 2, got $code" >&2
+            cat audit-artifacts/overflow-129.stderr.txt >&2 || true
+            echo "Expected aligned overflow fixture to fail with exit 2, got $code" >&2
             exit 1
           fi
           python3 - <<'PY'
           import json
           from pathlib import Path
-          report = json.loads(Path('audit-artifacts/original-shadow.json').read_text())
+          report = json.loads(Path('audit-artifacts/overflow-129.json').read_text())
           assert report['status'] == 'FAIL', report
-          assert report['dispensers']['count'] == 1558, report['dispensers']
-          assert report['dispensers']['aligned_max'] == 912, report['dispensers']
-          assert report['dispensers']['best_alignment']['max'] == 469, report['dispensers']
-          assert report['dispensers']['best_alignment']['offset_x'] == 0, report['dispensers']
-          assert report['dispensers']['best_alignment']['offset_z'] == 11, report['dispensers']
+          assert report['dispensers']['count'] == 129, report['dispensers']
+          assert report['dispensers']['aligned_max'] == 129, report['dispensers']
+          assert report['dispensers']['best_alignment']['max'] == 121, report['dispensers']
+          assert report['dispensers']['best_alignment']['offset_x'] == 1, report['dispensers']
+          assert report['dispensers']['worst_alignment']['max'] == 129, report['dispensers']
           assert not report['support_failures'], report['support_failures']
-          assert sum(item['count'] for item in report['repeaters']) == 40, report['repeaters']
-          print('Original Shadow failure fingerprint is stable and correctly detected.')
+          print('Chunk-alignment legality fingerprint is stable and correctly detected.')
           PY
 
       - name: Reject corrupted and truncated schematic input
