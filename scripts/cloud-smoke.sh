@@ -14,12 +14,20 @@ SERVER_LABEL="${CANNONLAB_SERVER_LABEL:-Paper $VERSION}"
 TIMEOUT_SECONDS="${CANNONLAB_TIMEOUT_SECONDS:-600}"
 EXPECTED_SHOTS="${CANNONLAB_EXPECTED_SHOTS:-10}"
 STRICT_SINGLE_TNT="${CANNONLAB_STRICT_SINGLE_TNT:-true}"
+MIN_TNT_PER_SHOT="${CANNONLAB_MIN_TNT_PER_SHOT:-1}"
+MIN_EXPLOSIONS_PER_SHOT="${CANNONLAB_MIN_EXPLOSIONS_PER_SHOT:-1}"
 EXPECTED_LIFETIME="${CANNONLAB_EXPECTED_LIFETIME:-79}"
 LIFETIME_TOLERANCE="${CANNONLAB_LIFETIME_TOLERANCE:-0}"
+MIN_FORWARD_TRAVEL="${CANNONLAB_MIN_FORWARD_TRAVEL:-}"
+MAX_TARGET_MISS_DISTANCE="${CANNONLAB_MAX_TARGET_MISS_DISTANCE:-}"
+MIN_TARGET_PEAK_DESTROYED="${CANNONLAB_MIN_TARGET_PEAK_DESTROYED:-}"
+MIN_LAYER_BREACHED="${CANNONLAB_MIN_LAYER_BREACHED:-}"
+REQUIRE_REGEN="${CANNONLAB_REQUIRE_REGEN:-false}"
+MIN_REGEN_RESTORED="${CANNONLAB_MIN_REGEN_RESTORED:-1}"
 ARENA_RADIUS_X="${CANNONLAB_ARENA_RADIUS_X:-32}"
 ARENA_RADIUS_Y="${CANNONLAB_ARENA_RADIUS_Y:-16}"
 ARENA_RADIUS_Z="${CANNONLAB_ARENA_RADIUS_Z:-16}"
-USER_AGENT="CannonLab/0.4 (https://github.com/redzicdenis08-afk/cannonlab)"
+USER_AGENT="CannonLab/0.5 (https://github.com/redzicdenis08-afk/cannonlab)"
 WORLDEDIT_VERSION_ID="yDUBafTJ"
 
 rm -rf "$WORK" "$ARTIFACTS"
@@ -151,9 +159,9 @@ EOF
 STDOUT="$ARTIFACTS/server-stdout.log"
 STDERR="$ARTIFACTS/server-stderr.log"
 printf 'Starting headless %s runtime for scenario %s with timeout %ss...\n' "$SERVER_LABEL" "$SCENARIO" "$TIMEOUT_SECONDS"
-printf 'Assertions: shots=%s strictSingleTnt=%s lifetime=%s±%s arena=%sx%sx%s\n' \
-  "$EXPECTED_SHOTS" "$STRICT_SINGLE_TNT" "$EXPECTED_LIFETIME" "$LIFETIME_TOLERANCE" \
-  "$ARENA_RADIUS_X" "$ARENA_RADIUS_Y" "$ARENA_RADIUS_Z"
+printf 'Assertions: shots=%s strictSingleTnt=%s minTnt=%s minExplosions=%s lifetime=%s±%s arena=%sx%sx%s\n' \
+  "$EXPECTED_SHOTS" "$STRICT_SINGLE_TNT" "$MIN_TNT_PER_SHOT" "$MIN_EXPLOSIONS_PER_SHOT" \
+  "$EXPECTED_LIFETIME" "$LIFETIME_TOLERANCE" "$ARENA_RADIUS_X" "$ARENA_RADIUS_Y" "$ARENA_RADIUS_Z"
 set +e
 (
   cd "$SERVER"
@@ -175,6 +183,8 @@ fi
 ASSERT_ARGS=(
   "$ARTIFACTS/results"
   --expected-shots "$EXPECTED_SHOTS"
+  --min-tnt-per-shot "$MIN_TNT_PER_SHOT"
+  --min-explosions-per-shot "$MIN_EXPLOSIONS_PER_SHOT"
   --json-out "$ARTIFACTS/physics-fingerprint.json"
 )
 case "${STRICT_SINGLE_TNT,,}" in
@@ -185,6 +195,23 @@ esac
 if [[ -n "$EXPECTED_LIFETIME" && "${EXPECTED_LIFETIME,,}" != "none" ]]; then
   ASSERT_ARGS+=(--expected-lifetime "$EXPECTED_LIFETIME" --lifetime-tolerance "$LIFETIME_TOLERANCE")
 fi
+if [[ -n "$MIN_FORWARD_TRAVEL" ]]; then
+  ASSERT_ARGS+=(--min-forward-travel "$MIN_FORWARD_TRAVEL")
+fi
+if [[ -n "$MAX_TARGET_MISS_DISTANCE" ]]; then
+  ASSERT_ARGS+=(--max-target-miss-distance "$MAX_TARGET_MISS_DISTANCE")
+fi
+if [[ -n "$MIN_TARGET_PEAK_DESTROYED" ]]; then
+  ASSERT_ARGS+=(--min-target-peak-destroyed "$MIN_TARGET_PEAK_DESTROYED")
+fi
+if [[ -n "$MIN_LAYER_BREACHED" ]]; then
+  ASSERT_ARGS+=(--min-layer-breached "$MIN_LAYER_BREACHED")
+fi
+case "${REQUIRE_REGEN,,}" in
+  1|true|yes) ASSERT_ARGS+=(--require-regen --min-regen-restored "$MIN_REGEN_RESTORED") ;;
+  0|false|no) ;;
+  *) echo "Invalid CANNONLAB_REQUIRE_REGEN=$REQUIRE_REGEN" >&2; exit 1 ;;
+esac
 
 python3 "$ROOT/scripts/assert-results.py" "${ASSERT_ARGS[@]}" \
   | tee "$ARTIFACTS/assertion.json"
