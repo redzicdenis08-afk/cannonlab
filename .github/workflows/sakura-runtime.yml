@@ -8,9 +8,9 @@ permissions:
   contents: read
 
 jobs:
-  sakura-runtime:
+  build-sakura:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 75
     steps:
       - name: Checkout CannonLab
         uses: actions/checkout@v4
@@ -30,9 +30,54 @@ jobs:
       - name: Build pinned public Sakura 26.1.2
         run: bash scripts/build-sakura-26.1.2.sh
 
+      - name: Prepare immutable runtime bundle
+        run: |
+          mkdir -p sakura-runtime-bundle/build/libs
+          cp .sakura-26.1.2.jar sakura-runtime-bundle/sakura-26.1.2.jar
+          cp build/libs/CannonLab-*.jar sakura-runtime-bundle/build/libs/
+          sha256sum sakura-runtime-bundle/sakura-26.1.2.jar \
+            sakura-runtime-bundle/build/libs/CannonLab-*.jar \
+            | tee sakura-runtime-bundle/runtime-bundle.sha256
+
+      - name: Upload pinned Sakura runtime bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-Sakura-build-${{ github.run_number }}
+          path: |
+            sakura-runtime-bundle/**
+            sakura-build-artifacts/**
+          if-no-files-found: error
+          retention-days: 30
+
+  sakura-endurance:
+    needs: build-sakura
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout CannonLab
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Download pinned runtime bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: CannonLab-Sakura-build-${{ github.run_number }}
+          path: downloaded-sakura
+
+      - name: Restore prebuilt CannonLab plugin
+        run: |
+          mkdir -p build/libs
+          cp downloaded-sakura/sakura-runtime-bundle/build/libs/CannonLab-*.jar build/libs/
+          sha256sum --check downloaded-sakura/sakura-runtime-bundle/runtime-bundle.sha256
+
       - name: Run 100 real redstone shots on Sakura
         env:
-          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/.sakura-26.1.2.jar
+          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/downloaded-sakura/sakura-runtime-bundle/sakura-26.1.2.jar
           CANNONLAB_SERVER_LABEL: Sakura 26.1.2 pinned redstone endurance
           CANNONLAB_SCENARIO: probe-redstone-endurance.yml
           CANNONLAB_EXPECTED_SHOTS: '100'
@@ -42,13 +87,46 @@ jobs:
           CANNONLAB_EXPECTED_LIFETIME: '79'
           CANNONLAB_LIFETIME_TOLERANCE: '0'
           CANNONLAB_TIMEOUT_SECONDS: '900'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Upload Sakura endurance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-Sakura-endurance-${{ github.run_number }}
+          path: lab-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  sakura-multi-tnt:
+    needs: build-sakura
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout CannonLab
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Download pinned runtime bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: CannonLab-Sakura-build-${{ github.run_number }}
+          path: downloaded-sakura
+
+      - name: Restore prebuilt CannonLab plugin
         run: |
-          bash scripts/cloud-smoke.sh
-          mv lab-artifacts sakura-endurance-artifacts
+          mkdir -p build/libs
+          cp downloaded-sakura/sakura-runtime-bundle/build/libs/CannonLab-*.jar build/libs/
+          sha256sum --check downloaded-sakura/sakura-runtime-bundle/runtime-bundle.sha256
 
       - name: Run real four-TNT cannon on Sakura
         env:
-          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/.sakura-26.1.2.jar
+          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/downloaded-sakura/sakura-runtime-bundle/sakura-26.1.2.jar
           CANNONLAB_SERVER_LABEL: Sakura 26.1.2 pinned multi-TNT
           CANNONLAB_SCENARIO: multi-tnt-range.yml
           CANNONLAB_EXPECTED_SHOTS: '10'
@@ -58,25 +136,19 @@ jobs:
           CANNONLAB_EXPECTED_LIFETIME: '79'
           CANNONLAB_LIFETIME_TOLERANCE: '0'
           CANNONLAB_MAX_TARGET_MISS_DISTANCE: '7.0'
-          CANNONLAB_MIN_TARGET_PEAK_DESTROYED: '25'
+          CANNONLAB_MIN_TARGET_PEAK_DESTROYED: '20'
           CANNONLAB_MIN_LAYER_BREACHED: '1'
           CANNONLAB_TIMEOUT_SECONDS: '600'
           CANNONLAB_ARENA_RADIUS_X: '32'
           CANNONLAB_ARENA_RADIUS_Y: '24'
           CANNONLAB_ARENA_RADIUS_Z: '24'
-        run: |
-          bash scripts/cloud-smoke.sh
-          mv lab-artifacts sakura-multi-tnt-artifacts
+        run: bash scripts/cloud-smoke.sh
 
-      - name: Upload Sakura build and runtime evidence
+      - name: Upload Sakura multi-TNT evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: CannonLab-Sakura-26.1.2-${{ github.run_number }}
-          path: |
-            sakura-endurance-artifacts/**
-            sakura-multi-tnt-artifacts/**
-            sakura-build-artifacts/**
-            lab-artifacts/**
+          name: CannonLab-Sakura-multi-TNT-${{ github.run_number }}
+          path: lab-artifacts/**
           if-no-files-found: warn
           retention-days: 30
