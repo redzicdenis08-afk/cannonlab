@@ -17,10 +17,7 @@ target:
   layers: 1
   spacing: 3
   regeneration:
-    enabled: true
-    delay-ticks: 30
-    interval-ticks: 5
-    max-blocks-per-cycle: 16
+    enabled: false
 run:
   shots: 5
   warmup-ticks: 20
