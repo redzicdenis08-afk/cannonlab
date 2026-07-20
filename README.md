@@ -15,6 +15,7 @@ The laboratory is operational and CI-tested. It can:
 - enforce the 128-dispensers-per-chunk rule
 - trigger cannons directly or through real redstone power
 - generate dry, watered, cobblestone-regen, filter, and slab-filter targets
+- place targets north, south, east, or west with vertical and lateral offsets
 - keep all arena chunks ticking without a connected player
 - record TNT and falling-block position, velocity, fuse, and explosion data every tick
 - export per-shot and per-run JSON/CSV evidence
@@ -62,7 +63,7 @@ The server can also autorun a scenario with:
 ## Scenario structure
 
 ```yaml
-name: example
+name: north-firing-example
 cannon:
   file: cannon.schem
   origin: {x: 0, y: 0, z: 0}
@@ -74,9 +75,12 @@ limits:
   enforce-dispenser-limit: true
 target:
   type: watered
+  direction: north
   distance: 160
   width: 17
   height: 32
+  y-offset: 0
+  lateral-offset: 0
   layers: 20
   spacing: 3
 run:
@@ -87,7 +91,9 @@ run:
   shutdown-when-finished: true
 ```
 
-Supported target types are `dry`, `watered`, `cobble-regen`, `filter`, and `slab-filter`. Supported fire modes are `redstone` and `direct`.
+Supported target types are `dry`, `watered`, `cobble-regen`, `filter`, and `slab-filter`. Supported directions are `north`, `south`, `east`, and `west`. Supported fire modes are `redstone` and `direct-dispense`; `direct` is accepted as a convenience alias.
+
+The configured arena radius must include the cannon, complete flight path, every target layer, and one extra block for water, lava, or slab frontage. CannonLab fails loudly instead of silently building targets outside the loaded arena.
 
 ## Build
 
@@ -101,6 +107,26 @@ gradle clean build
 ```
 
 The plugin JAR is written to `build/libs/`.
+
+## Headless launcher configuration
+
+`scripts/cloud-smoke.sh` is also the general scenario runner. Important environment variables include:
+
+```text
+CANNONLAB_SCENARIO
+CANNONLAB_SERVER_JAR
+CANNONLAB_SERVER_LABEL
+CANNONLAB_TIMEOUT_SECONDS
+CANNONLAB_EXPECTED_SHOTS
+CANNONLAB_STRICT_SINGLE_TNT
+CANNONLAB_EXPECTED_LIFETIME
+CANNONLAB_LIFETIME_TOLERANCE
+CANNONLAB_ARENA_RADIUS_X
+CANNONLAB_ARENA_RADIUS_Y
+CANNONLAB_ARENA_RADIUS_Z
+```
+
+Set `CANNONLAB_STRICT_SINGLE_TNT=false` for real multi-dispenser cannons. Set `CANNONLAB_EXPECTED_LIFETIME=none` only for a scenario where a fixed individual TNT lifetime is intentionally not a valid assertion.
 
 ## Analysis tools
 
@@ -120,7 +146,7 @@ The static auditor validates Sponge v2 structure, block data, tile coordinates, 
 1. Audit the schematic and reject structural or chunk-limit failures.
 2. Run direct activation to prove dispenser and telemetry plumbing.
 3. Run real redstone activation to verify the actual firing circuit.
-4. Stress the cannon across distances, heights, target types, and repeated shots.
+4. Stress the cannon across directions, ranges, heights, target types, and repeated shots.
 5. Rank variants from evidence rather than visual impressions.
 6. Compare the local fingerprint with the ExtremeCraft calibration fingerprint.
 7. Export the winning schematic plus its scenario, audit, timing, and test evidence.
