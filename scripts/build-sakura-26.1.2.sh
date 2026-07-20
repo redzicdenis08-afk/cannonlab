@@ -16,6 +16,11 @@ git clone --depth 1 --branch ver/26.1.x \
   https://github.com/Samsuik/Sakura.git \
   "$SOURCE"
 
+# Paperweight applies source patches as local Git commits. Give only this
+# disposable clone an identity so patch application is reproducible in CI.
+git -C "$SOURCE" config user.name 'CannonLab Builder'
+git -C "$SOURCE" config user.email 'cannonlab@users.noreply.github.com'
+
 EXPECTED_VERSION='26.1.2'
 ACTUAL_VERSION="$(sed -n 's/^version=//p' "$SOURCE/gradle.properties" | head -n1)"
 MC_VERSION="$(sed -n 's/^mcVersion=//p' "$SOURCE/gradle.properties" | head -n1)"
