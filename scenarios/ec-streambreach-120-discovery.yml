@@ -1,0 +1,26 @@
+name: ec-streambreach-120-discovery
+cannon:
+  file: ec-streambreach-120.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: redstone
+  fire-input: {x: 17, y: 6, z: 25}
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: dry
+  material: cobblestone
+  direction: north
+  distance: 20
+  width: 19
+  height: 16
+  y-offset: 0
+  lateral-offset: 8
+  layers: 1
+  spacing: 16
+run:
+  shots: 3
+  warmup-ticks: 40
+  max-shot-ticks: 320
+  quiet-ticks: 100
+  shutdown-when-finished: true

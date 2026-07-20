@@ -1,0 +1,155 @@
+name: Cannon Candidates
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-candidates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Generate deterministic candidate schematics
+        run: python3 scripts/generate-candidates.py
+
+      - name: Audit legal candidates
+        run: |
+          mkdir -p candidate-audit
+          python3 scripts/schem-audit.py cannons/ec-streambreach-120.schem \
+            --chunk-limit 128 --expect-dispensers 120 \
+            --json-out candidate-audit/streambreach.json
+          python3 scripts/schem-audit.py cannons/ec-pocketcounter-24.schem \
+            --chunk-limit 128 --expect-dispensers 24 \
+            --json-out candidate-audit/pocketcounter.json
+          python3 scripts/schem-audit.py cannons/ec-satplate-legal-120.schem \
+            --chunk-limit 128 --expect-dispensers 120 --expect-aligned-max 120 \
+            --json-out candidate-audit/satplate-legal.json
+
+      - name: Audit deliberate over-cap control
+        run: |
+          python3 scripts/schem-audit.py cannons/ec-satplate-overcap-240.schem \
+            --chunk-limit 240 --expect-dispensers 240 --expect-aligned-max 240 \
+            --json-out candidate-audit/satplate-overcap.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          reports = [json.loads(path.read_text()) for path in Path('candidate-audit').glob('*.json')]
+          for report in reports:
+              assert report['block_entities']['explicit'] == report['dispensers']['count'], report
+              assert not report['support_failures'], report
+          over = json.loads(Path('candidate-audit/satplate-overcap.json').read_text())
+          assert over['dispensers']['aligned_max'] > 160, over
+          print('Over-cap control is deliberately above 160 and all dispenser NBT is explicit.')
+          PY
+
+      - name: Build CannonLab
+        run: gradle clean build --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CannonLab-candidate-static-${{ github.run_number }}
+          path: |
+            cannons/ec-streambreach-120.schem
+            cannons/ec-pocketcounter-24.schem
+            cannons/ec-satplate-legal-120.schem
+            cannons/ec-satplate-overcap-240.schem
+            candidate-audit/**
+          if-no-files-found: error
+          retention-days: 30
+
+  runtime-candidates:
+    needs: static-candidates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: streambreach-120
+            scenario: ec-streambreach-120-discovery.yml
+            shots: '3'
+            min_tnt: '110'
+            min_explosions: '110'
+            radius_x: '64'
+            radius_y: '32'
+            radius_z: '64'
+          - label: pocketcounter-24
+            scenario: ec-pocketcounter-24-discovery.yml
+            shots: '5'
+            min_tnt: '20'
+            min_explosions: '20'
+            radius_x: '32'
+            radius_y: '24'
+            radius_z: '48'
+          - label: satplate-legal-120
+            scenario: ec-satplate-legal-120.yml
+            shots: '2'
+            min_tnt: '110'
+            min_explosions: '110'
+            radius_x: '32'
+            radius_y: '48'
+            radius_z: '32'
+          - label: satplate-overcap-240
+            scenario: ec-satplate-overcap-240.yml
+            shots: '2'
+            min_tnt: '220'
+            min_explosions: '220'
+            radius_x: '32'
+            radius_y: '64'
+            radius_z: '32'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Generate and build
+        run: |
+          python3 scripts/generate-candidates.py
+          gradle clean build --stacktrace
+
+      - name: Run ${{ matrix.label }} on Paper 26.1.2
+        env:
+          CANNONLAB_SCENARIO: ${{ matrix.scenario }}
+          CANNONLAB_SERVER_LABEL: Paper 26.1.2 candidate ${{ matrix.label }}
+          CANNONLAB_EXPECTED_SHOTS: ${{ matrix.shots }}
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: ${{ matrix.min_tnt }}
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: ${{ matrix.min_explosions }}
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_TIMEOUT_SECONDS: '900'
+          CANNONLAB_ARENA_RADIUS_X: ${{ matrix.radius_x }}
+          CANNONLAB_ARENA_RADIUS_Y: ${{ matrix.radius_y }}
+          CANNONLAB_ARENA_RADIUS_Z: ${{ matrix.radius_z }}
+        run: bash scripts/cloud-smoke.sh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CannonLab-candidate-${{ matrix.label }}-${{ github.run_number }}
+          path: lab-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30

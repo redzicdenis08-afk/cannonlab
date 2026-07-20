@@ -1,0 +1,34 @@
+name: ec-satplate-legal-120
+cannon:
+  file: ec-satplate-legal-120.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: redstone
+  fire-inputs:
+    - {x: 15, y: 2, z: 8}
+    - {x: 15, y: 4, z: 8}
+    - {x: 15, y: 6, z: 8}
+    - {x: 15, y: 8, z: 8}
+    - {x: 15, y: 10, z: 8}
+    - {x: 15, y: 12, z: 8}
+    - {x: 15, y: 14, z: 8}
+    - {x: 15, y: 16, z: 8}
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: dry
+  material: cobblestone
+  direction: north
+  distance: 8
+  width: 17
+  height: 20
+  y-offset: 0
+  lateral-offset: 7
+  layers: 1
+  spacing: 16
+run:
+  shots: 2
+  warmup-ticks: 30
+  max-shot-ticks: 220
+  quiet-ticks: 100
+  shutdown-when-finished: true
