@@ -26,11 +26,30 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v4
 
-      - name: Patch CannonLab to ExtremeCraft 160 cap
+      - name: Patch CannonLab for ExtremeCraft
         run: |
-          grep -n 'DISPENSER_LIMIT_PER_CHUNK = 128' src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java
-          sed -i 's/DISPENSER_LIMIT_PER_CHUNK = 128/DISPENSER_LIMIT_PER_CHUNK = 160/' src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path('src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java')
+          text = path.read_text()
+
+          old_limit = 'private static final int DISPENSER_LIMIT_PER_CHUNK = 128;'
+          new_limit = 'private static final int DISPENSER_LIMIT_PER_CHUNK = 160;'
+          assert text.count(old_limit) == 1, 'Expected exactly one legacy dispenser limit'
+          text = text.replace(old_limit, new_limit)
+
+          old_clear = '            clearArena(world, arenaOrigin);'
+          new_clear = '''            if (shotNumber > 1) {
+                clearArena(world, arenaOrigin);
+            }'''
+          assert text.count(old_clear) == 1, 'Expected exactly one arena-clear call'
+          text = text.replace(old_clear, new_clear)
+
+          path.write_text(text)
+          PY
           grep -n 'DISPENSER_LIMIT_PER_CHUNK = 160' src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java
+          grep -n -A3 'shotNumber > 1' src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java
 
       - name: Verify exact schematics and EC chunk legality
         run: |
