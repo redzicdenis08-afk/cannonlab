@@ -1,0 +1,27 @@
+name: pillar-defense
+cannon:
+  file: probe-four-dispenser.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: redstone
+  fire-input: {x: 1, y: 2, z: 1}
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: pillars
+  material: cobblestone
+  direction: east
+  distance: 5
+  width: 9
+  height: 7
+  layers: 3
+  spacing: 3
+  pillar-spacing: 3
+  regeneration:
+    enabled: false
+run:
+  shots: 5
+  warmup-ticks: 20
+  max-shot-ticks: 240
+  quiet-ticks: 100
+  shutdown-when-finished: true
