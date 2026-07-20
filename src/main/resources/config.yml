@@ -4,15 +4,9 @@ arena:
     x: 0
     y: 100
     z: 0
-  radius-x: 96
-  radius-y: 64
-  radius-z: 256
-cannon:
-  fire-input:
-    x: 0
-    y: 100
-    z: 0
-  fill-radius: 128
+  # The complete disposable test box around the origin.
+  radius-x: 256
+  radius-y: 96
+  radius-z: 96
 telemetry:
-  max-shot-ticks: 200
   output-directory: results
