@@ -63,7 +63,8 @@ def payload(stream: BinaryIO, tag: int) -> Any:
         while True:
             child = unpack(stream, "B")
             if child == END: return result
-            result[nbt_string(stream)] = payload(stream, child)
+            name = nbt_string(stream)
+            result[name] = payload(stream, child)
     if tag == INT_ARRAY:
         length = unpack(stream, "i")
         if length < 0: raise NBTError("negative int-array length")
