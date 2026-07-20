@@ -1,0 +1,64 @@
+{
+  "metrics": [
+    {
+      "path": "lifetime_ticks.min",
+      "absolute_tolerance": 0,
+      "required": true
+    },
+    {
+      "path": "lifetime_ticks.max",
+      "absolute_tolerance": 0,
+      "required": true
+    },
+    {
+      "path": "lifetime_ticks.mean",
+      "absolute_tolerance": 0,
+      "required": true
+    },
+    {
+      "path": "spawn_position.x.mean",
+      "absolute_tolerance": 0.02,
+      "required": true
+    },
+    {
+      "path": "spawn_position.y.mean",
+      "absolute_tolerance": 0.02,
+      "required": true
+    },
+    {
+      "path": "spawn_position.z.mean",
+      "absolute_tolerance": 0.02,
+      "required": true
+    },
+    {
+      "path": "spawn_velocity.x.mean",
+      "absolute_tolerance": 0.002,
+      "required": true
+    },
+    {
+      "path": "spawn_velocity.y.mean",
+      "absolute_tolerance": 0.002,
+      "required": true
+    },
+    {
+      "path": "spawn_velocity.z.mean",
+      "absolute_tolerance": 0.002,
+      "required": true
+    },
+    {
+      "path": "explosion_position.x.mean",
+      "absolute_tolerance": 0.05,
+      "required": true
+    },
+    {
+      "path": "explosion_position.y.mean",
+      "absolute_tolerance": 0.05,
+      "required": true
+    },
+    {
+      "path": "explosion_position.z.mean",
+      "absolute_tolerance": 0.05,
+      "required": true
+    }
+  ]
+}

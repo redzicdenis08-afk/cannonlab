@@ -203,6 +203,32 @@ final class ShotRecorder implements Listener {
         }
     }
 
+    void recordCustomEvent(
+            String event,
+            String type,
+            Location location,
+            int affectedBlocks
+    ) {
+        World eventWorld = location.getWorld();
+        if (eventWorld == null || !activeIn(eventWorld)) {
+            return;
+        }
+        try {
+            writeEvent(
+                    event,
+                    type,
+                    null,
+                    location,
+                    new Vector(),
+                    -1,
+                    affectedBlocks
+            );
+        } catch (IOException exception) {
+            plugin.getLogger().warning("Unable to record custom event "
+                    + event + ": " + exception.getMessage());
+        }
+    }
+
     private boolean activeIn(World eventWorld) {
         return task != null && world != null && world.equals(eventWorld);
     }

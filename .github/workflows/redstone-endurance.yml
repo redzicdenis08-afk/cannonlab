@@ -34,9 +34,8 @@ jobs:
           CANNONLAB_SCENARIO: probe-redstone-endurance.yml
           CANNONLAB_SERVER_LABEL: Paper 26.1.2 redstone endurance
           CANNONLAB_TIMEOUT_SECONDS: '900'
-        run: |
-          sed -i 's/--expected-shots 10/--expected-shots 100/' scripts/cloud-smoke.sh
-          bash scripts/cloud-smoke.sh
+          CANNONLAB_EXPECTED_SHOTS: '100'
+        run: bash scripts/cloud-smoke.sh
 
       - name: Upload endurance evidence
         if: always()

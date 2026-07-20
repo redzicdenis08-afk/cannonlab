@@ -1,0 +1,26 @@
+name: multi-tnt-range
+cannon:
+  file: probe-four-dispenser.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: redstone
+  fire-input: {x: 1, y: 2, z: 1}
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: dry
+  material: cobblestone
+  direction: east
+  distance: 5
+  width: 7
+  height: 6
+  y-offset: 0
+  lateral-offset: 0
+  layers: 1
+  spacing: 3
+run:
+  shots: 10
+  warmup-ticks: 20
+  max-shot-ticks: 220
+  quiet-ticks: 80
+  shutdown-when-finished: true

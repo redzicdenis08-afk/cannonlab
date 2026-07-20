@@ -1,31 +1,141 @@
 # CannonLab
 
-Automated Minecraft cannon test laboratory targeting ExtremeCraft-like Sakura mechanics.
+CannonLab is an automated, headless Minecraft cannon laboratory for building, validating, firing, measuring, and ranking cannon schematics against reproducible Paper and Sakura mechanics.
 
-## Current milestone
+## Readiness
 
-Stage 1 builds and validates a headless Paper/Sakura plugin that can:
+The laboratory can:
 
-- define a chunk-aligned test arena
-- clear and rebuild the arena
-- build repeatable wall targets
-- fill dispensers with TNT
-- toggle a configured cannon input
-- record TNT and falling-block telemetry every tick
-- write machine-readable shot results
+- build the CannonLab plugin with JDK 25
+- compile a pinned public Sakura 26.1.2 source commit
+- boot isolated Paper or Sakura test servers with WorldEdit
+- paste Sponge `.schem` files at exact origins
+- clear and rebuild the arena between every shot
+- audit and fill every dispenser with TNT
+- enforce the 128-dispensers-per-chunk rule
+- trigger one or multiple cannon inputs through real redstone power
+- generate dry, watered, fluid-regen, filter, slab-filter, hotdog-lane, and staggered-pillar targets
+- place targets north, south, east, or west with vertical and lateral offsets
+- simulate configurable plugin-style delayed regeneration with delay, interval, and per-cycle caps
+- keep all arena chunks ticking without a connected player
+- record TNT and falling-block position, velocity, fuse, and explosion data every tick
+- record target destruction and regeneration events in the same CSV timeline
+- measure forward travel, target miss distance, peak damage, deepest layer breached, and restored blocks
+- export per-shot and per-run JSON/CSV evidence
+- rank cannon variants by reliability, penetration, errors, and repeatability
+- compare local physics fingerprints against measured server fingerprints
 
-The local physics model must still be calibrated against live ExtremeCraft measurements. Matching the server name and plugin family alone does not prove identical mechanics.
+## Runtime gates
 
-## Safety boundary
+The CI suite contains:
 
-This repository is for an isolated private test server. It does not contain credentials, Minecraft session tokens, or code that connects to or automates actions on ExtremeCraft.
+- clean Java 25 compilation and plugin packaging
+- one-dispenser direct and redstone plumbing tests
+- a real four-dispenser cannon fixture
+- one hundred consecutive redstone-triggered endurance shots
+- a five-scenario professional-defense matrix
+- one hundred redstone endurance shots on pinned public Sakura 26.1.2
+- ten four-TNT shots on pinned public Sakura 26.1.2
+- exact TNT fuse continuity and lifetime checks
+- unique-entity and no-leak validation between resets
+- directional travel and target-proximity gates
+- target-damage, layer-breach, and regeneration gates
+- all 256 X/Z chunk-alignment scans
+- legal, over-limit, truncated, and corrupted schematic fixtures
+- download checksum verification for Paper and WorldEdit
+
+Every runtime workflow stores logs, summaries, CSV telemetry, and physics fingerprints as GitHub Actions artifacts.
+
+## Important ExtremeCraft boundary
+
+CannonLab reproduces pinned public Sakura 26.1.2 code and measurable mechanics. ExtremeCraft can still use private configuration, custom plugins, anti-lag rules, FAWE permissions, durable-block values, TNT restrictions, and regeneration behavior that are not public.
+
+The built-in regeneration model is a deterministic test simulator, not a claim that every server uses the same private replacement algorithm. A cannon is not labeled ExtremeCraft-ready until it passes the local suite and a small live calibration/canary test. CannonLab does not connect to or automate actions on ExtremeCraft and contains no Minecraft credentials or session tokens.
+
+## Commands
+
+```text
+/cannonlab status
+/cannonlab smoke
+/cannonlab run <scenario.yml>
+/cannonlab cancel
+```
+
+The server can autorun a scenario with:
+
+```text
+-Dcannonlab.scenario=multi-tnt-range.yml
+```
+
+## Scenario structure
+
+```yaml
+name: modern-defense-example
+cannon:
+  file: cannon.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: redstone
+  fire-input: {x: 0, y: 1, z: 1}
+  fire-inputs:
+    - {x: 0, y: 1, z: 1}
+    - {x: 8, y: 1, z: 1}
+  direct-dispenser: {x: 1, y: 1, z: 1}
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: hotdog
+  material: cobblestone
+  alternate-material: obsidian
+  direction: north
+  distance: 160
+  width: 17
+  height: 32
+  y-offset: 0
+  lateral-offset: 0
+  layers: 20
+  spacing: 3
+  hotdog-band-width: 2
+  pillar-spacing: 3
+  regeneration:
+    enabled: true
+    delay-ticks: 40
+    interval-ticks: 10
+    max-blocks-per-cycle: 32
+run:
+  shots: 100
+  warmup-ticks: 20
+  max-shot-ticks: 240
+  quiet-ticks: 20
+  shutdown-when-finished: true
+```
+
+Supported target types are `dry`, `watered`, `cobble-regen`, `filter`, `slab-filter`, `hotdog`, and `pillars`. Supported directions are `north`, `south`, `east`, and `west`. Supported fire modes are `redstone` and `direct-dispense`; `direct` is accepted as an alias.
+
+`cannon.fire-input` preserves the simple one-input format. `cannon.fire-inputs` powers every listed coordinate on the same tick and is intended for segmented or distributed cannon circuits.
+
+The configured arena radius must include the cannon, complete flight path, every target layer, and one extra block for water, lava, or slab frontage. CannonLab fails loudly instead of silently building targets outside the loaded arena.
+
+## Included defense scenarios
+
+```text
+multi-tnt-range.yml
+plugin-regen-wall.yml
+fluid-regen-defense.yml
+hotdog-defense.yml
+pillar-defense.yml
+```
+
+The four-dispenser fixture is deliberately compact. It proves simultaneous multi-TNT activation, entity tracking, range measurement, target damage accounting, and regeneration plumbing. It is a laboratory cannon, not a raid cannon or OSRB replacement.
+
+See `docs/DEFENSE_MODELS.md` for the precise geometry and limitations of each defense model.
 
 ## Build
 
 Requirements:
 
 - JDK 25
-- Gradle 9.5.1 or newer
+- Gradle 9.2.1 or newer
 
 ```powershell
 gradle clean build
@@ -33,24 +143,56 @@ gradle clean build
 
 The plugin JAR is written to `build/libs/`.
 
-## Commands
+## Headless launcher configuration
+
+`scripts/cloud-smoke.sh` is the general scenario runner. Important environment variables include:
 
 ```text
-/cannonlab status
-/cannonlab reset
-/cannonlab wall dry
-/cannonlab wall watered
-/cannonlab fill
-/cannonlab record start
-/cannonlab fire
-/cannonlab record stop
-/cannonlab smoke
+CANNONLAB_SCENARIO
+CANNONLAB_SERVER_JAR
+CANNONLAB_SERVER_LABEL
+CANNONLAB_TIMEOUT_SECONDS
+CANNONLAB_EXPECTED_SHOTS
+CANNONLAB_STRICT_SINGLE_TNT
+CANNONLAB_MIN_TNT_PER_SHOT
+CANNONLAB_MIN_EXPLOSIONS_PER_SHOT
+CANNONLAB_EXPECTED_LIFETIME
+CANNONLAB_LIFETIME_TOLERANCE
+CANNONLAB_MIN_FORWARD_TRAVEL
+CANNONLAB_MAX_TARGET_MISS_DISTANCE
+CANNONLAB_MIN_TARGET_PEAK_DESTROYED
+CANNONLAB_MIN_LAYER_BREACHED
+CANNONLAB_REQUIRE_REGEN
+CANNONLAB_MIN_REGEN_RESTORED
+CANNONLAB_ARENA_RADIUS_X
+CANNONLAB_ARENA_RADIUS_Y
+CANNONLAB_ARENA_RADIUS_Z
 ```
 
-## Automation plan
+Set `CANNONLAB_STRICT_SINGLE_TNT=false` for real multi-dispenser cannons. Set `CANNONLAB_EXPECTED_LIFETIME=none` only where fixed individual TNT lifetime is intentionally not a valid assertion.
 
-1. GitHub-hosted CI compiles and statically checks the plugin.
-2. A Windows self-hosted runner starts the local test server.
-3. CannonLab performs reset, build, fill, fire, telemetry and export.
-4. Results are uploaded as GitHub Actions artifacts.
-5. ExtremeCraft fingerprint tests are used to tune the local Sakura configuration.
+## Analysis tools
+
+```text
+scripts/schem-audit.py
+scripts/assert-results.py
+scripts/rank-runs.py
+scripts/compare-fingerprints.py
+scripts/build-sakura-26.1.2.sh
+scripts/cloud-smoke.sh
+```
+
+The static auditor validates Sponge v2 structure, block data, tile coordinates, redstone supports, repeater states, water states, dispenser counts, and every possible chunk alignment before a cannon consumes server time.
+
+## Cannon-development loop
+
+1. Audit the schematic and reject structural or chunk-limit failures.
+2. Run direct activation to prove dispenser and telemetry plumbing.
+3. Run real redstone activation to verify the actual firing circuit.
+4. Run the cannon against dry and watered baseline targets.
+5. Stress it across range, height, hotdog lanes, pillars, fluid cells, and delayed regeneration.
+6. Rank variants from evidence rather than visual impressions.
+7. Compare the local fingerprint with the ExtremeCraft calibration fingerprint.
+8. Export the winning schematic plus its scenario, audit, timing, and test evidence.
+
+See `docs/EXTREMECRAFT_CALIBRATION.md` for the final live calibration contract.

@@ -29,11 +29,27 @@ jobs:
       - name: Build CannonLab
         run: gradle clean build --stacktrace
 
-      - name: Run ten redstone-triggered shots
+      - name: Run ten redstone-triggered shots against a north target
         env:
           CANNONLAB_MC_VERSION: '26.1.2'
           CANNONLAB_SCENARIO: probe-redstone-diagnostic.yml
         run: bash scripts/cloud-smoke.sh
+
+      - name: Verify north-facing scenario evidence
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          summaries = list(Path('lab-artifacts/results').rglob('run-summary.json'))
+          assert len(summaries) == 1, summaries
+          summary = json.loads(summaries[0].read_text())
+          assert summary['target_direction'] == 'NORTH', summary
+          assert summary['target_type'] == 'DRY', summary
+          assert summary['shots_requested'] == 10, summary
+          assert summary['shots_completed'] == 10, summary
+          assert all(shot['error'] is None for shot in summary['shots']), summary
+          print('North target geometry and offsets were accepted for all ten shots.')
+          PY
 
       - name: Upload redstone evidence
         if: always()
