@@ -11,15 +11,20 @@ mkdir -p "$LOG_ROOT"
 exec > >(tee "$LOG_ROOT/build-sakura.log") 2>&1
 trap 'code=$?; echo "Sakura build failed at line $LINENO with exit code $code"; exit $code' ERR
 
+# Paperweight creates nested temporary Git repositories while applying patches.
+# GitHub-hosted runners are disposable, so set a CI-only global identity that
+# every nested repository inherits.
+export GIT_AUTHOR_NAME='CannonLab Builder'
+export GIT_AUTHOR_EMAIL='cannonlab@users.noreply.github.com'
+export GIT_COMMITTER_NAME="$GIT_AUTHOR_NAME"
+export GIT_COMMITTER_EMAIL="$GIT_AUTHOR_EMAIL"
+git config --global user.name "$GIT_AUTHOR_NAME"
+git config --global user.email "$GIT_AUTHOR_EMAIL"
+
 printf 'Cloning exact public Sakura ver/26.1.x branch...\n'
 git clone --depth 1 --branch ver/26.1.x \
   https://github.com/Samsuik/Sakura.git \
   "$SOURCE"
-
-# Paperweight applies source patches as local Git commits. Give only this
-# disposable clone an identity so patch application is reproducible in CI.
-git -C "$SOURCE" config user.name 'CannonLab Builder'
-git -C "$SOURCE" config user.email 'cannonlab@users.noreply.github.com'
 
 EXPECTED_VERSION='26.1.2'
 ACTUAL_VERSION="$(sed -n 's/^version=//p' "$SOURCE/gradle.properties" | head -n1)"
