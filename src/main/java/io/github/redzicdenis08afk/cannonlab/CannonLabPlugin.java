@@ -1,6 +1,7 @@
 package io.github.redzicdenis08afk.cannonlab;
 
 import org.bukkit.Bukkit;
+import org.bukkit.Chunk;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.command.Command;
@@ -12,11 +13,14 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public final class CannonLabPlugin extends JavaPlugin {
     private ShotRecorder recorder;
     private LabRunController runController;
+    private final List<ForcedChunk> forcedChunks = new ArrayList<>();
 
     @Override
     public void onEnable() {
@@ -30,8 +34,10 @@ public final class CannonLabPlugin extends JavaPlugin {
 
         try {
             createDataDirectories();
-        } catch (IOException exception) {
-            getLogger().severe("Unable to create CannonLab directories: " + exception.getMessage());
+            forceLoadArenaChunks();
+        } catch (IOException | RuntimeException exception) {
+            getLogger().severe("Unable to initialize CannonLab: " + exception.getMessage());
+            releaseForcedChunks();
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
@@ -41,7 +47,8 @@ public final class CannonLabPlugin extends JavaPlugin {
         runController = new LabRunController(this, worldEditService, recorder);
         Bukkit.getPluginManager().registerEvents(recorder, this);
 
-        getLogger().info("CannonLab 0.2 enabled. WorldEdit automation is ready.");
+        getLogger().info("CannonLab 0.3 enabled. WorldEdit automation is ready."
+                + " Forced chunks=" + forcedChunks.size());
         scheduleAutorun();
     }
 
@@ -50,6 +57,7 @@ public final class CannonLabPlugin extends JavaPlugin {
         if (recorder != null && recorder.isRecording()) {
             recorder.cancel();
         }
+        releaseForcedChunks();
     }
 
     @Override
@@ -82,6 +90,7 @@ public final class CannonLabPlugin extends JavaPlugin {
         World world = arenaWorld();
         sender.sendMessage("CannonLab enabled | world=" + world.getName()
                 + " | WorldEdit=" + worldEditPluginName()
+                + " | forcedChunks=" + forcedChunks.size()
                 + " | run=" + runController.status());
         return true;
     }
@@ -93,6 +102,7 @@ public final class CannonLabPlugin extends JavaPlugin {
 
         sender.sendMessage("Smoke PASS | world=" + world.getName()
                 + " origin=" + origin.getBlockX() + "," + origin.getBlockY() + "," + origin.getBlockZ()
+                + " forcedChunks=" + forcedChunks.size()
                 + " scenarios=" + directory("scenarios")
                 + " cannons=" + directory("cannons"));
         return true;
@@ -131,6 +141,41 @@ public final class CannonLabPlugin extends JavaPlugin {
                 Bukkit.shutdown();
             }
         }, 60L);
+    }
+
+    private void forceLoadArenaChunks() {
+        World world = arenaWorld();
+        Location origin = arenaOrigin(world);
+        int radiusX = Math.max(0, getConfig().getInt("arena.radius-x", 256));
+        int radiusZ = Math.max(0, getConfig().getInt("arena.radius-z", 96));
+
+        int minimumChunkX = Math.floorDiv(origin.getBlockX() - radiusX, 16);
+        int maximumChunkX = Math.floorDiv(origin.getBlockX() + radiusX, 16);
+        int minimumChunkZ = Math.floorDiv(origin.getBlockZ() - radiusZ, 16);
+        int maximumChunkZ = Math.floorDiv(origin.getBlockZ() + radiusZ, 16);
+
+        for (int chunkX = minimumChunkX; chunkX <= maximumChunkX; chunkX++) {
+            for (int chunkZ = minimumChunkZ; chunkZ <= maximumChunkZ; chunkZ++) {
+                Chunk chunk = world.getChunkAt(chunkX, chunkZ);
+                chunk.load(true);
+                if (!chunk.isForceLoaded()) {
+                    chunk.setForceLoaded(true);
+                    forcedChunks.add(new ForcedChunk(world, chunkX, chunkZ));
+                }
+            }
+        }
+    }
+
+    private void releaseForcedChunks() {
+        for (ForcedChunk forcedChunk : forcedChunks) {
+            try {
+                forcedChunk.world().getChunkAt(forcedChunk.x(), forcedChunk.z()).setForceLoaded(false);
+            } catch (RuntimeException exception) {
+                getLogger().warning("Unable to release forced chunk "
+                        + forcedChunk.x() + "," + forcedChunk.z() + ": " + exception.getMessage());
+            }
+        }
+        forcedChunks.clear();
     }
 
     World arenaWorld() {
@@ -194,5 +239,8 @@ public final class CannonLabPlugin extends JavaPlugin {
             worldEdit = Bukkit.getPluginManager().getPlugin("WorldEdit");
         }
         return worldEdit == null ? "missing" : worldEdit.getName() + " " + worldEdit.getPluginMeta().getVersion();
+    }
+
+    private record ForcedChunk(World world, int x, int z) {
     }
 }
