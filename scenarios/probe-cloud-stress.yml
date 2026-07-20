@@ -5,7 +5,11 @@ cannon:
     x: 0
     y: 0
     z: 0
-  # Exact block west of the supported east-facing dispenser at local 1,1,1.
+  fire-mode: direct-dispense
+  direct-dispenser:
+    x: 1
+    y: 1
+    z: 1
   fire-input:
     x: 0
     y: 1
