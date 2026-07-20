@@ -1,0 +1,58 @@
+name: Run CannonLab
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: Scenario file in scenarios/
+        required: true
+        default: probe-smoke.yml
+      timeout_seconds:
+        description: Hard server timeout
+        required: true
+        default: '600'
+
+permissions:
+  contents: read
+
+jobs:
+  lab:
+    runs-on: [self-hosted, Windows, X64]
+    timeout-minutes: 30
+    env:
+      CANNONLAB_HOME: C:\CannonLab
+      CANNONLAB_ACCEPT_EULA: 'TRUE'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Build CannonLab
+        shell: powershell
+        run: gradle clean build --stacktrace
+
+      - name: Run isolated cannon scenario
+        shell: powershell
+        run: >-
+          .\scripts\run-lab.ps1
+          -Scenario '${{ inputs.scenario }}'
+          -TimeoutSeconds ${{ inputs.timeout_seconds }}
+
+      - name: Upload complete lab evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-${{ github.run_number }}-${{ inputs.scenario }}
+          path: lab-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30
