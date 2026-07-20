@@ -20,30 +20,44 @@ jobs:
           mkdir -p .audit-input audit-artifacts
           base64 --decode cannons/probe-one-dispenser.schem.b64 \
             > .audit-input/probe-one-dispenser.schem
+          base64 --decode cannons/probe-four-dispenser.schem.b64 \
+            > .audit-input/probe-four-dispenser.schem
           base64 --decode audit-fixtures/overflow-129.schem.b64 \
             > .audit-input/overflow-129.schem
           sha256sum .audit-input/* | tee audit-artifacts/input-sha256.txt
 
-      - name: Audit one-dispenser legal probe
+      - name: Audit legal cannon fixtures
         run: |
-          set +e
           python3 scripts/schem-audit.py \
             .audit-input/probe-one-dispenser.schem \
             --chunk-limit 128 \
             --expect-dispensers 1 \
             --expect-aligned-max 1 \
-            --json-out audit-artifacts/probe.json \
-            >audit-artifacts/probe.stdout.json \
-            2>audit-artifacts/probe.stderr.txt
-          code=$?
-          set -e
-          echo "$code" > audit-artifacts/probe.exit-code.txt
-          cat audit-artifacts/probe.stdout.json || true
-          cat audit-artifacts/probe.stderr.txt >&2 || true
-          if [[ "$code" -ne 0 ]]; then
-            echo "Legal probe audit failed with exit $code" >&2
-            exit 1
-          fi
+            --json-out audit-artifacts/probe-one.json \
+            >audit-artifacts/probe-one.stdout.json \
+            2>audit-artifacts/probe-one.stderr.txt
+
+          python3 scripts/schem-audit.py \
+            .audit-input/probe-four-dispenser.schem \
+            --chunk-limit 128 \
+            --expect-dispensers 4 \
+            --expect-aligned-max 4 \
+            --json-out audit-artifacts/probe-four.json \
+            >audit-artifacts/probe-four.stdout.json \
+            2>audit-artifacts/probe-four.stderr.txt
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('audit-artifacts/probe-four.json').read_text())
+          assert report['status'] == 'PASS', report
+          assert report['dispensers']['count'] == 4, report
+          assert report['dimensions'] == {
+              'width': 8, 'height': 4, 'length': 3, 'volume': 96
+          }, report['dimensions']
+          assert not report['support_failures'], report['support_failures']
+          print('Four-dispenser cannon fixture is structurally legal.')
+          PY
 
       - name: Prove chunk alignment changes legality
         run: |
