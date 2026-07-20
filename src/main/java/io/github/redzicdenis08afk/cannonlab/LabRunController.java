@@ -69,7 +69,8 @@ final class LabRunController {
         }
         return "running scenario=" + scenario.name()
                 + " shot=" + shotNumber + "/" + scenario.shots()
-                + " fireMode=" + scenario.fireMode();
+                + " fireMode=" + scenario.fireMode()
+                + " targetDirection=" + scenario.targetDirection();
     }
 
     void run(String scenarioFileName, CommandSender sender) {
@@ -86,7 +87,8 @@ final class LabRunController {
         completedShots.clear();
         sender.sendMessage("CannonLab run started: " + scenario.name()
                 + " x" + scenario.shots()
-                + " | fireMode=" + scenario.fireMode());
+                + " | fireMode=" + scenario.fireMode()
+                + " | targetDirection=" + scenario.targetDirection());
         prepareNextShot();
     }
 
@@ -136,7 +138,9 @@ final class LabRunController {
             plugin.getLogger().info("Prepared shot " + shotNumber
                     + " | dispensers=" + audit.totalDispensers()
                     + " | max/chunk=" + audit.maximumPerChunk()
-                    + " | fireMode=" + scenario.fireMode());
+                    + " | fireMode=" + scenario.fireMode()
+                    + " | target=" + scenario.targetType() + "/" + scenario.targetDirection()
+                    + " | targetCells=" + targetCells.size());
 
             recorder.start(
                     runId,
@@ -226,13 +230,12 @@ final class LabRunController {
         BlockState pulseState = pulseBlock.getState();
         pulseState.update(true, true);
 
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            plugin.getLogger().info("Redstone pulse verification at "
-                    + coordinates(pulseLocation)
-                    + " | powered=" + pulseBlock.isBlockPowered()
-                    + " | indirect=" + pulseBlock.isBlockIndirectlyPowered()
-                    + " | neighbours=" + describeNeighbours(pulseBlock));
-        }, 1L);
+        Bukkit.getScheduler().runTaskLater(plugin, () ->
+                plugin.getLogger().info("Redstone pulse verification at "
+                        + coordinates(pulseLocation)
+                        + " | powered=" + pulseBlock.isBlockPowered()
+                        + " | indirect=" + pulseBlock.isBlockIndirectlyPowered()
+                        + " | neighbours=" + describeNeighbours(pulseBlock)), 1L);
 
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             pulseBlock.setType(previousType, true);
@@ -346,40 +349,52 @@ final class LabRunController {
         int halfWidth = selected.targetWidth() / 2;
 
         for (int layer = 0; layer < selected.targetLayers(); layer++) {
-            int wallX = origin.getBlockX() + selected.targetDistance()
-                    + layer * selected.targetSpacing();
+            int distance = selected.targetDistance() + layer * selected.targetSpacing();
 
-            for (int y = origin.getBlockY(); y < origin.getBlockY() + selected.targetHeight(); y++) {
-                for (int z = origin.getBlockZ() - halfWidth;
-                     z < origin.getBlockZ() - halfWidth + selected.targetWidth(); z++) {
-                    Block target = world.getBlockAt(wallX, y, z);
+            for (int vertical = 0; vertical < selected.targetHeight(); vertical++) {
+                int y = origin.getBlockY() + selected.targetYOffset() + vertical;
+                if (y < world.getMinHeight() || y >= world.getMaxHeight()) {
+                    throw new IllegalStateException("Target Y outside world bounds: " + y);
+                }
+
+                for (int across = 0; across < selected.targetWidth(); across++) {
+                    int lateral = selected.targetLateralOffset() - halfWidth + across;
+                    TargetPlacement placement = targetPlacement(
+                            origin,
+                            selected.targetDirection(),
+                            distance,
+                            lateral,
+                            y
+                    );
+                    validateArenaBounds(origin, placement);
+
+                    Block target = world.getBlockAt(placement.targetX(), y, placement.targetZ());
+                    Block front = world.getBlockAt(placement.frontX(), y, placement.frontZ());
+                    Block back = world.getBlockAt(placement.backX(), y, placement.backZ());
+                    boolean checker = ((vertical + across) & 1) == 0;
 
                     switch (selected.targetType()) {
                         case DRY -> target.setType(Material.OBSIDIAN, false);
                         case WATERED -> {
                             target.setType(Material.OBSIDIAN, false);
-                            world.getBlockAt(wallX - 1, y, z).setType(Material.WATER, false);
+                            front.setType(Material.WATER, false);
                         }
                         case COBBLE_REGEN -> {
                             target.setType(Material.COBBLESTONE, false);
-                            world.getBlockAt(wallX - 1, y, z).setType(Material.WATER, false);
-                            world.getBlockAt(wallX + 1, y, z).setType(Material.LAVA, false);
+                            front.setType(Material.WATER, false);
+                            back.setType(Material.LAVA, false);
                         }
-                        case FILTER -> {
-                            if ((y + z) % 2 == 0) {
-                                target.setType(Material.OBSIDIAN, false);
-                            } else {
-                                target.setType(Material.AIR, false);
-                            }
-                        }
+                        case FILTER -> target.setType(
+                                checker ? Material.OBSIDIAN : Material.AIR,
+                                false
+                        );
                         case SLAB_FILTER -> {
                             target.setType(Material.OBSIDIAN, false);
-                            Block slabBlock = world.getBlockAt(wallX - 1, y, z);
-                            slabBlock.setType(Material.STONE_SLAB, false);
-                            BlockData data = slabBlock.getBlockData();
+                            front.setType(Material.STONE_SLAB, false);
+                            BlockData data = front.getBlockData();
                             if (data instanceof Slab slab) {
-                                slab.setType((y + z) % 2 == 0 ? Slab.Type.TOP : Slab.Type.BOTTOM);
-                                slabBlock.setBlockData(slab, false);
+                                slab.setType(checker ? Slab.Type.TOP : Slab.Type.BOTTOM);
+                                front.setBlockData(slab, false);
                             }
                         }
                     }
@@ -392,6 +407,58 @@ final class LabRunController {
             }
         }
         return cells;
+    }
+
+    private TargetPlacement targetPlacement(
+            Location origin,
+            LabScenario.TargetDirection direction,
+            int distance,
+            int lateral,
+            int y
+    ) {
+        int originX = origin.getBlockX();
+        int originZ = origin.getBlockZ();
+        return switch (direction) {
+            case EAST -> new TargetPlacement(
+                    originX + distance, y, originZ + lateral,
+                    originX + distance - 1, originZ + lateral,
+                    originX + distance + 1, originZ + lateral
+            );
+            case WEST -> new TargetPlacement(
+                    originX - distance, y, originZ + lateral,
+                    originX - distance + 1, originZ + lateral,
+                    originX - distance - 1, originZ + lateral
+            );
+            case SOUTH -> new TargetPlacement(
+                    originX + lateral, y, originZ + distance,
+                    originX + lateral, originZ + distance - 1,
+                    originX + lateral, originZ + distance + 1
+            );
+            case NORTH -> new TargetPlacement(
+                    originX + lateral, y, originZ - distance,
+                    originX + lateral, originZ - distance + 1,
+                    originX + lateral, originZ - distance - 1
+            );
+        };
+    }
+
+    private void validateArenaBounds(Location origin, TargetPlacement placement) {
+        int radiusX = plugin.getConfig().getInt("arena.radius-x", 256);
+        int radiusZ = plugin.getConfig().getInt("arena.radius-z", 96);
+        int originX = origin.getBlockX();
+        int originZ = origin.getBlockZ();
+
+        int[] xs = {placement.targetX(), placement.frontX(), placement.backX()};
+        int[] zs = {placement.targetZ(), placement.frontZ(), placement.backZ()};
+        for (int index = 0; index < xs.length; index++) {
+            if (Math.abs(xs[index] - originX) > radiusX
+                    || Math.abs(zs[index] - originZ) > radiusZ) {
+                throw new IllegalStateException(
+                        "Target exceeds configured arena radius at "
+                                + xs[index] + "," + placement.y() + "," + zs[index]
+                                + ". Increase arena.radius-x or arena.radius-z.");
+            }
+        }
     }
 
     private FillAudit auditAndFill(World world, WorldEditService.PasteResult result) {
@@ -488,6 +555,8 @@ final class LabRunController {
                 {
                   "run_id": "%s",
                   "scenario": "%s",
+                  "target_type": "%s",
+                  "target_direction": "%s",
                   "finished_at": "%s",
                   "finish_reason": "%s",
                   "shots_requested": %d,
@@ -499,6 +568,8 @@ final class LabRunController {
                 """.formatted(
                 json(runId),
                 json(scenario == null ? "unknown" : scenario.name()),
+                json(scenario == null ? "unknown" : scenario.targetType().name()),
+                json(scenario == null ? "unknown" : scenario.targetDirection().name()),
                 Instant.now(),
                 json(reason),
                 scenario == null ? 0 : scenario.shots(),
@@ -540,6 +611,17 @@ final class LabRunController {
             int maximumPerChunk,
             ChunkKey maximumChunk,
             Map<ChunkKey, Integer> counts
+    ) {
+    }
+
+    private record TargetPlacement(
+            int targetX,
+            int y,
+            int targetZ,
+            int frontX,
+            int frontZ,
+            int backX,
+            int backZ
     ) {
     }
 
