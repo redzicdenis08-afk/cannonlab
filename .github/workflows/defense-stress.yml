@@ -1,0 +1,89 @@
+name: Professional Defense Stress
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  defense-stress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: multi-range
+            scenario: multi-tnt-range.yml
+            shots: '10'
+            require_regen: 'false'
+            min_regen: '1'
+          - label: plugin-regen
+            scenario: plugin-regen-wall.yml
+            shots: '5'
+            require_regen: 'true'
+            min_regen: '1'
+          - label: fluid-regen
+            scenario: fluid-regen-defense.yml
+            shots: '5'
+            require_regen: 'false'
+            min_regen: '1'
+          - label: hotdog
+            scenario: hotdog-defense.yml
+            shots: '5'
+            require_regen: 'false'
+            min_regen: '1'
+          - label: pillars
+            scenario: pillar-defense.yml
+            shots: '5'
+            require_regen: 'false'
+            min_regen: '1'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Build CannonLab
+        run: gradle clean build --stacktrace
+
+      - name: Run ${{ matrix.label }} defense scenario
+        env:
+          CANNONLAB_SCENARIO: ${{ matrix.scenario }}
+          CANNONLAB_SERVER_LABEL: Paper 26.1.2 defense ${{ matrix.label }}
+          CANNONLAB_EXPECTED_SHOTS: ${{ matrix.shots }}
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '4'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '4'
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_MIN_FORWARD_TRAVEL: '0.05'
+          CANNONLAB_MAX_TARGET_MISS_DISTANCE: '7.0'
+          CANNONLAB_REQUIRE_REGEN: ${{ matrix.require_regen }}
+          CANNONLAB_MIN_REGEN_RESTORED: ${{ matrix.min_regen }}
+          CANNONLAB_TIMEOUT_SECONDS: '600'
+          CANNONLAB_ARENA_RADIUS_X: '32'
+          CANNONLAB_ARENA_RADIUS_Y: '24'
+          CANNONLAB_ARENA_RADIUS_Z: '24'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Upload ${{ matrix.label }} evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-defense-${{ matrix.label }}-${{ github.run_number }}
+          path: lab-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30
