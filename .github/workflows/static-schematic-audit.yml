@@ -22,15 +22,28 @@ jobs:
             output=".audit-input/$(basename "${fixture%.b64}")"
             base64 --decode "$fixture" > "$output"
           done
+          sha256sum .audit-input/* | tee audit-artifacts/input-sha256.txt
 
       - name: Audit one-dispenser legal probe
         run: |
+          set +e
           python3 scripts/schem-audit.py \
             .audit-input/probe-one-dispenser.schem \
             --chunk-limit 128 \
             --expect-dispensers 1 \
             --expect-aligned-max 1 \
-            --json-out audit-artifacts/probe.json
+            --json-out audit-artifacts/probe.json \
+            >audit-artifacts/probe.stdout.json \
+            2>audit-artifacts/probe.stderr.txt
+          code=$?
+          set -e
+          echo "$code" > audit-artifacts/probe.exit-code.txt
+          cat audit-artifacts/probe.stdout.json || true
+          cat audit-artifacts/probe.stderr.txt >&2 || true
+          if [[ "$code" -ne 0 ]]; then
+            echo "Legal probe audit failed with exit $code" >&2
+            exit 1
+          fi
 
       - name: Prove original Shadow cannon violates the chunk cap
         run: |
@@ -39,10 +52,14 @@ jobs:
             .audit-input/Shadows_1sec_384osrb_box-watered.schem \
             --chunk-limit 128 \
             --expect-dispensers 1558 \
-            --json-out audit-artifacts/original-shadow.json
+            --json-out audit-artifacts/original-shadow.json \
+            >audit-artifacts/original-shadow.stdout.json \
+            2>audit-artifacts/original-shadow.stderr.txt
           code=$?
           set -e
+          echo "$code" > audit-artifacts/original-shadow.exit-code.txt
           if [[ "$code" -ne 2 ]]; then
+            cat audit-artifacts/original-shadow.stderr.txt >&2 || true
             echo "Expected original schematic audit to fail with exit 2, got $code" >&2
             exit 1
           fi
@@ -73,6 +90,7 @@ jobs:
               2>"audit-artifacts/${bad}.stderr.json"
             code=$?
             set -e
+            echo "$code" > "audit-artifacts/${bad}.exit-code.txt"
             if [[ "$code" -ne 3 ]]; then
               echo "Expected ${bad} schematic to be rejected with exit 3, got $code" >&2
               exit 1
@@ -85,5 +103,5 @@ jobs:
         with:
           name: CannonLab-static-schematic-audit-${{ github.run_number }}
           path: audit-artifacts/**
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
