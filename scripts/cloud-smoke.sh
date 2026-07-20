@@ -12,7 +12,14 @@ SCENARIO="${CANNONLAB_SCENARIO:-probe-cloud-stress.yml}"
 SERVER_JAR_OVERRIDE="${CANNONLAB_SERVER_JAR:-}"
 SERVER_LABEL="${CANNONLAB_SERVER_LABEL:-Paper $VERSION}"
 TIMEOUT_SECONDS="${CANNONLAB_TIMEOUT_SECONDS:-600}"
-USER_AGENT="CannonLab/0.3 (https://github.com/redzicdenis08-afk/cannonlab)"
+EXPECTED_SHOTS="${CANNONLAB_EXPECTED_SHOTS:-10}"
+STRICT_SINGLE_TNT="${CANNONLAB_STRICT_SINGLE_TNT:-true}"
+EXPECTED_LIFETIME="${CANNONLAB_EXPECTED_LIFETIME:-79}"
+LIFETIME_TOLERANCE="${CANNONLAB_LIFETIME_TOLERANCE:-0}"
+ARENA_RADIUS_X="${CANNONLAB_ARENA_RADIUS_X:-32}"
+ARENA_RADIUS_Y="${CANNONLAB_ARENA_RADIUS_Y:-16}"
+ARENA_RADIUS_Z="${CANNONLAB_ARENA_RADIUS_Z:-16}"
+USER_AGENT="CannonLab/0.4 (https://github.com/redzicdenis08-afk/cannonlab)"
 WORLDEDIT_VERSION_ID="yDUBafTJ"
 
 rm -rf "$WORK" "$ARTIFACTS"
@@ -127,16 +134,16 @@ max-tick-time=-1
 level-name=world
 motd=CannonLab cloud runtime smoke test
 EOF
-cat > "$DATA/config.yml" <<'EOF'
+cat > "$DATA/config.yml" <<EOF
 arena:
   world: world
   origin:
     x: 0
     y: 100
     z: 0
-  radius-x: 32
-  radius-y: 16
-  radius-z: 16
+  radius-x: $ARENA_RADIUS_X
+  radius-y: $ARENA_RADIUS_Y
+  radius-z: $ARENA_RADIUS_Z
 telemetry:
   output-directory: results
 EOF
@@ -144,6 +151,9 @@ EOF
 STDOUT="$ARTIFACTS/server-stdout.log"
 STDERR="$ARTIFACTS/server-stderr.log"
 printf 'Starting headless %s runtime for scenario %s with timeout %ss...\n' "$SERVER_LABEL" "$SCENARIO" "$TIMEOUT_SECONDS"
+printf 'Assertions: shots=%s strictSingleTnt=%s lifetime=%s±%s arena=%sx%sx%s\n' \
+  "$EXPECTED_SHOTS" "$STRICT_SINGLE_TNT" "$EXPECTED_LIFETIME" "$LIFETIME_TOLERANCE" \
+  "$ARENA_RADIUS_X" "$ARENA_RADIUS_Y" "$ARENA_RADIUS_Z"
 set +e
 (
   cd "$SERVER"
@@ -162,13 +172,21 @@ if [[ "$SERVER_EXIT" -ne 0 ]]; then
   exit "$SERVER_EXIT"
 fi
 
-python3 "$ROOT/scripts/assert-results.py" \
-  "$ARTIFACTS/results" \
-  --expected-shots 10 \
-  --strict-single-tnt \
-  --expected-lifetime 79 \
-  --lifetime-tolerance 0 \
-  --json-out "$ARTIFACTS/physics-fingerprint.json" \
+ASSERT_ARGS=(
+  "$ARTIFACTS/results"
+  --expected-shots "$EXPECTED_SHOTS"
+  --json-out "$ARTIFACTS/physics-fingerprint.json"
+)
+case "${STRICT_SINGLE_TNT,,}" in
+  1|true|yes) ASSERT_ARGS+=(--strict-single-tnt) ;;
+  0|false|no) ;;
+  *) echo "Invalid CANNONLAB_STRICT_SINGLE_TNT=$STRICT_SINGLE_TNT" >&2; exit 1 ;;
+esac
+if [[ -n "$EXPECTED_LIFETIME" && "${EXPECTED_LIFETIME,,}" != "none" ]]; then
+  ASSERT_ARGS+=(--expected-lifetime "$EXPECTED_LIFETIME" --lifetime-tolerance "$LIFETIME_TOLERANCE")
+fi
+
+python3 "$ROOT/scripts/assert-results.py" "${ASSERT_ARGS[@]}" \
   | tee "$ARTIFACTS/assertion.json"
 
 printf 'CannonLab runtime and physics fingerprint passed.\n'
