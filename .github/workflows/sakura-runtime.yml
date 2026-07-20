@@ -73,7 +73,7 @@ jobs:
         run: |
           mkdir -p build/libs
           cp downloaded-sakura/sakura-runtime-bundle/build/libs/CannonLab-*.jar build/libs/
-          sha256sum --check downloaded-sakura/sakura-runtime-bundle/runtime-bundle.sha256
+          (cd downloaded-sakura && sha256sum --check sakura-runtime-bundle/runtime-bundle.sha256)
 
       - name: Run 100 real redstone shots on Sakura
         env:
@@ -122,7 +122,7 @@ jobs:
         run: |
           mkdir -p build/libs
           cp downloaded-sakura/sakura-runtime-bundle/build/libs/CannonLab-*.jar build/libs/
-          sha256sum --check downloaded-sakura/sakura-runtime-bundle/runtime-bundle.sha256
+          (cd downloaded-sakura && sha256sum --check sakura-runtime-bundle/runtime-bundle.sha256)
 
       - name: Run real four-TNT cannon on Sakura
         env:
