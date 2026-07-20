@@ -2,50 +2,60 @@ package io.github.redzicdenis08afk.cannonlab;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
-import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Block;
-import org.bukkit.block.Dispenser;
-import org.bukkit.block.data.BlockData;
-import org.bukkit.block.data.Powerable;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Entity;
-import org.bukkit.entity.FallingBlock;
-import org.bukkit.entity.TNTPrimed;
-import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitTask;
 
-import java.io.BufferedWriter;
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 
 public final class CannonLabPlugin extends JavaPlugin {
-    private BukkitTask telemetryTask;
-    private BufferedWriter telemetryWriter;
-    private long shotTick;
+    private ShotRecorder recorder;
+    private LabRunController runController;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        getLogger().info("CannonLab stage 1 enabled.");
+
+        if (!worldEditAvailable()) {
+            getLogger().severe("WorldEdit or FastAsyncWorldEdit is required. Disabling CannonLab.");
+            Bukkit.getPluginManager().disablePlugin(this);
+            return;
+        }
+
+        try {
+            createDataDirectories();
+        } catch (IOException exception) {
+            getLogger().severe("Unable to create CannonLab directories: " + exception.getMessage());
+            Bukkit.getPluginManager().disablePlugin(this);
+            return;
+        }
+
+        WorldEditService worldEditService = new WorldEditService();
+        recorder = new ShotRecorder(this);
+        runController = new LabRunController(this, worldEditService, recorder);
+        Bukkit.getPluginManager().registerEvents(recorder, this);
+
+        getLogger().info("CannonLab 0.2 enabled. WorldEdit automation is ready.");
+        scheduleAutorun();
     }
 
     @Override
     public void onDisable() {
-        stopRecording();
+        if (recorder != null && recorder.isRecording()) {
+            recorder.cancel();
+        }
     }
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0) {
-            sender.sendMessage("CannonLab: status, smoke, fill, fire, record <start|stop>, wall <dry|watered>");
+            sender.sendMessage("CannonLab: status, smoke, run <scenario>, cancel");
             return true;
         }
 
@@ -53,15 +63,17 @@ public final class CannonLabPlugin extends JavaPlugin {
             return switch (args[0].toLowerCase(Locale.ROOT)) {
                 case "status" -> status(sender);
                 case "smoke" -> smoke(sender);
-                case "fill" -> fill(sender);
-                case "fire" -> fire(sender);
-                case "record" -> record(sender, args);
-                case "wall" -> wall(sender, args);
-                default -> false;
+                case "run" -> run(sender, args);
+                case "cancel" -> cancel(sender);
+                default -> {
+                    sender.sendMessage("Unknown command. Use status, smoke, run <scenario>, cancel.");
+                    yield true;
+                }
             };
         } catch (RuntimeException exception) {
             getLogger().severe("Command failed: " + exception.getMessage());
-            sender.sendMessage("CannonLab command failed. Check console.");
+            exception.printStackTrace();
+            sender.sendMessage("CannonLab command failed: " + exception.getMessage());
             return true;
         }
     }
@@ -69,7 +81,8 @@ public final class CannonLabPlugin extends JavaPlugin {
     private boolean status(CommandSender sender) {
         World world = arenaWorld();
         sender.sendMessage("CannonLab enabled | world=" + world.getName()
-                + " | recording=" + (telemetryTask != null));
+                + " | WorldEdit=" + worldEditPluginName()
+                + " | run=" + runController.status());
         return true;
     }
 
@@ -77,178 +90,50 @@ public final class CannonLabPlugin extends JavaPlugin {
         World world = arenaWorld();
         Location origin = arenaOrigin(world);
         world.getChunkAt(origin).load(true);
-        sender.sendMessage("Smoke PASS | world and origin loaded at "
-                + origin.getBlockX() + "," + origin.getBlockY() + "," + origin.getBlockZ());
+
+        sender.sendMessage("Smoke PASS | world=" + world.getName()
+                + " origin=" + origin.getBlockX() + "," + origin.getBlockY() + "," + origin.getBlockZ()
+                + " scenarios=" + directory("scenarios")
+                + " cannons=" + directory("cannons"));
         return true;
     }
 
-    private boolean fill(CommandSender sender) {
-        World world = arenaWorld();
-        Location origin = arenaOrigin(world);
-        int radius = getConfig().getInt("cannon.fill-radius", 128);
-        int filled = 0;
-
-        for (int x = origin.getBlockX() - radius; x <= origin.getBlockX() + radius; x++) {
-            for (int y = Math.max(world.getMinHeight(), origin.getBlockY() - radius);
-                 y <= Math.min(world.getMaxHeight() - 1, origin.getBlockY() + radius); y++) {
-                for (int z = origin.getBlockZ() - radius; z <= origin.getBlockZ() + radius; z++) {
-                    Block block = world.getBlockAt(x, y, z);
-                    if (block.getState() instanceof Dispenser dispenser) {
-                        dispenser.getInventory().clear();
-                        for (int slot = 0; slot < dispenser.getInventory().getSize(); slot++) {
-                            dispenser.getInventory().setItem(slot, new ItemStack(Material.TNT, 64));
-                        }
-                        filled++;
-                    }
-                }
-            }
-        }
-
-        sender.sendMessage("Filled " + filled + " dispensers.");
-        return true;
-    }
-
-    private boolean fire(CommandSender sender) {
-        World world = arenaWorld();
-        Block block = world.getBlockAt(
-                getConfig().getInt("cannon.fire-input.x"),
-                getConfig().getInt("cannon.fire-input.y"),
-                getConfig().getInt("cannon.fire-input.z")
-        );
-
-        BlockData data = block.getBlockData();
-        if (!(data instanceof Powerable powerable)) {
-            sender.sendMessage("Configured fire-input is not a powerable block: " + block.getType());
+    private boolean run(CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /cannonlab run <scenario.yml>");
             return true;
         }
+        runController.run(args[1], sender);
+        return true;
+    }
 
-        powerable.setPowered(true);
-        block.setBlockData(powerable, true);
+    private boolean cancel(CommandSender sender) {
+        runController.cancel(sender);
+        return true;
+    }
+
+    private void scheduleAutorun() {
+        String scenario = System.getProperty("cannonlab.scenario");
+        if (scenario == null || scenario.isBlank()) {
+            scenario = System.getenv("CANNONLAB_SCENARIO");
+        }
+        if (scenario == null || scenario.isBlank()) {
+            return;
+        }
+
+        String selectedScenario = scenario;
         Bukkit.getScheduler().runTaskLater(this, () -> {
-            BlockData current = block.getBlockData();
-            if (current instanceof Powerable resettable) {
-                resettable.setPowered(false);
-                block.setBlockData(resettable, true);
-            }
-        }, 2L);
-
-        sender.sendMessage("Fire input pulsed.");
-        return true;
-    }
-
-    private boolean wall(CommandSender sender, String[] args) {
-        if (args.length < 2) {
-            sender.sendMessage("Usage: /cannonlab wall <dry|watered>");
-            return true;
-        }
-
-        boolean watered = args[1].equalsIgnoreCase("watered");
-        World world = arenaWorld();
-        Location origin = arenaOrigin(world);
-        int wallX = origin.getBlockX() + 160;
-        int baseY = origin.getBlockY();
-        int centerZ = origin.getBlockZ();
-
-        for (int y = baseY; y < baseY + 32; y++) {
-            for (int z = centerZ - 8; z <= centerZ + 8; z++) {
-                world.getBlockAt(wallX, y, z).setType(Material.OBSIDIAN, false);
-                if (watered) {
-                    world.getBlockAt(wallX - 1, y, z).setType(Material.WATER, false);
-                }
-            }
-        }
-
-        sender.sendMessage("Built " + (watered ? "watered" : "dry") + " obsidian test wall.");
-        return true;
-    }
-
-    private boolean record(CommandSender sender, String[] args) {
-        if (args.length < 2) {
-            sender.sendMessage("Usage: /cannonlab record <start|stop>");
-            return true;
-        }
-        if (args[1].equalsIgnoreCase("start")) {
-            startRecording();
-            sender.sendMessage("Telemetry recording started.");
-        } else if (args[1].equalsIgnoreCase("stop")) {
-            stopRecording();
-            sender.sendMessage("Telemetry recording stopped.");
-        }
-        return true;
-    }
-
-    private void startRecording() {
-        stopRecording();
-        try {
-            Path outputDirectory = getDataFolder().toPath()
-                    .resolve(getConfig().getString("telemetry.output-directory", "results"));
-            Files.createDirectories(outputDirectory);
-            Path output = outputDirectory.resolve("shot-" + Instant.now().toEpochMilli() + ".csv");
-            telemetryWriter = Files.newBufferedWriter(output);
-            telemetryWriter.write("tick,type,uuid,x,y,z,vx,vy,vz,fuse\n");
-            shotTick = 0;
-        } catch (IOException exception) {
-            throw new IllegalStateException("Unable to open telemetry file", exception);
-        }
-
-        int maxTicks = getConfig().getInt("telemetry.max-shot-ticks", 200);
-        telemetryTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
             try {
-                captureTick();
-                shotTick++;
-                if (shotTick >= maxTicks) {
-                    stopRecording();
-                }
-            } catch (IOException exception) {
-                getLogger().severe("Telemetry write failed: " + exception.getMessage());
-                stopRecording();
+                runController.run(selectedScenario, Bukkit.getConsoleSender());
+            } catch (RuntimeException exception) {
+                getLogger().severe("Autorun failed: " + exception.getMessage());
+                exception.printStackTrace();
+                Bukkit.shutdown();
             }
-        }, 0L, 1L);
+        }, 60L);
     }
 
-    private void captureTick() throws IOException {
-        World world = arenaWorld();
-        Location origin = arenaOrigin(world);
-        int rx = getConfig().getInt("arena.radius-x", 96);
-        int ry = getConfig().getInt("arena.radius-y", 64);
-        int rz = getConfig().getInt("arena.radius-z", 256);
-
-        List<Entity> entities = new ArrayList<>(world.getNearbyEntities(origin, rx, ry, rz));
-        for (Entity entity : entities) {
-            if (!(entity instanceof TNTPrimed) && !(entity instanceof FallingBlock)) {
-                continue;
-            }
-            int fuse = entity instanceof TNTPrimed tnt ? tnt.getFuseTicks() : -1;
-            telemetryWriter.write(String.format(Locale.ROOT,
-                    "%d,%s,%s,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%d%n",
-                    shotTick,
-                    entity.getType().name(),
-                    entity.getUniqueId(),
-                    entity.getX(), entity.getY(), entity.getZ(),
-                    entity.getVelocity().getX(),
-                    entity.getVelocity().getY(),
-                    entity.getVelocity().getZ(),
-                    fuse));
-        }
-        telemetryWriter.flush();
-    }
-
-    private void stopRecording() {
-        if (telemetryTask != null) {
-            telemetryTask.cancel();
-            telemetryTask = null;
-        }
-        if (telemetryWriter != null) {
-            try {
-                telemetryWriter.close();
-            } catch (IOException ignored) {
-                // Best effort on shutdown.
-            }
-            telemetryWriter = null;
-        }
-    }
-
-    private World arenaWorld() {
+    World arenaWorld() {
         String worldName = getConfig().getString("arena.world", "world");
         World world = Bukkit.getWorld(worldName);
         if (world == null) {
@@ -257,10 +142,57 @@ public final class CannonLabPlugin extends JavaPlugin {
         return world;
     }
 
-    private Location arenaOrigin(World world) {
-        return new Location(world,
-                getConfig().getInt("arena.origin.x"),
-                getConfig().getInt("arena.origin.y"),
-                getConfig().getInt("arena.origin.z"));
+    Location arenaOrigin(World world) {
+        return new Location(
+                world,
+                getConfig().getInt("arena.origin.x", 0),
+                getConfig().getInt("arena.origin.y", 100),
+                getConfig().getInt("arena.origin.z", 0)
+        );
+    }
+
+    File resolveScenarioFile(String name) {
+        String normalized = name.endsWith(".yml") ? name : name + ".yml";
+        return resolveInside(directory("scenarios"), normalized);
+    }
+
+    File resolveCannonFile(String name) {
+        String normalized = name.endsWith(".schem") ? name : name + ".schem";
+        File file = resolveInside(directory("cannons"), normalized);
+        if (!file.isFile()) {
+            throw new IllegalArgumentException("Cannon schematic not found: " + file.getAbsolutePath());
+        }
+        return file;
+    }
+
+    private File resolveInside(Path baseDirectory, String name) {
+        Path resolved = baseDirectory.resolve(name).normalize();
+        if (!resolved.startsWith(baseDirectory)) {
+            throw new IllegalArgumentException("Path escapes CannonLab directory: " + name);
+        }
+        return resolved.toFile();
+    }
+
+    private void createDataDirectories() throws IOException {
+        Files.createDirectories(directory("cannons"));
+        Files.createDirectories(directory("scenarios"));
+        Files.createDirectories(directory("results"));
+    }
+
+    private Path directory(String name) {
+        return getDataFolder().toPath().resolve(name).toAbsolutePath().normalize();
+    }
+
+    private boolean worldEditAvailable() {
+        return Bukkit.getPluginManager().getPlugin("WorldEdit") != null
+                || Bukkit.getPluginManager().getPlugin("FastAsyncWorldEdit") != null;
+    }
+
+    private String worldEditPluginName() {
+        Plugin worldEdit = Bukkit.getPluginManager().getPlugin("FastAsyncWorldEdit");
+        if (worldEdit == null) {
+            worldEdit = Bukkit.getPluginManager().getPlugin("WorldEdit");
+        }
+        return worldEdit == null ? "missing" : worldEdit.getName() + " " + worldEdit.getPluginMeta().getVersion();
     }
 }
