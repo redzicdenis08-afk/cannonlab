@@ -1,0 +1,32 @@
+name: probe-redstone-endurance
+cannon:
+  file: probe-one-dispenser.schem
+  origin:
+    x: 0
+    y: 0
+    z: 0
+  fire-mode: redstone
+  fire-input:
+    x: 0
+    y: 1
+    z: 1
+  direct-dispenser:
+    x: 1
+    y: 1
+    z: 1
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: dry
+  distance: 12
+  width: 5
+  height: 5
+  layers: 1
+  spacing: 3
+run:
+  shots: 100
+  warmup-ticks: 20
+  max-shot-ticks: 120
+  quiet-ticks: 10
+  shutdown-when-finished: true
