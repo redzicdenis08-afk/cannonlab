@@ -3,7 +3,7 @@ plugins {
 }
 
 group = "io.github.redzicdenis08afk"
-version = "0.1.0-SNAPSHOT"
+version = "0.2.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
@@ -11,10 +11,15 @@ repositories {
         name = "papermc"
         url = uri("https://repo.papermc.io/repository/maven-public/")
     }
+    maven {
+        name = "enginehub"
+        url = uri("https://maven.enginehub.org/repo/")
+    }
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:26.1.2.build.+")
+    compileOnly("com.sk89q.worldedit:worldedit-bukkit:7.4.3")
 }
 
 java {
