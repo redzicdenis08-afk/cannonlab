@@ -1,0 +1,71 @@
+name: Static Schematic Audit
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  schematic-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Decode deterministic schematic fixtures
+        run: |
+          mkdir -p .audit-input audit-artifacts
+          for fixture in cannons/*.schem.b64; do
+            output=".audit-input/$(basename "${fixture%.b64}")"
+            base64 --decode "$fixture" > "$output"
+          done
+
+      - name: Audit one-dispenser legal probe
+        run: |
+          python3 scripts/schem-audit.py \
+            .audit-input/probe-one-dispenser.schem \
+            --chunk-limit 128 \
+            --expect-dispensers 1 \
+            --expect-aligned-max 1 \
+            --json-out audit-artifacts/probe.json
+
+      - name: Prove original Shadow cannon violates the chunk cap
+        run: |
+          set +e
+          python3 scripts/schem-audit.py \
+            .audit-input/Shadows_1sec_384osrb_box-watered.schem \
+            --chunk-limit 128 \
+            --expect-dispensers 1558 \
+            --json-out audit-artifacts/original-shadow.json
+          code=$?
+          set -e
+          if [[ "$code" -ne 2 ]]; then
+            echo "Expected original schematic audit to fail with exit 2, got $code" >&2
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('audit-artifacts/original-shadow.json').read_text())
+          assert report['status'] == 'FAIL', report
+          assert report['dispensers']['count'] == 1558, report['dispensers']
+          assert report['dispensers']['aligned_max'] == 912, report['dispensers']
+          assert report['dispensers']['best_alignment']['max'] == 469, report['dispensers']
+          assert report['dispensers']['best_alignment']['offset_x'] == 0, report['dispensers']
+          assert report['dispensers']['best_alignment']['offset_z'] == 11, report['dispensers']
+          assert not report['support_failures'], report['support_failures']
+          assert sum(item['count'] for item in report['repeaters']) == 40, report['repeaters']
+          print('Original Shadow failure fingerprint is stable and correctly detected.')
+          PY
+
+      - name: Upload static audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-static-schematic-audit-${{ github.run_number }}
+          path: audit-artifacts/**
+          if-no-files-found: error
+          retention-days: 30
