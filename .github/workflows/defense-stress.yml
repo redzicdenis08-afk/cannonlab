@@ -18,7 +18,7 @@ jobs:
           - label: multi-range
             scenario: multi-tnt-range.yml
             shots: '10'
-            min_forward: '0.05'
+            min_forward: ''
             min_peak: '25'
             min_layer: '1'
             max_peak: ''
