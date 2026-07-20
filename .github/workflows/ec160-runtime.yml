@@ -1,0 +1,176 @@
+name: ExtremeCraft 160 Runtime
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  build-ec160:
+    runs-on: ubuntu-slim
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Patch CannonLab to ExtremeCraft 160 cap
+        run: |
+          grep -n 'DISPENSER_LIMIT_PER_CHUNK = 128' src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java
+          sed -i 's/DISPENSER_LIMIT_PER_CHUNK = 128/DISPENSER_LIMIT_PER_CHUNK = 160/' src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java
+          grep -n 'DISPENSER_LIMIT_PER_CHUNK = 160' src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java
+
+      - name: Verify exact schematics and EC chunk legality
+        run: |
+          mkdir -p ec160-audit
+          printf '%s  %s\n' \
+            '4097465eb9074146547d98a07e981ac7ccb8225e6d91aa80f86898a2c665faa2' 'cannons/ec-shadow384-v11.schem' \
+            'e657844ec62f755212575e97aeb0d01eef2ee53f3f5e2bf85b1a2de017762859' 'cannons/ec-regenburst-28rt-v2.schem' \
+            '1a83a47cadf10ceb197ef93aead29b777bb676f877ec8b17ecd56e16c891aa83' 'cannons/ec-flowfusion-v1_3.schem' | sha256sum --check
+
+          python3 scripts/schem-audit.py cannons/ec-shadow384-v11.schem \
+            --chunk-limit 160 --expect-dispensers 680 --expect-aligned-max 120 \
+            --json-out ec160-audit/shadow384.json
+          python3 scripts/schem-audit.py cannons/ec-regenburst-28rt-v2.schem \
+            --chunk-limit 160 --expect-dispensers 42 --expect-aligned-max 42 \
+            --json-out ec160-audit/regenburst.json
+          python3 scripts/schem-audit.py cannons/ec-flowfusion-v1_3.schem \
+            --chunk-limit 160 --expect-dispensers 18 --expect-aligned-max 18 \
+            --json-out ec160-audit/flowfusion.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          shadow = json.loads(Path('ec160-audit/shadow384.json').read_text())
+          assert shadow['dispensers']['aligned_max'] == 120
+          assert shadow['dispensers']['worst_alignment']['max'] > 160
+          print('EC rule proven: Shadow384 is legal only at its intended chunk-corner alignment.')
+          PY
+
+      - name: Build EC-160 CannonLab plugin
+        run: gradle clean build --stacktrace
+
+      - name: Download verified Sakura 26.1.2 server
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          curl --fail --location --silent --show-error --retry 3 \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "Accept: application/vnd.github+json" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/8473503254/zip" \
+            --output /tmp/sakura-runtime.zip
+          printf '%s  %s\n' \
+            '731a929c4b8e033e175140420453aab259592b2751422dd01fd81572ddf20e59' \
+            '/tmp/sakura-runtime.zip' | sha256sum --check
+          python3 - <<'PY'
+          import zipfile
+          zipfile.ZipFile('/tmp/sakura-runtime.zip').extractall('downloaded-sakura')
+          PY
+          (cd downloaded-sakura && sha256sum --check sakura-runtime-bundle/runtime-bundle.sha256)
+
+      - name: Bundle EC-160 runtime
+        run: |
+          mkdir -p ec160-runtime/build/libs
+          cp downloaded-sakura/sakura-runtime-bundle/sakura-26.1.2.jar ec160-runtime/
+          cp build/libs/CannonLab-*.jar ec160-runtime/build/libs/
+          sha256sum ec160-runtime/sakura-26.1.2.jar ec160-runtime/build/libs/CannonLab-*.jar \
+            > ec160-runtime/sha256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-EC160-runtime-${{ github.run_number }}
+          path: |
+            ec160-runtime/**
+            ec160-audit/**
+          if-no-files-found: error
+          retention-days: 30
+
+  candidate-runtime:
+    needs: build-ec160
+    runs-on: ubuntu-slim
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: regenburst-28rt-v2
+            scenario: ec-regenburst-28rt-v2-discovery.yml
+            shots: '1'
+            timeout: '600'
+            arena_x: '96'
+            arena_y: '32'
+            arena_z: '32'
+          - label: flowfusion-v1_3
+            scenario: ec-flowfusion-v1_3-discovery.yml
+            shots: '1'
+            timeout: '600'
+            arena_x: '96'
+            arena_y: '32'
+            arena_z: '32'
+          - label: shadow384-v11
+            scenario: ec-shadow384-v11-discovery.yml
+            shots: '1'
+            timeout: '1200'
+            arena_x: '64'
+            arena_y: '96'
+            arena_z: '128'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: CannonLab-EC160-runtime-${{ github.run_number }}
+          path: downloaded
+
+      - name: Restore verified EC-160 runtime
+        run: |
+          (cd downloaded && sha256sum --check ec160-runtime/sha256.txt)
+          mkdir -p build/libs
+          cp downloaded/ec160-runtime/build/libs/CannonLab-*.jar build/libs/
+          for schem in cannons/ec-shadow384-v11.schem cannons/ec-regenburst-28rt-v2.schem cannons/ec-flowfusion-v1_3.schem; do
+            base64 -w0 "$schem" > "$schem.b64"
+          done
+
+      - name: Fire ${{ matrix.label }} on pinned Sakura with EC-160 gate
+        env:
+          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/downloaded/ec160-runtime/sakura-26.1.2.jar
+          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 EC-160 ${{ matrix.label }}
+          CANNONLAB_SCENARIO: ${{ matrix.scenario }}
+          CANNONLAB_EXPECTED_SHOTS: ${{ matrix.shots }}
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '1'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '1'
+          CANNONLAB_EXPECTED_LIFETIME: 'none'
+          CANNONLAB_TIMEOUT_SECONDS: ${{ matrix.timeout }}
+          CANNONLAB_ARENA_RADIUS_X: ${{ matrix.arena_x }}
+          CANNONLAB_ARENA_RADIUS_Y: ${{ matrix.arena_y }}
+          CANNONLAB_ARENA_RADIUS_Z: ${{ matrix.arena_z }}
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Upload ${{ matrix.label }} evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-EC160-${{ matrix.label }}-${{ github.run_number }}
+          path: lab-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30

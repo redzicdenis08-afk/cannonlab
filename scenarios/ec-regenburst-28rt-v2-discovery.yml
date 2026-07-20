@@ -1,0 +1,26 @@
+name: ec-regenburst-28rt-v2-discovery
+cannon:
+  file: ec-regenburst-28rt-v2.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: redstone
+  fire-input: {x: 1, y: 4, z: 6}
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: dry
+  material: cobblestone
+  direction: east
+  distance: 80
+  width: 17
+  height: 20
+  y-offset: 0
+  lateral-offset: 6
+  layers: 1
+  spacing: 16
+run:
+  shots: 1
+  warmup-ticks: 40
+  max-shot-ticks: 320
+  quiet-ticks: 100
+  shutdown-when-finished: true
