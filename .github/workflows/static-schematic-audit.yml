@@ -1,0 +1,107 @@
+name: Static Schematic Audit
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  schematic-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Decode deterministic schematic fixtures
+        run: |
+          mkdir -p .audit-input audit-artifacts
+          base64 --decode cannons/probe-one-dispenser.schem.b64 \
+            > .audit-input/probe-one-dispenser.schem
+          base64 --decode audit-fixtures/overflow-129.schem.b64 \
+            > .audit-input/overflow-129.schem
+          sha256sum .audit-input/* | tee audit-artifacts/input-sha256.txt
+
+      - name: Audit one-dispenser legal probe
+        run: |
+          set +e
+          python3 scripts/schem-audit.py \
+            .audit-input/probe-one-dispenser.schem \
+            --chunk-limit 128 \
+            --expect-dispensers 1 \
+            --expect-aligned-max 1 \
+            --json-out audit-artifacts/probe.json \
+            >audit-artifacts/probe.stdout.json \
+            2>audit-artifacts/probe.stderr.txt
+          code=$?
+          set -e
+          echo "$code" > audit-artifacts/probe.exit-code.txt
+          cat audit-artifacts/probe.stdout.json || true
+          cat audit-artifacts/probe.stderr.txt >&2 || true
+          if [[ "$code" -ne 0 ]]; then
+            echo "Legal probe audit failed with exit $code" >&2
+            exit 1
+          fi
+
+      - name: Prove chunk alignment changes legality
+        run: |
+          set +e
+          python3 scripts/schem-audit.py \
+            .audit-input/overflow-129.schem \
+            --chunk-limit 128 \
+            --expect-dispensers 129 \
+            --expect-aligned-max 129 \
+            --json-out audit-artifacts/overflow-129.json \
+            >audit-artifacts/overflow-129.stdout.json \
+            2>audit-artifacts/overflow-129.stderr.txt
+          code=$?
+          set -e
+          echo "$code" > audit-artifacts/overflow-129.exit-code.txt
+          if [[ "$code" -ne 2 ]]; then
+            cat audit-artifacts/overflow-129.stderr.txt >&2 || true
+            echo "Expected aligned overflow fixture to fail with exit 2, got $code" >&2
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('audit-artifacts/overflow-129.json').read_text())
+          assert report['status'] == 'FAIL', report
+          assert report['dispensers']['count'] == 129, report['dispensers']
+          assert report['dispensers']['aligned_max'] == 129, report['dispensers']
+          assert report['dispensers']['best_alignment']['max'] == 65, report['dispensers']
+          assert report['dispensers']['best_alignment']['offset_x'] == 8, report['dispensers']
+          assert report['dispensers']['worst_alignment']['max'] == 129, report['dispensers']
+          assert not report['support_failures'], report['support_failures']
+          print('Chunk-alignment legality fingerprint is stable and correctly detected.')
+          PY
+
+      - name: Reject corrupted and truncated schematic input
+        run: |
+          head -c 120 .audit-input/probe-one-dispenser.schem > .audit-input/truncated.schem
+          cp .audit-input/probe-one-dispenser.schem .audit-input/corrupted.schem
+          printf '\x00\xff\x00\xff' | dd of=.audit-input/corrupted.schem bs=1 seek=20 conv=notrunc status=none
+          for bad in truncated corrupted; do
+            set +e
+            python3 scripts/schem-audit.py ".audit-input/${bad}.schem" \
+              >"audit-artifacts/${bad}.stdout.json" \
+              2>"audit-artifacts/${bad}.stderr.json"
+            code=$?
+            set -e
+            echo "$code" > "audit-artifacts/${bad}.exit-code.txt"
+            if [[ "$code" -ne 3 ]]; then
+              echo "Expected ${bad} schematic to be rejected with exit 3, got $code" >&2
+              exit 1
+            fi
+          done
+
+      - name: Upload static audit evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-static-schematic-audit-${{ github.run_number }}
+          path: audit-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30

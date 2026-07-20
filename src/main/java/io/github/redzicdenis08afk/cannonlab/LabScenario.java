@@ -9,7 +9,9 @@ record LabScenario(
         String name,
         String cannonFile,
         BlockPoint cannonOrigin,
+        FireMode fireMode,
         BlockPoint fireInput,
+        BlockPoint directDispenser,
         int firePulseTicks,
         boolean enforceDispenserLimit,
         TargetType targetType,
@@ -33,16 +35,21 @@ record LabScenario(
         String scenarioName = yaml.getString("name", stripExtension(file.getName()));
         String cannon = require(yaml.getString("cannon.file"), "cannon.file");
 
-        BlockPoint cannonOrigin = new BlockPoint(
-                yaml.getInt("cannon.origin.x", 0),
-                yaml.getInt("cannon.origin.y", 0),
-                yaml.getInt("cannon.origin.z", 0)
+        BlockPoint cannonOrigin = point(yaml, "cannon.origin", new BlockPoint(0, 0, 0));
+        BlockPoint fireInput = point(yaml, "cannon.fire-input", new BlockPoint(0, 0, 0));
+        BlockPoint directDispenser = point(
+                yaml,
+                "cannon.direct-dispenser",
+                new BlockPoint(fireInput.x() + 1, fireInput.y(), fireInput.z())
         );
-        BlockPoint fireInput = new BlockPoint(
-                yaml.getInt("cannon.fire-input.x", 0),
-                yaml.getInt("cannon.fire-input.y", 0),
-                yaml.getInt("cannon.fire-input.z", 0)
-        );
+
+        FireMode fireMode;
+        String fireModeName = yaml.getString("cannon.fire-mode", "redstone");
+        try {
+            fireMode = FireMode.valueOf(fireModeName.toUpperCase(Locale.ROOT).replace('-', '_'));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Unsupported cannon.fire-mode: " + fireModeName, exception);
+        }
 
         String targetName = yaml.getString("target.type", "watered");
         TargetType targetType;
@@ -56,11 +63,13 @@ record LabScenario(
                 scenarioName,
                 cannon,
                 cannonOrigin,
+                fireMode,
                 fireInput,
+                directDispenser,
                 Math.max(1, yaml.getInt("cannon.fire-pulse-ticks", 2)),
                 yaml.getBoolean("limits.enforce-dispenser-limit", true),
                 targetType,
-                Math.max(16, yaml.getInt("target.distance", 160)),
+                Math.max(1, yaml.getInt("target.distance", 160)),
                 Math.max(1, yaml.getInt("target.width", 17)),
                 Math.max(1, yaml.getInt("target.height", 32)),
                 Math.max(1, yaml.getInt("target.layers", 1)),
@@ -70,6 +79,14 @@ record LabScenario(
                 Math.max(20, yaml.getInt("run.max-shot-ticks", 240)),
                 Math.max(2, yaml.getInt("run.quiet-ticks", 20)),
                 yaml.getBoolean("run.shutdown-when-finished", false)
+        );
+    }
+
+    private static BlockPoint point(YamlConfiguration yaml, String path, BlockPoint fallback) {
+        return new BlockPoint(
+                yaml.getInt(path + ".x", fallback.x()),
+                yaml.getInt(path + ".y", fallback.y()),
+                yaml.getInt(path + ".z", fallback.z())
         );
     }
 
@@ -86,6 +103,11 @@ record LabScenario(
     }
 
     record BlockPoint(int x, int y, int z) {
+    }
+
+    enum FireMode {
+        REDSTONE,
+        DIRECT_DISPENSE
     }
 
     enum TargetType {

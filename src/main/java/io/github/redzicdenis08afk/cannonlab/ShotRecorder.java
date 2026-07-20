@@ -263,9 +263,7 @@ final class ShotRecorder implements Listener {
     }
 
     void cancel() {
-        if (task != null) {
-            finish("cancelled");
-        }
+        stopWithoutCallback();
     }
 
     private void writeSummary(ShotResult result) throws IOException {

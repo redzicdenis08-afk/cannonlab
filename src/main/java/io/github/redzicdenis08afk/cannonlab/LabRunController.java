@@ -6,6 +6,7 @@ import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Dispenser;
 import org.bukkit.block.data.BlockData;
@@ -31,6 +32,14 @@ import java.util.Map;
 
 final class LabRunController {
     private static final int DISPENSER_LIMIT_PER_CHUNK = 128;
+    private static final BlockFace[] NEIGHBOUR_FACES = {
+            BlockFace.WEST,
+            BlockFace.EAST,
+            BlockFace.DOWN,
+            BlockFace.UP,
+            BlockFace.NORTH,
+            BlockFace.SOUTH
+    };
 
     private final CannonLabPlugin plugin;
     private final WorldEditService worldEdit;
@@ -58,7 +67,9 @@ final class LabRunController {
         if (!running || scenario == null) {
             return "idle";
         }
-        return "running scenario=" + scenario.name() + " shot=" + shotNumber + "/" + scenario.shots();
+        return "running scenario=" + scenario.name()
+                + " shot=" + shotNumber + "/" + scenario.shots()
+                + " fireMode=" + scenario.fireMode();
     }
 
     void run(String scenarioFileName, CommandSender sender) {
@@ -73,7 +84,9 @@ final class LabRunController {
         running = true;
         cancelled = false;
         completedShots.clear();
-        sender.sendMessage("CannonLab run started: " + scenario.name() + " x" + scenario.shots());
+        sender.sendMessage("CannonLab run started: " + scenario.name()
+                + " x" + scenario.shots()
+                + " | fireMode=" + scenario.fireMode());
         prepareNextShot();
     }
 
@@ -110,15 +123,20 @@ final class LabRunController {
 
             targetCells = buildTarget(world, arenaOrigin, scenario);
             FillAudit audit = auditAndFill(world, pasteResult);
-            if (audit.maximumPerChunk() > DISPENSER_LIMIT_PER_CHUNK) {
+            if (scenario.enforceDispenserLimit()
+                    && audit.maximumPerChunk() > DISPENSER_LIMIT_PER_CHUNK) {
                 throw new IllegalStateException(
                         "Dispenser limit exceeded: " + audit.maximumPerChunk()
                                 + " in chunk " + audit.maximumChunk());
             }
+            if (audit.totalDispensers() == 0) {
+                throw new IllegalStateException("Pasted schematic contains no dispensers.");
+            }
 
             plugin.getLogger().info("Prepared shot " + shotNumber
                     + " | dispensers=" + audit.totalDispensers()
-                    + " | max/chunk=" + audit.maximumPerChunk());
+                    + " | max/chunk=" + audit.maximumPerChunk()
+                    + " | fireMode=" + scenario.fireMode());
 
             recorder.start(
                     runId,
@@ -131,9 +149,15 @@ final class LabRunController {
                     this::shotCompleted
             );
 
-            Bukkit.getScheduler().runTaskLater(plugin,
-                    () -> pulseFireInput(world, pasteOrigin),
-                    scenario.warmupTicks());
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                try {
+                    fire(world, pasteOrigin);
+                } catch (RuntimeException exception) {
+                    plugin.getLogger().severe("Shot " + shotNumber
+                            + " firing failed: " + exception.getMessage());
+                    exception.printStackTrace();
+                }
+            }, scenario.warmupTicks());
         } catch (IOException | WorldEditException | RuntimeException exception) {
             plugin.getLogger().severe("Run preparation failed: " + exception.getMessage());
             completedShots.add(new CompletedShot(
@@ -148,6 +172,97 @@ final class LabRunController {
             ));
             finishRun("error");
         }
+    }
+
+    private void fire(World world, Location pasteOrigin) {
+        if (!running || cancelled || scenario == null) {
+            return;
+        }
+
+        switch (scenario.fireMode()) {
+            case DIRECT_DISPENSE -> dispenseDirectly(world, pasteOrigin);
+            case REDSTONE -> pulseRedstone(world, pasteOrigin);
+        }
+    }
+
+    private void dispenseDirectly(World world, Location pasteOrigin) {
+        Location dispenserLocation = relative(pasteOrigin, scenario.directDispenser());
+        Block block = world.getBlockAt(dispenserLocation);
+        if (!(block.getState() instanceof Dispenser dispenser)) {
+            throw new IllegalStateException("Direct dispenser coordinate "
+                    + coordinates(dispenserLocation)
+                    + " contains " + block.getType());
+        }
+
+        int tntBefore = countTnt(dispenser);
+        if (tntBefore < 1) {
+            throw new IllegalStateException("Direct dispenser at "
+                    + coordinates(dispenserLocation) + " has no TNT.");
+        }
+
+        boolean dispensed = dispenser.dispense();
+        int tntAfter = countTnt((Dispenser) block.getState());
+        plugin.getLogger().info("Direct fire at " + coordinates(dispenserLocation)
+                + " | success=" + dispensed
+                + " | TNT=" + tntBefore + "->" + tntAfter);
+        if (!dispensed || tntAfter >= tntBefore) {
+            throw new IllegalStateException("Dispenser API did not consume TNT at "
+                    + coordinates(dispenserLocation));
+        }
+    }
+
+    private void pulseRedstone(World world, Location pasteOrigin) {
+        Location pulseLocation = relative(pasteOrigin, scenario.fireInput());
+        Block pulseBlock = world.getBlockAt(pulseLocation);
+        Material previousType = pulseBlock.getType();
+        BlockData previousData = pulseBlock.getBlockData().clone();
+
+        List<String> neighboursBefore = describeNeighbours(pulseBlock);
+        plugin.getLogger().info("Redstone fire at " + coordinates(pulseLocation)
+                + " | previous=" + previousType
+                + " | neighbours=" + neighboursBefore);
+
+        pulseBlock.setType(Material.REDSTONE_BLOCK, true);
+        BlockState pulseState = pulseBlock.getState();
+        pulseState.update(true, true);
+
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            plugin.getLogger().info("Redstone pulse verification at "
+                    + coordinates(pulseLocation)
+                    + " | powered=" + pulseBlock.isBlockPowered()
+                    + " | indirect=" + pulseBlock.isBlockIndirectlyPowered()
+                    + " | neighbours=" + describeNeighbours(pulseBlock));
+        }, 1L);
+
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            pulseBlock.setType(previousType, true);
+            pulseBlock.setBlockData(previousData, true);
+        }, scenario.firePulseTicks());
+    }
+
+    private List<String> describeNeighbours(Block center) {
+        List<String> descriptions = new ArrayList<>();
+        for (BlockFace face : NEIGHBOUR_FACES) {
+            Block neighbour = center.getRelative(face);
+            String description = face.name() + "=" + neighbour.getType();
+            if (neighbour.getState() instanceof Dispenser dispenser) {
+                description += "[TNT=" + countTnt(dispenser)
+                        + ",powered=" + neighbour.isBlockPowered()
+                        + ",indirect=" + neighbour.isBlockIndirectlyPowered() + "]";
+            }
+            descriptions.add(description);
+        }
+        return descriptions;
+    }
+
+    private int countTnt(Dispenser dispenser) {
+        int total = 0;
+        for (ItemStack item : dispenser.getInventory().getContents()) {
+            if (item != null && item.getType() == Material.TNT) {
+                total += item.getAmount();
+            }
+        }
+        return total;
     }
 
     private void shotCompleted(ShotRecorder.ShotResult result) {
@@ -270,7 +385,8 @@ final class LabRunController {
                     }
 
                     if (!target.isEmpty()) {
-                        cells.add(new TargetCell(target.getX(), target.getY(), target.getZ(), target.getType()));
+                        cells.add(new TargetCell(
+                                target.getX(), target.getY(), target.getZ(), target.getType()));
                     }
                 }
             }
@@ -295,6 +411,13 @@ final class LabRunController {
                     for (int slot = 0; slot < dispenser.getInventory().getSize(); slot++) {
                         dispenser.getInventory().setItem(slot, new ItemStack(Material.TNT, 64));
                     }
+
+                    int expectedTnt = dispenser.getInventory().getSize() * 64;
+                    if (countTnt(dispenser) != expectedTnt) {
+                        throw new IllegalStateException("TNT fill verification failed at "
+                                + x + "," + y + "," + z);
+                    }
+
                     total++;
                     counts.merge(new ChunkKey(x >> 4, z >> 4), 1, Integer::sum);
                 }
@@ -310,22 +433,6 @@ final class LabRunController {
             }
         }
         return new FillAudit(total, max, maxChunk, new LinkedHashMap<>(counts));
-    }
-
-    private void pulseFireInput(World world, Location pasteOrigin) {
-        if (!running || cancelled) {
-            return;
-        }
-        Location pulseLocation = relative(pasteOrigin, scenario.fireInput());
-        Block block = world.getBlockAt(pulseLocation);
-        Material previousType = block.getType();
-        BlockData previousData = block.getBlockData().clone();
-
-        block.setType(Material.REDSTONE_BLOCK, true);
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            block.setType(previousType, false);
-            block.setBlockData(previousData, true);
-        }, scenario.firePulseTicks());
     }
 
     private int countRemainingTargetBlocks() {
@@ -403,6 +510,10 @@ final class LabRunController {
 
     private static Location relative(Location base, LabScenario.BlockPoint point) {
         return base.clone().add(point.x(), point.y(), point.z());
+    }
+
+    private static String coordinates(Location location) {
+        return location.getBlockX() + "," + location.getBlockY() + "," + location.getBlockZ();
     }
 
     private static String safeName(String value) {

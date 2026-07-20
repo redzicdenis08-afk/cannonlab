@@ -1,0 +1,45 @@
+name: Cloud Runtime Smoke
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Build CannonLab
+        run: gradle clean build --stacktrace
+
+      - name: Run ten-shot headless Paper stress test
+        env:
+          CANNONLAB_MC_VERSION: '26.1.2'
+          CANNONLAB_SCENARIO: probe-cloud-stress.yml
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Upload runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-cloud-runtime-${{ github.run_number }}
+          path: lab-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30

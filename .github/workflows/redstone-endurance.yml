@@ -1,0 +1,48 @@
+name: Redstone Endurance 100
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  redstone-endurance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Build CannonLab
+        run: gradle clean build --stacktrace
+
+      - name: Run 100 real redstone shots
+        env:
+          CANNONLAB_SCENARIO: probe-redstone-endurance.yml
+          CANNONLAB_SERVER_LABEL: Paper 26.1.2 redstone endurance
+          CANNONLAB_TIMEOUT_SECONDS: '900'
+        run: |
+          sed -i 's/--expected-shots 10/--expected-shots 100/' scripts/cloud-smoke.sh
+          bash scripts/cloud-smoke.sh
+
+      - name: Upload endurance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-redstone-endurance-${{ github.run_number }}
+          path: lab-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30
