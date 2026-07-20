@@ -172,7 +172,7 @@ final class ShotRecorder implements Listener {
                     event.getEntityType().name(),
                     event.getEntity().getUniqueId(),
                     event.getLocation(),
-                    Vector.getZero(),
+                    new Vector(),
                     -1,
                     event.blockList().size()
             );
@@ -194,7 +194,7 @@ final class ShotRecorder implements Listener {
                     event.getBlock().getType().name(),
                     null,
                     event.getBlock().getLocation(),
-                    Vector.getZero(),
+                    new Vector(),
                     -1,
                     event.blockList().size()
             );
