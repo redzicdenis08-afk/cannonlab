@@ -120,6 +120,10 @@ for fixture in "$ROOT"/cannons/*.schem.b64; do
   output="$DATA/cannons/$(basename "${fixture%.b64}")"
   base64 --decode "$fixture" > "$output"
 done
+for fixture in "$ROOT"/cannons/*.schem; do
+  [[ -e "$fixture" ]] || continue
+  cp "$fixture" "$DATA/cannons/"
+done
 cp "$ROOT"/scenarios/*.yml "$DATA/scenarios/"
 
 cat > "$SERVER/eula.txt" <<'EOF'
