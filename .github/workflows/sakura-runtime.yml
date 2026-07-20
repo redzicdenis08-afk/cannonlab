@@ -10,7 +10,7 @@ permissions:
 jobs:
   sakura-runtime:
     runs-on: ubuntu-latest
-    timeout-minutes: 75
+    timeout-minutes: 90
     steps:
       - name: Checkout CannonLab
         uses: actions/checkout@v4
@@ -27,15 +27,45 @@ jobs:
       - name: Build CannonLab plugin
         run: gradle clean build --stacktrace
 
-      - name: Build exact public Sakura 26.1.2
+      - name: Build pinned public Sakura 26.1.2
         run: bash scripts/build-sakura-26.1.2.sh
 
-      - name: Run ten shots on Sakura 26.1.2
+      - name: Run 100 real redstone shots on Sakura
         env:
           CANNONLAB_SERVER_JAR: ${{ github.workspace }}/.sakura-26.1.2.jar
-          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 public branch
-          CANNONLAB_SCENARIO: probe-cloud-stress.yml
-        run: bash scripts/cloud-smoke.sh
+          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 pinned redstone endurance
+          CANNONLAB_SCENARIO: probe-redstone-endurance.yml
+          CANNONLAB_EXPECTED_SHOTS: '100'
+          CANNONLAB_STRICT_SINGLE_TNT: 'true'
+          CANNONLAB_MIN_TNT_PER_SHOT: '1'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '1'
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_TIMEOUT_SECONDS: '900'
+        run: |
+          bash scripts/cloud-smoke.sh
+          mv lab-artifacts sakura-endurance-artifacts
+
+      - name: Run real four-TNT cannon on Sakura
+        env:
+          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/.sakura-26.1.2.jar
+          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 pinned multi-TNT
+          CANNONLAB_SCENARIO: multi-tnt-range.yml
+          CANNONLAB_EXPECTED_SHOTS: '10'
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '4'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '4'
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_MIN_FORWARD_TRAVEL: '0.05'
+          CANNONLAB_MAX_TARGET_MISS_DISTANCE: '7.0'
+          CANNONLAB_TIMEOUT_SECONDS: '600'
+          CANNONLAB_ARENA_RADIUS_X: '32'
+          CANNONLAB_ARENA_RADIUS_Y: '24'
+          CANNONLAB_ARENA_RADIUS_Z: '24'
+        run: |
+          bash scripts/cloud-smoke.sh
+          mv lab-artifacts sakura-multi-tnt-artifacts
 
       - name: Upload Sakura build and runtime evidence
         if: always()
@@ -43,7 +73,9 @@ jobs:
         with:
           name: CannonLab-Sakura-26.1.2-${{ github.run_number }}
           path: |
-            lab-artifacts/**
+            sakura-endurance-artifacts/**
+            sakura-multi-tnt-artifacts/**
             sakura-build-artifacts/**
+            lab-artifacts/**
           if-no-files-found: warn
           retention-days: 30
