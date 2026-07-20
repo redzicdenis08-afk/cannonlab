@@ -22,7 +22,23 @@ jobs:
             output=".audit-input/$(basename "${fixture%.b64}")"
             base64 --decode "$fixture" > "$output"
           done
-          sha256sum .audit-input/* | tee audit-artifacts/input-sha256.txt
+          sha256sum .audit-input/* | tee audit-artifacts/stored-input-sha256.txt
+
+          # The large historical fixture is intentionally stored with one extra
+          # gzip envelope in the repository. Normalize only that storage layer,
+          # leaving the actual Sponge schematic gzip intact for the auditor.
+          python3 - <<'PY'
+          import gzip
+          from pathlib import Path
+          path = Path('.audit-input/Shadows_1sec_384osrb_box-watered.schem')
+          data = path.read_bytes()
+          if data.startswith(b'\x1f\x8b'):
+              inner = gzip.decompress(data)
+              if inner.startswith(b'\x1f\x8b'):
+                  path.write_bytes(inner)
+                  print('Removed one repository storage gzip layer from Shadow fixture.')
+          PY
+          sha256sum .audit-input/* | tee audit-artifacts/normalized-input-sha256.txt
 
       - name: Audit one-dispenser legal probe
         run: |
