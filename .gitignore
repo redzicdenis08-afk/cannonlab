@@ -1,0 +1,7 @@
+.gradle/
+build/
+lab-artifacts/
+*.log
+.idea/
+*.iml
+server/
