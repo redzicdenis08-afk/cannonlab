@@ -411,10 +411,9 @@ final class LabRunController {
                     for (int slot = 0; slot < dispenser.getInventory().getSize(); slot++) {
                         dispenser.getInventory().setItem(slot, new ItemStack(Material.TNT, 64));
                     }
-                    dispenser.update(true, true);
 
-                    Dispenser live = (Dispenser) world.getBlockAt(x, y, z).getState();
-                    if (countTnt(live) != live.getInventory().getSize() * 64) {
+                    int expectedTnt = dispenser.getInventory().getSize() * 64;
+                    if (countTnt(dispenser) != expectedTnt) {
                         throw new IllegalStateException("TNT fill verification failed at "
                                 + x + "," + y + "," + z);
                     }
