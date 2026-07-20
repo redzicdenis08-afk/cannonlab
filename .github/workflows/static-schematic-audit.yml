@@ -61,6 +61,24 @@ jobs:
           print('Original Shadow failure fingerprint is stable and correctly detected.')
           PY
 
+      - name: Reject corrupted and truncated schematic input
+        run: |
+          head -c 120 .audit-input/probe-one-dispenser.schem > .audit-input/truncated.schem
+          cp .audit-input/probe-one-dispenser.schem .audit-input/corrupted.schem
+          printf '\x00\xff\x00\xff' | dd of=.audit-input/corrupted.schem bs=1 seek=20 conv=notrunc status=none
+          for bad in truncated corrupted; do
+            set +e
+            python3 scripts/schem-audit.py ".audit-input/${bad}.schem" \
+              >"audit-artifacts/${bad}.stdout.json" \
+              2>"audit-artifacts/${bad}.stderr.json"
+            code=$?
+            set -e
+            if [[ "$code" -ne 3 ]]; then
+              echo "Expected ${bad} schematic to be rejected with exit 3, got $code" >&2
+              exit 1
+            fi
+          done
+
       - name: Upload static audit evidence
         if: always()
         uses: actions/upload-artifact@v4
