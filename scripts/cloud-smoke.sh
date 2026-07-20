@@ -9,6 +9,8 @@ DATA="$PLUGINS/CannonLab"
 ARTIFACTS="$ROOT/lab-artifacts"
 VERSION="${CANNONLAB_MC_VERSION:-26.1.2}"
 SCENARIO="${CANNONLAB_SCENARIO:-probe-cloud-stress.yml}"
+SERVER_JAR_OVERRIDE="${CANNONLAB_SERVER_JAR:-}"
+SERVER_LABEL="${CANNONLAB_SERVER_LABEL:-Paper $VERSION}"
 USER_AGENT="CannonLab/0.3 (https://github.com/redzicdenis08-afk/cannonlab)"
 WORLDEDIT_VERSION_ID="yDUBafTJ"
 
@@ -17,14 +19,23 @@ mkdir -p "$PLUGINS" "$DATA/cannons" "$DATA/scenarios" "$DATA/results" "$ARTIFACT
 exec > >(tee -a "$ARTIFACTS/cloud-smoke.log") 2>&1
 trap 'code=$?; echo "cloud-smoke.sh failed at line $LINENO with exit code $code"; exit $code' ERR
 
-printf 'Resolving Paper %s...\n' "$VERSION"
-BUILDS_JSON="$WORK/paper-builds.json"
-curl --fail --location --silent --show-error --retry 3 \
-  --header "User-Agent: $USER_AGENT" \
-  "https://fill.papermc.io/v3/projects/paper/versions/$VERSION/builds" \
-  --output "$BUILDS_JSON"
+if [[ -n "$SERVER_JAR_OVERRIDE" ]]; then
+  if [[ ! -f "$SERVER_JAR_OVERRIDE" ]]; then
+    echo "CANNONLAB_SERVER_JAR does not exist: $SERVER_JAR_OVERRIDE" >&2
+    exit 1
+  fi
+  cp "$SERVER_JAR_OVERRIDE" "$SERVER/server.jar"
+  echo "Using supplied server JAR: $SERVER_LABEL"
+  sha256sum "$SERVER/server.jar" | tee "$ARTIFACTS/server-jar.sha256"
+else
+  printf 'Resolving Paper %s...\n' "$VERSION"
+  BUILDS_JSON="$WORK/paper-builds.json"
+  curl --fail --location --silent --show-error --retry 3 \
+    --header "User-Agent: $USER_AGENT" \
+    "https://fill.papermc.io/v3/projects/paper/versions/$VERSION/builds" \
+    --output "$BUILDS_JSON"
 
-mapfile -t PAPER_INFO < <(python3 - "$BUILDS_JSON" <<'PY'
+  mapfile -t PAPER_INFO < <(python3 - "$BUILDS_JSON" <<'PY'
 from __future__ import annotations
 
 import json
@@ -51,17 +62,18 @@ if not isinstance(download, dict) or not download.get("url"):
 print(download["url"])
 print(download.get("checksums", {}).get("sha256", ""))
 PY
-)
-PAPER_URL="${PAPER_INFO[0]}"
-PAPER_SHA256="${PAPER_INFO[1]:-}"
+  )
+  PAPER_URL="${PAPER_INFO[0]}"
+  PAPER_SHA256="${PAPER_INFO[1]:-}"
 
-curl --fail --location --silent --show-error --retry 3 \
-  --header "User-Agent: $USER_AGENT" \
-  "$PAPER_URL" \
-  --output "$SERVER/server.jar"
-if [[ -n "$PAPER_SHA256" ]]; then
-  printf '%s  %s\n' "$PAPER_SHA256" "$SERVER/server.jar" | sha256sum --check --status
-  echo 'Paper SHA-256 verified.'
+  curl --fail --location --silent --show-error --retry 3 \
+    --header "User-Agent: $USER_AGENT" \
+    "$PAPER_URL" \
+    --output "$SERVER/server.jar"
+  if [[ -n "$PAPER_SHA256" ]]; then
+    printf '%s  %s\n' "$PAPER_SHA256" "$SERVER/server.jar" | sha256sum --check --status
+    echo 'Paper SHA-256 verified.'
+  fi
 fi
 
 printf 'Resolving official WorldEdit 7.4.3 Bukkit build from Modrinth...\n'
@@ -158,7 +170,7 @@ EOF
 STDOUT="$ARTIFACTS/server-stdout.log"
 STDERR="$ARTIFACTS/server-stderr.log"
 
-printf 'Starting headless Paper runtime for scenario %s...\n' "$SCENARIO"
+printf 'Starting headless %s runtime for scenario %s...\n' "$SERVER_LABEL" "$SCENARIO"
 set +e
 (
   cd "$SERVER"
