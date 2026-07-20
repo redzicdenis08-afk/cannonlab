@@ -1,0 +1,29 @@
+name: fluid-regen-defense
+cannon:
+  file: probe-four-dispenser.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: redstone
+  fire-input: {x: 1, y: 2, z: 1}
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: cobble-regen
+  material: cobblestone
+  direction: east
+  distance: 5
+  width: 7
+  height: 6
+  layers: 1
+  spacing: 3
+  regeneration:
+    enabled: true
+    delay-ticks: 30
+    interval-ticks: 5
+    max-blocks-per-cycle: 16
+run:
+  shots: 5
+  warmup-ticks: 20
+  max-shot-ticks: 240
+  quiet-ticks: 100
+  shutdown-when-finished: true
