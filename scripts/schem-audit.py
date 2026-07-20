@@ -263,6 +263,6 @@ def main() -> int:
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (NBTError, OSError, EOFError, KeyError, TypeError, ValueError) as exc:
+    except Exception as exc:
         print(json.dumps({"status": "ERROR", "error": f"{type(exc).__name__}: {exc}"}, indent=2), file=sys.stderr)
         raise SystemExit(3)
