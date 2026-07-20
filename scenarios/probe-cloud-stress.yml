@@ -23,5 +23,5 @@ run:
   shots: 10
   warmup-ticks: 20
   max-shot-ticks: 120
-  quiet-ticks: 10
+  quiet-ticks: 100
   shutdown-when-finished: true
