@@ -15,9 +15,12 @@ record LabScenario(
         int firePulseTicks,
         boolean enforceDispenserLimit,
         TargetType targetType,
+        TargetDirection targetDirection,
         int targetDistance,
         int targetWidth,
         int targetHeight,
+        int targetYOffset,
+        int targetLateralOffset,
         int targetLayers,
         int targetSpacing,
         int shots,
@@ -43,20 +46,32 @@ record LabScenario(
                 new BlockPoint(fireInput.x() + 1, fireInput.y(), fireInput.z())
         );
 
-        FireMode fireMode;
         String fireModeName = yaml.getString("cannon.fire-mode", "redstone");
-        try {
-            fireMode = FireMode.valueOf(fireModeName.toUpperCase(Locale.ROOT).replace('-', '_'));
-        } catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("Unsupported cannon.fire-mode: " + fireModeName, exception);
+        FireMode fireMode;
+        if (fireModeName.equalsIgnoreCase("direct")) {
+            fireMode = FireMode.DIRECT_DISPENSE;
+        } else {
+            try {
+                fireMode = FireMode.valueOf(normalize(fireModeName));
+            } catch (IllegalArgumentException exception) {
+                throw new IllegalArgumentException("Unsupported cannon.fire-mode: " + fireModeName, exception);
+            }
         }
 
         String targetName = yaml.getString("target.type", "watered");
         TargetType targetType;
         try {
-            targetType = TargetType.valueOf(targetName.toUpperCase(Locale.ROOT).replace('-', '_'));
+            targetType = TargetType.valueOf(normalize(targetName));
         } catch (IllegalArgumentException exception) {
             throw new IllegalArgumentException("Unsupported target.type: " + targetName, exception);
+        }
+
+        String directionName = yaml.getString("target.direction", "east");
+        TargetDirection targetDirection;
+        try {
+            targetDirection = TargetDirection.valueOf(normalize(directionName));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Unsupported target.direction: " + directionName, exception);
         }
 
         return new LabScenario(
@@ -69,9 +84,12 @@ record LabScenario(
                 Math.max(1, yaml.getInt("cannon.fire-pulse-ticks", 2)),
                 yaml.getBoolean("limits.enforce-dispenser-limit", true),
                 targetType,
+                targetDirection,
                 Math.max(1, yaml.getInt("target.distance", 160)),
                 Math.max(1, yaml.getInt("target.width", 17)),
                 Math.max(1, yaml.getInt("target.height", 32)),
+                yaml.getInt("target.y-offset", 0),
+                yaml.getInt("target.lateral-offset", 0),
                 Math.max(1, yaml.getInt("target.layers", 1)),
                 Math.max(1, yaml.getInt("target.spacing", 3)),
                 Math.max(1, yaml.getInt("run.shots", 1)),
@@ -88,6 +106,10 @@ record LabScenario(
                 yaml.getInt(path + ".y", fallback.y()),
                 yaml.getInt(path + ".z", fallback.z())
         );
+    }
+
+    private static String normalize(String value) {
+        return value.toUpperCase(Locale.ROOT).replace('-', '_');
     }
 
     private static String require(String value, String path) {
@@ -116,5 +138,12 @@ record LabScenario(
         COBBLE_REGEN,
         FILTER,
         SLAB_FILTER
+    }
+
+    enum TargetDirection {
+        NORTH,
+        SOUTH,
+        EAST,
+        WEST
     }
 }
