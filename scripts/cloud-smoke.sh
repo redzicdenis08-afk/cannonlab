@@ -16,6 +16,9 @@ EXPECTED_SHOTS="${CANNONLAB_EXPECTED_SHOTS:-10}"
 STRICT_SINGLE_TNT="${CANNONLAB_STRICT_SINGLE_TNT:-true}"
 MIN_TNT_PER_SHOT="${CANNONLAB_MIN_TNT_PER_SHOT:-1}"
 MIN_EXPLOSIONS_PER_SHOT="${CANNONLAB_MIN_EXPLOSIONS_PER_SHOT:-1}"
+EXPECTED_TNT_COHORT_SIZES="${CANNONLAB_EXPECT_TNT_COHORT_SIZES:-}"
+EXPECTED_TNT_COHORT_GAP="${CANNONLAB_EXPECT_TNT_COHORT_GAP:-}"
+REQUIRE_BUTTON_CONTROL="${CANNONLAB_REQUIRE_BUTTON_CONTROL:-false}"
 EXPECTED_LIFETIME="${CANNONLAB_EXPECTED_LIFETIME:-79}"
 LIFETIME_TOLERANCE="${CANNONLAB_LIFETIME_TOLERANCE:-0}"
 MIN_FORWARD_TRAVEL="${CANNONLAB_MIN_FORWARD_TRAVEL:-}"
@@ -33,7 +36,28 @@ WORLDEDIT_VERSION_ID="yDUBafTJ"
 rm -rf "$WORK" "$ARTIFACTS"
 mkdir -p "$PLUGINS" "$DATA/cannons" "$DATA/scenarios" "$DATA/results" "$ARTIFACTS"
 exec > >(tee -a "$ARTIFACTS/cloud-smoke.log") 2>&1
-trap 'code=$?; echo "cloud-smoke.sh failed at line $LINENO with exit code $code"; exit $code' ERR
+
+collect_runtime_artifacts() {
+  if [[ -d "$DATA/results" ]]; then
+    rm -rf "$ARTIFACTS/results"
+    cp -R "$DATA/results" "$ARTIFACTS/results"
+  fi
+  if [[ -d "$SERVER/logs" ]]; then
+    rm -rf "$ARTIFACTS/server-logs"
+    cp -R "$SERVER/logs" "$ARTIFACTS/server-logs"
+  fi
+}
+
+on_error() {
+  local code=$?
+  local line="${1:-unknown}"
+  trap - ERR
+  collect_runtime_artifacts || true
+  echo "cloud-smoke.sh failed at line $line with exit code $code" >&2
+  exit "$code"
+}
+
+trap 'on_error "$LINENO"' ERR
 
 if [[ -n "$SERVER_JAR_OVERRIDE" ]]; then
   if [[ ! -f "$SERVER_JAR_OVERRIDE" ]]; then
@@ -118,7 +142,11 @@ fi
 cp "$PLUGIN_JAR" "$PLUGINS/CannonLab.jar"
 for fixture in "$ROOT"/cannons/*.schem.b64; do
   output="$DATA/cannons/$(basename "${fixture%.b64}")"
-  base64 --decode "$fixture" > "$output"
+  tr -d '\r\n' < "$fixture" | base64 --decode > "$output"
+done
+for fixture in "$ROOT"/cannons/*.schem; do
+  [[ -e "$fixture" ]] || continue
+  cp "$fixture" "$DATA/cannons/"
 done
 cp "$ROOT"/scenarios/*.yml "$DATA/scenarios/"
 
@@ -162,23 +190,38 @@ printf 'Starting headless %s runtime for scenario %s with timeout %ss...\n' "$SE
 printf 'Assertions: shots=%s strictSingleTnt=%s minTnt=%s minExplosions=%s lifetime=%s±%s arena=%sx%sx%s\n' \
   "$EXPECTED_SHOTS" "$STRICT_SINGLE_TNT" "$MIN_TNT_PER_SHOT" "$MIN_EXPLOSIONS_PER_SHOT" \
   "$EXPECTED_LIFETIME" "$LIFETIME_TOLERANCE" "$ARENA_RADIUS_X" "$ARENA_RADIUS_Y" "$ARENA_RADIUS_Z"
-set +e
+SERVER_EXIT=0
+trap - ERR
 (
   cd "$SERVER"
   timeout --signal=TERM --kill-after=30s "${TIMEOUT_SECONDS}s" \
     java -Xms1G -Xmx3G "-Dcannonlab.scenario=$SCENARIO" -jar server.jar --nogui
-) >"$STDOUT" 2>"$STDERR"
-SERVER_EXIT=$?
-set -e
+) >"$STDOUT" 2>"$STDERR" || SERVER_EXIT=$?
+trap 'on_error "$LINENO"' ERR
 
-if [[ -d "$DATA/results" ]]; then cp -R "$DATA/results" "$ARTIFACTS/results"; fi
-if [[ -d "$SERVER/logs" ]]; then cp -R "$SERVER/logs" "$ARTIFACTS/server-logs"; fi
+collect_runtime_artifacts
 if [[ "$SERVER_EXIT" -ne 0 ]]; then
   echo "Server exited with code $SERVER_EXIT" >&2
   tail -n 200 "$STDOUT" || true
   tail -n 200 "$STDERR" || true
   exit "$SERVER_EXIT"
 fi
+
+case "${REQUIRE_BUTTON_CONTROL,,}" in
+  1|true|yes)
+    BUTTON_PRESS_COUNT="$(grep -c 'previous=STONE_BUTTON | control=button' "$STDOUT" || true)"
+    FALLBACK_FIRE_COUNT="$(grep -c 'control=redstone-block' "$STDOUT" || true)"
+    printf 'buttonPresses=%s expected=%s fallbackRedstoneBlockFires=%s\n' \
+      "$BUTTON_PRESS_COUNT" "$EXPECTED_SHOTS" "$FALLBACK_FIRE_COUNT" \
+      | tee "$ARTIFACTS/button-control.txt"
+    if [[ "$BUTTON_PRESS_COUNT" -ne "$EXPECTED_SHOTS" || "$FALLBACK_FIRE_COUNT" -ne 0 ]]; then
+      echo "Embedded button control assertion failed." >&2
+      exit 1
+    fi
+    ;;
+  0|false|no) ;;
+  *) echo "Invalid CANNONLAB_REQUIRE_BUTTON_CONTROL=$REQUIRE_BUTTON_CONTROL" >&2; exit 1 ;;
+esac
 
 ASSERT_ARGS=(
   "$ARTIFACTS/results"
@@ -194,6 +237,12 @@ case "${STRICT_SINGLE_TNT,,}" in
 esac
 if [[ -n "$EXPECTED_LIFETIME" && "${EXPECTED_LIFETIME,,}" != "none" ]]; then
   ASSERT_ARGS+=(--expected-lifetime "$EXPECTED_LIFETIME" --lifetime-tolerance "$LIFETIME_TOLERANCE")
+fi
+if [[ -n "$EXPECTED_TNT_COHORT_SIZES" ]]; then
+  ASSERT_ARGS+=(--expect-tnt-cohort-sizes "$EXPECTED_TNT_COHORT_SIZES")
+fi
+if [[ -n "$EXPECTED_TNT_COHORT_GAP" ]]; then
+  ASSERT_ARGS+=(--expect-tnt-cohort-gap "$EXPECTED_TNT_COHORT_GAP")
 fi
 if [[ -n "$MIN_FORWARD_TRAVEL" ]]; then
   ASSERT_ARGS+=(--min-forward-travel "$MIN_FORWARD_TRAVEL")
@@ -214,6 +263,19 @@ case "${REQUIRE_REGEN,,}" in
 esac
 
 python3 "$ROOT/scripts/assert-results.py" "${ASSERT_ARGS[@]}" \
-  | tee "$ARTIFACTS/assertion.json"
+  > "$ARTIFACTS/assertion.json"
+python3 - "$ARTIFACTS/assertion.json" <<'PY'
+from __future__ import annotations
+import json, sys
+from pathlib import Path
+report = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8"))
+print(
+    "Assertion PASS: "
+    f"scenario={report.get('scenario')} shots={report.get('shots')} "
+    f"tnt={report.get('tnt_uuid_count')} explosions={report.get('total_explosions')} "
+    f"targetPeakMin={(report.get('target_peak_destroyed') or {}).get('min')} "
+    f"maxLayerMin={(report.get('max_layer_breached') or {}).get('min')}"
+)
+PY
 
 printf 'CannonLab runtime and physics fingerprint passed.\n'

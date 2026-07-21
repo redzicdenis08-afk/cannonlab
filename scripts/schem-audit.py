@@ -130,6 +130,15 @@ def main() -> int:
     parser.add_argument("--chunk-limit", type=int, default=128)
     parser.add_argument("--expect-dispensers", type=int)
     parser.add_argument("--expect-aligned-max", type=int)
+    parser.add_argument("--require-dispenser-block-entities", action="store_true")
+    parser.add_argument("--require-empty-dispensers", action="store_true")
+    parser.add_argument(
+        "--expect-block",
+        action="append",
+        default=[],
+        metavar="X,Y,Z=BLOCKSTATE",
+        help="Require an exact blockstate at a relative schematic coordinate",
+    )
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args()
 
@@ -160,7 +169,8 @@ def main() -> int:
         by_type[base(state)].append((x, y, z))
         state_counts[state] += 1
 
-    dispenser_coords = [(x, z) for x, _y, z in by_type.get("minecraft:dispenser", [])]
+    dispenser_positions = set(by_type.get("minecraft:dispenser", []))
+    dispenser_coords = [(x, z) for x, _y, z in dispenser_positions]
     aligned = distribution(dispenser_coords, 0, 0)
     aligned_max = max(aligned.values(), default=0)
     scans = []
@@ -184,14 +194,27 @@ def main() -> int:
     block_entities = schematic.get("BlockEntities", []) or []
     out_of_bounds = []
     block_entity_ids: Counter[str] = Counter()
+    block_entity_positions: list[tuple[int, int, int]] = []
+    dispenser_entity_positions: set[tuple[int, int, int]] = set()
+    nonempty_dispenser_inventories = []
     for entity in block_entities:
         entity_id = str(entity.get("Id", entity.get("id", "unknown"))) if isinstance(entity, dict) else "invalid"
         block_entity_ids[entity_id] += 1
         pos = entity.get("Pos", entity.get("pos")) if isinstance(entity, dict) else None
         if isinstance(pos, list) and len(pos) >= 3:
             x, y, z = map(int, pos[:3])
+            position = (x, y, z)
+            block_entity_positions.append(position)
             if not (0 <= x < width and 0 <= y < height and 0 <= z < length):
                 out_of_bounds.append([x, y, z])
+            if entity_id in {"minecraft:dispenser", "dispenser"}:
+                dispenser_entity_positions.add(position)
+                items = entity.get("Items", entity.get("items", []))
+                if items:
+                    nonempty_dispenser_inventories.append({
+                        "position": [x, y, z],
+                        "item_entries": len(items) if isinstance(items, list) else "invalid",
+                    })
 
     repeaters = [
         {"state": state, "count": count, "properties": properties(state)}
@@ -204,10 +227,46 @@ def main() -> int:
     tile_state_blocks = sum(len(coords) for block_type, coords in by_type.items() if block_type in TILE_BLOCKS)
 
     errors, warnings = [], []
+    expected_blocks = []
+    for specification in args.expect_block:
+        try:
+            coordinate_text, expected_state = specification.split("=", 1)
+            coordinate = tuple(int(value) for value in coordinate_text.split(","))
+            if len(coordinate) != 3:
+                raise ValueError("coordinate must contain x,y,z")
+        except ValueError as exc:
+            raise NBTError(f"invalid --expect-block {specification!r}: {exc}") from exc
+        actual_state = blocks.get(coordinate)
+        matched = actual_state == expected_state
+        expected_blocks.append({
+            "position": list(coordinate),
+            "expected": expected_state,
+            "actual": actual_state,
+            "matched": matched,
+        })
+        if not matched:
+            errors.append(
+                f"block {coordinate}={actual_state!r} expected={expected_state!r}"
+            )
     if int(schematic["Version"]) != 2: errors.append(f"Version={schematic['Version']} expected=2")
     if aligned_max > args.chunk_limit: errors.append(f"aligned dispenser max {aligned_max} exceeds {args.chunk_limit}")
     if support_failures: errors.append(f"{len(support_failures)} unsupported redstone components")
     if out_of_bounds: errors.append(f"{len(out_of_bounds)} block entities outside schematic bounds")
+    duplicate_block_entity_positions = sorted(
+        position for position, count in Counter(block_entity_positions).items() if count > 1
+    )
+    missing_dispenser_entities = sorted(dispenser_positions - dispenser_entity_positions)
+    extra_dispenser_entities = sorted(dispenser_entity_positions - dispenser_positions)
+    if duplicate_block_entity_positions:
+        errors.append(f"duplicate block entities at {duplicate_block_entity_positions}")
+    if args.require_dispenser_block_entities and missing_dispenser_entities:
+        errors.append(f"dispensers missing block entities at {missing_dispenser_entities}")
+    if args.require_dispenser_block_entities and extra_dispenser_entities:
+        errors.append(f"dispenser block entities without dispenser blocks at {extra_dispenser_entities}")
+    if args.require_empty_dispensers and nonempty_dispenser_inventories:
+        errors.append(
+            f"{len(nonempty_dispenser_inventories)} dispensers contain saved inventory items"
+        )
     if args.expect_dispensers is not None and len(dispenser_coords) != args.expect_dispensers:
         errors.append(f"dispensers={len(dispenser_coords)} expected={args.expect_dispensers}")
     if args.expect_aligned_max is not None and aligned_max != args.expect_aligned_max:
@@ -236,6 +295,11 @@ def main() -> int:
             "ids": dict(block_entity_ids),
             "tile_state_blocks": tile_state_blocks,
             "out_of_bounds": out_of_bounds,
+            "duplicate_positions": [list(position) for position in duplicate_block_entity_positions],
+            "missing_dispenser_entities": [list(position) for position in missing_dispenser_entities],
+            "extra_dispenser_entities": [list(position) for position in extra_dispenser_entities],
+            "nonempty_dispenser_inventories": nonempty_dispenser_inventories,
+            "empty_dispenser_inventories": len(dispenser_entity_positions) - len(nonempty_dispenser_inventories),
         },
         "dispensers": {
             "count": len(dispenser_coords),
@@ -247,6 +311,7 @@ def main() -> int:
         },
         "repeaters": repeaters,
         "water_states": waters,
+        "expected_blocks": expected_blocks,
         "support_failures": support_failures,
         "block_type_counts": dict(sorted((key, len(value)) for key, value in by_type.items() if key not in AIR)),
         "errors": errors,

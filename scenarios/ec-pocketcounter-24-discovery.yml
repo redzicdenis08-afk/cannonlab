@@ -1,0 +1,27 @@
+name: ec-pocketcounter-24-discovery
+cannon:
+  file: ec-pocketcounter-24.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: redstone
+  fire-input: {x: 9, y: 6, z: 15}
+  # A stone button remains powered for 20 game ticks.
+  fire-pulse-ticks: 20
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: dry
+  material: cobblestone
+  direction: north
+  distance: 8
+  width: 11
+  height: 12
+  y-offset: 0
+  lateral-offset: 4
+  layers: 5
+  spacing: 1
+run:
+  shots: 10
+  warmup-ticks: 40
+  max-shot-ticks: 280
+  quiet-ticks: 100
+  shutdown-when-finished: true

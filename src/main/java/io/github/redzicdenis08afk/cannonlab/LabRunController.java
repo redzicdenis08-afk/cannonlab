@@ -10,6 +10,7 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Dispenser;
 import org.bukkit.block.data.BlockData;
+import org.bukkit.block.data.type.Switch;
 import org.bukkit.block.data.type.Slab;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
@@ -256,10 +257,9 @@ final class LabRunController {
         for (PulseState pulse : uniquePulses.values()) {
             plugin.getLogger().info("Redstone fire at " + coordinates(pulse.location())
                     + " | previous=" + pulse.previousType()
+                    + " | control=" + pulseControl(pulse)
                     + " | neighbours=" + describeNeighbours(pulse.block()));
-            pulse.block().setType(Material.REDSTONE_BLOCK, true);
-            BlockState pulseState = pulse.block().getState();
-            pulseState.update(true, true);
+            pressPulse(pulse);
         }
 
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
@@ -278,6 +278,23 @@ final class LabRunController {
                 pulse.block().setBlockData(pulse.previousData(), true);
             }
         }, scenario.firePulseTicks());
+    }
+
+    private String pulseControl(PulseState pulse) {
+        return pulse.previousData() instanceof Switch ? "button" : "redstone-block";
+    }
+
+    private void pressPulse(PulseState pulse) {
+        if (pulse.previousData() instanceof Switch previousSwitch) {
+            Switch pressed = (Switch) previousSwitch.clone();
+            pressed.setPowered(true);
+            pulse.block().setBlockData(pressed, true);
+            return;
+        }
+
+        pulse.block().setType(Material.REDSTONE_BLOCK, true);
+        BlockState pulseState = pulse.block().getState();
+        pulseState.update(true, true);
     }
 
     private List<String> describeNeighbours(Block center) {

@@ -1,0 +1,141 @@
+name: Cannon Candidates
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  static-candidates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Generate deterministic candidate schematics
+        run: python3 scripts/generate-candidates.py
+
+      - name: Audit legal candidates
+        run: |
+          mkdir -p candidate-audit
+          python3 scripts/schem-audit.py cannons/ec-streambreach-120.schem \
+            --chunk-limit 128 --expect-dispensers 120 \
+            --json-out candidate-audit/streambreach.json
+          python3 scripts/schem-audit.py cannons/ec-pocketcounter-24.schem \
+            --chunk-limit 128 --expect-dispensers 24 \
+            --require-dispenser-block-entities --require-empty-dispensers \
+            --expect-block '9,5,14=minecraft:air' \
+            --expect-block '9,5,15=minecraft:cyan_concrete' \
+            --expect-block '9,6,15=minecraft:stone_button[face=floor,facing=north,powered=false]' \
+            --expect-block '8,6,15=minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]' \
+            --expect-block '10,6,15=minecraft:repeater[delay=1,facing=west,locked=false,powered=false]' \
+            --json-out candidate-audit/pocketcounter.json
+          python3 scripts/schem-audit.py cannons/ec-satplate-legal-120.schem \
+            --chunk-limit 128 --expect-dispensers 120 --expect-aligned-max 120 \
+            --json-out candidate-audit/satplate-legal.json
+
+      - name: Audit deliberate over-cap control
+        run: |
+          python3 scripts/schem-audit.py cannons/ec-satplate-overcap-240.schem \
+            --chunk-limit 240 --expect-dispensers 240 --expect-aligned-max 240 \
+            --json-out candidate-audit/satplate-overcap.json
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          reports = [json.loads(path.read_text()) for path in Path('candidate-audit').glob('*.json')]
+          for report in reports:
+              assert report['block_entities']['explicit'] == report['dispensers']['count'], report
+              assert not report['support_failures'], report
+          pocket = json.loads(Path('candidate-audit/pocketcounter.json').read_text())
+          assert pocket['block_type_counts'].get('minecraft:stone_button') == 1, pocket
+          assert pocket['block_type_counts'].get('minecraft:cyan_concrete') == 1, pocket
+          assert pocket['block_entities']['empty_dispenser_inventories'] == 24, pocket
+          assert not pocket['block_entities']['missing_dispenser_entities'], pocket
+          assert not pocket['block_entities']['extra_dispenser_entities'], pocket
+          assert all(item['matched'] for item in pocket['expected_blocks']), pocket
+          assert sum(item['count'] for item in pocket['repeaters']) == 14, pocket
+          assert all(item['properties'].get('delay') == '1' for item in pocket['repeaters']), pocket
+          assert sorted(
+              int(item['properties']['level']) for item in pocket['water_states']
+          ) == list(range(7)), pocket
+          over = json.loads(Path('candidate-audit/satplate-overcap.json').read_text())
+          assert over['dispensers']['aligned_max'] > 160, over
+          print('Over-cap control is deliberately above 160 and all dispenser NBT is explicit.')
+          PY
+
+      - name: Build CannonLab
+        run: gradle clean build --stacktrace
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CannonLab-candidate-static-${{ github.run_number }}
+          path: |
+            cannons/ec-streambreach-120.schem
+            cannons/ec-pocketcounter-24.schem
+            cannons/ec-satplate-legal-120.schem
+            cannons/ec-satplate-overcap-240.schem
+            candidate-audit/**
+          if-no-files-found: error
+          retention-days: 30
+
+  runtime-pocketcounter:
+    needs: static-candidates
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Generate and build
+        run: |
+          python3 scripts/generate-candidates.py
+          gradle clean build --stacktrace
+
+      - name: Reproduce ten-shot embedded-button physics proof
+        env:
+          CANNONLAB_SCENARIO: ec-pocketcounter-24-discovery.yml
+          CANNONLAB_SERVER_LABEL: Paper 26.1.2 pocketcounter-24 proof
+          CANNONLAB_EXPECTED_SHOTS: '10'
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '24'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '24'
+          CANNONLAB_EXPECT_TNT_COHORT_SIZES: '20,4'
+          CANNONLAB_EXPECT_TNT_COHORT_GAP: '18'
+          CANNONLAB_REQUIRE_BUTTON_CONTROL: 'true'
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_MIN_TARGET_PEAK_DESTROYED: '500'
+          CANNONLAB_MIN_LAYER_BREACHED: '5'
+          CANNONLAB_TIMEOUT_SECONDS: '900'
+          CANNONLAB_ARENA_RADIUS_X: '32'
+          CANNONLAB_ARENA_RADIUS_Y: '24'
+          CANNONLAB_ARENA_RADIUS_Z: '48'
+        run: bash scripts/cloud-smoke.sh
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: CannonLab-pocketcounter-proof-${{ github.run_number }}
+          path: lab-artifacts
+          if-no-files-found: error
+          retention-days: 30
