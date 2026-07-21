@@ -11,13 +11,13 @@ target:
   type: dry
   material: cobblestone
   direction: north
-  distance: 14
+  distance: 8
   width: 11
   height: 12
   y-offset: 0
   lateral-offset: 4
-  layers: 1
-  spacing: 16
+  layers: 5
+  spacing: 1
 run:
   shots: 5
   warmup-ticks: 40

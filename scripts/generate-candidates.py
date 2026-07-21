@@ -13,21 +13,32 @@ END, BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, BYTE_ARRAY, STRING, LIST, COMPOUND, 
 AIR = "minecraft:air"
 OBSIDIAN = "minecraft:obsidian"
 SMOOTH_STONE = "minecraft:smooth_stone"
-WATER = "minecraft:water[level=0]"
 WIRE = "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]"
-SLAB = "minecraft:smooth_stone_slab[type=bottom,waterlogged=false]"
+WATER_STOP = "minecraft:oak_trapdoor[facing=north,half=bottom,open=true,powered=false,waterlogged=false]"
+
+
+def water(level: int) -> str:
+    if not 0 <= level <= 7:
+        raise ValueError(f"invalid flowing-water level: {level}")
+    return f"minecraft:water[level={level}]"
 
 
 def dispenser(facing: str) -> str:
     return f"minecraft:dispenser[facing={facing},triggered=false]"
 
 
-def repeater(facing: str, delay: int = 1) -> str:
+def repeater(output_direction: str, delay: int = 1) -> str:
     if delay not in {1, 2, 3, 4}:
         raise ValueError(f"invalid repeater delay: {delay}")
+    blockstate_facing = {
+        "north": "south",
+        "south": "north",
+        "east": "west",
+        "west": "east",
+    }[output_direction]
     return (
         "minecraft:repeater["
-        f"delay={delay},facing={facing},locked=false,powered=false]"
+        f"delay={delay},facing={blockstate_facing},locked=false,powered=false]"
     )
 
 
@@ -194,6 +205,21 @@ def repeat(schematic: Schematic, x: int, y: int, z: int, facing: str, delay: int
     schematic.set(x, y, z, repeater(facing, delay))
 
 
+def north_flow(
+    schematic: Schematic,
+    x_min: int,
+    x_max: int,
+    y: int,
+    front_z: int,
+    source_z: int,
+) -> None:
+    if source_z - front_z > 7:
+        raise ValueError("a flat water stream cannot exceed seven blocks from source")
+    for z in range(front_z, source_z + 1):
+        level = source_z - z
+        schematic.fill((x_min, y, z), (x_max, y, z), water(level))
+
+
 def build_streambreach() -> tuple[Schematic, list[tuple[int, int, int]]]:
     schematic = Schematic(width=28, height=8, length=27)
     channels = tuple(range(1, 16, 2))
@@ -202,8 +228,8 @@ def build_streambreach() -> tuple[Schematic, list[tuple[int, int, int]]]:
     schematic.fill((0, 4, 7), (0, 5, 24), OBSIDIAN)
     schematic.fill((16, 4, 7), (16, 5, 24), OBSIDIAN)
     schematic.fill((0, 4, 24), (16, 5, 24), OBSIDIAN)
-    schematic.fill((1, 4, 8), (15, 4, 23), WATER)
-    schematic.fill((1, 4, 7), (15, 4, 7), SLAB)
+    schematic.fill((1, 4, 8), (15, 4, 23), water(0))
+    schematic.fill((1, 4, 7), (15, 4, 7), WATER_STOP)
 
     for x in channels:
         for z in range(10, 24):
@@ -211,15 +237,12 @@ def build_streambreach() -> tuple[Schematic, list[tuple[int, int, int]]]:
             dust(schematic, x, 6, z)
         repeat(schematic, x, 6, 24, "north", 1)
 
-        schematic.add_dispenser(x, 4, 5, "north")
-        schematic.set(x, 5, 5, SMOOTH_STONE)
-        dust(schematic, x, 6, 5)
-        repeat(schematic, x, 6, 6, "north", 1)
+        schematic.add_dispenser(x, 5, 7, "north")
 
     for x in range(1, 17):
         dust(schematic, x, 6, 25)
 
-    delay_values = [4, 4, 4, 4, 4, 4, 4, 1]
+    delay_values = [4, 4, 4, 4, 4, 4, 4, 2]
     for offset, delay in enumerate(delay_values):
         repeat(schematic, 18 + offset, 6, 25, "east", delay)
 
@@ -251,11 +274,11 @@ def build_pocketcounter() -> tuple[Schematic, list[tuple[int, int, int]]]:
     channels = (1, 3, 5, 7)
 
     schematic.fill((0, 3, 0), (9, 3, 14), OBSIDIAN)
-    schematic.fill((0, 4, 6), (0, 5, 14), OBSIDIAN)
-    schematic.fill((8, 4, 6), (8, 5, 14), OBSIDIAN)
+    schematic.fill((0, 4, 0), (0, 5, 14), OBSIDIAN)
+    schematic.fill((8, 4, 0), (8, 5, 14), OBSIDIAN)
     schematic.fill((0, 4, 14), (8, 5, 14), OBSIDIAN)
-    schematic.fill((1, 4, 7), (7, 4, 13), WATER)
-    schematic.fill((1, 4, 6), (7, 4, 6), SLAB)
+    north_flow(schematic, 1, 7, 4, front_z=7, source_z=13)
+    schematic.fill((1, 4, 6), (7, 4, 6), WATER_STOP)
 
     for x in channels:
         for z in range(9, 14):
@@ -263,29 +286,28 @@ def build_pocketcounter() -> tuple[Schematic, list[tuple[int, int, int]]]:
             dust(schematic, x, 6, z)
         repeat(schematic, x, 6, 14, "north", 1)
 
-        schematic.add_dispenser(x, 4, 4, "north")
-        schematic.set(x, 5, 4, SMOOTH_STONE)
-        dust(schematic, x, 6, 4)
-        repeat(schematic, x, 6, 5, "north", 1)
+        schematic.add_dispenser(x, 5, 6, "north")
 
     for x in range(1, 9):
         dust(schematic, x, 6, 15)
 
-    first_row = [4, 4, 4, 4]
-    second_row = [4, 4, 4, 2]
+    first_row = [1, 1, 1, 1]
+    second_row = [1, 1, 1, 1]
     for offset, delay in enumerate(first_row):
         repeat(schematic, 10 + offset, 6, 15, "east", delay)
     dust(schematic, 14, 6, 15)
-    dust(schematic, 14, 6, 14)
+    dust(schematic, 15, 6, 15)
+    dust(schematic, 15, 6, 14)
     for offset, delay in enumerate(second_row):
-        repeat(schematic, 13 - offset, 6, 14, "west", delay)
+        repeat(schematic, 14 - offset, 6, 14, "west", delay)
 
+    dust(schematic, 10, 6, 14)
     for z in range(13, 7, -1):
-        dust(schematic, 9, 6, z)
-    repeat(schematic, 9, 6, 7, "north", 1)
-    dust(schematic, 9, 6, 6)
-    repeat(schematic, 8, 6, 6, "west", 1)
-    for x in range(1, 8):
+        dust(schematic, 10, 6, z)
+    repeat(schematic, 10, 6, 7, "north", 1)
+    dust(schematic, 10, 6, 6)
+    repeat(schematic, 9, 6, 6, "west", 1)
+    for x in range(1, 9):
         dust(schematic, x, 6, 6)
 
     schematic.set(9, 5, 15, SMOOTH_STONE)

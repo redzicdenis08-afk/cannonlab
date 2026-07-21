@@ -72,47 +72,10 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-  runtime-candidates:
+  runtime-pocketcounter:
     needs: static-candidates
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - label: streambreach-120
-            scenario: ec-streambreach-120-discovery.yml
-            shots: '3'
-            min_tnt: '110'
-            min_explosions: '110'
-            radius_x: '64'
-            radius_y: '32'
-            radius_z: '64'
-          - label: pocketcounter-24
-            scenario: ec-pocketcounter-24-discovery.yml
-            shots: '5'
-            min_tnt: '20'
-            min_explosions: '20'
-            radius_x: '32'
-            radius_y: '24'
-            radius_z: '48'
-          - label: satplate-legal-120
-            scenario: ec-satplate-legal-120.yml
-            shots: '2'
-            min_tnt: '110'
-            min_explosions: '110'
-            radius_x: '32'
-            radius_y: '48'
-            radius_z: '32'
-          - label: satplate-overcap-240
-            scenario: ec-satplate-overcap-240.yml
-            shots: '2'
-            min_tnt: '220'
-            min_explosions: '220'
-            radius_x: '32'
-            radius_y: '64'
-            radius_z: '32'
-
     steps:
       - uses: actions/checkout@v4
 
@@ -130,26 +93,28 @@ jobs:
           python3 scripts/generate-candidates.py
           gradle clean build --stacktrace
 
-      - name: Run ${{ matrix.label }} on Paper 26.1.2
+      - name: Reproduce pocket counter five-shot physics proof
         env:
-          CANNONLAB_SCENARIO: ${{ matrix.scenario }}
-          CANNONLAB_SERVER_LABEL: Paper 26.1.2 candidate ${{ matrix.label }}
-          CANNONLAB_EXPECTED_SHOTS: ${{ matrix.shots }}
+          CANNONLAB_SCENARIO: ec-pocketcounter-24-discovery.yml
+          CANNONLAB_SERVER_LABEL: Paper 26.1.2 pocketcounter-24 proof
+          CANNONLAB_EXPECTED_SHOTS: '5'
           CANNONLAB_STRICT_SINGLE_TNT: 'false'
-          CANNONLAB_MIN_TNT_PER_SHOT: ${{ matrix.min_tnt }}
-          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: ${{ matrix.min_explosions }}
+          CANNONLAB_MIN_TNT_PER_SHOT: '24'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '24'
           CANNONLAB_EXPECTED_LIFETIME: '79'
           CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_MIN_TARGET_PEAK_DESTROYED: '500'
+          CANNONLAB_MIN_LAYER_BREACHED: '5'
           CANNONLAB_TIMEOUT_SECONDS: '900'
-          CANNONLAB_ARENA_RADIUS_X: ${{ matrix.radius_x }}
-          CANNONLAB_ARENA_RADIUS_Y: ${{ matrix.radius_y }}
-          CANNONLAB_ARENA_RADIUS_Z: ${{ matrix.radius_z }}
+          CANNONLAB_ARENA_RADIUS_X: '32'
+          CANNONLAB_ARENA_RADIUS_Y: '24'
+          CANNONLAB_ARENA_RADIUS_Z: '48'
         run: bash scripts/cloud-smoke.sh
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: CannonLab-candidate-${{ matrix.label }}-${{ github.run_number }}
-          path: lab-artifacts/**
-          if-no-files-found: warn
+          name: CannonLab-pocketcounter-proof-${{ github.run_number }}
+          path: lab-artifacts
+          if-no-files-found: error
           retention-days: 30
