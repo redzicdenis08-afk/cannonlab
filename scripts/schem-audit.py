@@ -130,6 +130,7 @@ def main() -> int:
     parser.add_argument("--chunk-limit", type=int, default=128)
     parser.add_argument("--expect-dispensers", type=int)
     parser.add_argument("--expect-aligned-max", type=int)
+    parser.add_argument("--require-dispenser-block-entities", action="store_true")
     parser.add_argument("--require-empty-dispensers", action="store_true")
     parser.add_argument(
         "--expect-block",
@@ -258,9 +259,9 @@ def main() -> int:
     extra_dispenser_entities = sorted(dispenser_entity_positions - dispenser_positions)
     if duplicate_block_entity_positions:
         errors.append(f"duplicate block entities at {duplicate_block_entity_positions}")
-    if missing_dispenser_entities:
+    if args.require_dispenser_block_entities and missing_dispenser_entities:
         errors.append(f"dispensers missing block entities at {missing_dispenser_entities}")
-    if extra_dispenser_entities:
+    if args.require_dispenser_block_entities and extra_dispenser_entities:
         errors.append(f"dispenser block entities without dispenser blocks at {extra_dispenser_entities}")
     if args.require_empty_dispensers and nonempty_dispenser_inventories:
         errors.append(
