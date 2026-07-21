@@ -152,3 +152,60 @@ jobs:
           path: lab-artifacts/**
           if-no-files-found: warn
           retention-days: 30
+
+  sakura-pocketcounter-button:
+    needs: build-sakura
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout CannonLab
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Download pinned runtime bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: CannonLab-Sakura-build-${{ github.run_number }}
+          path: downloaded-sakura
+
+      - name: Restore prebuilt CannonLab plugin
+        run: |
+          mkdir -p build/libs
+          cp downloaded-sakura/sakura-runtime-bundle/build/libs/CannonLab-*.jar build/libs/
+          (cd downloaded-sakura && sha256sum --check sakura-runtime-bundle/runtime-bundle.sha256)
+
+      - name: Press embedded pocket-counter button ten times on Sakura
+        env:
+          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/downloaded-sakura/sakura-runtime-bundle/sakura-26.1.2.jar
+          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 embedded-button pocketcounter proof
+          CANNONLAB_SCENARIO: ec-pocketcounter-24-discovery.yml
+          CANNONLAB_EXPECTED_SHOTS: '10'
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '24'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '24'
+          CANNONLAB_EXPECT_TNT_COHORT_SIZES: '20,4'
+          CANNONLAB_EXPECT_TNT_COHORT_GAP: '18'
+          CANNONLAB_REQUIRE_BUTTON_CONTROL: 'true'
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_MIN_TARGET_PEAK_DESTROYED: '500'
+          CANNONLAB_MIN_LAYER_BREACHED: '5'
+          CANNONLAB_TIMEOUT_SECONDS: '1200'
+          CANNONLAB_ARENA_RADIUS_X: '32'
+          CANNONLAB_ARENA_RADIUS_Y: '24'
+          CANNONLAB_ARENA_RADIUS_Z: '48'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Upload Sakura pocket-counter button evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-Sakura-pocketcounter-button-${{ github.run_number }}
+          path: lab-artifacts
+          if-no-files-found: error
+          retention-days: 30

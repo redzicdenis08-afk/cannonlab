@@ -4,7 +4,8 @@ cannon:
   origin: {x: 0, y: 0, z: 0}
   fire-mode: redstone
   fire-input: {x: 9, y: 6, z: 15}
-  fire-pulse-ticks: 4
+  # A stone button remains powered for 20 game ticks.
+  fire-pulse-ticks: 20
 limits:
   enforce-dispenser-limit: true
 target:
@@ -19,7 +20,7 @@ target:
   layers: 5
   spacing: 1
 run:
-  shots: 5
+  shots: 10
   warmup-ticks: 40
   max-shot-ticks: 280
   quiet-ticks: 100

@@ -33,7 +33,12 @@ jobs:
             --chunk-limit 128 --expect-dispensers 120 \
             --json-out candidate-audit/streambreach.json
           python3 scripts/schem-audit.py cannons/ec-pocketcounter-24.schem \
-            --chunk-limit 128 --expect-dispensers 24 \
+            --chunk-limit 128 --expect-dispensers 24 --require-empty-dispensers \
+            --expect-block '9,5,14=minecraft:air' \
+            --expect-block '9,5,15=minecraft:cyan_concrete' \
+            --expect-block '9,6,15=minecraft:stone_button[face=floor,facing=north,powered=false]' \
+            --expect-block '8,6,15=minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]' \
+            --expect-block '10,6,15=minecraft:repeater[delay=1,facing=west,locked=false,powered=false]' \
             --json-out candidate-audit/pocketcounter.json
           python3 scripts/schem-audit.py cannons/ec-satplate-legal-120.schem \
             --chunk-limit 128 --expect-dispensers 120 --expect-aligned-max 120 \
@@ -51,6 +56,18 @@ jobs:
           for report in reports:
               assert report['block_entities']['explicit'] == report['dispensers']['count'], report
               assert not report['support_failures'], report
+          pocket = json.loads(Path('candidate-audit/pocketcounter.json').read_text())
+          assert pocket['block_type_counts'].get('minecraft:stone_button') == 1, pocket
+          assert pocket['block_type_counts'].get('minecraft:cyan_concrete') == 1, pocket
+          assert pocket['block_entities']['empty_dispenser_inventories'] == 24, pocket
+          assert not pocket['block_entities']['missing_dispenser_entities'], pocket
+          assert not pocket['block_entities']['extra_dispenser_entities'], pocket
+          assert all(item['matched'] for item in pocket['expected_blocks']), pocket
+          assert sum(item['count'] for item in pocket['repeaters']) == 14, pocket
+          assert all(item['properties'].get('delay') == '1' for item in pocket['repeaters']), pocket
+          assert sorted(
+              int(item['properties']['level']) for item in pocket['water_states']
+          ) == list(range(7)), pocket
           over = json.loads(Path('candidate-audit/satplate-overcap.json').read_text())
           assert over['dispensers']['aligned_max'] > 160, over
           print('Over-cap control is deliberately above 160 and all dispenser NBT is explicit.')
@@ -93,14 +110,17 @@ jobs:
           python3 scripts/generate-candidates.py
           gradle clean build --stacktrace
 
-      - name: Reproduce pocket counter five-shot physics proof
+      - name: Reproduce ten-shot embedded-button physics proof
         env:
           CANNONLAB_SCENARIO: ec-pocketcounter-24-discovery.yml
           CANNONLAB_SERVER_LABEL: Paper 26.1.2 pocketcounter-24 proof
-          CANNONLAB_EXPECTED_SHOTS: '5'
+          CANNONLAB_EXPECTED_SHOTS: '10'
           CANNONLAB_STRICT_SINGLE_TNT: 'false'
           CANNONLAB_MIN_TNT_PER_SHOT: '24'
           CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '24'
+          CANNONLAB_EXPECT_TNT_COHORT_SIZES: '20,4'
+          CANNONLAB_EXPECT_TNT_COHORT_GAP: '18'
+          CANNONLAB_REQUIRE_BUTTON_CONTROL: 'true'
           CANNONLAB_EXPECTED_LIFETIME: '79'
           CANNONLAB_LIFETIME_TOLERANCE: '0'
           CANNONLAB_MIN_TARGET_PEAK_DESTROYED: '500'

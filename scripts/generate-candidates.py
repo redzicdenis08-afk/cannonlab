@@ -13,8 +13,10 @@ END, BYTE, SHORT, INT, LONG, FLOAT, DOUBLE, BYTE_ARRAY, STRING, LIST, COMPOUND, 
 AIR = "minecraft:air"
 OBSIDIAN = "minecraft:obsidian"
 SMOOTH_STONE = "minecraft:smooth_stone"
+CYAN_CONCRETE = "minecraft:cyan_concrete"
 WIRE = "minecraft:redstone_wire[east=side,north=side,power=0,south=side,west=side]"
 WATER_STOP = "minecraft:oak_trapdoor[facing=north,half=bottom,open=true,powered=false,waterlogged=false]"
+FIRE_BUTTON = "minecraft:stone_button[face=floor,facing=north,powered=false]"
 
 
 def water(level: int) -> str:
@@ -310,11 +312,15 @@ def build_pocketcounter() -> tuple[Schematic, list[tuple[int, int, int]]]:
     for x in range(1, 9):
         dust(schematic, x, 6, 6)
 
-    schematic.set(9, 5, 15, SMOOTH_STONE)
-    schematic.set(9, 5, 14, "minecraft:cyan_concrete")
+    # The pasted cannon is immediately usable: the cyan block is the exact
+    # fire-control support and the stone button above it feeds both branches.
+    # West starts the one-tick charge path; east starts the ten-tick payload path.
+    schematic.set(9, 5, 15, CYAN_CONCRETE)
+    schematic.set(9, 6, 15, FIRE_BUTTON)
     fire_inputs = [(9, 6, 15)]
 
     assert schematic.dispenser_count() == 24
+    assert schematic.blocks[fire_inputs[0]] == FIRE_BUTTON
     return schematic, fire_inputs
 
 

@@ -76,6 +76,15 @@ def main() -> None:
     parser.add_argument("--strict-single-tnt", action="store_true")
     parser.add_argument("--min-tnt-per-shot", type=int, default=1)
     parser.add_argument("--min-explosions-per-shot", type=int, default=1)
+    parser.add_argument(
+        "--expect-tnt-cohort-sizes",
+        help="Comma-separated TNT spawn cohort sizes required for every shot, e.g. 20,4",
+    )
+    parser.add_argument(
+        "--expect-tnt-cohort-gap",
+        type=int,
+        help="Required game-tick gap between two TNT spawn cohorts",
+    )
     parser.add_argument("--expected-lifetime", type=int)
     parser.add_argument("--lifetime-tolerance", type=int, default=1)
     parser.add_argument("--min-forward-travel", type=float)
@@ -95,6 +104,20 @@ def main() -> None:
         fail("--min-explosions-per-shot must be positive")
     if args.lifetime_tolerance < 0:
         fail("--lifetime-tolerance cannot be negative")
+    expected_cohort_sizes = None
+    if args.expect_tnt_cohort_sizes:
+        try:
+            expected_cohort_sizes = [
+                int(value.strip())
+                for value in args.expect_tnt_cohort_sizes.split(",")
+                if value.strip()
+            ]
+        except ValueError as exc:
+            fail(f"invalid --expect-tnt-cohort-sizes: {exc}")
+        if not expected_cohort_sizes or any(value < 1 for value in expected_cohort_sizes):
+            fail("--expect-tnt-cohort-sizes must contain positive integers")
+    if args.expect_tnt_cohort_gap is not None and args.expect_tnt_cohort_gap < 0:
+        fail("--expect-tnt-cohort-gap cannot be negative")
 
     summaries = sorted(
         args.results_root.rglob("run-summary.json"),
@@ -237,6 +260,28 @@ def main() -> None:
         entity_details: list[dict[str, object]] = []
         shot_forward: list[float] = []
         shot_misses: list[float] = []
+        spawn_tick_counts: Counter[int] = Counter()
+
+        for entity_rows in tnt_by_uuid.values():
+            if entity_rows:
+                spawn_tick_counts[min(int(row["tick"]) for row in entity_rows)] += 1
+        spawn_tick_cohorts = sorted(spawn_tick_counts.items())
+        cohort_sizes = [count for _tick, count in spawn_tick_cohorts]
+        cohort_gaps = [
+            spawn_tick_cohorts[index][0] - spawn_tick_cohorts[index - 1][0]
+            for index in range(1, len(spawn_tick_cohorts))
+        ]
+        if expected_cohort_sizes is not None and cohort_sizes != expected_cohort_sizes:
+            failures.append(
+                f"{shot_name}: TNT spawn cohort sizes={cohort_sizes} "
+                f"expected={expected_cohort_sizes}"
+            )
+        if args.expect_tnt_cohort_gap is not None:
+            if len(cohort_gaps) != 1 or cohort_gaps[0] != args.expect_tnt_cohort_gap:
+                failures.append(
+                    f"{shot_name}: TNT spawn cohort gaps={cohort_gaps} "
+                    f"expected=[{args.expect_tnt_cohort_gap}]"
+                )
 
         for uid, entity_rows in tnt_by_uuid.items():
             if not uid:
@@ -354,6 +399,11 @@ def main() -> None:
                 "shot": shot_name,
                 "tnt_uuids": len(tnt_by_uuid),
                 "explosions": len(explosions),
+                "spawn_tick_cohorts": [
+                    {"tick": tick, "count": count}
+                    for tick, count in spawn_tick_cohorts
+                ],
+                "spawn_tick_gaps": cohort_gaps,
                 "best_forward_travel": best_forward,
                 "closest_target_miss": best_miss,
                 "entities": entity_details,

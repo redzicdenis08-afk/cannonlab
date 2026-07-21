@@ -16,6 +16,9 @@ EXPECTED_SHOTS="${CANNONLAB_EXPECTED_SHOTS:-10}"
 STRICT_SINGLE_TNT="${CANNONLAB_STRICT_SINGLE_TNT:-true}"
 MIN_TNT_PER_SHOT="${CANNONLAB_MIN_TNT_PER_SHOT:-1}"
 MIN_EXPLOSIONS_PER_SHOT="${CANNONLAB_MIN_EXPLOSIONS_PER_SHOT:-1}"
+EXPECTED_TNT_COHORT_SIZES="${CANNONLAB_EXPECT_TNT_COHORT_SIZES:-}"
+EXPECTED_TNT_COHORT_GAP="${CANNONLAB_EXPECT_TNT_COHORT_GAP:-}"
+REQUIRE_BUTTON_CONTROL="${CANNONLAB_REQUIRE_BUTTON_CONTROL:-false}"
 EXPECTED_LIFETIME="${CANNONLAB_EXPECTED_LIFETIME:-79}"
 LIFETIME_TOLERANCE="${CANNONLAB_LIFETIME_TOLERANCE:-0}"
 MIN_FORWARD_TRAVEL="${CANNONLAB_MIN_FORWARD_TRAVEL:-}"
@@ -204,6 +207,22 @@ if [[ "$SERVER_EXIT" -ne 0 ]]; then
   exit "$SERVER_EXIT"
 fi
 
+case "${REQUIRE_BUTTON_CONTROL,,}" in
+  1|true|yes)
+    BUTTON_PRESS_COUNT="$(grep -c 'previous=STONE_BUTTON | control=button' "$STDOUT" || true)"
+    FALLBACK_FIRE_COUNT="$(grep -c 'control=redstone-block' "$STDOUT" || true)"
+    printf 'buttonPresses=%s expected=%s fallbackRedstoneBlockFires=%s\n' \
+      "$BUTTON_PRESS_COUNT" "$EXPECTED_SHOTS" "$FALLBACK_FIRE_COUNT" \
+      | tee "$ARTIFACTS/button-control.txt"
+    if [[ "$BUTTON_PRESS_COUNT" -ne "$EXPECTED_SHOTS" || "$FALLBACK_FIRE_COUNT" -ne 0 ]]; then
+      echo "Embedded button control assertion failed." >&2
+      exit 1
+    fi
+    ;;
+  0|false|no) ;;
+  *) echo "Invalid CANNONLAB_REQUIRE_BUTTON_CONTROL=$REQUIRE_BUTTON_CONTROL" >&2; exit 1 ;;
+esac
+
 ASSERT_ARGS=(
   "$ARTIFACTS/results"
   --expected-shots "$EXPECTED_SHOTS"
@@ -218,6 +237,12 @@ case "${STRICT_SINGLE_TNT,,}" in
 esac
 if [[ -n "$EXPECTED_LIFETIME" && "${EXPECTED_LIFETIME,,}" != "none" ]]; then
   ASSERT_ARGS+=(--expected-lifetime "$EXPECTED_LIFETIME" --lifetime-tolerance "$LIFETIME_TOLERANCE")
+fi
+if [[ -n "$EXPECTED_TNT_COHORT_SIZES" ]]; then
+  ASSERT_ARGS+=(--expect-tnt-cohort-sizes "$EXPECTED_TNT_COHORT_SIZES")
+fi
+if [[ -n "$EXPECTED_TNT_COHORT_GAP" ]]; then
+  ASSERT_ARGS+=(--expect-tnt-cohort-gap "$EXPECTED_TNT_COHORT_GAP")
 fi
 if [[ -n "$MIN_FORWARD_TRAVEL" ]]; then
   ASSERT_ARGS+=(--min-forward-travel "$MIN_FORWARD_TRAVEL")

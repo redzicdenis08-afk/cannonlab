@@ -15,13 +15,13 @@ This remains a design candidate. It is not runtime-proven and is not claimed to 
 
 - exact `16 x 8 x 16` dimensions
 - 20 charge dispensers and 4 payload dispensers
-- one fire input at relative coordinate `9,6,15`
+- one included stone button at relative coordinate `9,6,15`, mounted on the cyan fire-control block
 - graded water flow toward an open-trapdoor water stop
 - payload delay path is 10 redstone ticks versus one redstone tick for charge, a relative delay of 9 redstone ticks or 18 game ticks
 - fires north, toward negative Z
-- official proof scenario uses five shots against five cobblestone layers at distance 8
+- official proof scenario uses ten button-pressed shots against five cobblestone layers at distance 8
 
-The exact generated geometry passed five consecutive local Paper 26.1.2 shots with 24 TNT spawns, 24 explosions, lifetime 79, and all five target layers reached on every shot. CI must reproduce those same gates before the artifact is described as repository-verified. ExtremeCraft still requires a live field test.
+After pasting, run `/p tntfill` and press the included button. Do not place another button anywhere on the delay bank. Runtime assertions require two exact TNT spawn cohorts on every shot: 20 charge TNT first, then 4 payload TNT exactly 18 game ticks later. The exact generated geometry must pass the button-powered Paper and Sakura runtime gates before this version is described as repository-verified. ExtremeCraft still requires a live field test.
 
 ## Saturation experiment
 
