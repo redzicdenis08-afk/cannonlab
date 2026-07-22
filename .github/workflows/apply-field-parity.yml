@@ -1,0 +1,38 @@
+name: Apply cannon field parity
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    if: github.head_ref == 'fix/litematic-field-parity'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout feature branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Apply deterministic transforms
+        run: python3 .agent/apply-field-parity.py
+
+      - name: Verify decoder and compile plugin
+        run: |
+          python3 scripts/test-negative-litematic.py
+          python3 -m py_compile scripts/schem-audit.py scripts/test-negative-litematic.py
+          gradle clean build --stacktrace
+
+      - name: Commit verified implementation
+        run: |
+          rm -f .agent/apply-field-parity.py .github/workflows/apply-field-parity.yml
+          rmdir .agent 2>/dev/null || true
+          git config user.name 'CannonLab Builder'
+          git config user.email 'cannonlab@users.noreply.github.com'
+          git add -A
+          git commit -m 'Fix negative Litematica regions and EC field workflow parity'
+          git push origin HEAD:${{ github.head_ref }}
