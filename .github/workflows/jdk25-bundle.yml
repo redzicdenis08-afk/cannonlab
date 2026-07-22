@@ -1,0 +1,29 @@
+name: JDK 25 Runtime Bundle
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Package Java 25
+        run: |
+          mkdir -p jdk-bundle
+          tar -C "$JAVA_HOME" -czf jdk-bundle/temurin-25-linux-x64.tar.gz .
+          "$JAVA_HOME/bin/java" -version 2> jdk-bundle/java-version.txt
+          sha256sum jdk-bundle/temurin-25-linux-x64.tar.gz > jdk-bundle/sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Temurin-25-Linux-x64
+          path: jdk-bundle/**
+          retention-days: 1
