@@ -13,3 +13,12 @@ limits:
   dispensers-per-chunk: 160
 telemetry:
   output-directory: results
+  causal:
+    enabled: true
+    capture-redstone: true
+    capture-dispense: true
+    capture-pistons: true
+    capture-entity-add: true
+    capture-tnt-prime: true
+    # Fluid events are extremely noisy on large watered cannons. Enable only for fluid probes.
+    capture-fluid: false
