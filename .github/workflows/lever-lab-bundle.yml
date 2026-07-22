@@ -20,7 +20,7 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.2.1'
-      - name: Add diagnostic native lever mode
+      - name: Add persistent and pulsed lever modes
         run: |
           python - <<'PY'
           from pathlib import Path
@@ -28,7 +28,7 @@ jobs:
           text = scenario.read_text()
           text = text.replace(
               'enum FireMode {\n        REDSTONE,\n        BUTTON,\n        DIRECT_DISPENSE',
-              'enum FireMode {\n        REDSTONE,\n        BUTTON,\n        LEVER,\n        DIRECT_DISPENSE'
+              'enum FireMode {\n        REDSTONE,\n        BUTTON,\n        LEVER,\n        LEVER_PULSE,\n        DIRECT_DISPENSE'
           )
           scenario.write_text(text)
 
@@ -40,9 +40,9 @@ jobs:
           )
           text = text.replace(
               'case BUTTON -> pressButtons(world, pasteOrigin);\n            case REDSTONE -> pulseRedstone(world, pasteOrigin);',
-              'case BUTTON -> pressButtons(world, pasteOrigin);\n            case LEVER -> toggleLevers(world, pasteOrigin);\n            case REDSTONE -> pulseRedstone(world, pasteOrigin);'
+              'case BUTTON -> pressButtons(world, pasteOrigin);\n            case LEVER -> toggleLevers(world, pasteOrigin, false);\n            case LEVER_PULSE -> toggleLevers(world, pasteOrigin, true);\n            case REDSTONE -> pulseRedstone(world, pasteOrigin);'
           )
-          method = '''    private void toggleLevers(World world, Location pasteOrigin) {\n        int toggled = 0;\n        for (LabScenario.BlockPoint point : scenario.fireInputs()) {\n            Location location = relative(pasteOrigin, point);\n            Block block = world.getBlockAt(location);\n            BlockData data = block.getBlockData();\n            if (block.getType() != Material.LEVER || !(data instanceof Powerable powerable)) {\n                throw new IllegalStateException("Lever fire coordinate "\n                        + coordinates(location) + " contains " + data.getAsString());\n            }\n            recorder.recordControlEvent(\n                    "FIRE_INPUT",\n                    location,\n                    "mode=lever;implementation=bukkit-powerable;previous=" + powerable.isPowered()\n            );\n            powerable.setPowered(!powerable.isPowered());\n            block.setBlockData(powerable, true);\n            plugin.getLogger().info("Lever toggle at " + coordinates(location)\n                    + " | powered=" + powerable.isPowered());\n            toggled++;\n        }\n        if (toggled == 0) {\n            throw new IllegalStateException("No lever fire inputs configured.");\n        }\n    }\n\n'''
+          method = '''    private void toggleLevers(World world, Location pasteOrigin, boolean pulse) {\n        List<Block> toggledBlocks = new ArrayList<>();\n        for (LabScenario.BlockPoint point : scenario.fireInputs()) {\n            Location location = relative(pasteOrigin, point);\n            Block block = world.getBlockAt(location);\n            BlockData data = block.getBlockData();\n            if (block.getType() != Material.LEVER || !(data instanceof Powerable powerable)) {\n                throw new IllegalStateException("Lever fire coordinate "\n                        + coordinates(location) + " contains " + data.getAsString());\n            }\n            recorder.recordControlEvent(\n                    "FIRE_INPUT",\n                    location,\n                    "mode=" + (pulse ? "lever-pulse" : "lever")\n                            + ";implementation=bukkit-powerable;previous=" + powerable.isPowered()\n                            + ";pulse_ticks=" + scenario.firePulseTicks()\n            );\n            powerable.setPowered(!powerable.isPowered());\n            block.setBlockData(powerable, true);\n            plugin.getLogger().info("Lever toggle at " + coordinates(location)\n                    + " | powered=" + powerable.isPowered() + " | pulse=" + pulse);\n            toggledBlocks.add(block);\n        }\n        if (toggledBlocks.isEmpty()) {\n            throw new IllegalStateException("No lever fire inputs configured.");\n        }\n        if (pulse) {\n            Bukkit.getScheduler().runTaskLater(plugin, () -> {\n                for (Block block : toggledBlocks) {\n                    BlockData data = block.getBlockData();\n                    if (block.getType() == Material.LEVER && data instanceof Powerable powerable\n                            && powerable.isPowered()) {\n                        powerable.setPowered(false);\n                        block.setBlockData(powerable, true);\n                        plugin.getLogger().info("Lever pulse released at "\n                                + coordinates(block.getLocation()));\n                    }\n                }\n            }, Math.max(1, scenario.firePulseTicks()));\n        }\n    }\n\n'''
           text = text.replace('    private void pressNativeButton(Block block) {\n', method + '    private void pressNativeButton(Block block) {\n')
           controller.write_text(text)
           PY
