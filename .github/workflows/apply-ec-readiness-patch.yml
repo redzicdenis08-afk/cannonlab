@@ -21,20 +21,20 @@ jobs:
       - name: Diagnose and apply audited patch
         run: |
           set +e
-          git apply --check --verbose .agent/ec-readiness.patch > .agent/apply.log 2>&1
+          git apply --check --verbose .agent/ec-readiness.patch > apply-error.txt 2>&1
           status=$?
           set -e
           if [[ "$status" -ne 0 ]]; then
-            cat .agent/apply.log
+            cat apply-error.txt
             git config user.name 'CannonLab Builder'
             git config user.email 'cannonlab@users.noreply.github.com'
-            git add .agent/apply.log
+            git add -f apply-error.txt
             git commit -m 'Capture EC readiness patch failure'
             git push origin HEAD:${{ github.head_ref }}
             exit "$status"
           fi
           git apply .agent/ec-readiness.patch
-          rm -f .agent/ec-readiness.patch .agent/apply.log .github/workflows/apply-ec-readiness-patch.yml
+          rm -f .agent/ec-readiness.patch .agent/apply.log apply-error.txt .github/workflows/apply-ec-readiness-patch.yml
           rmdir .agent 2>/dev/null || true
 
       - name: Compile local sources
