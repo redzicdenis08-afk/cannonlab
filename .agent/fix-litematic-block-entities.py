@@ -16,7 +16,8 @@ if text.count(old) != 1:
 auditor.write_text(text.replace(old, new, 1), encoding="utf-8")
 
 negative_test = root / "scripts/test-negative-litematic.py"
-test = negative_test.read_text(encoding="utf-8")nt_old = '''            "BlockStates": [36],
+test = negative_test.read_text(encoding="utf-8")
+nt_old = '''            "BlockStates": [36],
             "TileEntities": [],
 '''
 nt_new = '''            "BlockStates": [36],
@@ -25,15 +26,14 @@ nt_new = '''            "BlockStates": [36],
 if test.count(nt_old) != 1:
     raise SystemExit(f"expected one regression fixture anchor, found {test.count(nt_old)}")
 test = test.replace(nt_old, nt_new, 1)
-test = test.replace(
-    '''assert model["offset"] == [0, 0, 0], model["offset"]
+old_assert = '''assert model["offset"] == [0, 0, 0], model["offset"]
 print("negative-region Litematica coordinate order PASS")
-''',
-    '''assert model["offset"] == [0, 0, 0], model["offset"]
+'''
+new_assert = '''assert model["offset"] == [0, 0, 0], model["offset"]
 assert model["block_entities"][0]["pos"] == (0, 0, 0), model["block_entities"]
 print("negative-region Litematica coordinate and block-entity order PASS")
-''',
-    1,
-)
-negative_test.write_text(test, encoding="utf-8")
+'''
+if test.count(old_assert) != 1:
+    raise SystemExit(f"expected one regression assertion anchor, found {test.count(old_assert)}")
+negative_test.write_text(test.replace(old_assert, new_assert, 1), encoding="utf-8")
 print("Litematica region-local block entities fixed.")
