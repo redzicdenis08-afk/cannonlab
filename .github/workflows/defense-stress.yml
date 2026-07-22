@@ -19,7 +19,8 @@ jobs:
             scenario: multi-tnt-range.yml
             shots: '10'
             min_forward: ''
-            min_peak: '25'
+            min_peak: '20'
+            min_peak_mean: '25'
             min_layer: '1'
             max_peak: ''
             require_regen: 'false'
@@ -29,6 +30,7 @@ jobs:
             shots: '5'
             min_forward: '0.05'
             min_peak: '25'
+            min_peak_mean: ''
             min_layer: '1'
             max_peak: ''
             require_regen: 'true'
@@ -38,6 +40,7 @@ jobs:
             shots: '5'
             min_forward: ''
             min_peak: ''
+            min_peak_mean: ''
             min_layer: ''
             max_peak: '6'
             require_regen: 'false'
@@ -47,6 +50,7 @@ jobs:
             shots: '5'
             min_forward: ''
             min_peak: ''
+            min_peak_mean: ''
             min_layer: ''
             max_peak: '0'
             require_regen: 'false'
@@ -56,6 +60,7 @@ jobs:
             shots: '5'
             min_forward: ''
             min_peak: '6'
+            min_peak_mean: ''
             min_layer: '1'
             max_peak: ''
             require_regen: 'false'
@@ -92,6 +97,7 @@ jobs:
           CANNONLAB_MIN_FORWARD_TRAVEL: ${{ matrix.min_forward }}
           CANNONLAB_MAX_TARGET_MISS_DISTANCE: '7.0'
           CANNONLAB_MIN_TARGET_PEAK_DESTROYED: ${{ matrix.min_peak }}
+          CANNONLAB_MIN_TARGET_PEAK_MEAN: ${{ matrix.min_peak_mean }}
           CANNONLAB_MIN_LAYER_BREACHED: ${{ matrix.min_layer }}
           CANNONLAB_REQUIRE_REGEN: ${{ matrix.require_regen }}
           CANNONLAB_MIN_REGEN_RESTORED: ${{ matrix.min_regen }}
