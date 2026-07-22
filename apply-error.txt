@@ -1,1 +1,107 @@
-error: corrupt patch at .agent/ec-readiness.patch:30
+Checking patch src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java...
+Hunk #1 succeeded at 167 (offset 2 lines).
+Hunk #2 succeeded at 330 (offset -2 lines).
+Hunk #3 succeeded at 347 (offset -2 lines).
+error: while searching for:
+    private TargetBuild buildTarget(World world, Location origin, LabScenario selected) {
+        List<TargetCell> cells = new ArrayList<>();
+        int halfWidth = selected.targetWidth() / 2;
+        BoundsBuilder bounds = new BoundsBuilder();
+
+        for (int layer = 0; layer < selected.targetLayers(); layer++) {
+            int distance = selected.targetDistance() + layer * selected.targetSpacing();
+
+            for (int vertical = 0; vertical < selected.targetHeight(); vertical++) {
+                int y = origin.getBlockY() + selected.targetYOffset() + vertical;
+                if (y < world.getMinHeight() || y >= world.getMaxHeight()) {
+                    throw new IllegalStateException("Target Y outside world bounds: " + y);
+                }
+
+                for (int across = 0; across < selected.targetWidth(); across++) {
+                    int lateral = selected.targetLateralOffset() - halfWidth + across;
+                    TargetPlacement placement = targetPlacement(
+                            origin,
+                            selected.targetDirection(),
+                            distance,
+                            lateral,
+                            y
+                    );
+                    validateArenaBounds(origin, placement);
+
+                    Block target = world.getBlockAt(placement.targetX(), y, placement.targetZ());
+                    Block front = world.getBlockAt(placement.frontX(), y, placement.frontZ());
+                    Block back = world.getBlockAt(placement.backX(), y, placement.backZ());
+                    target.setType(Material.AIR, false);
+                    front.setType(Material.AIR, false);
+                    back.setType(Material.AIR, false);
+
+                    boolean checker = ((vertical + across + layer) & 1) == 0;
+                    switch (selected.targetType()) {
+                        case DRY -> target.setType(selected.targetMaterial(), false);
+                        case WATERED -> {
+                            target.setType(selected.targetMaterial(), false);
+                            front.setType(Material.WATER, false);
+                        }
+                        case COBBLE_REGEN -> {
+                            target.setType(selected.targetMaterial(), false);
+                            front.setType(Material.WATER, false);
+                            back.setType(Material.LAVA, false);
+                        }
+                        case FILTER -> target.setType(
+                                checker ? selected.targetMaterial() : Material.AIR,
+                                false
+                        );
+                        case SLAB_FILTER -> {
+                            target.setType(selected.targetMaterial(), false);
+                            front.setType(Material.STONE_SLAB, false);
+                            BlockData data = front.getBlockData();
+                            if (data instanceof Slab slab) {
+                                slab.setType(checker ? Slab.Type.TOP : Slab.Type.BOTTOM);
+                                front.setBlockData(slab, false);
+                            }
+                        }
+                        case HOTDOG -> {
+                            boolean solidLane = ((across / selected.hotdogBandWidth()) & 1) == 0;
+                            front.setType(Material.WATER, false);
+                            if (solidLane) {
+                                target.setType(
+                                        checker ? selected.targetMaterial() : selected.alternateMaterial(),
+                                        false
+
+                        }
+                        case PILLARS -> {
+                            boolean pillar = Math.floorMod(across + layer, selected.pillarSpacing()) == 0;
+                            if (pillar) {
+                                target.setType(selected.targetMaterial(), false);
+                            }
+                        }
+                    }
+
+                    if (!target.isEmpty()) {
+          
+error: patch failed: src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java:407
+error: src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java: patch does not apply
+Checking patch src/main/java/io/github/redzicdenis08afk/cannonlab/ShotRecorder.java...
+Hunk #1 succeeded at 47 (offset -2 lines).
+Hunk #2 succeeded at 58 (offset -3 lines).
+Hunk #3 succeeded at 85 (offset -3 lines).
+error: while searching for:
+        world = recordingWorld;
+        origin = recordingOrigin.clone();
+        cannonOrigin = recordingOrigin.clone();
+
+error: patch failed: src/main/java/io/github/redzicdenis08afk/cannonlab/ShotRecorder.java:118
+error: src/main/java/io/github/redzicdenis08afk/cannonlab/ShotRecorder.java: patch does not apply
+Checking patch scripts/assert-results.py...
+warning: scripts/assert-results.py has type 100644, expected 100755
+Hunk #1 succeeded at 84 (offset -3 lines).
+error: while searching for:
+    if args.min_target_peak_mean is not None and args.min_target_peak_mean < 0:
+        fail("--min-target-peak-mean cannot be negative")
+
+error: patch failed: scripts/assert-results.py:101
+error: scripts/assert-results.py: patch does not apply
+Checking patch scripts/cloud-smoke.sh...
+warning: scripts/cloud-smoke.sh has type 100644, expected 100755
+Hunk #1 succeeded at 24 (offset -1 lines).
+Hunk #2 succeeded at 213 (offset -1 lines).
