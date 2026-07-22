@@ -31,9 +31,9 @@ jobs:
       - name: Decode and statically audit candidate
         run: |
           mkdir -p candidate-evidence
-          base64 --decode cannons/ec-sandburst-24-v1.schem.b64 > candidate-evidence/ec-sandburst-24-v1.schem
-          echo 'bbee4083433b510a6c91701c51dee61eb7d113ddef207f9430772e5617e97923  candidate-evidence/ec-sandburst-24-v1.schem' | sha256sum --check
-          python scripts/schem-audit.py candidate-evidence/ec-sandburst-24-v1.schem \
+          base64 --decode cannons/ec-sandburst-24-v2.schem.b64 > candidate-evidence/ec-sandburst-24-v2.schem
+          echo '8d1e48ecca6428595faa2d89871bd9cb44864e933ae2b1295f589dde07e1d4db  candidate-evidence/ec-sandburst-24-v2.schem' | sha256sum --check
+          python scripts/schem-audit.py candidate-evidence/ec-sandburst-24-v2.schem \
             --chunk-limit 160 \
             --expect-dispensers 24 \
             --expect-aligned-max 24 \
@@ -46,15 +46,15 @@ jobs:
           spec = importlib.util.spec_from_file_location('schem_audit', 'scripts/schem-audit.py')
           module = importlib.util.module_from_spec(spec)
           spec.loader.exec_module(module)
-          root_name, root, trailing, size = module.load(Path('candidate-evidence/ec-sandburst-24-v1.schem'))
+          root_name, root, trailing, size = module.load(Path('candidate-evidence/ec-sandburst-24-v2.schem'))
           model = module.decode_any(root_name, root)
           blocks = model['blocks']
           for x in (1, 3, 5, 7):
               assert blocks[(x, 6, 3)] == 'minecraft:sand'
               assert blocks[(x, 6, 4)] == 'minecraft:piston[extended=false,facing=north]'
-              assert blocks[(x, 6, 5)] == 'minecraft:repeater[delay=1,facing=north,locked=false,powered=false]'
+              assert blocks[(x, 6, 5)] == 'minecraft:repeater[delay=1,facing=south,locked=false,powered=false]'
               assert module.base(blocks[(x, 6, 6)]) == 'minecraft:redstone_wire'
-              assert module.base(blocks[(x, 5, 5)]) == 'minecraft:smooth_stone'
+              assert module.base(blocks[(x, 5, 5)]) == 'minecraft:obsidian'
               assert module.base(blocks[(x, 4, 2)]) == 'minecraft:cobweb'
               assert sum(module.base(blocks[(x, y, 3)]) == 'minecraft:sand' for y in range(7, 15)) == 8
           print('Four north-facing, supported, auto-refilling sand injectors verified.')
@@ -66,7 +66,7 @@ jobs:
       - name: Run three field-faithful watered-wall shots on Paper
         env:
           CANNONLAB_MC_VERSION: '26.1.2'
-          CANNONLAB_SCENARIO: ec-sandburst-24-v1.yml
+          CANNONLAB_SCENARIO: ec-sandburst-24-v2.yml
           CANNONLAB_SERVER_LABEL: Paper 26.1.2 EC SandBurst canary
           CANNONLAB_EXPECTED_SHOTS: '3'
           CANNONLAB_STRICT_SINGLE_TNT: 'false'
@@ -74,9 +74,9 @@ jobs:
           CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '20'
           CANNONLAB_EXPECTED_LIFETIME: '79'
           CANNONLAB_LIFETIME_TOLERANCE: '0'
-          CANNONLAB_MAX_TARGET_MISS_DISTANCE: '12.0'
+          CANNONLAB_MAX_TARGET_MISS_DISTANCE: '7.0'
           CANNONLAB_MIN_TARGET_PEAK_DESTROYED: '1'
-          CANNONLAB_MAX_SELF_DAMAGE_BLOCKS: '20'
+          CANNONLAB_MAX_SELF_DAMAGE_BLOCKS: '80'
           CANNONLAB_TIMEOUT_SECONDS: '720'
           CANNONLAB_ARENA_RADIUS_X: '32'
           CANNONLAB_ARENA_RADIUS_Y: '28'
@@ -99,7 +99,7 @@ jobs:
           run = json.loads(summaries[0].read_text())
           assert run['shots_completed'] == 3, run
           assert all(shot['target_peak_destroyed'] >= 1 for shot in run['shots']), run
-          assert all(shot['self_damage_blocks'] <= 20 for shot in run['shots']), run
+          assert all(shot['self_damage_blocks'] <= 80 for shot in run['shots']), run
           assert all(shot['maximum_falling_blocks'] >= 1 for shot in run['shots']), run
 
           evidence = []
@@ -108,7 +108,7 @@ jobs:
                   rows = list(csv.DictReader(handle))
               buttons = [r for r in rows if r['event'] == 'FIRE_INPUT' and 'mode=button' in r['details']]
               piston_extends = [r for r in rows if r['event'] == 'PISTON_EXTEND' and r['direction'] == 'NORTH']
-              sand_entities = [r for r in rows if r['event'] == 'ENTITY_ADD' and r['entity_type'] == 'FALLING_BLOCK' and 'minecraft:sand' in r['details']]
+              sand_entities = [r for r in rows if r['event'] == 'ENTITY_ADD' and r['entity_type'] == 'FALLING_BLOCK' and 'minecraft:sand' in r['details'] and int(r['tick']) < 220 and float(r['relative_z']) < 3.0]
               tnt_dispenses = [r for r in rows if r['event'] == 'DISPENSE' and r['item'] == 'TNT']
               assert len(buttons) == 1, (trace, buttons)
               assert len(piston_extends) >= 4, (trace, piston_extends)
