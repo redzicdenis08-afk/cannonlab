@@ -1,0 +1,137 @@
+name: EC SandBurst Canary
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  paper-sandburst:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Decode and statically audit candidate
+        run: |
+          mkdir -p candidate-evidence
+          base64 --decode cannons/ec-sandburst-24-v1.schem.b64 > candidate-evidence/ec-sandburst-24-v1.schem
+          echo 'bbee4083433b510a6c91701c51dee61eb7d113ddef207f9430772e5617e97923  candidate-evidence/ec-sandburst-24-v1.schem' | sha256sum --check
+          python scripts/schem-audit.py candidate-evidence/ec-sandburst-24-v1.schem \
+            --chunk-limit 160 \
+            --expect-dispensers 24 \
+            --expect-aligned-max 24 \
+            --expect-format sponge-v2 \
+            --require-all-alignments-safe \
+            --json-out candidate-evidence/static-audit.json
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          spec = importlib.util.spec_from_file_location('schem_audit', 'scripts/schem-audit.py')
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          root_name, root, trailing, size = module.load(Path('candidate-evidence/ec-sandburst-24-v1.schem'))
+          model = module.decode_any(root_name, root)
+          blocks = model['blocks']
+          for x in (1, 3, 5, 7):
+              assert blocks[(x, 6, 3)] == 'minecraft:sand'
+              assert blocks[(x, 6, 4)] == 'minecraft:piston[extended=false,facing=north]'
+              assert blocks[(x, 6, 5)] == 'minecraft:repeater[delay=1,facing=north,locked=false,powered=false]'
+              assert module.base(blocks[(x, 6, 6)]) == 'minecraft:redstone_wire'
+              assert module.base(blocks[(x, 5, 5)]) == 'minecraft:smooth_stone'
+              assert module.base(blocks[(x, 4, 2)]) == 'minecraft:cobweb'
+              assert sum(module.base(blocks[(x, y, 3)]) == 'minecraft:sand' for y in range(7, 15)) == 8
+          print('Four north-facing, supported, auto-refilling sand injectors verified.')
+          PY
+
+      - name: Build CannonLab
+        run: gradle clean build --stacktrace
+
+      - name: Run three field-faithful watered-wall shots on Paper
+        env:
+          CANNONLAB_MC_VERSION: '26.1.2'
+          CANNONLAB_SCENARIO: ec-sandburst-24-v1.yml
+          CANNONLAB_SERVER_LABEL: Paper 26.1.2 EC SandBurst canary
+          CANNONLAB_EXPECTED_SHOTS: '3'
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '24'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '20'
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_MAX_TARGET_MISS_DISTANCE: '12.0'
+          CANNONLAB_MIN_TARGET_PEAK_DESTROYED: '1'
+          CANNONLAB_MAX_SELF_DAMAGE_BLOCKS: '20'
+          CANNONLAB_TIMEOUT_SECONDS: '720'
+          CANNONLAB_ARENA_RADIUS_X: '32'
+          CANNONLAB_ARENA_RADIUS_Y: '28'
+          CANNONLAB_ARENA_RADIUS_Z: '40'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Require real sand injection and native button causality
+        run: |
+          python - <<'PY'
+          import csv
+          import json
+          from pathlib import Path
+
+          summaries = list(Path('lab-artifacts/results').rglob('run-summary.json'))
+          traces = sorted(Path('lab-artifacts/results').rglob('causal-events.csv'))
+          shot_summaries = sorted(Path('lab-artifacts/results').rglob('shot-*/summary.json'))
+          assert len(summaries) == 1, summaries
+          assert len(traces) == 3, traces
+          assert len(shot_summaries) == 3, shot_summaries
+          run = json.loads(summaries[0].read_text())
+          assert run['shots_completed'] == 3, run
+          assert all(shot['target_peak_destroyed'] >= 1 for shot in run['shots']), run
+          assert all(shot['self_damage_blocks'] <= 20 for shot in run['shots']), run
+          assert all(shot['maximum_falling_blocks'] >= 1 for shot in run['shots']), run
+
+          evidence = []
+          for trace in traces:
+              with trace.open(newline='') as handle:
+                  rows = list(csv.DictReader(handle))
+              buttons = [r for r in rows if r['event'] == 'FIRE_INPUT' and 'mode=button' in r['details']]
+              piston_extends = [r for r in rows if r['event'] == 'PISTON_EXTEND' and r['direction'] == 'NORTH']
+              sand_entities = [r for r in rows if r['event'] == 'ENTITY_ADD' and r['entity_type'] == 'FALLING_BLOCK' and 'minecraft:sand' in r['details']]
+              tnt_dispenses = [r for r in rows if r['event'] == 'DISPENSE' and r['item'] == 'TNT']
+              assert len(buttons) == 1, (trace, buttons)
+              assert len(piston_extends) >= 4, (trace, piston_extends)
+              assert len(sand_entities) >= 4, (trace, sand_entities)
+              assert len(tnt_dispenses) >= 24, (trace, len(tnt_dispenses))
+              evidence.append({
+                  'trace': str(trace),
+                  'button_events': len(buttons),
+                  'north_piston_extends': len(piston_extends),
+                  'sand_entity_adds': len(sand_entities),
+                  'tnt_dispenses': len(tnt_dispenses),
+              })
+          Path('candidate-evidence/causal-gate.json').write_text(json.dumps(evidence, indent=2) + '\n')
+          print(json.dumps(evidence, indent=2))
+          PY
+
+      - name: Upload SandBurst evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-EC-SandBurst-${{ github.run_number }}
+          path: |
+            candidate-evidence/**
+            lab-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30
