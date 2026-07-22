@@ -18,9 +18,25 @@ jobs:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
 
-      - name: Apply exact target transforms
+      - name: Repair helper quoting and apply transforms
         run: |
           rm -f finalize-error.txt
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('.agent/finalize.py')
+          lines = path.read_text(encoding='utf-8').splitlines()
+          inside = False
+          for index, line in enumerate(lines):
+              if line.startswith('    new_course_start = """'):
+                  lines[index] = line.replace('= """', "= r'''", 1)
+                  inside = True
+              elif inside and line == ' """':
+                  lines[index] = " '''"
+                  break
+          else:
+              raise SystemExit('unable to repair new_course_start quoting')
+          path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+          PY
           set +e
           python3 .agent/finalize.py > finalize-error.txt 2>&1
           status=$?
