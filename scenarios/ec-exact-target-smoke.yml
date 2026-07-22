@@ -1,0 +1,24 @@
+name: ec-exact-target-smoke
+cannon:
+  file: probe-four-dispenser.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: redstone
+  fire-input: {x: 1, y: 2, z: 1}
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: true
+target:
+  file: probe-exact-target.schem
+  origin: {x: 12, y: 0, z: 0}
+  type: dry
+  material: cobblestone
+  direction: east
+  distance: 12
+  regeneration:
+    enabled: false
+run:
+  shots: 1
+  warmup-ticks: 20
+  max-shot-ticks: 220
+  quiet-ticks: 80
+  shutdown-when-finished: true
