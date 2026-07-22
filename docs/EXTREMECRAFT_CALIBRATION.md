@@ -44,7 +44,7 @@ Run a short repeater chain containing one-, two-, three-, and four-tick delays. 
 
 ### 8. Chunk and paste limits
 
-Test schematics with known dispenser distributions around the 128-per-chunk boundary and a one-block-entity paste. Keep these separate because the world chunk cap and FAWE block-entity/NBT edit permissions are independent constraints.
+Test schematics with known dispenser distributions around the current user-reported 160-per-chunk boundary. Keep a separate 128-per-chunk case only as a conservative regression profile. Test block-entity pressure independently with gradually increasing known counts because the dispenser chunk cap and FAWE block-entity/NBT paste limit are separate constraints, and the exact FAWE threshold is not yet verified.
 
 ## Evidence format
 
