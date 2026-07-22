@@ -1,0 +1,1 @@
+error: corrupt patch at .agent/ec-readiness.patch:30
