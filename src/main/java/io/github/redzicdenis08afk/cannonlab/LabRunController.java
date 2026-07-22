@@ -10,7 +10,6 @@ import org.bukkit.block.BlockFace;
 import org.bukkit.block.BlockState;
 import org.bukkit.block.Dispenser;
 import org.bukkit.block.data.BlockData;
-import org.bukkit.block.data.Powerable;
 import org.bukkit.block.data.type.Slab;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
@@ -273,37 +272,66 @@ final class LabRunController {
     }
 
     private void pressButtons(World world, Location pasteOrigin) {
-        List<Block> buttons = new ArrayList<>();
+        int pressed = 0;
         for (LabScenario.BlockPoint point : scenario.fireInputs()) {
             Location location = relative(pasteOrigin, point);
             Block block = world.getBlockAt(location);
             BlockData data = block.getBlockData();
-            if (!(data instanceof Powerable powerable)
-                    || !block.getType().name().endsWith("_BUTTON")) {
+            if (!block.getType().name().endsWith("_BUTTON")) {
                 throw new IllegalStateException("Button fire coordinate "
                         + coordinates(location) + " contains " + data.getAsString());
             }
-            powerable.setPowered(true);
             recorder.recordControlEvent(
                     "FIRE_INPUT",
                     location,
-                    "mode=button;pulse_ticks=" + scenario.firePulseTicks()
+                    "mode=button;implementation=native-button-block"
             );
-            block.setBlockData(powerable, true);
-            buttons.add(block);
+            pressNativeButton(block);
+            pressed++;
         }
-        if (buttons.isEmpty()) {
+        if (pressed == 0) {
             throw new IllegalStateException("No button fire inputs configured.");
         }
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            for (Block block : buttons) {
-                BlockData current = block.getBlockData();
-                if (current instanceof Powerable powerable) {
-                    powerable.setPowered(false);
-                    block.setBlockData(powerable, true);
+    }
+
+    private void pressNativeButton(Block block) {
+        try {
+            Class<?> craftBlockClass = Class.forName("org.bukkit.craftbukkit.block.CraftBlock");
+            Class<?> buttonBlockClass = Class.forName("net.minecraft.world.level.block.ButtonBlock");
+            if (!craftBlockClass.isInstance(block)) {
+                throw new IllegalStateException("Unsupported Bukkit block implementation: "
+                        + block.getClass().getName());
+            }
+
+            Object state = craftBlockClass.getMethod("getBlockState").invoke(block);
+            Object nmsBlock = state.getClass().getMethod("getBlock").invoke(state);
+            if (!buttonBlockClass.isInstance(nmsBlock)) {
+                throw new IllegalStateException("Block is not backed by ButtonBlock: "
+                        + nmsBlock.getClass().getName());
+            }
+            Object level = craftBlockClass.getMethod("getLevel").invoke(block);
+            Object position = craftBlockClass.getMethod("getPosition").invoke(block);
+
+            java.lang.reflect.Method press = null;
+            for (java.lang.reflect.Method candidate : buttonBlockClass.getMethods()) {
+                if (candidate.getName().equals("press") && candidate.getParameterCount() == 4) {
+                    press = candidate;
+                    break;
                 }
             }
-        }, scenario.firePulseTicks());
+            if (press == null) {
+                throw new NoSuchMethodException("ButtonBlock.press(BlockState, Level, BlockPos, Player)");
+            }
+            press.invoke(nmsBlock, state, level, position, null);
+            plugin.getLogger().info("Native button press at " + coordinates(block.getLocation()));
+        } catch (ReflectiveOperationException exception) {
+            Throwable cause = exception instanceof java.lang.reflect.InvocationTargetException
+                    && exception.getCause() != null
+                    ? exception.getCause()
+                    : exception;
+            throw new IllegalStateException("Unable to invoke native button press at "
+                    + coordinates(block.getLocation()) + ": " + cause, cause);
+        }
     }
 
     private void pulseRedstone(World world, Location pasteOrigin) {
