@@ -95,7 +95,11 @@ def analyze_trace(trace: Path, impact_window: float) -> dict[str, Any]:
         rows = list(csv.DictReader(handle))
 
     event_counts = Counter(row.get("event", "") for row in rows)
-    redstone_ticks = [int(row.get("tick") or 0) for row in rows if row.get("event") == "REDSTONE_CHANGE"]
+    trigger_ticks = [
+        int(row.get("tick") or 0)
+        for row in rows
+        if row.get("event") in {"FIRE_INPUT", "REDSTONE_CHANGE"}
+    ]
     dispense = cohort_map(rows, "DISPENSE")
     tnt_add = cohort_map(rows, "ENTITY_ADD", entity_types={"TNT", "PRIMED_TNT"})
     falling_add = cohort_map(rows, "ENTITY_ADD", entity_types={"FALLING_BLOCK"})
@@ -131,7 +135,7 @@ def analyze_trace(trace: Path, impact_window: float) -> dict[str, Any]:
             if miss <= impact_window:
                 target_impacts.append(point)
 
-    first_trigger = min(redstone_ticks) if redstone_ticks else None
+    first_trigger = min(trigger_ticks) if trigger_ticks else None
     first_dispense = dispense[0]["tick"] if dispense else None
     trigger_latency = (
         first_dispense - first_trigger
