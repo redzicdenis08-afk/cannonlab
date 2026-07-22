@@ -1,0 +1,11 @@
+[project]
+name = "cannonlab-mcp"
+version = "0.1.0"
+description = "Local MCP tools for evidence-driven Minecraft cannon analysis"
+requires-python = ">=3.11"
+dependencies = [
+  "mcp>=1.27,<2"
+]
+
+[project.scripts]
+cannonlab-mcp = "server:main"
