@@ -230,8 +230,11 @@ def decode_litematic(root: dict[str, Any]) -> dict[str, Any]:
         dimensions = tuple(abs(value) for value in signed)
         if min(dimensions) <= 0:
             raise NBTError(f"region {region_name!r} has invalid Size={size}")
-        origin = tuple(int(position.get(axis, 0)) for axis in ("x", "y", "z"))
-        direction = tuple(1 if value >= 0 else -1 for value in signed)
+        corner = tuple(int(position.get(axis, 0)) for axis in ("x", "y", "z"))
+        region_min = tuple(
+            min(corner[index], corner[index] + signed[index] + (1 if signed[index] < 0 else -1))
+            for index in range(3)
+        )
         palette = region.get("BlockStatePalette") or []
         states = [state_string(entry) for entry in palette]
         volume = dimensions[0] * dimensions[1] * dimensions[2]
@@ -241,15 +244,14 @@ def decode_litematic(root: dict[str, Any]) -> dict[str, Any]:
             quotient = index // dimensions[0]
             z = quotient % dimensions[2]
             y = quotient // dimensions[2]
-            pos = tuple(origin[i] + direction[i] * value for i, value in enumerate((x, y, z)))
+            pos = tuple(region_min[i] + value for i, value in enumerate((x, y, z)))
             if pos in blocks and blocks[pos] != states[palette_id]:
                 overlaps.append({"pos": list(pos), "first": blocks[pos], "second": states[palette_id], "region": region_name})
             blocks[pos] = states[palette_id]
         for entity in region.get("TileEntities", []) or []:
             if not isinstance(entity, dict) or not all(axis in entity for axis in ("x", "y", "z")):
                 continue
-            local = tuple(int(entity[axis]) for axis in ("x", "y", "z"))
-            pos = tuple(origin[i] + direction[i] * local[i] for i in range(3))
+            pos = tuple(int(entity[axis]) for axis in ("x", "y", "z"))
             state = blocks.get(pos, "minecraft:air")
             block_entities.append({"pos": pos, "id": block_entity_id(base(state)), "raw": entity})
         region_reports.append({
