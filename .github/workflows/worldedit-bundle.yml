@@ -1,0 +1,31 @@
+name: WorldEdit Runtime Bundle
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download official WorldEdit 7.4.3 Bukkit build
+        run: |
+          mkdir -p worldedit-bundle
+          python - <<'PY'
+          import json, urllib.request
+          version = json.load(urllib.request.urlopen('https://api.modrinth.com/v2/version/yDUBafTJ'))
+          jars = [f for f in version['files'] if f['filename'].endswith('.jar')]
+          selected = next((f for f in jars if f.get('primary')), jars[0])
+          urllib.request.urlretrieve(selected['url'], 'worldedit-bundle/worldedit-bukkit.jar')
+          open('worldedit-bundle/metadata.json','w').write(json.dumps(selected, indent=2)+'\n')
+          PY
+          sha256sum worldedit-bundle/worldedit-bukkit.jar > worldedit-bundle/sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: WorldEdit-7.4.3-Bukkit
+          path: worldedit-bundle/**
+          retention-days: 1
