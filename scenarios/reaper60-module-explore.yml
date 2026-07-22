@@ -1,0 +1,29 @@
+name: reaper60-hammerless-module-explore
+cannon:
+  file: reaper60-hammerless-lab-v2-3465.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: redstone
+  fire-inputs:
+    - {x: 12, y: 2, z: 3}
+    - {x: 1, y: 2, z: 1}
+  fire-pulse-ticks: 2
+  suppress-paste-side-effects: true
+  settle-before-fill-ticks: 120
+  fill-to-fire-ticks: 20
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: dry
+  material: cobblestone
+  direction: north
+  distance: 20
+  width: 3
+  height: 3
+  y-offset: 0
+  layers: 1
+run:
+  shots: 10
+  warmup-ticks: 140
+  max-shot-ticks: 260
+  quiet-ticks: 80
+  shutdown-when-finished: true
