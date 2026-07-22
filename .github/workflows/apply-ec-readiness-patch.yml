@@ -20,8 +20,9 @@ jobs:
 
       - name: Diagnose and apply audited patch
         run: |
+          rm -f apply-error.txt
           set +e
-          git apply --check --verbose .agent/ec-readiness.patch > apply-error.txt 2>&1
+          git apply --recount --check --verbose .agent/ec-readiness.patch > apply-error.txt 2>&1
           status=$?
           set -e
           if [[ "$status" -ne 0 ]]; then
@@ -33,7 +34,7 @@ jobs:
             git push origin HEAD:${{ github.head_ref }}
             exit "$status"
           fi
-          git apply .agent/ec-readiness.patch
+          git apply --recount .agent/ec-readiness.patch
           rm -f .agent/ec-readiness.patch .agent/apply.log apply-error.txt .github/workflows/apply-ec-readiness-patch.yml
           rmdir .agent 2>/dev/null || true
 
