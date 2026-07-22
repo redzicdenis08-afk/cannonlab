@@ -1,0 +1,60 @@
+name: Lever Lab Runtime Bundle
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Add diagnostic native lever mode
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          scenario = Path('src/main/java/io/github/redzicdenis08afk/cannonlab/LabScenario.java')
+          text = scenario.read_text()
+          text = text.replace(
+              'enum FireMode {\n        REDSTONE,\n        BUTTON,\n        DIRECT_DISPENSE',
+              'enum FireMode {\n        REDSTONE,\n        BUTTON,\n        LEVER,\n        DIRECT_DISPENSE'
+          )
+          scenario.write_text(text)
+
+          controller = Path('src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java')
+          text = controller.read_text()
+          text = text.replace(
+              'import org.bukkit.block.data.BlockData;\n',
+              'import org.bukkit.block.data.BlockData;\nimport org.bukkit.block.data.Powerable;\n'
+          )
+          text = text.replace(
+              'case BUTTON -> pressButtons(world, pasteOrigin);\n            case REDSTONE -> pulseRedstone(world, pasteOrigin);',
+              'case BUTTON -> pressButtons(world, pasteOrigin);\n            case LEVER -> toggleLevers(world, pasteOrigin);\n            case REDSTONE -> pulseRedstone(world, pasteOrigin);'
+          )
+          method = '''    private void toggleLevers(World world, Location pasteOrigin) {\n        int toggled = 0;\n        for (LabScenario.BlockPoint point : scenario.fireInputs()) {\n            Location location = relative(pasteOrigin, point);\n            Block block = world.getBlockAt(location);\n            BlockData data = block.getBlockData();\n            if (block.getType() != Material.LEVER || !(data instanceof Powerable powerable)) {\n                throw new IllegalStateException("Lever fire coordinate "\n                        + coordinates(location) + " contains " + data.getAsString());\n            }\n            recorder.recordControlEvent(\n                    "FIRE_INPUT",\n                    location,\n                    "mode=lever;implementation=bukkit-powerable;previous=" + powerable.isPowered()\n            );\n            powerable.setPowered(!powerable.isPowered());\n            block.setBlockData(powerable, true);\n            plugin.getLogger().info("Lever toggle at " + coordinates(location)\n                    + " | powered=" + powerable.isPowered());\n            toggled++;\n        }\n        if (toggled == 0) {\n            throw new IllegalStateException("No lever fire inputs configured.");\n        }\n    }\n\n'''
+          text = text.replace('    private void pressNativeButton(Block block) {\n', method + '    private void pressNativeButton(Block block) {\n')
+          controller.write_text(text)
+          PY
+      - name: Build patched lab plugin
+        run: gradle clean build --stacktrace
+      - name: Package
+        run: |
+          mkdir -p lever-lab
+          cp build/libs/CannonLab-0.2.0-SNAPSHOT.jar lever-lab/CannonLab-lever-lab.jar
+          sha256sum lever-lab/CannonLab-lever-lab.jar > lever-lab/sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-Lever-Lab
+          path: lever-lab/**
+          retention-days: 1
