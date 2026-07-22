@@ -1,0 +1,51 @@
+# High-Y adjustment template. With the default arena origin at Y100, y-offset 190 places the target at Y290.
+# Increase CANNONLAB_ARENA_RADIUS_Y to at least 224 and calibrate the exact EC protected/build height live.
+name: ec-high-y-template
+cannon:
+  file: replace-with-candidate.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: redstone
+  fire-input: {x: 0, y: 1, z: 0}
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: watered
+  material: cobblestone
+  direction: north
+  distance: 160
+  width: 17
+  height: 24
+  y-offset: 190
+  lateral-offset: 0
+  stages:
+    - name: high-y-watered
+      type: watered
+      material: cobblestone
+      width: 17
+      height: 24
+      y-offset: 190
+      layers: 8
+      spacing: 3
+      gap-after: 3
+      regeneration: {enabled: false}
+    - name: high-y-fast-regen
+      type: cobble-regen
+      material: cobblestone
+      width: 17
+      height: 24
+      y-offset: 190
+      layers: 8
+      spacing: 3
+      gap-after: 0
+      regeneration:
+        enabled: true
+        delay-ticks: 4
+        interval-ticks: 1
+        max-blocks-per-cycle: 48
+run:
+  shots: 25
+  warmup-ticks: 40
+  max-shot-ticks: 600
+  quiet-ticks: 120
+  shutdown-when-finished: true
