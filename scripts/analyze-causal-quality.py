@@ -60,12 +60,17 @@ def read_json(path: Path) -> dict[str, Any] | None:
     return value if isinstance(value, dict) else None
 
 
-def cohort_map(rows: Iterable[dict[str, str]], event: str, *, entity_type: str = "") -> list[dict[str, Any]]:
+def cohort_map(
+    rows: Iterable[dict[str, str]],
+    event: str,
+    *,
+    entity_types: set[str] | None = None,
+) -> list[dict[str, Any]]:
     grouped: dict[int, list[dict[str, str]]] = defaultdict(list)
     for row in rows:
         if row.get("event") != event:
             continue
-        if entity_type and row.get("entity_type") != entity_type:
+        if entity_types and row.get("entity_type") not in entity_types:
             continue
         grouped[int(row.get("tick") or 0)].append(row)
     return [
@@ -78,6 +83,13 @@ def cohort_map(rows: Iterable[dict[str, str]], event: str, *, entity_type: str =
     ]
 
 
+def custom_type(details: str) -> str:
+    for part in details.split(";"):
+        if part.startswith("type="):
+            return part.split("=", 1)[1]
+    return ""
+
+
 def analyze_trace(trace: Path, impact_window: float) -> dict[str, Any]:
     with trace.open(newline="", encoding="utf-8") as handle:
         rows = list(csv.DictReader(handle))
@@ -85,8 +97,17 @@ def analyze_trace(trace: Path, impact_window: float) -> dict[str, Any]:
     event_counts = Counter(row.get("event", "") for row in rows)
     redstone_ticks = [int(row.get("tick") or 0) for row in rows if row.get("event") == "REDSTONE_CHANGE"]
     dispense = cohort_map(rows, "DISPENSE")
-    tnt_add = cohort_map(rows, "ENTITY_ADD", entity_type="PRIMED_TNT")
-    falling_add = cohort_map(rows, "ENTITY_ADD", entity_type="FALLING_BLOCK")
+    tnt_add = cohort_map(rows, "ENTITY_ADD", entity_types={"TNT", "PRIMED_TNT"})
+    falling_add = cohort_map(rows, "ENTITY_ADD", entity_types={"FALLING_BLOCK"})
+
+    stage_events: dict[str, Counter[str]] = defaultdict(Counter)
+    for row in rows:
+        event = row.get("event", "")
+        if event not in {"TARGET_DESTROYED", "REGEN_RESTORE"}:
+            continue
+        typed = custom_type(row.get("details", ""))
+        stage = typed.rsplit(":", 1)[0] if ":" in typed else typed or "unknown"
+        stage_events[stage][event] += 1
 
     summary = read_json(trace.parent / "summary.json") or {}
     run_summary = read_json(trace.parent.parent / "run-summary.json") or {}
@@ -139,6 +160,7 @@ def analyze_trace(trace: Path, impact_window: float) -> dict[str, Any]:
         "closest_target_miss": min(target_misses) if target_misses else None,
         "self_damage_blocks": int(summary.get("self_damage_blocks", 0)),
         "target_bounds_available": isinstance(target_bounds, dict),
+        "stage_events": {stage: dict(counts) for stage, counts in sorted(stage_events.items())},
     }
 
 
