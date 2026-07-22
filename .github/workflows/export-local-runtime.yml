@@ -1,0 +1,32 @@
+name: Export local cannon runtime
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    if: github.head_ref == 'stress-test'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Fetch WorldEdit
+        run: |
+          mkdir -p runtime
+          curl --fail --location --retry 3 \
+            https://cdn.modrinth.com/data/1u6JkXh5/versions/yDUBafTJ/worldedit-bukkit-7.4.3.jar \
+            -o runtime/worldedit-bukkit-7.4.3.jar
+          tar -C "$JAVA_HOME" -czf runtime/openjdk25-runtime.tar.gz .
+          sha256sum runtime/* > runtime/SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-local-runtime
+          path: runtime/**
+          retention-days: 1
