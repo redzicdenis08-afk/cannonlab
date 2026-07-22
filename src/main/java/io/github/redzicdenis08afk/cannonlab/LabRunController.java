@@ -270,6 +270,11 @@ final class LabRunController {
             plugin.getLogger().info("Redstone fire at " + coordinates(pulse.location())
                     + " | previous=" + pulse.previousType()
                     + " | neighbours=" + describeNeighbours(pulse.block()));
+            recorder.recordControlEvent(
+                    "FIRE_INPUT",
+                    pulse.location(),
+                    "previous=" + pulse.previousType() + ";pulse_ticks=" + scenario.firePulseTicks()
+            );
             pulse.block().setType(Material.REDSTONE_BLOCK, true);
             BlockState pulseState = pulse.block().getState();
             pulseState.update(true, true);
