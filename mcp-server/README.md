@@ -11,18 +11,36 @@ python -m venv .venv
 .venv/bin/python server.py
 ```
 
-On Windows, use `.venv\\Scripts\\python.exe`.
+On Windows, use `.venv\Scripts\python.exe`.
 
 The server uses stdio by default and never connects to ExtremeCraft. Paths are jailed to the CannonLab repository.
 
 ## Tools
 
 - `inspect_cannon`: static format, chunk, block-entity and functional-component analysis
+- `audit_cannon_corpus`: batch-compares a private folder of `.schem` and `.litematic` designs without publishing the files
 - `explain_shot`: converts `causal-events.csv` into firing cohorts and a compact timeline
+- `analyze_shot_quality`: scores trigger latency, firing cohorts, target convergence, falling payload and cannon self-damage
+- `audit_ec_calibration`: refuses an EC-calibrated label until every required live evidence probe is present and valid
 - `query_timeline`: filters exact events by tick and event type
 - `list_shot_traces`: lists local runtime evidence
 - `compare_shots`: compares two traces without pretending a subsystem role is proven
 
+## Exact target schematics
+
+Runtime scenarios may use either generated `target.stages` or an exact Sponge v2 defense schematic:
+
+```yaml
+target:
+  file: captured-hotdog-course.schem
+  origin: {x: 160, y: 0, z: 0}
+  direction: east
+  regeneration:
+    enabled: false
+```
+
+Put private target files under `plugins/CannonLab/targets` for a local server. CI fixtures live as `targets/*.schem.b64`. The target is pasted block-for-block and every solid block becomes a tracked target cell. Use generated stages when deliberately sweeping variables; use exact target schematics when reproducing a captured defense module.
+
 ## Truth boundary
 
-Static geometry can confirm blocks, orientations, connectivity and chunk pressure. It cannot prove that a bank is a charge, hammer, booster, nuke or OSRB stage. Runtime traces provide firing order and entity motion. ExtremeCraft readiness still requires a live canary because its private configuration and plugins are not public.
+Static geometry can confirm blocks, orientations, connectivity and chunk pressure. It cannot prove that a bank is a charge, hammer, booster, nuke, rev-worm or OSRB stage. Runtime traces provide firing order and entity motion. Public Paper/Sakura tests do not prove ExtremeCraft parity. `docs/EC_READINESS_LEVELS.md` defines the evidence needed before any candidate can be labeled EC-ready.
