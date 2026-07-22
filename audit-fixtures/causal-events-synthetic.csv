@@ -1,0 +1,10 @@
+tick,server_tick,sequence,event,component_id,block_type,world_x,world_y,world_z,relative_x,relative_y,relative_z,old_power,new_power,direction,moved_blocks,item,entity_uuid,entity_type,vx,vy,vz,fuse,details
+0,1000,1,REDSTONE_CHANGE,"R[1,2,3]",REDSTONE_WIRE,1,102,3,1,2,3,0,15,,0,,,,0,0,0,-1,block_data=minecraft:redstone_wire[power=15]
+1,1001,2,PISTON_EXTEND,"P[4,5,6]",STICKY_PISTON,4,105,6,4,5,6,-1,-1,NORTH,2,,,,0,0,-1,-1,sticky=true;moved=SLIME_BLOCK@4,5,5
+2,1002,3,DISPENSE,"D[7,8,9]",DISPENSER,7,108,9,7,8,9,-1,-1,,0,TNT,,,0,0,-0.1,-1,amount=1
+2,1002,4,DISPENSE,"D[8,8,9]",DISPENSER,8,108,9,8,8,9,-1,-1,,0,TNT,,,0,0,-0.1,-1,amount=1
+3,1003,5,ENTITY_ADD,,,7.5,108.5,8.5,7.5,8.5,8.5,-1,-1,,0,,00000000-0000-0000-0000-000000000001,PRIMED_TNT,0,0,-0.1,79,source=entity-add
+3,1003,6,ENTITY_ADD,,,8.5,108.5,8.5,8.5,8.5,8.5,-1,-1,,0,,00000000-0000-0000-0000-000000000002,PRIMED_TNT,0,0,-0.1,79,source=entity-add
+21,1021,7,DISPENSE,"D[10,8,9]",DISPENSER,10,108,9,10,8,9,-1,-1,,0,SAND,,,0,0,-0.1,-1,amount=1
+22,1022,8,ENTITY_ADD,,,10.5,108.5,8.5,10.5,8.5,8.5,-1,-1,,0,,00000000-0000-0000-0000-000000000003,FALLING_BLOCK,0,0,-0.1,-1,block_data=minecraft:sand
+80,1080,9,EXPLOSION,,,20.0,108.5,-40.0,20.0,8.5,-40.0,-1,-1,,0,,00000000-0000-0000-0000-000000000001,PRIMED_TNT,0,0,0,-1,affected_blocks=12
