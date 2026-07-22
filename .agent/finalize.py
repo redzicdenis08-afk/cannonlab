@@ -150,27 +150,22 @@ def update_controller() -> None:
         }
         StringBuilder stagesJson = new StringBuilder();
 """
-    new_course_start = """    private void writeTargetCourse(Path runDirectory) throws IOException {
+    new_course_start = r'''    private void writeTargetCourse(Path runDirectory) throws IOException {
         if (scenario == null) {
             return;
         }
         if (!scenario.targetFile().isBlank()) {
-            String exactCourse = """
-                    {
-                      "direction": "%s",
-                      "source_file": "%s",
-                      "stage_count": 0,
-                      "stages": []
-                    }
-                    """.formatted(
-                    scenario.targetDirection().name(),
-                    json(scenario.targetFile())
-            );
+            String exactCourse = "{\n"
+                    + "  \"direction\": \"" + json(scenario.targetDirection().name()) + "\",\n"
+                    + "  \"source_file\": \"" + json(scenario.targetFile()) + "\",\n"
+                    + "  \"stage_count\": 0,\n"
+                    + "  \"stages\": []\n"
+                    + "}\n";
             Files.writeString(runDirectory.resolve("target-course.json"), exactCourse, StandardCharsets.UTF_8);
             return;
         }
         StringBuilder stagesJson = new StringBuilder();
-"""
+'''
     text = replace_once(text, old_course_start, new_course_start, "exact target course export")
 
     text = replace_once(text, """            Map<LabScenario.RegenConfig, Integer> restoredByConfig = new HashMap<>();
