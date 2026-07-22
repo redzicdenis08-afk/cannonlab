@@ -14,7 +14,7 @@ permissions:
 jobs:
   ec-readiness:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 40
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -39,6 +39,7 @@ jobs:
         run: |
           python -m py_compile \
             scripts/analyze-causal-quality.py \
+            scripts/audit-cannon-corpus.py \
             scripts/audit-ec-calibration.py \
             mcp-server/server.py
           gradle clean build --stacktrace
@@ -72,6 +73,49 @@ jobs:
           assert 'chunk-paste-limits' in report['missing_probes'], report
           print('Incomplete EC evidence was rejected without invented parity.')
           PY
+          mkdir -p calibration-proof
+          cp lab-artifacts/incomplete-ec-calibration.json calibration-proof/
+
+      - name: Run exact defense schematic target
+        env:
+          CANNONLAB_MC_VERSION: '26.1.2'
+          CANNONLAB_SCENARIO: ec-exact-target-smoke.yml
+          CANNONLAB_SERVER_LABEL: Paper 26.1.2 exact target schematic
+          CANNONLAB_EXPECTED_SHOTS: '1'
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '4'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '4'
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_MAX_SELF_DAMAGE_BLOCKS: '1000'
+          CANNONLAB_TIMEOUT_SECONDS: '600'
+          CANNONLAB_ARENA_RADIUS_X: '48'
+          CANNONLAB_ARENA_RADIUS_Y: '32'
+          CANNONLAB_ARENA_RADIUS_Z: '32'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Verify exact target evidence
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          courses = list(Path('lab-artifacts/results').rglob('target-course.json'))
+          summaries = list(Path('lab-artifacts/results').rglob('run-summary.json'))
+          traces = list(Path('lab-artifacts/results').rglob('causal-events.csv'))
+          assert len(courses) == 1, courses
+          assert len(summaries) == 1, summaries
+          assert len(traces) == 1, traces
+          course = json.loads(courses[0].read_text())
+          assert course['source_file'] == 'probe-exact-target.schem', course
+          assert course['stage_count'] == 0, course
+          summary = json.loads(summaries[0].read_text())
+          assert summary['shots_completed'] == 1, summary
+          assert summary['shots'][0]['target_blocks_total'] > 0, summary
+          assert 'self_damage_blocks' in summary['shots'][0], summary
+          print('Exact target schematic was pasted, tracked and fired against.')
+          PY
+          mv lab-artifacts lab-artifacts-exact-target
 
       - name: Run mixed EC defense course
         env:
@@ -110,6 +154,7 @@ jobs:
               'DRY', 'WATERED', 'FILTER', 'HOTDOG', 'PILLARS'
           ], course
           assert course['stages'][3]['regeneration']['enabled'] is True, course
+          assert course['stages'][4]['regeneration']['enabled'] is True, course
           summary = json.loads(summaries[0].read_text())
           assert summary['shots_completed'] == 3, summary
           assert all('self_damage_blocks' in shot for shot in summary['shots']), summary
@@ -129,6 +174,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CannonLab-EC-readiness-${{ github.run_number }}
-          path: lab-artifacts/**
+          path: |
+            calibration-proof/**
+            lab-artifacts/**
+            lab-artifacts-exact-target/**
           if-no-files-found: error
           retention-days: 30
