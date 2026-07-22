@@ -70,6 +70,19 @@ def inspect_cannon(path: str, chunk_limit: int = 160) -> dict[str, Any]:
 
 
 @mcp.tool()
+def audit_cannon_corpus(directory: str, chunk_limit: int = 160) -> dict[str, Any]:
+    """Batch-audit a private directory of Sponge and Litematica cannons for structural comparison."""
+    source = _inside_root(directory)
+    return _run_json([
+        sys.executable,
+        str(SCRIPTS / "audit-cannon-corpus.py"),
+        str(source),
+        "--chunk-limit",
+        str(chunk_limit),
+    ])
+
+
+@mcp.tool()
 def explain_shot(trace_path: str) -> dict[str, Any]:
     """Explain one causal-events.csv trace without inventing cannon subsystem labels."""
     trace = _inside_root(trace_path)
