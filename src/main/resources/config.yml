@@ -8,5 +8,8 @@ arena:
   radius-x: 256
   radius-y: 96
   radius-z: 96
+limits:
+  # Current user-reported ExtremeCraft cap. Override for other servers or conservative audits.
+  dispensers-per-chunk: 160
 telemetry:
   output-directory: results

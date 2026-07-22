@@ -81,6 +81,7 @@ def main() -> None:
     parser.add_argument("--min-forward-travel", type=float)
     parser.add_argument("--max-target-miss-distance", type=float)
     parser.add_argument("--min-target-peak-destroyed", type=int)
+    parser.add_argument("--min-target-peak-mean", type=float)
     parser.add_argument("--min-layer-breached", type=int)
     parser.add_argument("--require-regen", action="store_true")
     parser.add_argument("--min-regen-restored", type=int, default=1)
@@ -95,6 +96,8 @@ def main() -> None:
         fail("--min-explosions-per-shot must be positive")
     if args.lifetime_tolerance < 0:
         fail("--lifetime-tolerance cannot be negative")
+    if args.min_target_peak_mean is not None and args.min_target_peak_mean < 0:
+        fail("--min-target-peak-mean cannot be negative")
 
     summaries = sorted(
         args.results_root.rglob("run-summary.json"),
@@ -171,6 +174,14 @@ def main() -> None:
             failures.append(
                 f"shot {number}: regen_blocks_restored={regen_restored} "
                 f"below {args.min_regen_restored}"
+            )
+
+    if args.min_target_peak_mean is not None:
+        observed_peak_mean = statistics.fmean(peak_destroyed_values)
+        if observed_peak_mean < args.min_target_peak_mean:
+            failures.append(
+                f"target_peak_destroyed mean={observed_peak_mean:.3f} "
+                f"below {args.min_target_peak_mean}"
             )
 
     event_files = sorted(summary_path.parent.rglob("events.csv"))

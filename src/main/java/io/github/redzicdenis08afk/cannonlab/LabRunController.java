@@ -35,7 +35,7 @@ import java.util.Map;
 import java.util.Set;
 
 final class LabRunController {
-    private static final int DISPENSER_LIMIT_PER_CHUNK = 128;
+    private static final int DEFAULT_DISPENSER_LIMIT_PER_CHUNK = 160;
     private static final BlockFace[] NEIGHBOUR_FACES = {
             BlockFace.WEST,
             BlockFace.EAST,
@@ -139,11 +139,13 @@ final class LabRunController {
             targetBounds = targetBuild.bounds();
 
             FillAudit audit = auditAndFill(world, pasteResult);
+            int dispenserLimitPerChunk = dispenserLimitPerChunk();
             if (scenario.enforceDispenserLimit()
-                    && audit.maximumPerChunk() > DISPENSER_LIMIT_PER_CHUNK) {
+                    && audit.maximumPerChunk() > dispenserLimitPerChunk) {
                 throw new IllegalStateException(
                         "Dispenser limit exceeded: " + audit.maximumPerChunk()
-                                + " in chunk " + audit.maximumChunk());
+                                + " in chunk " + audit.maximumChunk()
+                                + " (configured limit " + dispenserLimitPerChunk + ")");
             }
             if (audit.totalDispensers() == 0) {
                 throw new IllegalStateException("Pasted schematic contains no dispensers.");
@@ -152,6 +154,7 @@ final class LabRunController {
             plugin.getLogger().info("Prepared shot " + shotNumber
                     + " | dispensers=" + audit.totalDispensers()
                     + " | max/chunk=" + audit.maximumPerChunk()
+                    + " | dispenserLimit/chunk=" + dispenserLimitPerChunk
                     + " | fireMode=" + scenario.fireMode()
                     + " | inputs=" + scenario.fireInputs().size()
                     + " | target=" + scenario.targetType() + "/" + scenario.targetDirection()
@@ -596,6 +599,19 @@ final class LabRunController {
             }
         }
         return new FillAudit(total, max, maxChunk, new LinkedHashMap<>(counts));
+    }
+
+    private int dispenserLimitPerChunk() {
+        int configured = plugin.getConfig().getInt(
+                "limits.dispensers-per-chunk",
+                DEFAULT_DISPENSER_LIMIT_PER_CHUNK
+        );
+        if (configured < 1) {
+            throw new IllegalStateException(
+                    "limits.dispensers-per-chunk must be at least 1, got " + configured
+            );
+        }
+        return configured;
     }
 
     private int countRemainingTargetBlocks() {

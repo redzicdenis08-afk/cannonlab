@@ -4,6 +4,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
@@ -24,6 +28,8 @@ jobs:
             > .audit-input/probe-four-dispenser.schem
           base64 --decode audit-fixtures/overflow-129.schem.b64 \
             > .audit-input/overflow-129.schem
+          base64 --decode audit-fixtures/probe-one-dispenser.litematic.b64 \
+            > .audit-input/probe-one-dispenser.litematic
           sha256sum .audit-input/* | tee audit-artifacts/input-sha256.txt
 
       - name: Audit legal cannon fixtures
@@ -57,6 +63,54 @@ jobs:
           }, report['dimensions']
           assert not report['support_failures'], report['support_failures']
           print('Four-dispenser cannon fixture is structurally legal.')
+          PY
+
+      - name: Audit and deterministically convert signed Litematica fixture
+        run: |
+          for output in a b; do
+            python3 scripts/schem-audit.py \
+              .audit-input/probe-one-dispenser.litematic \
+              --chunk-limit 160 \
+              --expect-format litematic \
+              --expect-dispensers 1 \
+              --convert-sponge-out ".audit-input/probe-one-dispenser-${output}.schem" \
+              --output-data-version 3465 \
+              --allow-data-version-retag \
+              --json-out "audit-artifacts/probe-litematic-${output}.json" \
+              >"audit-artifacts/probe-litematic-${output}.stdout.json" \
+              2>"audit-artifacts/probe-litematic-${output}.stderr.txt"
+          done
+          cmp .audit-input/probe-one-dispenser-a.schem \
+            .audit-input/probe-one-dispenser-b.schem
+          sha256sum .audit-input/probe-one-dispenser-*.schem \
+            | tee audit-artifacts/litematic-conversion-sha256.txt
+
+          python3 scripts/schem-audit.py \
+            .audit-input/probe-one-dispenser-a.schem \
+            --chunk-limit 160 \
+            --expect-format sponge-v2 \
+            --expect-dispensers 1 \
+            --expect-aligned-max 1 \
+            --json-out audit-artifacts/probe-litematic-converted.json \
+            >audit-artifacts/probe-litematic-converted.stdout.json \
+            2>audit-artifacts/probe-litematic-converted.stderr.txt
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          source = json.loads(Path('audit-artifacts/probe-litematic-a.json').read_text())
+          converted = json.loads(Path('audit-artifacts/probe-litematic-converted.json').read_text())
+          assert source['status'] == converted['status'] == 'PASS', (source, converted)
+          assert source['dimensions'] == converted['dimensions'] == {
+              'width': 2, 'height': 1, 'length': 1, 'volume': 2
+          }, (source['dimensions'], converted['dimensions'])
+          assert source['offset'] == [4, 0, 0], source['offset']
+          assert source['regions'][0]['size']['x'] == -2, source['regions']
+          assert source['dispensers']['count'] == converted['dispensers']['count'] == 1
+          assert source['block_entities']['explicit'] == 1
+          assert converted['block_entities']['explicit'] == 1
+          assert converted['data_version'] == 3465
+          print('Signed Litematica decode and deterministic Sponge v2 conversion are stable.')
           PY
 
       - name: Prove chunk alignment changes legality
