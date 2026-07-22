@@ -1,0 +1,30 @@
+name: ec-sandburst-24-v1-watered
+cannon:
+  file: ec-sandburst-24-v1.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: button
+  fire-input: {x: 9, y: 6, z: 15}
+  fire-pulse-ticks: 20
+  suppress-paste-side-effects: true
+  settle-before-fill-ticks: 120
+  fill-to-fire-ticks: 20
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: watered
+  material: cobblestone
+  direction: north
+  distance: 8
+  width: 11
+  height: 10
+  y-offset: 2
+  layers: 1
+  spacing: 3
+  regeneration:
+    enabled: false
+run:
+  shots: 3
+  warmup-ticks: 140
+  max-shot-ticks: 340
+  quiet-ticks: 120
+  shutdown-when-finished: true

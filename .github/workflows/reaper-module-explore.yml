@@ -1,0 +1,102 @@
+name: Reaper Hammerless Module Explore
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  reaper-module:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Decode and verify exact module conversion
+        run: |
+          mkdir -p reaper-evidence
+          base64 --decode cannons/reaper60-hammerless-exact-3465.schem.b64 > reaper-evidence/reaper60-hammerless-exact-3465.schem
+          base64 --decode cannons/reaper60-hammerless-lab-v2-3465.schem.b64 > reaper-evidence/reaper60-hammerless-lab-v2-3465.schem
+          echo 'd641c323e9d2c5c5ec08beddf959ad6d558557c9b58294e14a73c1d194d95bc8  reaper-evidence/reaper60-hammerless-exact-3465.schem' | sha256sum --check
+          echo 'c27c5c21a044a263319c60f759d18b6c2bc5ef57e07153ad1e89b652143786ae  reaper-evidence/reaper60-hammerless-lab-v2-3465.schem' | sha256sum --check
+          python scripts/schem-audit.py reaper-evidence/reaper60-hammerless-exact-3465.schem \
+            --chunk-limit 160 --expect-dispensers 0 --expect-format sponge-v2 \
+            --require-all-alignments-safe --json-out reaper-evidence/exact-static-audit.json || test $? -eq 2
+          python scripts/schem-audit.py reaper-evidence/reaper60-hammerless-lab-v2-3465.schem \
+            --chunk-limit 160 --expect-dispensers 1 --expect-aligned-max 1 --expect-format sponge-v2 \
+            --require-all-alignments-safe --json-out reaper-evidence/lab-static-audit.json
+
+      - name: Build CannonLab
+        run: gradle clean build --stacktrace
+
+      - name: Run ten isolated module pulses on Paper
+        env:
+          CANNONLAB_MC_VERSION: '26.1.2'
+          CANNONLAB_SCENARIO: reaper60-module-explore.yml
+          CANNONLAB_SERVER_LABEL: Paper 26.1.2 Reaper hammerless module
+          CANNONLAB_EXPECTED_SHOTS: '10'
+          CANNONLAB_STRICT_SINGLE_TNT: 'true'
+          CANNONLAB_MIN_TNT_PER_SHOT: '1'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '1'
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_TIMEOUT_SECONDS: '720'
+          CANNONLAB_ARENA_RADIUS_X: '40'
+          CANNONLAB_ARENA_RADIUS_Y: '20'
+          CANNONLAB_ARENA_RADIUS_Z: '32'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Summarize module waveform
+        run: |
+          python - <<'PY'
+          import csv
+          import json
+          from collections import Counter
+          from pathlib import Path
+
+          traces = sorted(Path('lab-artifacts/results').rglob('causal-events.csv'))
+          assert len(traces) == 10, traces
+          report = []
+          for trace in traces:
+              with trace.open(newline='') as handle:
+                  rows = list(csv.DictReader(handle))
+              module = [row for row in rows if float(row['relative_x']) >= 11.0]
+              events = Counter(row['event'] for row in module)
+              pistons = [row for row in module if row['event'].startswith('PISTON_')]
+              falling = [row for row in module if row['event'] == 'ENTITY_ADD' and row['entity_type'] == 'FALLING_BLOCK']
+              report.append({
+                  'trace': str(trace),
+                  'events': dict(events),
+                  'pistons': [{k: row[k] for k in ('tick','event','component_id','direction','moved_blocks','details')} for row in pistons],
+                  'falling_blocks': [{k: row[k] for k in ('tick','relative_x','relative_y','relative_z','details')} for row in falling],
+              })
+          Path('reaper-evidence/module-waveform.json').write_text(json.dumps(report, indent=2) + '\n')
+          print(json.dumps(report, indent=2))
+          PY
+
+      - name: Upload Reaper module evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-Reaper-Module-${{ github.run_number }}
+          path: |
+            reaper-evidence/**
+            lab-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30

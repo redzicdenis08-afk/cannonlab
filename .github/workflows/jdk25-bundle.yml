@@ -1,0 +1,31 @@
+name: JDK 25 Runtime Bundle
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Package Java 25 and checked-out lab
+        run: |
+          mkdir -p runtime-kit
+          tar -C "$JAVA_HOME" -czf runtime-kit/temurin-25-linux-x64.tar.gz .
+          tar --exclude=.git --exclude=runtime-kit -czf runtime-kit/cannonlab-checkout.tar.gz .
+          "$JAVA_HOME/bin/java" -version 2> runtime-kit/java-version.txt
+          sha256sum runtime-kit/*.tar.gz > runtime-kit/sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-Local-Runtime-Kit
+          path: runtime-kit/**
+          retention-days: 1
