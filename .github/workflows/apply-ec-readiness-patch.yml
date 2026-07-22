@@ -18,33 +18,18 @@ jobs:
           ref: ${{ github.head_ref }}
           fetch-depth: 0
 
-      - name: Diagnose and apply audited patch
-        run: |
-          rm -f apply-error.txt
-          set +e
-          git apply --recount --check --verbose .agent/ec-readiness.patch > apply-error.txt 2>&1
-          status=$?
-          set -e
-          if [[ "$status" -ne 0 ]]; then
-            cat apply-error.txt
-            git config user.name 'CannonLab Builder'
-            git config user.email 'cannonlab@users.noreply.github.com'
-            git add -f apply-error.txt
-            git commit -m 'Capture EC readiness patch failure'
-            git push origin HEAD:${{ github.head_ref }}
-            exit "$status"
-          fi
-          git apply --recount .agent/ec-readiness.patch
-          rm -f .agent/ec-readiness.patch .agent/apply.log apply-error.txt .github/workflows/apply-ec-readiness-patch.yml
-          rmdir .agent 2>/dev/null || true
+      - name: Apply deterministic source transforms
+        run: python3 .agent/upgrade.py
 
-      - name: Compile local sources
+      - name: Compile upgraded sources
         run: |
           python3 -m py_compile scripts/assert-results.py
           gradle clean build --stacktrace
 
       - name: Commit applied upgrade
         run: |
+          rm -f .agent/ec-readiness.patch .agent/upgrade.py apply-error.txt .github/workflows/apply-ec-readiness-patch.yml
+          rmdir .agent 2>/dev/null || true
           git config user.name 'CannonLab Builder'
           git config user.email 'cannonlab@users.noreply.github.com'
           git add -A
