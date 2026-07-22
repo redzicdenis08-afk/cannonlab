@@ -1,0 +1,27 @@
+name: field-parity-button
+cannon:
+  file: probe-button-field.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: button
+  fire-input: {x: 0, y: 1, z: 1}
+  fire-pulse-ticks: 20
+  suppress-paste-side-effects: true
+  settle-before-fill-ticks: 20
+  fill-to-fire-ticks: 10
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: dry
+  material: cobblestone
+  direction: east
+  distance: 5
+  width: 5
+  height: 5
+  y-offset: 0
+  layers: 1
+run:
+  shots: 3
+  warmup-ticks: 20
+  max-shot-ticks: 220
+  quiet-ticks: 80
+  shutdown-when-finished: true
