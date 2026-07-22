@@ -23,6 +23,7 @@ MAX_TARGET_MISS_DISTANCE="${CANNONLAB_MAX_TARGET_MISS_DISTANCE:-}"
 MIN_TARGET_PEAK_DESTROYED="${CANNONLAB_MIN_TARGET_PEAK_DESTROYED:-}"
 MIN_TARGET_PEAK_MEAN="${CANNONLAB_MIN_TARGET_PEAK_MEAN:-}"
 MIN_LAYER_BREACHED="${CANNONLAB_MIN_LAYER_BREACHED:-}"
+MAX_SELF_DAMAGE_BLOCKS="${CANNONLAB_MAX_SELF_DAMAGE_BLOCKS:-}"
 REQUIRE_REGEN="${CANNONLAB_REQUIRE_REGEN:-false}"
 MIN_REGEN_RESTORED="${CANNONLAB_MIN_REGEN_RESTORED:-1}"
 ARENA_RADIUS_X="${CANNONLAB_ARENA_RADIUS_X:-32}"
@@ -32,7 +33,7 @@ USER_AGENT="CannonLab/0.5 (https://github.com/redzicdenis08-afk/cannonlab)"
 WORLDEDIT_VERSION_ID="yDUBafTJ"
 
 rm -rf "$WORK" "$ARTIFACTS"
-mkdir -p "$PLUGINS" "$DATA/cannons" "$DATA/scenarios" "$DATA/results" "$ARTIFACTS"
+mkdir -p "$PLUGINS" "$DATA/cannons" "$DATA/targets" "$DATA/scenarios" "$DATA/results" "$ARTIFACTS"
 exec > >(tee -a "$ARTIFACTS/cloud-smoke.log") 2>&1
 trap 'code=$?; echo "cloud-smoke.sh failed at line $LINENO with exit code $code"; exit $code' ERR
 
@@ -121,6 +122,12 @@ for fixture in "$ROOT"/cannons/*.schem.b64; do
   output="$DATA/cannons/$(basename "${fixture%.b64}")"
   base64 --decode "$fixture" > "$output"
 done
+if compgen -G "$ROOT/targets/*.schem.b64" > /dev/null; then
+  for fixture in "$ROOT"/targets/*.schem.b64; do
+    output="$DATA/targets/$(basename "${fixture%.b64}")"
+    base64 --decode "$fixture" > "$output"
+  done
+fi
 cp "$ROOT"/scenarios/*.yml "$DATA/scenarios/"
 
 cat > "$SERVER/eula.txt" <<'EOF'
@@ -210,6 +217,9 @@ if [[ -n "$MIN_TARGET_PEAK_MEAN" ]]; then
 fi
 if [[ -n "$MIN_LAYER_BREACHED" ]]; then
   ASSERT_ARGS+=(--min-layer-breached "$MIN_LAYER_BREACHED")
+fi
+if [[ -n "$MAX_SELF_DAMAGE_BLOCKS" ]]; then
+  ASSERT_ARGS+=(--max-self-damage-blocks "$MAX_SELF_DAMAGE_BLOCKS")
 fi
 case "${REQUIRE_REGEN,,}" in
   1|true|yes) ASSERT_ARGS+=(--require-regen --min-regen-restored "$MIN_REGEN_RESTORED") ;;

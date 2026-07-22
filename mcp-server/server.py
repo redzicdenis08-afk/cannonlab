@@ -70,6 +70,19 @@ def inspect_cannon(path: str, chunk_limit: int = 160) -> dict[str, Any]:
 
 
 @mcp.tool()
+def audit_cannon_corpus(directory: str, chunk_limit: int = 160) -> dict[str, Any]:
+    """Batch-audit a private directory of Sponge and Litematica cannons for structural comparison."""
+    source = _inside_root(directory)
+    return _run_json([
+        sys.executable,
+        str(SCRIPTS / "audit-cannon-corpus.py"),
+        str(source),
+        "--chunk-limit",
+        str(chunk_limit),
+    ])
+
+
+@mcp.tool()
 def explain_shot(trace_path: str) -> dict[str, Any]:
     """Explain one causal-events.csv trace without inventing cannon subsystem labels."""
     trace = _inside_root(trace_path)
@@ -77,6 +90,49 @@ def explain_shot(trace_path: str) -> dict[str, Any]:
         sys.executable,
         str(SCRIPTS / "explain-causal-trace.py"),
         str(trace),
+    ])
+
+
+@mcp.tool()
+def analyze_shot_quality(
+    trace_or_results: str,
+    impact_window: float = 12.0,
+    max_trigger_to_first_dispense: int | None = None,
+    min_largest_dispense_cohort: int | None = None,
+    max_target_impact_radius: float | None = None,
+    max_self_damage: int | None = None,
+    require_falling_block: bool = False,
+) -> dict[str, Any]:
+    """Score firing latency, synchronized cohorts, target convergence, falling payload and cannon self-damage."""
+    source = _inside_root(trace_or_results)
+    args = [
+        sys.executable,
+        str(SCRIPTS / "analyze-causal-quality.py"),
+        str(source),
+        "--impact-window",
+        str(impact_window),
+    ]
+    if max_trigger_to_first_dispense is not None:
+        args += ["--max-trigger-to-first-dispense", str(max_trigger_to_first_dispense)]
+    if min_largest_dispense_cohort is not None:
+        args += ["--min-largest-dispense-cohort", str(min_largest_dispense_cohort)]
+    if max_target_impact_radius is not None:
+        args += ["--max-target-impact-radius", str(max_target_impact_radius)]
+    if max_self_damage is not None:
+        args += ["--max-self-damage", str(max_self_damage)]
+    if require_falling_block:
+        args.append("--require-falling-block")
+    return _run_json(args)
+
+
+@mcp.tool()
+def audit_ec_calibration(evidence_path: str) -> dict[str, Any]:
+    """Validate whether a live ExtremeCraft calibration evidence pack is complete enough to claim EC calibration."""
+    evidence = _inside_root(evidence_path)
+    return _run_json([
+        sys.executable,
+        str(SCRIPTS / "audit-ec-calibration.py"),
+        str(evidence),
     ])
 
 

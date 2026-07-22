@@ -1,0 +1,88 @@
+# Serious local field template, not a claim that this is ExtremeCraft's exact private wall order.
+# Five 16-layer stages span about 237 blocks from first to last layer, roughly a 15-chunk defense course.
+# Replace materials, regeneration timings, stage order, range and height with measured EC evidence.
+name: ec-15chunk-gauntlet-template
+cannon:
+  file: replace-with-candidate.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: redstone
+  fire-input: {x: 0, y: 1, z: 0}
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: watered
+  material: cobblestone
+  direction: north
+  distance: 160
+  width: 17
+  height: 32
+  y-offset: 0
+  lateral-offset: 0
+  stages:
+    - name: watered-entry
+      type: watered
+      material: cobblestone
+      width: 17
+      height: 32
+      layers: 16
+      spacing: 3
+      gap-after: 3
+      regeneration: {enabled: false}
+    - name: fast-regen-cells
+      type: cobble-regen
+      material: cobblestone
+      width: 17
+      height: 32
+      layers: 16
+      spacing: 3
+      gap-after: 3
+      regeneration:
+        enabled: true
+        delay-ticks: 4
+        interval-ticks: 1
+        max-blocks-per-cycle: 64
+    - name: watered-hotdogs
+      type: hotdog
+      material: cobblestone
+      alternate-material: obsidian
+      width: 17
+      height: 32
+      layers: 16
+      spacing: 3
+      gap-after: 3
+      hotdog-band-width: 2
+      regeneration:
+        enabled: true
+        delay-ticks: 10
+        interval-ticks: 2
+        max-blocks-per-cycle: 48
+    - name: staggered-pillars
+      type: pillars
+      material: cobblestone
+      width: 17
+      height: 32
+      layers: 16
+      spacing: 3
+      gap-after: 3
+      pillar-spacing: 3
+      regeneration:
+        enabled: true
+        delay-ticks: 20
+        interval-ticks: 4
+        max-blocks-per-cycle: 32
+    - name: filter-core
+      type: slab-filter
+      material: obsidian
+      width: 17
+      height: 32
+      layers: 16
+      spacing: 3
+      gap-after: 0
+      regeneration: {enabled: false}
+run:
+  shots: 100
+  warmup-ticks: 40
+  max-shot-ticks: 600
+  quiet-ticks: 120
+  shutdown-when-finished: true

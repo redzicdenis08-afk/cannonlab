@@ -210,6 +210,15 @@ public final class CannonLabPlugin extends JavaPlugin {
         return file;
     }
 
+    File resolveTargetFile(String name) {
+        String normalized = name.endsWith(".schem") ? name : name + ".schem";
+        File file = resolveInside(directory("targets"), normalized);
+        if (!file.isFile()) {
+            throw new IllegalArgumentException("Target schematic not found: " + file.getAbsolutePath());
+        }
+        return file;
+    }
+
     private File resolveInside(Path baseDirectory, String name) {
         Path resolved = baseDirectory.resolve(name).normalize();
         if (!resolved.startsWith(baseDirectory)) {
@@ -220,6 +229,7 @@ public final class CannonLabPlugin extends JavaPlugin {
 
     private void createDataDirectories() throws IOException {
         Files.createDirectories(directory("cannons"));
+        Files.createDirectories(directory("targets"));
         Files.createDirectories(directory("scenarios"));
         Files.createDirectories(directory("results"));
     }

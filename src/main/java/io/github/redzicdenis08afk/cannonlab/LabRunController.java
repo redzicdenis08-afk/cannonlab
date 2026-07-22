@@ -134,7 +134,9 @@ final class LabRunController {
                     false
             );
 
-            TargetBuild targetBuild = buildTarget(world, arenaOrigin, scenario);
+            TargetBuild targetBuild = scenario.targetFile().isBlank()
+                    ? buildTarget(world, arenaOrigin, scenario)
+                    : buildTargetFromSchematic(world, arenaOrigin, scenario);
             targetCells = targetBuild.cells();
             targetBounds = targetBuild.bounds();
 
@@ -167,6 +169,15 @@ final class LabRunController {
                     shotNumber,
                     world,
                     arenaOrigin,
+                    pasteOrigin,
+                    new ShotRecorder.BlockBounds(
+                            pasteResult.minimum().x(),
+                            pasteResult.minimum().y(),
+                            pasteResult.minimum().z(),
+                            pasteResult.maximum().x(),
+                            pasteResult.maximum().y(),
+                            pasteResult.maximum().z()
+                    ),
                     scenario.maxShotTicks(),
                     scenario.quietTicks(),
                     this::shotCompleted
@@ -174,8 +185,7 @@ final class LabRunController {
 
             regenMonitor = new RegenMonitor(
                     world,
-                    targetCells,
-                    scenario.regeneration()
+                    targetCells
             );
             regenMonitor.start();
 
@@ -260,6 +270,11 @@ final class LabRunController {
             plugin.getLogger().info("Redstone fire at " + coordinates(pulse.location())
                     + " | previous=" + pulse.previousType()
                     + " | neighbours=" + describeNeighbours(pulse.block()));
+            recorder.recordControlEvent(
+                    "FIRE_INPUT",
+                    pulse.location(),
+                    "previous=" + pulse.previousType() + ";pulse_ticks=" + scenario.firePulseTicks()
+            );
             pulse.block().setType(Material.REDSTONE_BLOCK, true);
             BlockState pulseState = pulse.block().getState();
             pulseState.update(true, true);
@@ -322,6 +337,7 @@ final class LabRunController {
                 result.sawPayload(),
                 result.explosions(),
                 result.destroyedBlocks(),
+                result.selfDamageBlocks(),
                 finalDestroyed,
                 regenStats.peakDestroyed(),
                 regenStats.everDestroyed(),
@@ -338,6 +354,7 @@ final class LabRunController {
                 + " complete | payload=" + result.sawPayload()
                 + " | explosions=" + result.explosions()
                 + " | maxTnt=" + result.maximumTnt()
+                + " | selfDamage=" + result.selfDamageBlocks()
                 + " | targetFinal=" + finalDestroyed + "/" + targetCells.size()
                 + " | targetPeak=" + regenStats.peakDestroyed()
                 + " | regenRestored=" + regenStats.restored()
@@ -409,100 +426,247 @@ final class LabRunController {
         worldEdit.clear(world, minimum, maximum);
     }
 
-    private TargetBuild buildTarget(World world, Location origin, LabScenario selected) {
+    private TargetBuild buildTargetFromSchematic(
+            World world,
+            Location arenaOrigin,
+            LabScenario selected
+    ) throws IOException, WorldEditException {
+        File targetFile = plugin.resolveTargetFile(selected.targetFile());
+        Location targetOrigin = relative(arenaOrigin, selected.targetOrigin());
+        WorldEditService.PasteResult result = worldEdit.paste(
+                world,
+                targetFile,
+                targetOrigin,
+                false
+        );
+
         List<TargetCell> cells = new ArrayList<>();
-        int halfWidth = selected.targetWidth() / 2;
         BoundsBuilder bounds = new BoundsBuilder();
-
-        for (int layer = 0; layer < selected.targetLayers(); layer++) {
-            int distance = selected.targetDistance() + layer * selected.targetSpacing();
-
-            for (int vertical = 0; vertical < selected.targetHeight(); vertical++) {
-                int y = origin.getBlockY() + selected.targetYOffset() + vertical;
-                if (y < world.getMinHeight() || y >= world.getMaxHeight()) {
-                    throw new IllegalStateException("Target Y outside world bounds: " + y);
-                }
-
-                for (int across = 0; across < selected.targetWidth(); across++) {
-                    int lateral = selected.targetLateralOffset() - halfWidth + across;
-                    TargetPlacement placement = targetPlacement(
-                            origin,
-                            selected.targetDirection(),
-                            distance,
-                            lateral,
-                            y
+        for (int x = result.minimum().x(); x <= result.maximum().x(); x++) {
+            for (int y = Math.max(world.getMinHeight(), result.minimum().y());
+                 y <= Math.min(world.getMaxHeight() - 1, result.maximum().y()); y++) {
+                for (int z = result.minimum().z(); z <= result.maximum().z(); z++) {
+                    Block block = world.getBlockAt(x, y, z);
+                    if (!block.getType().isSolid()) {
+                        continue;
+                    }
+                    validateArenaCoordinate(arenaOrigin, x, y, z);
+                    int layer = switch (selected.targetDirection()) {
+                        case EAST -> x - result.minimum().x();
+                        case WEST -> result.maximum().x() - x;
+                        case SOUTH -> z - result.minimum().z();
+                        case NORTH -> result.maximum().z() - z;
+                    };
+                    TargetCell cell = new TargetCell(
+                            x,
+                            y,
+                            z,
+                            block.getType(),
+                            block.getBlockData().getAsString(),
+                            layer,
+                            0,
+                            "schematic:" + selected.targetFile(),
+                            selected.regeneration()
                     );
-                    validateArenaBounds(origin, placement);
-
-                    Block target = world.getBlockAt(placement.targetX(), y, placement.targetZ());
-                    Block front = world.getBlockAt(placement.frontX(), y, placement.frontZ());
-                    Block back = world.getBlockAt(placement.backX(), y, placement.backZ());
-                    target.setType(Material.AIR, false);
-                    front.setType(Material.AIR, false);
-                    back.setType(Material.AIR, false);
-
-                    boolean checker = ((vertical + across + layer) & 1) == 0;
-                    switch (selected.targetType()) {
-                        case DRY -> target.setType(selected.targetMaterial(), false);
-                        case WATERED -> {
-                            target.setType(selected.targetMaterial(), false);
-                            front.setType(Material.WATER, false);
-                        }
-                        case COBBLE_REGEN -> {
-                            target.setType(selected.targetMaterial(), false);
-                            front.setType(Material.WATER, false);
-                            back.setType(Material.LAVA, false);
-                        }
-                        case FILTER -> target.setType(
-                                checker ? selected.targetMaterial() : Material.AIR,
-                                false
-                        );
-                        case SLAB_FILTER -> {
-                            target.setType(selected.targetMaterial(), false);
-                            front.setType(Material.STONE_SLAB, false);
-                            BlockData data = front.getBlockData();
-                            if (data instanceof Slab slab) {
-                                slab.setType(checker ? Slab.Type.TOP : Slab.Type.BOTTOM);
-                                front.setBlockData(slab, false);
-                            }
-                        }
-                        case HOTDOG -> {
-                            boolean solidLane = ((across / selected.hotdogBandWidth()) & 1) == 0;
-                            front.setType(Material.WATER, false);
-                            if (solidLane) {
-                                target.setType(
-                                        checker ? selected.targetMaterial() : selected.alternateMaterial(),
-                                        false
-                                );
-                            }
-                        }
-                        case PILLARS -> {
-                            boolean pillar = Math.floorMod(across + layer, selected.pillarSpacing()) == 0;
-                            if (pillar) {
-                                target.setType(selected.targetMaterial(), false);
-                            }
-                        }
-                    }
-
-                    if (!target.isEmpty()) {
-                        TargetCell cell = new TargetCell(
-                                target.getX(),
-                                target.getY(),
-                                target.getZ(),
-                                target.getType(),
-                                target.getBlockData().getAsString(),
-                                layer
-                        );
-                        cells.add(cell);
-                        bounds.include(cell.x(), cell.y(), cell.z());
-                    }
+                    cells.add(cell);
+                    bounds.include(x, y, z);
                 }
             }
+        }
+        if (cells.isEmpty()) {
+            throw new IllegalStateException("Target schematic contains no solid target blocks: " + selected.targetFile());
+        }
+        return new TargetBuild(List.copyOf(cells), bounds.build());
+    }
+
+    private void validateArenaCoordinate(Location origin, int x, int y, int z) {
+        int radiusX = plugin.getConfig().getInt("arena.radius-x", 256);
+        int radiusY = plugin.getConfig().getInt("arena.radius-y", 128);
+        int radiusZ = plugin.getConfig().getInt("arena.radius-z", 96);
+        if (Math.abs(x - origin.getBlockX()) > radiusX
+                || Math.abs(y - origin.getBlockY()) > radiusY
+                || Math.abs(z - origin.getBlockZ()) > radiusZ) {
+            throw new IllegalStateException(
+                    "Target schematic exceeds configured arena radius at " + x + "," + y + "," + z
+            );
+        }
+    }
+
+    private TargetBuild buildTarget(World world, Location origin, LabScenario selected) {
+        List<TargetCell> cells = new ArrayList<>();
+        BoundsBuilder bounds = new BoundsBuilder();
+        int stageDistance = selected.targetDistance();
+        int globalLayer = 0;
+
+        for (int stageIndex = 0; stageIndex < selected.targetStages().size(); stageIndex++) {
+            LabScenario.TargetStage stage = selected.targetStages().get(stageIndex);
+            int halfWidth = stage.width() / 2;
+
+            for (int layer = 0; layer < stage.layers(); layer++) {
+                int distance = stageDistance + layer * stage.spacing();
+
+                for (int vertical = 0; vertical < stage.height(); vertical++) {
+                    int y = origin.getBlockY() + stage.yOffset() + vertical;
+                    if (y < world.getMinHeight() || y >= world.getMaxHeight()) {
+                        throw new IllegalStateException("Target Y outside world bounds: " + y);
+                    }
+
+                    for (int across = 0; across < stage.width(); across++) {
+                        int lateral = stage.lateralOffset() - halfWidth + across;
+                        TargetPlacement placement = targetPlacement(
+                                origin,
+                                selected.targetDirection(),
+                                distance,
+                                lateral,
+                                y
+                        );
+                        validateArenaBounds(origin, placement);
+
+                        Block target = world.getBlockAt(placement.targetX(), y, placement.targetZ());
+                        Block front = world.getBlockAt(placement.frontX(), y, placement.frontZ());
+                        Block back = world.getBlockAt(placement.backX(), y, placement.backZ());
+                        target.setType(Material.AIR, false);
+                        front.setType(Material.AIR, false);
+                        back.setType(Material.AIR, false);
+
+                        boolean checker = ((vertical + across + layer) & 1) == 0;
+                        switch (stage.type()) {
+                            case DRY -> target.setType(stage.material(), false);
+                            case WATERED -> {
+                                target.setType(stage.material(), false);
+                                front.setType(Material.WATER, false);
+                            }
+                            case COBBLE_REGEN -> {
+                                target.setType(stage.material(), false);
+                                front.setType(Material.WATER, false);
+                                back.setType(Material.LAVA, false);
+                            }
+                            case FILTER -> target.setType(
+                                    checker ? stage.material() : Material.AIR,
+                                    false
+                            );
+                            case SLAB_FILTER -> {
+                                target.setType(stage.material(), false);
+                                front.setType(Material.STONE_SLAB, false);
+                                BlockData data = front.getBlockData();
+                                if (data instanceof Slab slab) {
+                                    slab.setType(checker ? Slab.Type.TOP : Slab.Type.BOTTOM);
+                                    front.setBlockData(slab, false);
+                                }
+                            }
+                            case HOTDOG -> {
+                                boolean solidLane = ((across / stage.hotdogBandWidth()) & 1) == 0;
+                                front.setType(Material.WATER, false);
+                                if (solidLane) {
+                                    target.setType(
+                                            checker ? stage.material() : stage.alternateMaterial(),
+                                            false
+                                    );
+                                }
+                            }
+                            case PILLARS -> {
+                                boolean pillar = Math.floorMod(across + layer, stage.pillarSpacing()) == 0;
+                                if (pillar) {
+                                    target.setType(stage.material(), false);
+                                }
+                            }
+                        }
+
+                        if (!target.isEmpty()) {
+                            TargetCell cell = new TargetCell(
+                                    target.getX(),
+                                    target.getY(),
+                                    target.getZ(),
+                                    target.getType(),
+                                    target.getBlockData().getAsString(),
+                                    globalLayer,
+                                    stageIndex,
+                                    stage.name(),
+                                    stage.regeneration()
+                            );
+                            cells.add(cell);
+                            bounds.include(cell.x(), cell.y(), cell.z());
+                        }
+                    }
+                }
+                globalLayer++;
+            }
+
+            stageDistance += (stage.layers() - 1) * stage.spacing() + stage.gapAfter();
         }
         if (cells.isEmpty()) {
             throw new IllegalStateException("Target configuration produced zero solid target cells.");
         }
         return new TargetBuild(List.copyOf(cells), bounds.build());
+    }
+
+    private void writeTargetCourse(Path runDirectory) throws IOException {
+        if (scenario == null) {
+            return;
+        }
+        if (!scenario.targetFile().isBlank()) {
+            String exactCourse = "{\n"
+                    + "  \"direction\": \"" + json(scenario.targetDirection().name()) + "\",\n"
+                    + "  \"source_file\": \"" + json(scenario.targetFile()) + "\",\n"
+                    + "  \"stage_count\": 0,\n"
+                    + "  \"stages\": []\n"
+                    + "}\n";
+            Files.writeString(runDirectory.resolve("target-course.json"), exactCourse, StandardCharsets.UTF_8);
+            return;
+        }
+        StringBuilder stagesJson = new StringBuilder();
+        int distance = scenario.targetDistance();
+        for (int index = 0; index < scenario.targetStages().size(); index++) {
+            LabScenario.TargetStage stage = scenario.targetStages().get(index);
+            if (index > 0) {
+                stagesJson.append(",\n");
+            }
+            stagesJson.append("""
+                    {
+                      "index": %d,
+                      "name": "%s",
+                      "type": "%s",
+                      "start_distance": %d,
+                      "end_distance": %d,
+                      "width": %d,
+                      "height": %d,
+                      "layers": %d,
+                      "spacing": %d,
+                      "gap_after": %d,
+                      "regeneration": {"enabled": %s, "delay_ticks": %d, "interval_ticks": %d, "max_blocks_per_cycle": %d}
+                    }
+                    """.formatted(
+                    index,
+                    json(stage.name()),
+                    stage.type().name(),
+                    distance,
+                    distance + (stage.layers() - 1) * stage.spacing(),
+                    stage.width(),
+                    stage.height(),
+                    stage.layers(),
+                    stage.spacing(),
+                    stage.gapAfter(),
+                    stage.regeneration().enabled(),
+                    stage.regeneration().delayTicks(),
+                    stage.regeneration().intervalTicks(),
+                    stage.regeneration().maxBlocksPerCycle()
+            ));
+            distance += (stage.layers() - 1) * stage.spacing() + stage.gapAfter();
+        }
+        String course = """
+                {
+                  "direction": "%s",
+                  "stage_count": %d,
+                  "stages": [
+                %s
+                  ]
+                }
+                """.formatted(
+                scenario.targetDirection().name(),
+                scenario.targetStages().size(),
+                indent(stagesJson.toString(), 4)
+        );
+        Files.writeString(runDirectory.resolve("target-course.json"), course, StandardCharsets.UTF_8);
     }
 
     private TargetPlacement targetPlacement(
@@ -645,6 +809,7 @@ final class LabRunController {
                 .resolve(plugin.getConfig().getString("telemetry.output-directory", "results"))
                 .resolve(runId);
         Files.createDirectories(runDirectory);
+        writeTargetCourse(runDirectory);
 
         StringBuilder shotsJson = new StringBuilder();
         for (int index = 0; index < completedShots.size(); index++) {
@@ -659,6 +824,7 @@ final class LabRunController {
                       "saw_payload": %s,
                       "explosions": %d,
                       "destroyed_blocks": %d,
+                      "self_damage_blocks": %d,
                       "maximum_tnt_entities": %d,
                       "maximum_falling_blocks": %d,
                       "target_blocks_destroyed": %d,
@@ -676,6 +842,7 @@ final class LabRunController {
                     shot.sawPayload(),
                     shot.explosions(),
                     shot.destroyedBlocks(),
+                    shot.selfDamageBlocks(),
                     shot.maximumTnt(),
                     shot.maximumFallingBlocks(),
                     shot.targetDestroyed(),
@@ -773,7 +940,6 @@ final class LabRunController {
     private final class RegenMonitor {
         private final World world;
         private final List<TargetCell> cells;
-        private final LabScenario.RegenConfig config;
         private final Map<TargetCell, Long> missingSince = new HashMap<>();
         private final Set<TargetCell> everDestroyed = new HashSet<>();
         private BukkitTask task;
@@ -785,12 +951,10 @@ final class LabRunController {
 
         private RegenMonitor(
                 World world,
-                List<TargetCell> cells,
-                LabScenario.RegenConfig config
+                List<TargetCell> cells
         ) {
             this.world = world;
             this.cells = cells;
-            this.config = config;
         }
 
         private void start() {
@@ -818,7 +982,7 @@ final class LabRunController {
                         maxLayerBreached = Math.max(maxLayerBreached, cell.layer() + 1);
                         recorder.recordCustomEvent(
                                 "TARGET_DESTROYED",
-                                cell.material().name(),
+                                cell.stageName() + ":" + cell.material().name(),
                                 new Location(world, cell.x(), cell.y(), cell.z()),
                                 1
                         );
@@ -829,24 +993,39 @@ final class LabRunController {
             }
             peakDestroyed = Math.max(peakDestroyed, currentlyDestroyed);
 
-            if (!allowRestore || !config.enabled() || tick % config.intervalTicks() != 0) {
+            if (!allowRestore) {
+                return;
+            }
+
+            boolean cycleDue = cells.stream()
+                    .map(TargetCell::regeneration)
+                    .distinct()
+                    .anyMatch(config -> config.enabled() && tick % config.intervalTicks() == 0);
+            if (!cycleDue) {
                 return;
             }
             cycles++;
 
             List<Map.Entry<TargetCell, Long>> due = missingSince.entrySet().stream()
-                    .filter(entry -> tick - entry.getValue() >= config.delayTicks())
+                    .filter(entry -> {
+                        LabScenario.RegenConfig config = entry.getKey().regeneration();
+                        return config.enabled()
+                                && tick % config.intervalTicks() == 0
+                                && tick - entry.getValue() >= config.delayTicks();
+                    })
                     .sorted(Comparator
                             .comparingLong((Map.Entry<TargetCell, Long> entry) -> entry.getValue())
                             .thenComparingInt(entry -> entry.getKey().layer()))
                     .toList();
 
-            int restoredThisCycle = 0;
+            Map<Integer, Integer> restoredByStage = new HashMap<>();
             for (Map.Entry<TargetCell, Long> entry : due) {
-                if (restoredThisCycle >= config.maxBlocksPerCycle()) {
-                    break;
-                }
                 TargetCell cell = entry.getKey();
+                LabScenario.RegenConfig config = cell.regeneration();
+                int restoredForStage = restoredByStage.getOrDefault(cell.stageIndex(), 0);
+                if (restoredForStage >= config.maxBlocksPerCycle()) {
+                    continue;
+                }
                 if (matches(world, cell)) {
                     missingSince.remove(cell);
                     continue;
@@ -854,10 +1033,10 @@ final class LabRunController {
                 restore(world, cell);
                 missingSince.remove(cell);
                 restored++;
-                restoredThisCycle++;
+                restoredByStage.put(cell.stageIndex(), restoredForStage + 1);
                 recorder.recordCustomEvent(
                         "REGEN_RESTORE",
-                        cell.material().name(),
+                        cell.stageName() + ":" + cell.material().name(),
                         new Location(world, cell.x(), cell.y(), cell.z()),
                         1
                 );
@@ -949,7 +1128,10 @@ final class LabRunController {
             int z,
             Material material,
             String blockData,
-            int layer
+            int layer,
+            int stageIndex,
+            String stageName,
+            LabScenario.RegenConfig regeneration
     ) {
     }
 
@@ -997,6 +1179,7 @@ final class LabRunController {
             boolean sawPayload,
             int explosions,
             int destroyedBlocks,
+            int selfDamageBlocks,
             int targetDestroyed,
             int targetPeakDestroyed,
             int targetEverDestroyed,
@@ -1017,6 +1200,7 @@ final class LabRunController {
                     number,
                     "preparation_error",
                     false,
+                    0,
                     0,
                     0,
                     0,
