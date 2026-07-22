@@ -22,6 +22,8 @@ record LabScenario(
         boolean enforceDispenserLimit,
         TargetType targetType,
         TargetDirection targetDirection,
+        String targetFile,
+        BlockPoint targetOrigin,
         Material targetMaterial,
         Material alternateMaterial,
         int targetDistance,
@@ -102,6 +104,12 @@ record LabScenario(
         int targetHeight = Math.max(1, yaml.getInt("target.height", 32));
         int targetYOffset = yaml.getInt("target.y-offset", 0);
         int targetLateralOffset = yaml.getInt("target.lateral-offset", 0);
+        String targetFile = yaml.getString("target.file", "").trim();
+        BlockPoint targetOrigin = point(
+                yaml,
+                "target.origin",
+                defaultTargetOrigin(targetDirection, targetDistance, targetYOffset, targetLateralOffset)
+        );
         int targetLayers = Math.max(1, yaml.getInt("target.layers", 1));
         int targetSpacing = Math.max(1, yaml.getInt("target.spacing", 3));
         int hotdogBandWidth = Math.max(1, yaml.getInt("target.hotdog-band-width", 2));
@@ -145,6 +153,8 @@ record LabScenario(
                 yaml.getBoolean("limits.enforce-dispenser-limit", true),
                 targetType,
                 targetDirection,
+                targetFile,
+                targetOrigin,
                 targetMaterial,
                 alternateMaterial,
                 targetDistance,
@@ -209,6 +219,20 @@ record LabScenario(
                 Math.max(1, integer(values.get("interval-ticks"), fallback.intervalTicks())),
                 Math.max(1, integer(values.get("max-blocks-per-cycle"), fallback.maxBlocksPerCycle()))
         );
+    }
+
+    private static BlockPoint defaultTargetOrigin(
+            TargetDirection direction,
+            int distance,
+            int yOffset,
+            int lateralOffset
+    ) {
+        return switch (direction) {
+            case EAST -> new BlockPoint(distance, yOffset, lateralOffset);
+            case WEST -> new BlockPoint(-distance, yOffset, lateralOffset);
+            case SOUTH -> new BlockPoint(lateralOffset, yOffset, distance);
+            case NORTH -> new BlockPoint(lateralOffset, yOffset, -distance);
+        };
     }
 
     private static BlockPoint point(YamlConfiguration yaml, String path, BlockPoint fallback) {

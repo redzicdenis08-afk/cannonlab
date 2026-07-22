@@ -33,7 +33,7 @@ USER_AGENT="CannonLab/0.5 (https://github.com/redzicdenis08-afk/cannonlab)"
 WORLDEDIT_VERSION_ID="yDUBafTJ"
 
 rm -rf "$WORK" "$ARTIFACTS"
-mkdir -p "$PLUGINS" "$DATA/cannons" "$DATA/scenarios" "$DATA/results" "$ARTIFACTS"
+mkdir -p "$PLUGINS" "$DATA/cannons" "$DATA/targets" "$DATA/scenarios" "$DATA/results" "$ARTIFACTS"
 exec > >(tee -a "$ARTIFACTS/cloud-smoke.log") 2>&1
 trap 'code=$?; echo "cloud-smoke.sh failed at line $LINENO with exit code $code"; exit $code' ERR
 
@@ -122,6 +122,12 @@ for fixture in "$ROOT"/cannons/*.schem.b64; do
   output="$DATA/cannons/$(basename "${fixture%.b64}")"
   base64 --decode "$fixture" > "$output"
 done
+if compgen -G "$ROOT/targets/*.schem.b64" > /dev/null; then
+  for fixture in "$ROOT"/targets/*.schem.b64; do
+    output="$DATA/targets/$(basename "${fixture%.b64}")"
+    base64 --decode "$fixture" > "$output"
+  done
+fi
 cp "$ROOT"/scenarios/*.yml "$DATA/scenarios/"
 
 cat > "$SERVER/eula.txt" <<'EOF'

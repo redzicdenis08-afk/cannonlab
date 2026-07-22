@@ -134,7 +134,9 @@ final class LabRunController {
                     false
             );
 
-            TargetBuild targetBuild = buildTarget(world, arenaOrigin, scenario);
+            TargetBuild targetBuild = scenario.targetFile().isBlank()
+                    ? buildTarget(world, arenaOrigin, scenario)
+                    : buildTargetFromSchematic(world, arenaOrigin, scenario);
             targetCells = targetBuild.cells();
             targetBounds = targetBuild.bounds();
 
@@ -419,6 +421,72 @@ final class LabRunController {
         worldEdit.clear(world, minimum, maximum);
     }
 
+    private TargetBuild buildTargetFromSchematic(
+            World world,
+            Location arenaOrigin,
+            LabScenario selected
+    ) throws IOException, WorldEditException {
+        File targetFile = plugin.resolveTargetFile(selected.targetFile());
+        Location targetOrigin = relative(arenaOrigin, selected.targetOrigin());
+        WorldEditService.PasteResult result = worldEdit.paste(
+                world,
+                targetFile,
+                targetOrigin,
+                false
+        );
+
+        List<TargetCell> cells = new ArrayList<>();
+        BoundsBuilder bounds = new BoundsBuilder();
+        for (int x = result.minimum().x(); x <= result.maximum().x(); x++) {
+            for (int y = Math.max(world.getMinHeight(), result.minimum().y());
+                 y <= Math.min(world.getMaxHeight() - 1, result.maximum().y()); y++) {
+                for (int z = result.minimum().z(); z <= result.maximum().z(); z++) {
+                    Block block = world.getBlockAt(x, y, z);
+                    if (!block.getType().isSolid()) {
+                        continue;
+                    }
+                    validateArenaCoordinate(arenaOrigin, x, y, z);
+                    int layer = switch (selected.targetDirection()) {
+                        case EAST -> x - result.minimum().x();
+                        case WEST -> result.maximum().x() - x;
+                        case SOUTH -> z - result.minimum().z();
+                        case NORTH -> result.maximum().z() - z;
+                    };
+                    TargetCell cell = new TargetCell(
+                            x,
+                            y,
+                            z,
+                            block.getType(),
+                            block.getBlockData().getAsString(),
+                            layer,
+                            0,
+                            "schematic:" + selected.targetFile(),
+                            selected.regeneration()
+                    );
+                    cells.add(cell);
+                    bounds.include(x, y, z);
+                }
+            }
+        }
+        if (cells.isEmpty()) {
+            throw new IllegalStateException("Target schematic contains no solid target blocks: " + selected.targetFile());
+        }
+        return new TargetBuild(List.copyOf(cells), bounds.build());
+    }
+
+    private void validateArenaCoordinate(Location origin, int x, int y, int z) {
+        int radiusX = plugin.getConfig().getInt("arena.radius-x", 256);
+        int radiusY = plugin.getConfig().getInt("arena.radius-y", 128);
+        int radiusZ = plugin.getConfig().getInt("arena.radius-z", 96);
+        if (Math.abs(x - origin.getBlockX()) > radiusX
+                || Math.abs(y - origin.getBlockY()) > radiusY
+                || Math.abs(z - origin.getBlockZ()) > radiusZ) {
+            throw new IllegalStateException(
+                    "Target schematic exceeds configured arena radius at " + x + "," + y + "," + z
+            );
+        }
+    }
+
     private TargetBuild buildTarget(World world, Location origin, LabScenario selected) {
         List<TargetCell> cells = new ArrayList<>();
         BoundsBuilder bounds = new BoundsBuilder();
@@ -529,6 +597,16 @@ final class LabRunController {
 
     private void writeTargetCourse(Path runDirectory) throws IOException {
         if (scenario == null) {
+            return;
+        }
+        if (!scenario.targetFile().isBlank()) {
+            String exactCourse = "{\n"
+                    + "  \"direction\": \"" + json(scenario.targetDirection().name()) + "\",\n"
+                    + "  \"source_file\": \"" + json(scenario.targetFile()) + "\",\n"
+                    + "  \"stage_count\": 0,\n"
+                    + "  \"stages\": []\n"
+                    + "}\n";
+            Files.writeString(runDirectory.resolve("target-course.json"), exactCourse, StandardCharsets.UTF_8);
             return;
         }
         StringBuilder stagesJson = new StringBuilder();
@@ -935,12 +1013,12 @@ final class LabRunController {
                             .thenComparingInt(entry -> entry.getKey().layer()))
                     .toList();
 
-            Map<LabScenario.RegenConfig, Integer> restoredByConfig = new HashMap<>();
+            Map<Integer, Integer> restoredByStage = new HashMap<>();
             for (Map.Entry<TargetCell, Long> entry : due) {
                 TargetCell cell = entry.getKey();
                 LabScenario.RegenConfig config = cell.regeneration();
-                int restoredForConfig = restoredByConfig.getOrDefault(config, 0);
-                if (restoredForConfig >= config.maxBlocksPerCycle()) {
+                int restoredForStage = restoredByStage.getOrDefault(cell.stageIndex(), 0);
+                if (restoredForStage >= config.maxBlocksPerCycle()) {
                     continue;
                 }
                 if (matches(world, cell)) {
@@ -950,7 +1028,7 @@ final class LabRunController {
                 restore(world, cell);
                 missingSince.remove(cell);
                 restored++;
-                restoredByConfig.put(config, restoredForConfig + 1);
+                restoredByStage.put(cell.stageIndex(), restoredForStage + 1);
                 recorder.recordCustomEvent(
                         "REGEN_RESTORE",
                         cell.stageName() + ":" + cell.material().name(),
