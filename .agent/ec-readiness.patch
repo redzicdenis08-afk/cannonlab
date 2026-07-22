@@ -1,0 +1,605 @@
+diff --git a/src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java b/src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java
+index b068c93..1111111 100644
+--- a/src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java
++++ b/src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java
+@@ -165,11 +165,20 @@ final class LabRunController {
+                     shotNumber,
+                     world,
+                     arenaOrigin,
++                    pasteOrigin,
++                    new ShotRecorder.BlockBounds(
++                            pasteResult.minimum().x(),
++                            pasteResult.minimum().y(),
++                            pasteResult.minimum().z(),
++                            pasteResult.maximum().x(),
++                            pasteResult.maximum().y(),
++                            pasteResult.maximum().z()
++                    ),
+                     scenario.maxShotTicks(),
+                     scenario.quietTicks(),
+                     this::shotCompleted
+             );
+ 
+             regenMonitor = new RegenMonitor(
+                     world,
+-                    targetCells,
+-                    scenario.regeneration()
++                    targetCells
+             );
+             regenMonitor.start();
+@@ -323,6 +332,7 @@ final class LabRunController {
+                 result.sawPayload(),
+                 result.explosions(),
+                 result.destroyedBlocks(),
++                result.selfDamageBlocks(),
+                 finalDestroyed,
+                 regenStats.peakDestroyed(),
+                 regenStats.everDestroyed(),
+@@ -339,6 +349,7 @@ final class LabRunController {
+                 + " complete | payload=" + result.sawPayload()
+                 + " | explosions=" + result.explosions()
+                 + " | maxTnt=" + result.maximumTnt()
++                + " | selfDamage=" + result.selfDamageBlocks()
+                 + " | targetFinal=" + finalDestroyed + "/" + targetCells.size()
+                 + " | targetPeak=" + regenStats.peakDestroyed()
+                 + " | regenRestored=" + regenStats.restored()
+@@ -407,80 +418,94 @@ final class LabRunController {
+     private TargetBuild buildTarget(World world, Location origin, LabScenario selected) {
+         List<TargetCell> cells = new ArrayList<>();
+-        int halfWidth = selected.targetWidth() / 2;
+         BoundsBuilder bounds = new BoundsBuilder();
++        int stageDistance = selected.targetDistance();
++        int globalLayer = 0;
+ 
+-        for (int layer = 0; layer < selected.targetLayers(); layer++) {
+-            int distance = selected.targetDistance() + layer * selected.targetSpacing();
++        for (int stageIndex = 0; stageIndex < selected.targetStages().size(); stageIndex++) {
++            LabScenario.TargetStage stage = selected.targetStages().get(stageIndex);
++            int halfWidth = stage.width() / 2;
+ 
+-            for (int vertical = 0; vertical < selected.targetHeight(); vertical++) {
+-                int y = origin.getBlockY() + selected.targetYOffset() + vertical;
+-                if (y < world.getMinHeight() || y >= world.getMaxHeight()) {
+-                    throw new IllegalStateException("Target Y outside world bounds: " + y);
+-                }
++            for (int layer = 0; layer < stage.layers(); layer++) {
++                int distance = stageDistance + layer * stage.spacing();
+ 
+-                for (int across = 0; across < selected.targetWidth(); across++) {
+-                    int lateral = selected.targetLateralOffset() - halfWidth + across;
+-                    TargetPlacement placement = targetPlacement(
+-                            origin,
+-                            selected.targetDirection(),
+-                            distance,
+-                            lateral,
+-                            y
+-                    );
+-                    validateArenaBounds(origin, placement);
++                for (int vertical = 0; vertical < stage.height(); vertical++) {
++                    int y = origin.getBlockY() + stage.yOffset() + vertical;
++                    if (y < world.getMinHeight() || y >= world.getMaxHeight()) {
++                        throw new IllegalStateException("Target Y outside world bounds: " + y);
++                    }
+ 
+-                    Block target = world.getBlockAt(placement.targetX(), y, placement.targetZ());
+-                    Block front = world.getBlockAt(placement.frontX(), y, placement.frontZ());
+-                    Block back = world.getBlockAt(placement.backX(), y, placement.backZ());
+-                    target.setType(Material.AIR, false);
+-                    front.setType(Material.AIR, false);
+-                    back.setType(Material.AIR, false);
++                    for (int across = 0; across < stage.width(); across++) {
++                        int lateral = stage.lateralOffset() - halfWidth + across;
++                        TargetPlacement placement = targetPlacement(
++                                origin,
++                                selected.targetDirection(),
++                                distance,
++                                lateral,
++                                y
++                        );
++                        validateArenaBounds(origin, placement);
+ 
+-                    boolean checker = ((vertical + across + layer) & 1) == 0;
+-                    switch (selected.targetType()) {
+-                        case DRY -> target.setType(selected.targetMaterial(), false);
+-                        case WATERED -> {
+-                            target.setType(selected.targetMaterial(), false);
+-                            front.setType(Material.WATER, false);
+-                        }
+-                        case COBBLE_REGEN -> {
+-                            target.setType(selected.targetMaterial(), false);
+-                            front.setType(Material.WATER, false);
+-                            back.setType(Material.LAVA, false);
+-                        }
+-                        case FILTER -> target.setType(
+-                                checker ? selected.targetMaterial() : Material.AIR,
+-                                false
+-                        );
+-                        case SLAB_FILTER -> {
+-                            target.setType(selected.targetMaterial(), false);
+-                            front.setType(Material.STONE_SLAB, false);
+-                            BlockData data = front.getBlockData();
+-                            if (data instanceof Slab slab) {
+-                                slab.setType(checker ? Slab.Type.TOP : Slab.Type.BOTTOM);
+-                                front.setBlockData(slab, false);
++                        Block target = world.getBlockAt(placement.targetX(), y, placement.targetZ());
++                        Block front = world.getBlockAt(placement.frontX(), y, placement.frontZ());
++                        Block back = world.getBlockAt(placement.backX(), y, placement.backZ());
++                        target.setType(Material.AIR, false);
++                        front.setType(Material.AIR, false);
++                        back.setType(Material.AIR, false);
++
++                        boolean checker = ((vertical + across + layer) & 1) == 0;
++                        switch (stage.type()) {
++                            case DRY -> target.setType(stage.material(), false);
++                            case WATERED -> {
++                                target.setType(stage.material(), false);
++                                front.setType(Material.WATER, false);
++                            }
++                            case COBBLE_REGEN -> {
++                                target.setType(stage.material(), false);
++                                front.setType(Material.WATER, false);
++                                back.setType(Material.LAVA, false);
++                            }
++                            case FILTER -> target.setType(
++                                    checker ? stage.material() : Material.AIR,
++                                    false
++                            );
++                            case SLAB_FILTER -> {
++                                target.setType(stage.material(), false);
++                                front.setType(Material.STONE_SLAB, false);
++                                BlockData data = front.getBlockData();
++                                if (data instanceof Slab slab) {
++                                    slab.setType(checker ? Slab.Type.TOP : Slab.Type.BOTTOM);
++                                    front.setBlockData(slab, false);
++                                }
++                            }
++                            case HOTDOG -> {
++                                boolean solidLane = ((across / stage.hotdogBandWidth()) & 1) == 0;
++                                front.setType(Material.WATER, false);
++                                if (solidLane) {
++                                    target.setType(
++                                            checker ? stage.material() : stage.alternateMaterial(),
++                                            false
++                                    );
++                                }
++                            }
++                            case PILLARS -> {
++                                boolean pillar = Math.floorMod(across + layer, stage.pillarSpacing()) == 0;
++                                if (pillar) {
++                                    target.setType(stage.material(), false);
++                                }
+                             }
+                         }
+-                        case HOTDOG -> {
+-                            boolean solidLane = ((across / selected.hotdogBandWidth()) & 1) == 0;
+-                            front.setType(Material.WATER, false);
+-                            if (solidLane) {
+-                                target.setType(
+-                                        checker ? selected.targetMaterial() : selected.alternateMaterial(),
+-                                        false
++
++                        if (!target.isEmpty()) {
++                            TargetCell cell = new TargetCell(
++                                    target.getX(),
++                                    target.getY(),
++                                    target.getZ(),
++                                    target.getType(),
++                                    target.getBlockData().getAsString(),
++                                    globalLayer,
++                                    stageIndex,
++                                    stage.name(),
++                                    stage.regeneration()
++                            );
++                            cells.add(cell);
++                            bounds.include(cell.x(), cell.y(), cell.z());
++                        }
++                    }
++                }
++                globalLayer++;
++            }
++
++            stageDistance += (stage.layers() - 1) * stage.spacing() + stage.gapAfter();
++        }
++        if (cells.isEmpty()) {
++            throw new IllegalStateException("Target configuration produced zero solid target cells.");
++        }
++        return new TargetBuild(List.copyOf(cells), bounds.build());
++    }
++
++    private void writeTargetCourse(Path runDirectory) throws IOException {
++        if (scenario == null) {
++            return;
++        }
++        StringBuilder stagesJson = new StringBuilder();
++        int distance = scenario.targetDistance();
++        for (int index = 0; index < scenario.targetStages().size(); index++) {
++            LabScenario.TargetStage stage = scenario.targetStages().get(index);
++            if (index > 0) {
++                stagesJson.append(",\n");
++            }
++            stagesJson.append("""
++                    {
++                      "index": %d,
++                      "name": "%s",
++                      "type": "%s",
++                      "start_distance": %d,
++                      "end_distance": %d,
++                      "width": %d,
++                      "height": %d,
++                      "layers": %d,
++                      "spacing": %d,
++                      "gap_after": %d,
++                      "regeneration": {"enabled": %s, "delay_ticks": %d, "interval_ticks": %d, "max_blocks_per_cycle": %d}
++                    }
++                    """.formatted(
++                    index,
++                    json(stage.name()),
++                    stage.type().name(),
++                    distance,
++                    distance + (stage.layers() - 1) * stage.spacing(),
++                    stage.width(),
++                    stage.height(),
++                    stage.layers(),
++                    stage.spacing(),
++                    stage.gapAfter(),
++                    stage.regeneration().enabled(),
++                    stage.regeneration().delayTicks(),
++                    stage.regeneration().intervalTicks(),
++                    stage.regeneration().maxBlocksPerCycle()
++            ));
++            distance += (stage.layers() - 1) * stage.spacing() + stage.gapAfter();
++        }
++        String course = """
++                {
++                  "direction": "%s",
++                  "stage_count": %d,
++                  "stages": [
++                %s
++                  ]
++                }
++                """.formatted(
++                scenario.targetDirection().name(),
++                scenario.targetStages().size(),
++                indent(stagesJson.toString(), 4)
++        );
++        Files.writeString(runDirectory.resolve("target-course.json"), course, StandardCharsets.UTF_8);
++    }
+-
+-                        }
+-                        case PILLARS -> {
+-                            boolean pillar = Math.floorMod(across + layer, selected.pillarSpacing()) == 0;
+-                            if (pillar) {
+-                                target.setType(selected.targetMaterial(), false);
+-                            }
+-                        }
+-                    }
+-
+-                    if (!target.isEmpty()) {
+-                        TargetCell cell = new TargetCell(
+-                                target.getX(),
+-                                target.getY(),
+-                                target.getZ(),
+-                                target.getType(),
+-                                target.getBlockData().getAsString(),
+-                                layer
+-                        );
+-                        cells.add(cell);
+-                        bounds.include(cell.x(), cell.y(), cell.z());
+-                    }
+-                }
+-            }
+-        }
+-        if (cells.isEmpty()) {
+-            throw new IllegalStateException("Target configuration produced zero solid target cells.");
+-        }
+-        return new TargetBuild(List.copyOf(cells), bounds.build());
+-    }
+@@ -648,6 +673,7 @@ final class LabRunController {
+                 .resolve(runId);
+         Files.createDirectories(runDirectory);
++        writeTargetCourse(runDirectory);
+ 
+         StringBuilder shotsJson = new StringBuilder();
+@@ -665,6 +691,7 @@ final class LabRunController {
+                       "saw_payload": %s,
+                       "explosions": %d,
+                       "destroyed_blocks": %d,
++                      "self_damage_blocks": %d,
+                       "maximum_tnt_entities": %d,
+                       "maximum_falling_blocks": %d,
+@@ -682,6 +709,7 @@ final class LabRunController {
+                     shot.sawPayload(),
+                     shot.explosions(),
+                     shot.destroyedBlocks(),
++                    shot.selfDamageBlocks(),
+                     shot.maximumTnt(),
+                     shot.maximumFallingBlocks(),
+@@ -794,15 +822,11 @@ final class LabRunController {
+     private final class RegenMonitor {
+         private final World world;
+         private final List<TargetCell> cells;
+-        private final LabScenario.RegenConfig config;
+         private final Map<TargetCell, Long> missingSince = new HashMap<>();
+         private final Set<TargetCell> everDestroyed = new HashSet<>();
+@@ -812,12 +836,10 @@ final class LabRunController {
+         private RegenMonitor(
+                 World world,
+-                List<TargetCell> cells,
+-                LabScenario.RegenConfig config
++                List<TargetCell> cells
+         ) {
+             this.world = world;
+             this.cells = cells;
+-            this.config = config;
+         }
+@@ -851,22 +873,37 @@ final class LabRunController {
+             }
+             peakDestroyed = Math.max(peakDestroyed, currentlyDestroyed);
+ 
+-            if (!allowRestore || !config.enabled() || tick % config.intervalTicks() != 0) {
++            if (!allowRestore) {
+                 return;
+             }
+-            cycles++;
++
++            boolean cycleDue = cells.stream()
++                    .map(TargetCell::regeneration)
++                    .distinct()
++                    .anyMatch(config -> config.enabled() && tick % config.intervalTicks() == 0);
++            if (!cycleDue) {
++                return;
++            }
++            cycles++;
+ 
+             List<Map.Entry<TargetCell, Long>> due = missingSince.entrySet().stream()
+-                    .filter(entry -> tick - entry.getValue() >= config.delayTicks())
++                    .filter(entry -> {
++                        LabScenario.RegenConfig config = entry.getKey().regeneration();
++                        return config.enabled()
++                                && tick % config.intervalTicks() == 0
++                                && tick - entry.getValue() >= config.delayTicks();
++                    })
+                     .sorted(Comparator
+                             .comparingLong((Map.Entry<TargetCell, Long> entry) -> entry.getValue())
+                             .thenComparingInt(entry -> entry.getKey().layer()))
+                     .toList();
+ 
+-            int restoredThisCycle = 0;
++            Map<LabScenario.RegenConfig, Integer> restoredByConfig = new HashMap<>();
+             for (Map.Entry<TargetCell, Long> entry : due) {
+-                if (restoredThisCycle >= config.maxBlocksPerCycle()) {
+-                    break;
+-                }
+                 TargetCell cell = entry.getKey();
++                LabScenario.RegenConfig config = cell.regeneration();
++                int restoredForConfig = restoredByConfig.getOrDefault(config, 0);
++                if (restoredForConfig >= config.maxBlocksPerCycle()) {
++                    continue;
++                }
+                 if (matches(world, cell)) {
+                     missingSince.remove(cell);
+                     continue;
+@@ -875,15 +912,16 @@ final class LabRunController {
+                 restore(world, cell);
+                 missingSince.remove(cell);
+                 restored++;
+-                restoredThisCycle++;
++                restoredByConfig.put(config, restoredForConfig + 1);
+                 recorder.recordCustomEvent(
+                         "REGEN_RESTORE",
+-                        cell.material().name(),
++                        cell.stageName() + ":" + cell.material().name(),
+                         new Location(world, cell.x(), cell.y(), cell.z()),
+                         1
+                 );
+@@ -848,7 +848,7 @@ final class LabRunController {
+                         maxLayerBreached = Math.max(maxLayerBreached, cell.layer() + 1);
+                         recorder.recordCustomEvent(
+                                 "TARGET_DESTROYED",
+-                                cell.material().name(),
++                                cell.stageName() + ":" + cell.material().name(),
+                                 new Location(world, cell.x(), cell.y(), cell.z()),
+                                 1
+                         );
+@@ -968,7 +1006,10 @@ final class LabRunController {
+             Material material,
+             String blockData,
+-            int layer
++            int layer,
++            int stageIndex,
++            String stageName,
++            LabScenario.RegenConfig regeneration
+     ) {
+     }
+@@ -1018,6 +1059,7 @@ final class LabRunController {
+             boolean sawPayload,
+             int explosions,
+             int destroyedBlocks,
++            int selfDamageBlocks,
+             int targetDestroyed,
+             int targetPeakDestroyed,
+@@ -1040,6 +1082,7 @@ final class LabRunController {
+                     0,
+                     0,
+                     0,
++                    0,
+                     targetTotal,
+                     0,
+diff --git a/src/main/java/io/github/redzicdenis08afk/cannonlab/ShotRecorder.java b/src/main/java/io/github/redzicdenis08afk/cannonlab/ShotRecorder.java
+index 9e43d91..2222222 100644
+--- a/src/main/java/io/github/redzicdenis08afk/cannonlab/ShotRecorder.java
++++ b/src/main/java/io/github/redzicdenis08afk/cannonlab/ShotRecorder.java
+@@ -49,6 +49,7 @@ final class ShotRecorder implements Listener {
+     private World world;
+     private Location origin;
+     private Location cannonOrigin;
++    private BlockBounds cannonBounds;
+     private Path shotDirectory;
+@@ -60,6 +61,7 @@ final class ShotRecorder implements Listener {
+     private int explosions;
+     private int destroyedBlocks;
++    private int selfDamageBlocks;
+     private int maximumTnt;
+@@ -86,6 +88,8 @@ final class ShotRecorder implements Listener {
+             int shotNumber,
+             World recordingWorld,
+             Location recordingOrigin,
++            Location recordingCannonOrigin,
++            BlockBounds recordingCannonBounds,
+             int shotMaxTicks,
+@@ -118,7 +122,8 @@ final class ShotRecorder implements Listener {
+         world = recordingWorld;
+         origin = recordingOrigin.clone();
+-        cannonOrigin = recordingOrigin.clone();
++        cannonOrigin = recordingCannonOrigin.clone();
++        cannonBounds = recordingCannonBounds;
+@@ -127,6 +132,7 @@ final class ShotRecorder implements Listener {
+         explosions = 0;
+         destroyedBlocks = 0;
++        selfDamageBlocks = 0;
+@@ -427,6 +433,8 @@ final class ShotRecorder implements Listener {
+         }
+         explosions++;
+         destroyedBlocks += event.blockList().size();
++        int selfDamage = countSelfDamage(event.blockList());
++        selfDamageBlocks += selfDamage;
+         try {
+@@ -450,7 +458,8 @@ final class ShotRecorder implements Listener {
+                         new Vector(),
+                         -1,
+-                        "affected_blocks=" + event.blockList().size()
++                        "affected_blocks=" + event.blockList().size()
++                                + ";self_damage_blocks=" + selfDamage
+                 );
+@@ -466,6 +475,8 @@ final class ShotRecorder implements Listener {
+         }
+         explosions++;
+         destroyedBlocks += event.blockList().size();
++        int selfDamage = countSelfDamage(event.blockList());
++        selfDamageBlocks += selfDamage;
+         try {
+@@ -489,7 +500,8 @@ final class ShotRecorder implements Listener {
+                         new Vector(),
+                         -1,
+-                        "affected_blocks=" + event.blockList().size()
++                        "affected_blocks=" + event.blockList().size()
++                                + ";self_damage_blocks=" + selfDamage
+                 );
+@@ -740,6 +752,16 @@ final class ShotRecorder implements Listener {
+         return normalized;
+     }
++
++    private int countSelfDamage(List<Block> blocks) {
++        if (cannonBounds == null) {
++            return 0;
++        }
++        int count = 0;
++        for (Block block : blocks) {
++            if (cannonBounds.contains(block)) {
++                count++;
++            }
++        }
++        return count;
++    }
+ 
+     private boolean causalEnabled() {
+@@ -780,6 +802,7 @@ final class ShotRecorder implements Listener {
+                 sawPayload,
+                 explosions,
+                 destroyedBlocks,
++                selfDamageBlocks,
+                 maximumTnt,
+@@ -824,6 +847,7 @@ final class ShotRecorder implements Listener {
+                   "explosions": %d,
+                   "destroyed_blocks": %d,
++                  "self_damage_blocks": %d,
+                   "maximum_tnt_entities": %d,
+@@ -842,6 +866,7 @@ final class ShotRecorder implements Listener {
+                 result.explosions(),
+                 result.destroyedBlocks(),
++                result.selfDamageBlocks(),
+                 result.maximumTnt(),
+@@ -884,6 +909,7 @@ final class ShotRecorder implements Listener {
+         world = null;
+         origin = null;
+         cannonOrigin = null;
++        cannonBounds = null;
+@@ -892,12 +918,30 @@ final class ShotRecorder implements Listener {
+         finishing = false;
+     }
++
++    record BlockBounds(
++            int minX,
++            int minY,
++            int minZ,
++            int maxX,
++            int maxY,
++            int maxZ
++    ) {
++        boolean contains(Block block) {
++            return block.getX() >= minX && block.getX() <= maxX
++                    && block.getY() >= minY && block.getY() <= maxY
++                    && block.getZ() >= minZ && block.getZ() <= maxZ;
++        }
++    }
+ 
+     record ShotResult(
+@@ -908,6 +952,7 @@ final class ShotRecorder implements Listener {
+             boolean sawPayload,
+             int explosions,
+             int destroyedBlocks,
++            int selfDamageBlocks,
+             int maximumTnt,
+diff --git a/scripts/assert-results.py b/scripts/assert-results.py
+index 8cfaa42..3333333 100755
+--- a/scripts/assert-results.py
++++ b/scripts/assert-results.py
+@@ -87,6 +87,7 @@ def main() -> None:
+     parser.add_argument("--min-target-peak-mean", type=float)
+     parser.add_argument("--min-layer-breached", type=int)
++    parser.add_argument("--max-self-damage-blocks", type=int)
+     parser.add_argument("--require-regen", action="store_true")
+@@ -101,6 +102,8 @@ def main() -> None:
+     if args.min_target_peak_mean is not None and args.min_target_peak_mean < 0:
+         fail("--min-target-peak-mean cannot be negative")
++    if args.max_self_damage_blocks is not None and args.max_self_damage_blocks < 0:
++        fail("--max-self-damage-blocks cannot be negative")
+@@ -129,6 +132,7 @@ def main() -> None:
+     regen_restored_values: list[float] = []
+     layer_breached_values: list[float] = []
++    self_damage_values: list[float] = []
+@@ -157,6 +161,7 @@ def main() -> None:
+         max_layer = int(shot.get("max_layer_breached", 0))
++        self_damage = int(shot.get("self_damage_blocks", 0))
+         peak_destroyed_values.append(float(peak_destroyed))
+@@ -160,6 +165,7 @@ def main() -> None:
+         layer_breached_values.append(float(max_layer))
++        self_damage_values.append(float(self_damage))
+@@ -179,6 +185,12 @@ def main() -> None:
+                 f"below {args.min_regen_restored}"
+             )
++        if args.max_self_damage_blocks is not None and self_damage > args.max_self_damage_blocks:
++            failures.append(
++                f"shot {number}: self_damage_blocks={self_damage} "
++                f"above {args.max_self_damage_blocks}"
++            )
+@@ -400,6 +412,7 @@ def main() -> None:
+         "max_layer_breached": numeric_stats(layer_breached_values),
++        "self_damage_blocks": numeric_stats(self_damage_values),
+         "custom_event_counts": dict(custom_events),
+diff --git a/scripts/cloud-smoke.sh b/scripts/cloud-smoke.sh
+index fce3c79..4444444 100755
+--- a/scripts/cloud-smoke.sh
++++ b/scripts/cloud-smoke.sh
+@@ -25,6 +25,7 @@ MIN_TARGET_PEAK_DESTROYED="${CANNONLAB_MIN_TARGET_PEAK_DESTROYED:-}"
+ MIN_TARGET_PEAK_MEAN="${CANNONLAB_MIN_TARGET_PEAK_MEAN:-}"
+ MIN_LAYER_BREACHED="${CANNONLAB_MIN_LAYER_BREACHED:-}"
++MAX_SELF_DAMAGE_BLOCKS="${CANNONLAB_MAX_SELF_DAMAGE_BLOCKS:-}"
+ REQUIRE_REGEN="${CANNONLAB_REQUIRE_REGEN:-false}"
+@@ -213,6 +214,9 @@ if [[ -n "$MIN_LAYER_BREACHED" ]]; then
+   ASSERT_ARGS+=(--min-layer-breached "$MIN_LAYER_BREACHED")
+ fi
++if [[ -n "$MAX_SELF_DAMAGE_BLOCKS" ]]; then
++  ASSERT_ARGS+=(--max-self-damage-blocks "$MAX_SELF_DAMAGE_BLOCKS")
++fi
+ case "${REQUIRE_REGEN,,}" in
