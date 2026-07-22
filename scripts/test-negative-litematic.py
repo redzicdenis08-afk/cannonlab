@@ -23,7 +23,7 @@ root = {
                 {"Name": "minecraft:glass"},
             ],
             "BlockStates": [36],
-            "TileEntities": [],
+            "TileEntities": [{"id": "minecraft:dispenser", "x": 0, "y": 0, "z": 0, "Items": []}],
         }
     },
 }
@@ -33,4 +33,5 @@ assert model["blocks"][(0, 0, 0)] == "minecraft:stone", model["blocks"]
 assert model["blocks"][(1, 0, 0)] == "minecraft:redstone_wire", model["blocks"]
 assert model["blocks"][(2, 0, 0)] == "minecraft:glass", model["blocks"]
 assert model["offset"] == [0, 0, 0], model["offset"]
-print("negative-region Litematica coordinate order PASS")
+assert model["block_entities"][0]["pos"] == (0, 0, 0), model["block_entities"]
+print("negative-region Litematica coordinate and block-entity order PASS")

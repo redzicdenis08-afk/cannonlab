@@ -251,7 +251,8 @@ def decode_litematic(root: dict[str, Any]) -> dict[str, Any]:
         for entity in region.get("TileEntities", []) or []:
             if not isinstance(entity, dict) or not all(axis in entity for axis in ("x", "y", "z")):
                 continue
-            pos = tuple(int(entity[axis]) for axis in ("x", "y", "z"))
+            local = tuple(int(entity[axis]) for axis in ("x", "y", "z"))
+            pos = tuple(region_min[index] + local[index] for index in range(3))
             state = blocks.get(pos, "minecraft:air")
             block_entities.append({"pos": pos, "id": block_entity_id(base(state)), "raw": entity})
         region_reports.append({
