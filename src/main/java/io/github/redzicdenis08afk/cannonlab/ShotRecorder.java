@@ -47,6 +47,7 @@ final class ShotRecorder implements Listener {
     private World world;
     private Location origin;
     private Location cannonOrigin;
+    private BlockBounds cannonBounds;
     private Path shotDirectory;
     private Consumer<ShotResult> completion;
     private long tick;
@@ -56,6 +57,7 @@ final class ShotRecorder implements Listener {
     private int quietTicks;
     private int explosions;
     private int destroyedBlocks;
+    private int selfDamageBlocks;
     private int maximumTnt;
     private int maximumFallingBlocks;
     private int causalEvents;
@@ -83,6 +85,8 @@ final class ShotRecorder implements Listener {
             int shotNumber,
             World recordingWorld,
             Location recordingOrigin,
+            Location recordingCannonOrigin,
+            BlockBounds recordingCannonBounds,
             int shotMaxTicks,
             int requiredQuietTicks,
             Consumer<ShotResult> onComplete
@@ -115,7 +119,8 @@ final class ShotRecorder implements Listener {
 
         world = recordingWorld;
         origin = recordingOrigin.clone();
-        cannonOrigin = recordingOrigin.clone();
+        cannonOrigin = recordingCannonOrigin.clone();
+        cannonBounds = recordingCannonBounds;
         maxTicks = shotMaxTicks;
         quietTicksRequired = requiredQuietTicks;
         completion = onComplete;
@@ -124,6 +129,7 @@ final class ShotRecorder implements Listener {
         quietTicks = 0;
         explosions = 0;
         destroyedBlocks = 0;
+        selfDamageBlocks = 0;
         maximumTnt = 0;
         maximumFallingBlocks = 0;
         causalEvents = 0;
@@ -426,6 +432,8 @@ final class ShotRecorder implements Listener {
         }
         explosions++;
         destroyedBlocks += event.blockList().size();
+        int selfDamage = countSelfDamage(event.blockList());
+        selfDamageBlocks += selfDamage;
         try {
             writeEvent(
                     "EXPLOSION",
@@ -451,6 +459,7 @@ final class ShotRecorder implements Listener {
                         new Vector(),
                         -1,
                         "affected_blocks=" + event.blockList().size()
+                                + ";self_damage_blocks=" + selfDamage
                 );
             }
         } catch (IOException exception) {
@@ -465,6 +474,8 @@ final class ShotRecorder implements Listener {
         }
         explosions++;
         destroyedBlocks += event.blockList().size();
+        int selfDamage = countSelfDamage(event.blockList());
+        selfDamageBlocks += selfDamage;
         try {
             writeEvent(
                     "BLOCK_EXPLOSION",
@@ -490,6 +501,7 @@ final class ShotRecorder implements Listener {
                         new Vector(),
                         -1,
                         "affected_blocks=" + event.blockList().size()
+                                + ";self_damage_blocks=" + selfDamage
                 );
             }
         } catch (IOException exception) {
@@ -781,6 +793,19 @@ final class ShotRecorder implements Listener {
         return normalized;
     }
 
+    private int countSelfDamage(List<Block> blocks) {
+        if (cannonBounds == null) {
+            return 0;
+        }
+        int count = 0;
+        for (Block block : blocks) {
+            if (cannonBounds.contains(block)) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     private boolean causalEnabled() {
         return plugin.getConfig().getBoolean("telemetry.causal.enabled", true);
     }
@@ -803,6 +828,7 @@ final class ShotRecorder implements Listener {
                 sawPayload,
                 explosions,
                 destroyedBlocks,
+                selfDamageBlocks,
                 maximumTnt,
                 maximumFallingBlocks,
                 causalEvents,
@@ -846,6 +872,7 @@ final class ShotRecorder implements Listener {
                   "saw_payload": %s,
                   "explosions": %d,
                   "destroyed_blocks": %d,
+                  "self_damage_blocks": %d,
                   "maximum_tnt_entities": %d,
                   "maximum_falling_blocks": %d,
                   "causal_events": %d,
@@ -864,6 +891,7 @@ final class ShotRecorder implements Listener {
                 result.sawPayload(),
                 result.explosions(),
                 result.destroyedBlocks(),
+                result.selfDamageBlocks(),
                 result.maximumTnt(),
                 result.maximumFallingBlocks(),
                 result.causalEvents(),
@@ -902,8 +930,24 @@ final class ShotRecorder implements Listener {
         world = null;
         origin = null;
         cannonOrigin = null;
+        cannonBounds = null;
         completion = null;
         finishing = false;
+    }
+
+    record BlockBounds(
+            int minX,
+            int minY,
+            int minZ,
+            int maxX,
+            int maxY,
+            int maxZ
+    ) {
+        boolean contains(Block block) {
+            return block.getX() >= minX && block.getX() <= maxX
+                    && block.getY() >= minY && block.getY() <= maxY
+                    && block.getZ() >= minZ && block.getZ() <= maxZ;
+        }
     }
 
     record ShotResult(
@@ -912,6 +956,7 @@ final class ShotRecorder implements Listener {
             boolean sawPayload,
             int explosions,
             int destroyedBlocks,
+            int selfDamageBlocks,
             int maximumTnt,
             int maximumFallingBlocks,
             int causalEvents,

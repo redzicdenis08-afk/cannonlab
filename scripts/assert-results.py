@@ -83,6 +83,7 @@ def main() -> None:
     parser.add_argument("--min-target-peak-destroyed", type=int)
     parser.add_argument("--min-target-peak-mean", type=float)
     parser.add_argument("--min-layer-breached", type=int)
+    parser.add_argument("--max-self-damage-blocks", type=int)
     parser.add_argument("--require-regen", action="store_true")
     parser.add_argument("--min-regen-restored", type=int, default=1)
     parser.add_argument("--json-out", type=Path)
@@ -98,6 +99,8 @@ def main() -> None:
         fail("--lifetime-tolerance cannot be negative")
     if args.min_target_peak_mean is not None and args.min_target_peak_mean < 0:
         fail("--min-target-peak-mean cannot be negative")
+    if args.max_self_damage_blocks is not None and args.max_self_damage_blocks < 0:
+        fail("--max-self-damage-blocks cannot be negative")
 
     summaries = sorted(
         args.results_root.rglob("run-summary.json"),
@@ -125,6 +128,7 @@ def main() -> None:
     peak_destroyed_values: list[float] = []
     regen_restored_values: list[float] = []
     layer_breached_values: list[float] = []
+    self_damage_values: list[float] = []
 
     if args.require_regen and not bool((summary.get("regeneration") or {}).get("enabled")):
         failures.append("run summary does not report regeneration enabled")
@@ -153,9 +157,11 @@ def main() -> None:
         peak_destroyed = int(shot.get("target_peak_destroyed", 0))
         regen_restored = int(shot.get("regen_blocks_restored", 0))
         max_layer = int(shot.get("max_layer_breached", 0))
+        self_damage = int(shot.get("self_damage_blocks", 0))
         peak_destroyed_values.append(float(peak_destroyed))
         regen_restored_values.append(float(regen_restored))
         layer_breached_values.append(float(max_layer))
+        self_damage_values.append(float(self_damage))
 
         if (
             args.min_target_peak_destroyed is not None
@@ -174,6 +180,11 @@ def main() -> None:
             failures.append(
                 f"shot {number}: regen_blocks_restored={regen_restored} "
                 f"below {args.min_regen_restored}"
+            )
+        if args.max_self_damage_blocks is not None and self_damage > args.max_self_damage_blocks:
+            failures.append(
+                f"shot {number}: self_damage_blocks={self_damage} "
+                f"above {args.max_self_damage_blocks}"
             )
 
     if args.min_target_peak_mean is not None:
@@ -396,6 +407,7 @@ def main() -> None:
         "target_peak_destroyed": numeric_stats(peak_destroyed_values),
         "regen_blocks_restored": numeric_stats(regen_restored_values),
         "max_layer_breached": numeric_stats(layer_breached_values),
+        "self_damage_blocks": numeric_stats(self_damage_values),
         "custom_event_counts": dict(custom_events),
         "spawn_position": {
             "x": numeric_stats(spawn_x),
