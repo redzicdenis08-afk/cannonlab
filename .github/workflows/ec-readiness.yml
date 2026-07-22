@@ -1,0 +1,134 @@
+name: ExtremeCraft Readiness Lab
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ec-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Compile upgraded intelligence tools
+        run: |
+          python -m py_compile \
+            scripts/analyze-causal-quality.py \
+            scripts/audit-ec-calibration.py \
+            mcp-server/server.py
+          gradle clean build --stacktrace
+
+      - name: Prove incomplete EC evidence is rejected
+        run: |
+          mkdir -p /tmp/ec-evidence lab-artifacts
+          cat > /tmp/ec-evidence/fuse.json <<'JSON'
+          {
+            "server": "ExtremeCraft Cannoning",
+            "captured_at": "2026-07-22T00:00:00Z",
+            "client_version": "1.21.11",
+            "probe": "single-dispenser-fuse",
+            "paste_origin": {"x": 0, "y": 100, "z": 0},
+            "chunk_origin_confirmed": true,
+            "samples": []
+          }
+          JSON
+          set +e
+          python scripts/audit-ec-calibration.py /tmp/ec-evidence \
+            --json-out lab-artifacts/incomplete-ec-calibration.json > /tmp/ec-audit.txt
+          status=$?
+          set -e
+          test "$status" -eq 2
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('lab-artifacts/incomplete-ec-calibration.json').read_text())
+          assert report['status'] == 'INCOMPLETE', report
+          assert report['ec_calibrated'] is False, report
+          assert 'chunk-paste-limits' in report['missing_probes'], report
+          print('Incomplete EC evidence was rejected without invented parity.')
+          PY
+
+      - name: Run mixed EC defense course
+        env:
+          CANNONLAB_MC_VERSION: '26.1.2'
+          CANNONLAB_SCENARIO: ec-mixed-course-smoke.yml
+          CANNONLAB_SERVER_LABEL: Paper 26.1.2 mixed EC course
+          CANNONLAB_EXPECTED_SHOTS: '3'
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '4'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '4'
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_MAX_TARGET_MISS_DISTANCE: '7.0'
+          CANNONLAB_MAX_SELF_DAMAGE_BLOCKS: '1000'
+          CANNONLAB_TIMEOUT_SECONDS: '600'
+          CANNONLAB_ARENA_RADIUS_X: '64'
+          CANNONLAB_ARENA_RADIUS_Y: '32'
+          CANNONLAB_ARENA_RADIUS_Z: '32'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Verify mixed course and self-damage evidence
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          courses = list(Path('lab-artifacts/results').rglob('target-course.json'))
+          summaries = list(Path('lab-artifacts/results').rglob('run-summary.json'))
+          traces = list(Path('lab-artifacts/results').rglob('causal-events.csv'))
+          assert len(courses) == 1, courses
+          assert len(summaries) == 1, summaries
+          assert len(traces) == 3, traces
+          course = json.loads(courses[0].read_text())
+          assert course['stage_count'] == 5, course
+          assert [stage['type'] for stage in course['stages']] == [
+              'DRY', 'WATERED', 'FILTER', 'HOTDOG', 'PILLARS'
+          ], course
+          assert course['stages'][3]['regeneration']['enabled'] is True, course
+          summary = json.loads(summaries[0].read_text())
+          assert summary['shots_completed'] == 3, summary
+          assert all('self_damage_blocks' in shot for shot in summary['shots']), summary
+          print('Mixed course geometry and self-damage telemetry passed.')
+          PY
+
+      - name: Score synchronization and shot quality
+        run: |
+          python scripts/analyze-causal-quality.py lab-artifacts/results \
+            --max-trigger-to-first-dispense 20 \
+            --min-largest-dispense-cohort 4 \
+            --max-self-damage 1000 \
+            --json-out lab-artifacts/causal-quality.json
+
+      - name: Upload EC readiness evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-EC-readiness-${{ github.run_number }}
+          path: lab-artifacts/**
+          if-no-files-found: error
+          retention-days: 30
