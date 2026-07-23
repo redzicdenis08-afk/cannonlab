@@ -287,17 +287,52 @@ def compact_runtime_contract(report: dict[str, Any]) -> dict[str, Any]:
         for row in report.get("module_runtime_contracts") or []
         if row.get("status") == "FAIL"
     ]
+    shared_contract = report.get("shared_component_cohort_contract") or {}
+    shared_failures = [
+        {
+            "module_ids": row.get("module_ids") or [],
+            "failures": row.get("failures") or [],
+            "component_ids": row.get("component_ids") or {},
+            "event_counts": row.get("event_counts") or {},
+            "event_tick_max_deltas": {
+                event: details.get("max_absolute_delta")
+                for event, details in (row.get("event_ticks") or {}).items()
+            },
+        }
+        for row in shared_contract.get("comparisons") or []
+        if row.get("status") == "FAIL"
+    ]
+    joint_contract = report.get("joint_entity_cohort_contract") or {}
+    joint_failures = [
+        {
+            "module_ids": row.get("module_ids") or [],
+            "entity_type": row.get("entity_type"),
+            "failures": row.get("failures") or [],
+            "pairs": [
+                {
+                    "failures": pair.get("failures") or [],
+                    "spawn_tick_delta": (pair.get("spawn_tick") or {}).get("delta"),
+                    "spawn_position_delta": (pair.get("spawn_point") or {}).get("distance"),
+                    "source_components": pair.get("source_components") or {},
+                    "explosion_tick_delta": (pair.get("explosion_timing") or {}).get("max_absolute_delta"),
+                    "physics_max_observed": (pair.get("physics") or {}).get("max_observed"),
+                }
+                for pair in row.get("pairs") or []
+                if pair.get("status") == "FAIL"
+            ],
+        }
+        for row in joint_contract.get("comparisons") or []
+        if row.get("status") == "FAIL"
+    ]
     return {
         "status": report.get("status"),
         "failures": report.get("failures") or [],
         "summary": report.get("summary") or {},
         "failed_modules": failed,
-        "shared_component_cohort_status": (
-            report.get("shared_component_cohort_contract") or {}
-        ).get("status"),
-        "joint_entity_cohort_status": (
-            report.get("joint_entity_cohort_contract") or {}
-        ).get("status"),
+        "shared_component_cohort_status": shared_contract.get("status"),
+        "failed_shared_component_cohorts": shared_failures,
+        "joint_entity_cohort_status": joint_contract.get("status"),
+        "failed_joint_entity_cohorts": joint_failures,
     }
 
 
@@ -384,6 +419,8 @@ def aggregate_runtime_drift(runtime_reports: list[dict[str, Any]]) -> dict[str, 
         if report.get("status") in {"PASS", "FAIL"}
     ]
     grouped: dict[tuple[str, str], list[dict[str, Any]]] = defaultdict(list)
+    shared_grouped: dict[tuple[str, ...], list[dict[str, Any]]] = defaultdict(list)
+    joint_grouped: dict[tuple[tuple[str, ...], str], list[dict[str, Any]]] = defaultdict(list)
     for report in completed:
         for row in report.get("failed_modules") or []:
             key = (
@@ -391,6 +428,15 @@ def aggregate_runtime_drift(runtime_reports: list[dict[str, Any]]) -> dict[str, 
                 str(row.get("second_module_id") or ""),
             )
             grouped[key].append(row)
+        for row in report.get("failed_shared_component_cohorts") or []:
+            shared_grouped[
+                tuple(str(value) for value in row.get("module_ids") or [])
+            ].append(row)
+        for row in report.get("failed_joint_entity_cohorts") or []:
+            joint_grouped[(
+                tuple(str(value) for value in row.get("module_ids") or []),
+                str(row.get("entity_type") or "UNKNOWN"),
+            )].append(row)
 
     modules = []
     for (first_id, second_id), rows in sorted(grouped.items()):
@@ -438,6 +484,39 @@ def aggregate_runtime_drift(runtime_reports: list[dict[str, Any]]) -> dict[str, 
                 for field, values in sorted(physics_values.items())
             },
         })
+    shared_cohorts = [
+        {
+            "module_ids": list(module_ids),
+            "reports_failed": len(rows),
+            "reports_checked": len(completed),
+            "occurrence_rate": len(rows) / max(1, len(completed)),
+            "consistent_across_all_reports": len(rows) == len(completed),
+            "failure_counts": dict(sorted(Counter(
+                failure
+                for row in rows
+                for failure in row.get("failures") or []
+            ).items())),
+            "examples": rows[:1],
+        }
+        for module_ids, rows in sorted(shared_grouped.items())
+    ]
+    joint_cohorts = [
+        {
+            "module_ids": list(key[0]),
+            "entity_type": key[1],
+            "reports_failed": len(rows),
+            "reports_checked": len(completed),
+            "occurrence_rate": len(rows) / max(1, len(completed)),
+            "consistent_across_all_reports": len(rows) == len(completed),
+            "failure_counts": dict(sorted(Counter(
+                failure
+                for row in rows
+                for failure in row.get("failures") or []
+            ).items())),
+            "examples": rows[:1],
+        }
+        for key, rows in sorted(joint_grouped.items())
+    ]
     return {
         "reports_checked": len(completed),
         "reports_passed": sum(report.get("status") == "PASS" for report in completed),
@@ -448,6 +527,18 @@ def aggregate_runtime_drift(runtime_reports: list[dict[str, Any]]) -> dict[str, 
             for row in modules
         ),
         "modules": modules,
+        "drifting_shared_cohort_count": len(shared_cohorts),
+        "deterministic_shared_cohorts": sum(
+            bool(row["consistent_across_all_reports"])
+            for row in shared_cohorts
+        ),
+        "shared_component_cohorts": shared_cohorts,
+        "drifting_joint_cohort_count": len(joint_cohorts),
+        "deterministic_joint_cohorts": sum(
+            bool(row["consistent_across_all_reports"])
+            for row in joint_cohorts
+        ),
+        "joint_entity_cohorts": joint_cohorts,
     }
 
 def repair_score(

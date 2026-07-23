@@ -113,6 +113,7 @@ def runtime(prefix: str, shift: int = 0) -> dict[str, Any]:
                 "module_ids": [first, second],
                 "event_counts": {"DISPENSE": 1},
                 "event_ticks": {"DISPENSE": [2]},
+                "component_ids": [f"D[{1 + shift},1,1]"],
             },
         ],
         "joint_entity_source_cohorts": [joint_cohort(first, second, shift)],
@@ -229,6 +230,16 @@ def main() -> int:
     delayed_shared["shared_component_event_cohorts"][0]["event_ticks"]["DISPENSE"] = [10]
     report = build_with_fake_inputs(subject, reference, delayed_shared)
     assert_failure(report, "shared_component_cohort_contract_failed")
+
+    changed_shared_source = copy.deepcopy(candidate)
+    changed_shared_source["shared_component_event_cohorts"][0]["component_ids"] = [
+        "D[99,1,1]"
+    ]
+    report = build_with_fake_inputs(subject, reference, changed_shared_source)
+    assert_failure(report, "shared_component_cohort_contract_failed")
+    assert "shared_component_sources_changed" in report[
+        "shared_component_cohort_contract"
+    ]["failures"], report
 
     missing_joint = copy.deepcopy(candidate)
     missing_joint["joint_entity_source_cohorts"] = []

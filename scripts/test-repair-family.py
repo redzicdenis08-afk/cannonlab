@@ -233,8 +233,54 @@ def main() -> int:
                         },
                     },
                 ],
-                "shared_component_cohort_contract": {"status": "PASS"},
-                "joint_entity_cohort_contract": {"status": "FAIL"},
+                "shared_component_cohort_contract": {
+                    "status": "FAIL",
+                    "comparisons": [
+                        {
+                            "status": "FAIL",
+                            "module_ids": ["R-PROTECTED", "R-EDIT"],
+                            "failures": ["shared_redstone_change_ticks_changed"],
+                            "component_ids": {
+                                "first": ["W[1,1,1]"],
+                                "second": ["W[1,1,1]"],
+                            },
+                            "event_counts": {
+                                "first": {"REDSTONE_CHANGE": 1},
+                                "second": {"REDSTONE_CHANGE": 1},
+                            },
+                            "event_ticks": {
+                                "REDSTONE_CHANGE": {"max_absolute_delta": 4},
+                            },
+                        },
+                    ],
+                },
+                "joint_entity_cohort_contract": {
+                    "status": "FAIL",
+                    "comparisons": [
+                        {
+                            "status": "FAIL",
+                            "module_ids": ["R-PROTECTED", "R-EDIT"],
+                            "entity_type": "TNT",
+                            "failures": ["joint_spawn_velocity_delta_exceeded"],
+                            "pairs": [
+                                {
+                                    "status": "FAIL",
+                                    "failures": ["joint_spawn_velocity_delta_exceeded"],
+                                    "spawn_tick": {"delta": 0},
+                                    "spawn_point": {"distance": 0.0},
+                                    "source_components": {
+                                        "first": ["D[1,1,1]"],
+                                        "second": ["D[1,1,1]"],
+                                    },
+                                    "explosion_timing": {"max_absolute_delta": 0},
+                                    "physics": {
+                                        "max_observed": {"spawn_velocity_delta": 0.5},
+                                    },
+                                },
+                            ],
+                        },
+                    ],
+                },
             }
 
         fake_tools = {
@@ -275,6 +321,8 @@ def main() -> int:
         assert bad["promotion"]["promotion_ready"] is False, bad
         assert "protected_module_runtime_drift" in bad["promotion"]["blockers"], bad
         assert bad["runtime_drift_summary"]["deterministic_drifting_modules"] == 1, bad
+        assert bad["runtime_drift_summary"]["deterministic_shared_cohorts"] == 1, bad
+        assert bad["runtime_drift_summary"]["deterministic_joint_cohorts"] == 1, bad
         assert bad["pareto_front"] is False, bad
 
         multi_summary = write_run(

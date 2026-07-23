@@ -542,6 +542,7 @@ def compare_shared_component_cohorts(
     candidate_runtime: dict[str, Any],
     *,
     candidate_to_reference: dict[str, str],
+    candidate_translation: tuple[int, int, int],
     allowed_reference_modules: set[str],
     allowed_candidate_modules: set[str],
     max_timing_delta: int,
@@ -575,7 +576,13 @@ def compare_shared_component_cohorts(
                 if source_set and source_set.issubset(allowed_reference_modules):
                     continue
                 mapped = source_ids
-            output[tuple(sorted(mapped))] = cohort
+            translation = candidate_translation if candidate else (0, 0, 0)
+            normalized = dict(cohort)
+            normalized["normalized_component_ids"] = sorted(
+                component_id_in_reference_frame(str(value), translation)
+                for value in cohort.get("component_ids") or []
+            )
+            output[tuple(sorted(mapped))] = normalized
         return output
 
     first = normalize(reference_runtime, candidate=False)
@@ -593,6 +600,10 @@ def compare_shared_component_cohorts(
         left = first[module_ids]
         right = second[module_ids]
         cohort_failures: list[str] = []
+        if (left.get("normalized_component_ids") or []) != (
+            right.get("normalized_component_ids") or []
+        ):
+            cohort_failures.append("shared_component_sources_changed")
         if (left.get("event_counts") or {}) != (right.get("event_counts") or {}):
             cohort_failures.append("shared_event_counts_changed")
         event_tick_comparisons = {}
@@ -612,6 +623,10 @@ def compare_shared_component_cohorts(
             "event_counts": {
                 "first": left.get("event_counts") or {},
                 "second": right.get("event_counts") or {},
+            },
+            "component_ids": {
+                "first": left.get("normalized_component_ids") or [],
+                "second": right.get("normalized_component_ids") or [],
             },
             "event_ticks": event_tick_comparisons,
         })
@@ -1036,6 +1051,7 @@ def build_report(
         reference_runtime,
         candidate_runtime,
         candidate_to_reference=candidate_to_reference,
+        candidate_translation=selected_translation,
         allowed_reference_modules=effective_allowed_reference_modules,
         allowed_candidate_modules=effective_allowed_candidate_modules,
         max_timing_delta=max_timing_delta,
