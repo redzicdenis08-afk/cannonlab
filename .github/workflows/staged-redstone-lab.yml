@@ -1,6 +1,9 @@
 name: Staged Redstone Lab Bundle
 
 on:
+  push:
+    branches:
+      - lab/staged-redstone-runtime
   pull_request:
   workflow_dispatch:
 
