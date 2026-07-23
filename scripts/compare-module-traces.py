@@ -455,12 +455,32 @@ def component_id_in_reference_frame(
     )
 
 
+def candidate_module_in_reference_frame(
+    module_id: str,
+    *,
+    candidate_to_reference: dict[str, str],
+    allowed_reference_modules: set[str],
+    allowed_candidate_modules: set[str],
+) -> str:
+    mapped = candidate_to_reference.get(module_id)
+    if mapped is not None:
+        return mapped
+    if (
+        module_id in allowed_candidate_modules
+        and module_id in allowed_reference_modules
+    ):
+        return module_id
+    return f"candidate:{module_id}"
+
+
 def joint_source_contract(
     cohort: dict[str, Any],
     *,
     candidate: bool,
     candidate_to_reference: dict[str, str],
     candidate_translation: tuple[int, int, int],
+    allowed_reference_modules: set[str],
+    allowed_candidate_modules: set[str],
 ) -> dict[str, Any]:
     translation = candidate_translation if candidate else (0, 0, 0)
     components = sorted(
@@ -471,7 +491,12 @@ def joint_source_contract(
     for event in cohort.get("candidate_dispense_events") or []:
         module_id = str(event.get("module_id") or "")
         if candidate:
-            module_id = candidate_to_reference.get(module_id, f"candidate:{module_id}")
+            module_id = candidate_module_in_reference_frame(
+                module_id,
+                candidate_to_reference=candidate_to_reference,
+                allowed_reference_modules=allowed_reference_modules,
+                allowed_candidate_modules=allowed_candidate_modules,
+            )
         key = (
             module_id,
             component_id_in_reference_frame(
@@ -530,13 +555,24 @@ def compare_shared_component_cohorts(
         for cohort in runtime.get("shared_component_event_cohorts") or []:
             source_ids = [str(value) for value in cohort.get("module_ids") or []]
             if candidate:
-                if set(source_ids) & allowed_candidate_modules:
+                source_set = set(source_ids)
+                if source_set and source_set.issubset(allowed_candidate_modules):
                     continue
-                mapped = [candidate_to_reference.get(value, f"candidate:{value}") for value in source_ids]
-                if set(mapped) & allowed_reference_modules:
+                mapped = [
+                    candidate_module_in_reference_frame(
+                        value,
+                        candidate_to_reference=candidate_to_reference,
+                        allowed_reference_modules=allowed_reference_modules,
+                        allowed_candidate_modules=allowed_candidate_modules,
+                    )
+                    for value in source_ids
+                ]
+                mapped_set = set(mapped)
+                if mapped_set and mapped_set.issubset(allowed_reference_modules):
                     continue
             else:
-                if set(source_ids) & allowed_reference_modules:
+                source_set = set(source_ids)
+                if source_set and source_set.issubset(allowed_reference_modules):
                     continue
                 mapped = source_ids
             output[tuple(sorted(mapped))] = cohort
@@ -618,16 +654,24 @@ def compare_joint_entity_cohorts(
                 for value in cohort.get("candidate_module_ids") or []
             ]
             if candidate:
-                if set(source_ids) & allowed_candidate_modules:
+                source_set = set(source_ids)
+                if source_set and source_set.issubset(allowed_candidate_modules):
                     continue
                 mapped = [
-                    candidate_to_reference.get(value, f"candidate:{value}")
+                    candidate_module_in_reference_frame(
+                        value,
+                        candidate_to_reference=candidate_to_reference,
+                        allowed_reference_modules=allowed_reference_modules,
+                        allowed_candidate_modules=allowed_candidate_modules,
+                    )
                     for value in source_ids
                 ]
-                if set(mapped) & allowed_reference_modules:
+                mapped_set = set(mapped)
+                if mapped_set and mapped_set.issubset(allowed_reference_modules):
                     continue
             else:
-                if set(source_ids) & allowed_reference_modules:
+                source_set = set(source_ids)
+                if source_set and source_set.issubset(allowed_reference_modules):
                     continue
                 mapped = source_ids
             key = (
@@ -672,12 +716,16 @@ def compare_joint_entity_cohorts(
                 candidate=False,
                 candidate_to_reference=candidate_to_reference,
                 candidate_translation=(0, 0, 0),
+                allowed_reference_modules=allowed_reference_modules,
+                allowed_candidate_modules=allowed_candidate_modules,
             )
             right_sources = joint_source_contract(
                 right,
                 candidate=True,
                 candidate_to_reference=candidate_to_reference,
                 candidate_translation=candidate_translation,
+                allowed_reference_modules=allowed_reference_modules,
+                allowed_candidate_modules=allowed_candidate_modules,
             )
             spawn_tick_delta = int(right.get("spawn_tick") or 0) - int(left.get("spawn_tick") or 0)
             left_point = point_in_reference_frame(left.get("spawn_point") or [], (0, 0, 0))

@@ -189,6 +189,18 @@ def assert_failure(report: dict[str, Any], failure: str) -> None:
 
 def main() -> int:
     subject = load_subject()
+    assert subject.candidate_module_in_reference_frame(
+        "MODULE-011",
+        candidate_to_reference={},
+        allowed_reference_modules={"MODULE-011"},
+        allowed_candidate_modules={"MODULE-011"},
+    ) == "MODULE-011"
+    assert subject.candidate_module_in_reference_frame(
+        "RENAMED-EDIT",
+        candidate_to_reference={},
+        allowed_reference_modules={"MODULE-011"},
+        allowed_candidate_modules={"RENAMED-EDIT"},
+    ) == "candidate:RENAMED-EDIT"
     reference = runtime("R", shift=0)
     candidate = runtime("C", shift=5)
 
@@ -258,16 +270,36 @@ def main() -> int:
     assert_failure(report, "joint_entity_cohort_contract_failed")
     assert "joint_explosion_tick_distribution_changed" in report["joint_entity_cohort_contract"]["failures"], report
 
-    exempt = build_with_fake_inputs(
+    mixed_exempt = build_with_fake_inputs(
         subject,
         reference,
         changed_velocity,
         allowed_candidate_modules={"C1"},
         minimum_unchanged_runtime_contracts=1,
     )
-    assert exempt["status"] == "PASS", exempt
+    assert_failure(mixed_exempt, "joint_entity_cohort_contract_failed")
 
-    print("Runtime contract v3 accounts for shared sources and fails closed on timing, source, physics, fuse, and explosion drift.")
+    mixed_shared = build_with_fake_inputs(
+        subject,
+        reference,
+        delayed_shared,
+        allowed_candidate_modules={"C1"},
+        minimum_unchanged_runtime_contracts=1,
+    )
+    assert_failure(mixed_shared, "shared_component_cohort_contract_failed")
+
+    fully_exempt = build_with_fake_inputs(
+        subject,
+        reference,
+        changed_velocity,
+        allowed_candidate_modules={"C1", "C2"},
+        minimum_unchanged_runtime_contracts=0,
+    )
+    assert fully_exempt["status"] == "PASS", fully_exempt
+
+    print(
+        "Runtime contract v3 accounts for shared sources, rejects mixed-cohort waiver laundering, and fails closed on timing, source, physics, fuse, and explosion drift."
+    )
     return 0
 
 
