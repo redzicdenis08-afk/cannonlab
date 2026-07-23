@@ -54,6 +54,7 @@ final class ShotRecorder implements Listener {
     private long causalSequence;
     private int maxTicks;
     private int quietTicksRequired;
+    private int minimumTicksBeforeQuiet;
     private int quietTicks;
     private int explosions;
     private int destroyedBlocks;
@@ -89,6 +90,7 @@ final class ShotRecorder implements Listener {
             BlockBounds recordingCannonBounds,
             int shotMaxTicks,
             int requiredQuietTicks,
+            int requiredTicksBeforeQuiet,
             Consumer<ShotResult> onComplete
     ) throws IOException {
         stopWithoutCallback();
@@ -123,6 +125,7 @@ final class ShotRecorder implements Listener {
         cannonBounds = recordingCannonBounds;
         maxTicks = shotMaxTicks;
         quietTicksRequired = requiredQuietTicks;
+        minimumTicksBeforeQuiet = Math.max(0, requiredTicksBeforeQuiet);
         completion = onComplete;
         tick = 0;
         causalSequence = 0;
@@ -215,7 +218,9 @@ final class ShotRecorder implements Listener {
 
         if (tick >= maxTicks) {
             finish("max_ticks");
-        } else if (sawPayload && quietTicks >= quietTicksRequired) {
+        } else if (sawPayload
+                && tick >= minimumTicksBeforeQuiet
+                && quietTicks >= quietTicksRequired) {
             finish("quiet");
         }
     }

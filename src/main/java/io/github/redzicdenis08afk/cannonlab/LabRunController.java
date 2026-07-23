@@ -16,6 +16,11 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.TNTPrimed;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.BlockExplodeEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitTask;
 
@@ -34,7 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-final class LabRunController {
+final class LabRunController implements Listener {
     private static final int DEFAULT_DISPENSER_LIMIT_PER_CHUNK = 160;
     private static final BlockFace[] NEIGHBOUR_FACES = {
             BlockFace.WEST,
@@ -56,8 +61,13 @@ final class LabRunController {
     private boolean cancelled;
     private final List<CompletedShot> completedShots = new ArrayList<>();
     private List<TargetCell> targetCells = List.of();
+    private List<CompanionCell> targetCompanions = List.of();
+    private Map<BlockKey, TargetCell> targetCellsByPosition = Map.of();
     private TargetBounds targetBounds = TargetBounds.empty();
     private RegenMonitor regenMonitor;
+    private final Map<BlockKey, DurabilityState> durabilityStates = new HashMap<>();
+    private int durabilityHits;
+    private int durabilityBreaks;
 
     LabRunController(CannonLabPlugin plugin, WorldEditService worldEdit, ShotRecorder recorder) {
         this.plugin = plugin;
@@ -139,7 +149,13 @@ final class LabRunController {
                     ? buildTarget(world, arenaOrigin, scenario)
                     : buildTargetFromSchematic(world, arenaOrigin, scenario);
             targetCells = targetBuild.cells();
+            targetCompanions = targetBuild.companions();
+            targetCellsByPosition = indexTargetCells(targetCells);
             targetBounds = targetBuild.bounds();
+            durabilityStates.clear();
+            durabilityHits = 0;
+            durabilityBreaks = 0;
+            LabScenario.DurabilityMode durabilityMode = effectiveDurabilityMode();
 
             FillAudit audit = auditDispensers(world, pasteResult);
             int dispenserLimitPerChunk = dispenserLimitPerChunk();
@@ -162,7 +178,23 @@ final class LabRunController {
                     + " | inputs=" + scenario.fireInputs().size()
                     + " | target=" + scenario.targetType() + "/" + scenario.targetDirection()
                     + " | targetCells=" + targetCells.size()
-                    + " | regen=" + scenario.regeneration());
+                    + " | companionCells=" + targetCompanions.size()
+                    + " | regen=" + scenario.regeneration()
+                    + " | durability=" + durabilityMode
+                    + " | volleys=" + scenario.volleysPerShot());
+
+            long fillDelay = scenario.settleBeforeFillTicks();
+            long fireDelay = Math.max(
+                    scenario.warmupTicks(),
+                    fillDelay + scenario.fillToFireTicks()
+            );
+            long lastVolleyDelay = fireDelay
+                    + (long) (scenario.volleysPerShot() - 1) * scenario.volleyIntervalTicks();
+            int minimumTicksBeforeQuiet = boundedTicks(lastVolleyDelay + scenario.quietTicks());
+            int effectiveMaxShotTicks = Math.max(
+                    scenario.maxShotTicks(),
+                    boundedTicks(lastVolleyDelay + scenario.quietTicks() + 20L)
+            );
 
             recorder.start(
                     runId,
@@ -179,18 +211,19 @@ final class LabRunController {
                             pasteResult.maximum().y(),
                             pasteResult.maximum().z()
                     ),
-                    scenario.maxShotTicks(),
+                    effectiveMaxShotTicks,
                     scenario.quietTicks(),
+                    minimumTicksBeforeQuiet,
                     this::shotCompleted
             );
 
             regenMonitor = new RegenMonitor(
                     world,
-                    targetCells
+                    targetCells,
+                    targetCompanions
             );
             regenMonitor.start();
 
-            long fillDelay = scenario.settleBeforeFillTicks();
             Runnable fillAction = () -> {
                 try {
                     int filled = fillDispensers(world, pasteResult);
@@ -208,19 +241,26 @@ final class LabRunController {
                 Bukkit.getScheduler().runTaskLater(plugin, fillAction, fillDelay);
             }
 
-            long fireDelay = Math.max(
-                    scenario.warmupTicks(),
-                    fillDelay + scenario.fillToFireTicks()
-            );
-            Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                try {
-                    fire(world, pasteOrigin);
-                } catch (RuntimeException exception) {
-                    plugin.getLogger().severe("Shot " + shotNumber
-                            + " firing failed: " + exception.getMessage());
-                    exception.printStackTrace();
-                }
-            }, fireDelay);
+            for (int volley = 1; volley <= scenario.volleysPerShot(); volley++) {
+                int scheduledVolley = volley;
+                long volleyDelay = fireDelay
+                        + (long) (volley - 1) * scenario.volleyIntervalTicks();
+                Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    try {
+                        recorder.recordControlEvent(
+                                "VOLLEY_FIRE",
+                                pasteOrigin,
+                                "volley=" + scheduledVolley + "/" + scenario.volleysPerShot()
+                        );
+                        fire(world, pasteOrigin);
+                    } catch (RuntimeException exception) {
+                        plugin.getLogger().severe("Shot " + shotNumber
+                                + " volley " + scheduledVolley
+                                + " firing failed: " + exception.getMessage());
+                        exception.printStackTrace();
+                    }
+                }, volleyDelay);
+            }
         } catch (IOException | WorldEditException | RuntimeException exception) {
             stopRegenMonitor();
             plugin.getLogger().severe("Run preparation failed: " + exception.getMessage());
@@ -410,6 +450,10 @@ final class LabRunController {
         return total;
     }
 
+    private int boundedTicks(long ticks) {
+        return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, ticks));
+    }
+
     private void shotCompleted(ShotRecorder.ShotResult result) {
         RegenStats regenStats = regenMonitor == null
                 ? RegenStats.empty()
@@ -432,6 +476,12 @@ final class LabRunController {
                 regenStats.restored(),
                 regenStats.maxLayerBreached(),
                 regenStats.cycles(),
+                regenStats.finalCompanionMissing(),
+                regenStats.companionPeakMissing(),
+                regenStats.everCompanionMissing(),
+                regenStats.companionRestored(),
+                durabilityHits,
+                durabilityBreaks,
                 result.maximumTnt(),
                 result.maximumFallingBlocks(),
                 null
@@ -445,6 +495,8 @@ final class LabRunController {
                 + " | targetFinal=" + finalDestroyed + "/" + targetCells.size()
                 + " | targetPeak=" + regenStats.peakDestroyed()
                 + " | regenRestored=" + regenStats.restored()
+                + " | companionMissing=" + regenStats.finalCompanionMissing()
+                + " | companionRestored=" + regenStats.companionRestored()
                 + " | maxLayer=" + regenStats.maxLayerBreached());
 
         if (cancelled) {
@@ -473,6 +525,9 @@ final class LabRunController {
         boolean shutdown = scenario != null && scenario.shutdownWhenFinished();
         scenario = null;
         targetCells = List.of();
+        targetCompanions = List.of();
+        targetCellsByPosition = Map.of();
+        durabilityStates.clear();
         targetBounds = TargetBounds.empty();
 
         if (shutdown) {
@@ -528,13 +583,14 @@ final class LabRunController {
         );
 
         List<TargetCell> cells = new ArrayList<>();
+        Map<BlockKey, CompanionCell> companions = new LinkedHashMap<>();
         BoundsBuilder bounds = new BoundsBuilder();
         for (int x = result.minimum().x(); x <= result.maximum().x(); x++) {
             for (int y = Math.max(world.getMinHeight(), result.minimum().y());
                  y <= Math.min(world.getMaxHeight() - 1, result.maximum().y()); y++) {
                 for (int z = result.minimum().z(); z <= result.maximum().z(); z++) {
                     Block block = world.getBlockAt(x, y, z);
-                    if (!block.getType().isSolid()) {
+                    if (block.isEmpty()) {
                         continue;
                     }
                     validateArenaCoordinate(arenaOrigin, x, y, z);
@@ -544,18 +600,34 @@ final class LabRunController {
                         case SOUTH -> z - result.minimum().z();
                         case NORTH -> result.maximum().z() - z;
                     };
-                    TargetCell cell = new TargetCell(
-                            x,
-                            y,
-                            z,
-                            block.getType(),
-                            block.getBlockData().getAsString(),
-                            layer,
-                            0,
-                            "schematic:" + selected.targetFile(),
-                            selected.regeneration()
-                    );
-                    cells.add(cell);
+                    if (block.getType().isSolid()) {
+                        TargetCell cell = new TargetCell(
+                                x,
+                                y,
+                                z,
+                                block.getType(),
+                                block.getBlockData().getAsString(),
+                                layer,
+                                0,
+                                "schematic:" + selected.targetFile(),
+                                selected.regeneration()
+                        );
+                        cells.add(cell);
+                    } else {
+                        CompanionCell companion = new CompanionCell(
+                                x,
+                                y,
+                                z,
+                                block.getType(),
+                                block.getBlockData().getAsString(),
+                                layer,
+                                0,
+                                "schematic:" + selected.targetFile(),
+                                "schematic-non-solid",
+                                selected.regeneration()
+                        );
+                        companions.put(new BlockKey(x, y, z), companion);
+                    }
                     bounds.include(x, y, z);
                 }
             }
@@ -563,7 +635,11 @@ final class LabRunController {
         if (cells.isEmpty()) {
             throw new IllegalStateException("Target schematic contains no solid target blocks: " + selected.targetFile());
         }
-        return new TargetBuild(List.copyOf(cells), bounds.build());
+        return new TargetBuild(
+                List.copyOf(cells),
+                List.copyOf(companions.values()),
+                bounds.build()
+        );
     }
 
     private void validateArenaCoordinate(Location origin, int x, int y, int z) {
@@ -581,6 +657,7 @@ final class LabRunController {
 
     private TargetBuild buildTarget(World world, Location origin, LabScenario selected) {
         List<TargetCell> cells = new ArrayList<>();
+        Map<BlockKey, CompanionCell> companions = new LinkedHashMap<>();
         BoundsBuilder bounds = new BoundsBuilder();
         int stageDistance = selected.targetDistance();
         int globalLayer = 0;
@@ -674,6 +751,26 @@ final class LabRunController {
                             cells.add(cell);
                             bounds.include(cell.x(), cell.y(), cell.z());
                         }
+                        captureCompanion(
+                                companions,
+                                bounds,
+                                front,
+                                globalLayer,
+                                stageIndex,
+                                stage.name(),
+                                "front",
+                                stage.regeneration()
+                        );
+                        captureCompanion(
+                                companions,
+                                bounds,
+                                back,
+                                globalLayer,
+                                stageIndex,
+                                stage.name(),
+                                "back",
+                                stage.regeneration()
+                        );
                     }
                 }
                 globalLayer++;
@@ -684,7 +781,40 @@ final class LabRunController {
         if (cells.isEmpty()) {
             throw new IllegalStateException("Target configuration produced zero solid target cells.");
         }
-        return new TargetBuild(List.copyOf(cells), bounds.build());
+        return new TargetBuild(
+                List.copyOf(cells),
+                List.copyOf(companions.values()),
+                bounds.build()
+        );
+    }
+
+    private void captureCompanion(
+            Map<BlockKey, CompanionCell> companions,
+            BoundsBuilder bounds,
+            Block block,
+            int layer,
+            int stageIndex,
+            String stageName,
+            String role,
+            LabScenario.RegenConfig regeneration
+    ) {
+        if (block.isEmpty()) {
+            return;
+        }
+        CompanionCell cell = new CompanionCell(
+                block.getX(),
+                block.getY(),
+                block.getZ(),
+                block.getType(),
+                block.getBlockData().getAsString(),
+                layer,
+                stageIndex,
+                stageName,
+                role,
+                regeneration
+        );
+        companions.put(new BlockKey(cell.x(), cell.y(), cell.z()), cell);
+        bounds.include(cell.x(), cell.y(), cell.z());
     }
 
     private void writeTargetCourse(Path runDirectory) throws IOException {
@@ -881,6 +1011,154 @@ final class LabRunController {
         return configured;
     }
 
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onEntityExplode(EntityExplodeEvent event) {
+        applyDurability(
+                event.getLocation(),
+                event.blockList(),
+                event.getEntity() instanceof TNTPrimed
+        );
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    public void onBlockExplode(BlockExplodeEvent event) {
+        applyDurability(event.getBlock().getLocation(), event.blockList(), false);
+    }
+
+    private void applyDurability(Location center, List<Block> affectedBlocks, boolean tntExplosion) {
+        if (!running || scenario == null || center.getWorld() == null) {
+            return;
+        }
+        LabScenario.DurabilityConfig config = scenario.durability();
+        if (!config.enabled() || effectiveDurabilityMode() != LabScenario.DurabilityMode.SIMULATE) {
+            return;
+        }
+        if (config.onlyTnt() && !tntExplosion) {
+            return;
+        }
+        World world = center.getWorld();
+        if (!world.equals(plugin.arenaWorld())) {
+            return;
+        }
+
+        double radiusSquared = config.hitRadius() * config.hitRadius();
+        Set<BlockKey> candidates = new HashSet<>();
+        for (Block block : affectedBlocks) {
+            BlockKey key = new BlockKey(block.getX(), block.getY(), block.getZ());
+            TargetCell cell = targetCellsByPosition.get(key);
+            if (cell != null && config.materials().containsKey(cell.material())) {
+                candidates.add(key);
+            }
+        }
+        for (TargetCell cell : targetCells) {
+            if (!config.materials().containsKey(cell.material())) {
+                continue;
+            }
+            double dx = cell.x() + 0.5 - center.getX();
+            double dy = cell.y() + 0.5 - center.getY();
+            double dz = cell.z() + 0.5 - center.getZ();
+            if (dx * dx + dy * dy + dz * dz <= radiusSquared) {
+                candidates.add(new BlockKey(cell.x(), cell.y(), cell.z()));
+            }
+        }
+
+        long gameTime = world.getGameTime();
+        for (BlockKey key : candidates) {
+            TargetCell cell = targetCellsByPosition.get(key);
+            if (cell == null || !matches(world, cell)) {
+                continue;
+            }
+            int fullDurability = config.hitsToBreak(cell.material());
+            DurabilityState prior = durabilityStates.get(key);
+            int remainingBefore = fullDurability;
+            if (prior != null && gameTime - prior.lastHitTick() <= config.expirationTicks()) {
+                remainingBefore = prior.remaining();
+            }
+            int remainingAfter = remainingBefore - 1;
+            if (remainingAfter <= 0) {
+                durabilityStates.remove(key);
+                durabilityBreaks++;
+                removeFromExplosionList(affectedBlocks, key);
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (matches(world, cell)) {
+                        world.getBlockAt(cell.x(), cell.y(), cell.z()).setType(Material.AIR, false);
+                    }
+                });
+                recorder.recordCustomEvent(
+                        "DURABILITY_BREAK",
+                        cell.stageName() + ":" + cell.material().name()
+                                + ":hits=" + fullDurability,
+                        new Location(world, cell.x(), cell.y(), cell.z()),
+                        1
+                );
+            } else {
+                durabilityStates.put(key, new DurabilityState(remainingAfter, gameTime));
+                durabilityHits++;
+                removeFromExplosionList(affectedBlocks, key);
+                recorder.recordCustomEvent(
+                        "DURABILITY_HIT",
+                        cell.stageName() + ":" + cell.material().name()
+                                + ":remaining=" + remainingAfter + "/" + fullDurability,
+                        new Location(world, cell.x(), cell.y(), cell.z()),
+                        0
+                );
+            }
+        }
+    }
+
+    private void removeFromExplosionList(List<Block> affectedBlocks, BlockKey key) {
+        affectedBlocks.removeIf(block -> block.getX() == key.x()
+                && block.getY() == key.y()
+                && block.getZ() == key.z());
+    }
+
+    private Map<BlockKey, TargetCell> indexTargetCells(List<TargetCell> cells) {
+        Map<BlockKey, TargetCell> index = new HashMap<>();
+        for (TargetCell cell : cells) {
+            BlockKey key = new BlockKey(cell.x(), cell.y(), cell.z());
+            TargetCell previous = index.put(key, cell);
+            if (previous != null) {
+                throw new IllegalStateException("Duplicate target cell at " + key);
+            }
+        }
+        return Map.copyOf(index);
+    }
+
+    private LabScenario.DurabilityMode effectiveDurabilityMode() {
+        if (scenario == null || !scenario.durability().enabled()) {
+            return LabScenario.DurabilityMode.DISABLED;
+        }
+        boolean nativeAvailable = nativeSakuraDurabilityAvailable();
+        return switch (scenario.durability().mode()) {
+            case DISABLED -> LabScenario.DurabilityMode.DISABLED;
+            case SIMULATE -> LabScenario.DurabilityMode.SIMULATE;
+            case AUTO -> nativeAvailable
+                    ? LabScenario.DurabilityMode.NATIVE
+                    : LabScenario.DurabilityMode.SIMULATE;
+            case NATIVE -> {
+                if (!nativeAvailable) {
+                    throw new IllegalStateException(
+                            "Native Sakura durability requested, but Sakura durable-block classes are unavailable"
+                    );
+                }
+                yield LabScenario.DurabilityMode.NATIVE;
+            }
+        };
+    }
+
+    private boolean nativeSakuraDurabilityAvailable() {
+        try {
+            Class.forName(
+                    "me.samsuik.sakura.explosion.DurableBlockManager",
+                    false,
+                    getClass().getClassLoader()
+            );
+            return true;
+        } catch (ClassNotFoundException ignored) {
+            return false;
+        }
+    }
+
     private int countRemainingTargetBlocks() {
         if (targetCells.isEmpty()) {
             return 0;
@@ -901,7 +1179,20 @@ final class LabRunController {
                 && block.getBlockData().getAsString().equals(cell.blockData());
     }
 
+    private boolean matches(World world, CompanionCell cell) {
+        Block block = world.getBlockAt(cell.x(), cell.y(), cell.z());
+        return block.getType() == cell.material()
+                && block.getBlockData().getAsString().equals(cell.blockData());
+    }
+
     private void restore(World world, TargetCell cell) {
+        Block block = world.getBlockAt(cell.x(), cell.y(), cell.z());
+        block.setType(cell.material(), false);
+        block.setBlockData(Bukkit.createBlockData(cell.blockData()), false);
+        durabilityStates.remove(new BlockKey(cell.x(), cell.y(), cell.z()));
+    }
+
+    private void restore(World world, CompanionCell cell) {
         Block block = world.getBlockAt(cell.x(), cell.y(), cell.z());
         block.setType(cell.material(), false);
         block.setBlockData(Bukkit.createBlockData(cell.blockData()), false);
@@ -937,6 +1228,12 @@ final class LabRunController {
                       "regen_blocks_restored": %d,
                       "regen_cycles": %d,
                       "max_layer_breached": %d,
+                      "companion_cells_missing": %d,
+                      "companion_peak_missing": %d,
+                      "companion_ever_missing": %d,
+                      "companion_cells_restored": %d,
+                      "durability_hits": %d,
+                      "durability_breaks": %d,
                       "error": %s
                     }
                     """.formatted(
@@ -955,6 +1252,12 @@ final class LabRunController {
                     shot.regenRestored(),
                     shot.regenCycles(),
                     shot.maxLayerBreached(),
+                    shot.companionMissing(),
+                    shot.companionPeakMissing(),
+                    shot.companionEverMissing(),
+                    shot.companionRestored(),
+                    shot.durabilityHits(),
+                    shot.durabilityBreaks(),
                     shot.error() == null ? "null" : "\"" + json(shot.error()) + "\""
             ));
         }
@@ -973,6 +1276,7 @@ final class LabRunController {
                   "target_layers": %d,
                   "target_spacing": %d,
                   "target_bounds": %s,
+                  "target_companion_cells": %d,
                   "arena_origin": {"x": %d, "y": %d, "z": %d},
                   "regeneration": {
                     "enabled": %s,
@@ -980,6 +1284,15 @@ final class LabRunController {
                     "interval_ticks": %d,
                     "max_blocks_per_cycle": %d
                   },
+                  "durability": {
+                    "configured_mode": "%s",
+                    "effective_mode": "%s",
+                    "expiration_ticks": %d,
+                    "only_tnt": %s,
+                    "hit_radius": %.3f
+                  },
+                  "volleys_per_shot": %d,
+                  "volley_interval_ticks": %d,
                   "finished_at": "%s",
                   "finish_reason": "%s",
                   "shots_requested": %d,
@@ -1000,6 +1313,7 @@ final class LabRunController {
                 scenario == null ? 0 : scenario.targetLayers(),
                 scenario == null ? 0 : scenario.targetSpacing(),
                 targetBounds.toJson(),
+                targetCompanions.size(),
                 arenaOrigin.getBlockX(),
                 arenaOrigin.getBlockY(),
                 arenaOrigin.getBlockZ(),
@@ -1007,6 +1321,13 @@ final class LabRunController {
                 scenario == null ? 0 : scenario.regeneration().delayTicks(),
                 scenario == null ? 0 : scenario.regeneration().intervalTicks(),
                 scenario == null ? 0 : scenario.regeneration().maxBlocksPerCycle(),
+                json(scenario == null ? "DISABLED" : scenario.durability().mode().name()),
+                json(scenario == null ? "DISABLED" : effectiveDurabilityMode().name()),
+                scenario == null ? 0 : scenario.durability().expirationTicks(),
+                scenario != null && scenario.durability().onlyTnt(),
+                scenario == null ? 0.0 : scenario.durability().hitRadius(),
+                scenario == null ? 0 : scenario.volleysPerShot(),
+                scenario == null ? 0 : scenario.volleyIntervalTicks(),
                 Instant.now(),
                 json(reason),
                 scenario == null ? 0 : scenario.shots(),
@@ -1043,21 +1364,28 @@ final class LabRunController {
     private final class RegenMonitor {
         private final World world;
         private final List<TargetCell> cells;
+        private final List<CompanionCell> companions;
         private final Map<TargetCell, Long> missingSince = new HashMap<>();
+        private final Map<CompanionCell, Long> companionMissingSince = new HashMap<>();
         private final Set<TargetCell> everDestroyed = new HashSet<>();
+        private final Set<CompanionCell> everCompanionMissing = new HashSet<>();
         private BukkitTask task;
         private long tick;
         private int peakDestroyed;
         private int restored;
+        private int companionPeakMissing;
+        private int companionRestored;
         private int maxLayerBreached;
         private int cycles;
 
         private RegenMonitor(
                 World world,
-                List<TargetCell> cells
+                List<TargetCell> cells,
+                List<CompanionCell> companions
         ) {
             this.world = world;
             this.cells = cells;
+            this.companions = companions;
         }
 
         private void start() {
@@ -1096,15 +1424,38 @@ final class LabRunController {
             }
             peakDestroyed = Math.max(peakDestroyed, currentlyDestroyed);
 
+            int currentlyMissingCompanions = 0;
+            for (CompanionCell cell : companions) {
+                if (!matches(world, cell)) {
+                    currentlyMissingCompanions++;
+                    if (companionMissingSince.putIfAbsent(cell, tick) == null) {
+                        everCompanionMissing.add(cell);
+                        recorder.recordCustomEvent(
+                                "COMPANION_MISSING",
+                                cell.stageName() + ":" + cell.role() + ":" + cell.material().name(),
+                                new Location(world, cell.x(), cell.y(), cell.z()),
+                                1
+                        );
+                    }
+                } else {
+                    companionMissingSince.remove(cell);
+                }
+            }
+            companionPeakMissing = Math.max(companionPeakMissing, currentlyMissingCompanions);
+
             if (!allowRestore) {
                 return;
             }
 
-            boolean cycleDue = cells.stream()
+            boolean targetCycleDue = cells.stream()
                     .map(TargetCell::regeneration)
                     .distinct()
                     .anyMatch(config -> config.enabled() && tick % config.intervalTicks() == 0);
-            if (!cycleDue) {
+            boolean companionCycleDue = companions.stream()
+                    .map(CompanionCell::regeneration)
+                    .distinct()
+                    .anyMatch(config -> config.enabled() && tick % config.intervalTicks() == 0);
+            if (!targetCycleDue && !companionCycleDue) {
                 return;
             }
             cycles++;
@@ -1144,6 +1495,40 @@ final class LabRunController {
                         1
                 );
             }
+
+            List<Map.Entry<CompanionCell, Long>> dueCompanions = companionMissingSince.entrySet().stream()
+                    .filter(entry -> {
+                        LabScenario.RegenConfig config = entry.getKey().regeneration();
+                        return config.enabled()
+                                && tick % config.intervalTicks() == 0
+                                && tick - entry.getValue() >= config.delayTicks();
+                    })
+                    .sorted(Comparator
+                            .comparingLong((Map.Entry<CompanionCell, Long> entry) -> entry.getValue())
+                            .thenComparingInt(entry -> entry.getKey().layer()))
+                    .toList();
+            for (Map.Entry<CompanionCell, Long> entry : dueCompanions) {
+                CompanionCell cell = entry.getKey();
+                LabScenario.RegenConfig config = cell.regeneration();
+                int restoredForStage = restoredByStage.getOrDefault(cell.stageIndex(), 0);
+                if (restoredForStage >= config.maxBlocksPerCycle()) {
+                    continue;
+                }
+                if (matches(world, cell)) {
+                    companionMissingSince.remove(cell);
+                    continue;
+                }
+                restore(world, cell);
+                companionMissingSince.remove(cell);
+                companionRestored++;
+                restoredByStage.put(cell.stageIndex(), restoredForStage + 1);
+                recorder.recordCustomEvent(
+                        "COMPANION_RESTORE",
+                        cell.stageName() + ":" + cell.role() + ":" + cell.material().name(),
+                        new Location(world, cell.x(), cell.y(), cell.z()),
+                        1
+                );
+            }
         }
 
         private RegenStats stopAndSnapshot() {
@@ -1154,6 +1539,12 @@ final class LabRunController {
                     finalDestroyed++;
                 }
             }
+            int finalCompanionMissing = 0;
+            for (CompanionCell cell : companions) {
+                if (!matches(world, cell)) {
+                    finalCompanionMissing++;
+                }
+            }
             cancel();
             return new RegenStats(
                     finalDestroyed,
@@ -1161,7 +1552,11 @@ final class LabRunController {
                     everDestroyed.size(),
                     restored,
                     maxLayerBreached,
-                    cycles
+                    cycles,
+                    finalCompanionMissing,
+                    companionPeakMissing,
+                    everCompanionMissing.size(),
+                    companionRestored
             );
         }
 
@@ -1196,6 +1591,12 @@ final class LabRunController {
     }
 
     private record ChunkKey(int x, int z) {
+    }
+
+    private record BlockKey(int x, int y, int z) {
+    }
+
+    private record DurabilityState(int remaining, long lastHitTick) {
     }
 
     private record FillAudit(
@@ -1238,8 +1639,23 @@ final class LabRunController {
     ) {
     }
 
+    private record CompanionCell(
+            int x,
+            int y,
+            int z,
+            Material material,
+            String blockData,
+            int layer,
+            int stageIndex,
+            String stageName,
+            String role,
+            LabScenario.RegenConfig regeneration
+    ) {
+    }
+
     private record TargetBuild(
             List<TargetCell> cells,
+            List<CompanionCell> companions,
             TargetBounds bounds
     ) {
     }
@@ -1269,10 +1685,14 @@ final class LabRunController {
             int everDestroyed,
             int restored,
             int maxLayerBreached,
-            int cycles
+            int cycles,
+            int finalCompanionMissing,
+            int companionPeakMissing,
+            int everCompanionMissing,
+            int companionRestored
     ) {
         private static RegenStats empty() {
-            return new RegenStats(0, 0, 0, 0, 0, 0);
+            return new RegenStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
         }
     }
 
@@ -1290,6 +1710,12 @@ final class LabRunController {
             int regenRestored,
             int maxLayerBreached,
             int regenCycles,
+            int companionMissing,
+            int companionPeakMissing,
+            int companionEverMissing,
+            int companionRestored,
+            int durabilityHits,
+            int durabilityBreaks,
             int maximumTnt,
             int maximumFallingBlocks,
             String error
@@ -1303,18 +1729,24 @@ final class LabRunController {
                     number,
                     "preparation_error",
                     false,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
+                    0, // explosions
+                    0, // destroyed blocks
+                    0, // self damage
+                    0, // target destroyed
+                    0, // target peak destroyed
+                    0, // target ever destroyed
                     targetTotal,
-                    0,
-                    0,
-                    0,
-                    0,
-                    0,
+                    0, // regen restored
+                    0, // max layer breached
+                    0, // regen cycles
+                    0, // companion missing
+                    0, // companion peak missing
+                    0, // companion ever missing
+                    0, // companion restored
+                    0, // durability hits
+                    0, // durability breaks
+                    0, // maximum TNT
+                    0, // maximum falling blocks
                     exception.getClass().getSimpleName() + ": " + exception.getMessage()
             );
         }

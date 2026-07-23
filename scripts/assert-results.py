@@ -86,6 +86,10 @@ def main() -> None:
     parser.add_argument("--max-self-damage-blocks", type=int)
     parser.add_argument("--require-regen", action="store_true")
     parser.add_argument("--min-regen-restored", type=int, default=1)
+    parser.add_argument("--min-durability-hits", type=int)
+    parser.add_argument("--min-durability-breaks", type=int)
+    parser.add_argument("--max-companion-missing", type=int)
+    parser.add_argument("--min-companion-restored", type=int)
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args()
 
@@ -158,6 +162,10 @@ def main() -> None:
         regen_restored = int(shot.get("regen_blocks_restored", 0))
         max_layer = int(shot.get("max_layer_breached", 0))
         self_damage = int(shot.get("self_damage_blocks", 0))
+        durability_hits = int(shot.get("durability_hits", 0))
+        durability_breaks = int(shot.get("durability_breaks", 0))
+        companion_missing = int(shot.get("companion_cells_missing", 0))
+        companion_restored = int(shot.get("companion_cells_restored", 0))
         peak_destroyed_values.append(float(peak_destroyed))
         regen_restored_values.append(float(regen_restored))
         layer_breached_values.append(float(max_layer))
@@ -185,6 +193,26 @@ def main() -> None:
             failures.append(
                 f"shot {number}: self_damage_blocks={self_damage} "
                 f"above {args.max_self_damage_blocks}"
+            )
+        if args.min_durability_hits is not None and durability_hits < args.min_durability_hits:
+            failures.append(
+                f"shot {number}: durability_hits={durability_hits} "
+                f"below {args.min_durability_hits}"
+            )
+        if args.min_durability_breaks is not None and durability_breaks < args.min_durability_breaks:
+            failures.append(
+                f"shot {number}: durability_breaks={durability_breaks} "
+                f"below {args.min_durability_breaks}"
+            )
+        if args.max_companion_missing is not None and companion_missing > args.max_companion_missing:
+            failures.append(
+                f"shot {number}: companion_cells_missing={companion_missing} "
+                f"above {args.max_companion_missing}"
+            )
+        if args.min_companion_restored is not None and companion_restored < args.min_companion_restored:
+            failures.append(
+                f"shot {number}: companion_cells_restored={companion_restored} "
+                f"below {args.min_companion_restored}"
             )
 
     if args.min_target_peak_mean is not None:
