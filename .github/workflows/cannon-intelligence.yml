@@ -4,14 +4,24 @@ on:
   pull_request:
     paths:
       - 'scripts/schem-audit.py'
+      - 'scripts/test-schem-recovery.py'
+      - 'scripts/paste-alignment-audit.py'
+      - 'scripts/scenario-integrity-audit.py'
+      - 'scripts/test-runtime-integrity.py'
       - 'scripts/cannon-static-map.py'
       - 'scripts/cannon-module-map.py'
+      - 'scripts/test-static-analysis-cache.py'
       - 'scripts/cannon-preservation-check.py'
       - 'scripts/compare-cannon-modules.py'
       - 'scripts/compare-cannon-cores.py'
       - 'scripts/test-core-comparison.py'
       - 'scripts/analyze-module-trace.py'
       - 'scripts/compare-module-traces.py'
+      - 'scripts/test-module-runtime-contract-v3.py'
+      - 'scripts/analyze-repair-family.py'
+      - 'scripts/test-repair-family.py'
+      - 'scripts/extend-repair-family-runtime.py'
+      - 'scripts/test-repair-runtime-extension.py'
       - 'scripts/cannon-geometry-profile.py'
       - 'scripts/audit-cannon-corpus.py'
       - 'scripts/explain-causal-trace.py'
@@ -44,14 +54,24 @@ jobs:
         run: |
           python -m py_compile \
             scripts/schem-audit.py \
+            scripts/test-schem-recovery.py \
+            scripts/paste-alignment-audit.py \
+            scripts/scenario-integrity-audit.py \
+            scripts/test-runtime-integrity.py \
             scripts/cannon-static-map.py \
             scripts/cannon-module-map.py \
+            scripts/test-static-analysis-cache.py \
             scripts/cannon-preservation-check.py \
             scripts/compare-cannon-modules.py \
             scripts/compare-cannon-cores.py \
             scripts/test-core-comparison.py \
             scripts/analyze-module-trace.py \
             scripts/compare-module-traces.py \
+            scripts/test-module-runtime-contract-v3.py \
+            scripts/analyze-repair-family.py \
+            scripts/test-repair-family.py \
+            scripts/extend-repair-family-runtime.py \
+            scripts/test-repair-runtime-extension.py \
             scripts/cannon-geometry-profile.py \
             scripts/audit-cannon-corpus.py \
             scripts/explain-causal-trace.py \
@@ -84,6 +104,14 @@ jobs:
           assert modules['truth_boundary']['runtime_roles_confirmed'] is False, modules
           print('Static mapping preserves geometry and reports real functional height.')
           PY
+
+      - name: Prove narrow corrupted-gzip recovery
+        run: |
+          python scripts/test-schem-recovery.py
+
+      - name: Prove paste-point and evidence integrity gates
+        run: |
+          python scripts/test-runtime-integrity.py
 
       - name: Prove module-preservation gate
         run: |
@@ -336,6 +364,22 @@ jobs:
           assert 'minimum_unchanged_runtime_contracts_not_met' in all_allowed['failures'], all_allowed
           print('Exact module matching, runtime-phase correlation, and unchanged-module replay contracts passed.')
           PY
+
+      - name: Prove shared-source runtime contract v3
+        run: |
+          python scripts/test-module-runtime-contract-v3.py
+
+      - name: Prove bounded repair-family ranking
+        run: |
+          python scripts/test-repair-family.py
+
+      - name: Prove incremental repair runtime extension
+        run: |
+          python scripts/test-repair-runtime-extension.py
+
+      - name: Prove static analysis cache safety
+        run: |
+          python scripts/test-static-analysis-cache.py
 
       - name: Prove support-gap dispenser clustering
         run: |

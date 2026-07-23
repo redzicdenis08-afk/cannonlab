@@ -67,6 +67,7 @@ final class LabRunController implements Listener {
     private TargetBounds targetBounds = TargetBounds.empty();
     private RegenMonitor regenMonitor;
     private final Map<BlockKey, DurabilityState> durabilityStates = new HashMap<>();
+    private Map<BlockKey, String> cannonSnapshot = Map.of();
     private int durabilityHits;
     private int durabilityBreaks;
 
@@ -134,7 +135,11 @@ final class LabRunController implements Listener {
             stopRegenMonitor();
             World world = plugin.arenaWorld();
             Location arenaOrigin = plugin.arenaOrigin(world);
-            clearArena(world, arenaOrigin);
+            boolean disposableFreshWorld = shotNumber == 1
+                    && Boolean.parseBoolean(System.getProperty("cannonlab.fresh-world", "false"));
+            if (!disposableFreshWorld) {
+                clearArena(world, arenaOrigin);
+            }
 
             File schematic = plugin.resolveCannonFile(scenario.cannonFile());
             Location pasteOrigin = relative(arenaOrigin, scenario.cannonOrigin());
@@ -170,6 +175,7 @@ final class LabRunController implements Listener {
             if (audit.totalDispensers() == 0) {
                 throw new IllegalStateException("Pasted schematic contains no dispensers.");
             }
+            cannonSnapshot = snapshotCannon(world, pasteResult);
 
             plugin.getLogger().info("Prepared shot " + shotNumber
                     + " | dispensers=" + audit.totalDispensers()
@@ -215,6 +221,7 @@ final class LabRunController implements Listener {
                     effectiveMaxShotTicks,
                     scenario.quietTicks(),
                     minimumTicksBeforeQuiet,
+                    scenario.targetDirection(),
                     this::shotCompleted
             );
 
@@ -479,6 +486,14 @@ final class LabRunController implements Listener {
 
         int remaining = countRemainingTargetBlocks();
         int finalDestroyed = Math.max(0, targetCells.size() - remaining);
+        CannonIntegrity integrity = inspectCannonIntegrity();
+        try {
+            writeIntegrityDiff(result.directory(), integrity);
+        } catch (IOException exception) {
+            plugin.getLogger().warning("Unable to write cannon integrity diff: "
+                    + exception.getMessage());
+        }
+        List<String> contractFailures = contractFailures(result, integrity, finalDestroyed);
         completedShots.add(new CompletedShot(
                 shotNumber,
                 result.finishReason(),
@@ -501,6 +516,10 @@ final class LabRunController implements Listener {
                 durabilityBreaks,
                 result.maximumTnt(),
                 result.maximumFallingBlocks(),
+                result.maximumForwardDistance(),
+                result.minimumForwardDistance(),
+                integrity,
+                contractFailures,
                 null
         ));
 
@@ -508,21 +527,78 @@ final class LabRunController implements Listener {
                 + " complete | payload=" + result.sawPayload()
                 + " | explosions=" + result.explosions()
                 + " | maxTnt=" + result.maximumTnt()
+                + " | maxForward="
+                + String.format(java.util.Locale.ROOT, "%.3f", result.maximumForwardDistance())
                 + " | selfDamage=" + result.selfDamageBlocks()
+                + " | integrity=" + integrity.sameState() + "/" + integrity.initial()
+                + " | stateChanged=" + integrity.stateChanged()
+                + " | missing=" + integrity.missing()
+                + " | replacedType=" + integrity.replacedType()
+                + " | dispensers=" + integrity.dispensersRemaining()
+                + "/" + integrity.dispensersInitial()
                 + " | targetFinal=" + finalDestroyed + "/" + targetCells.size()
                 + " | targetPeak=" + regenStats.peakDestroyed()
                 + " | regenRestored=" + regenStats.restored()
                 + " | companionMissing=" + regenStats.finalCompanionMissing()
                 + " | companionRestored=" + regenStats.companionRestored()
-                + " | maxLayer=" + regenStats.maxLayerBreached());
+                + " | maxLayer=" + regenStats.maxLayerBreached()
+                + " | contractPass=" + contractFailures.isEmpty()
+                + (contractFailures.isEmpty() ? "" : " | failures=" + contractFailures));
 
         if (cancelled) {
             finishRun("cancelled");
         } else if (shotNumber < scenario.shots()) {
             Bukkit.getScheduler().runTaskLater(plugin, this::prepareNextShot, 20L);
         } else {
-            finishRun("complete");
+            boolean contractPass = completedShots.stream().allMatch(CompletedShot::contractPass);
+            finishRun(contractPass ? "complete" : "contract_failed");
         }
+    }
+
+    private List<String> contractFailures(
+            ShotRecorder.ShotResult result,
+            CannonIntegrity integrity,
+            int targetDestroyed
+    ) {
+        LabScenario.AcceptanceConfig acceptance = scenario.acceptance();
+        List<String> failures = new ArrayList<>();
+        if (acceptance.requirePayload() && !result.sawPayload()) {
+            failures.add("payload_not_observed");
+        }
+        if (targetDestroyed < acceptance.minTargetDestroyed()) {
+            failures.add("target_destroyed=" + targetDestroyed
+                    + "<" + acceptance.minTargetDestroyed());
+        }
+        if (result.maximumFallingBlocks() < acceptance.minFallingBlocks()) {
+            failures.add("falling_blocks=" + result.maximumFallingBlocks()
+                    + "<" + acceptance.minFallingBlocks());
+        }
+        if (result.maximumForwardDistance() + 1.0e-12 < acceptance.minForwardDistance()) {
+            failures.add("forward_distance="
+                    + String.format(java.util.Locale.ROOT, "%.6f", result.maximumForwardDistance())
+                    + "<" + acceptance.minForwardDistance());
+        }
+        double remainingRatio = integrity.dispensersInitial() == 0
+                ? 0.0
+                : (double) integrity.dispensersRemaining() / integrity.dispensersInitial();
+        if (remainingRatio + 1.0e-12 < acceptance.minRemainingDispenserRatio()) {
+            failures.add("remaining_dispenser_ratio="
+                    + String.format(java.util.Locale.ROOT, "%.6f", remainingRatio)
+                    + "<" + acceptance.minRemainingDispenserRatio());
+        }
+        if (integrity.missing() > acceptance.maxCannonMissingBlocks()) {
+            failures.add("cannon_missing=" + integrity.missing()
+                    + ">" + acceptance.maxCannonMissingBlocks());
+        }
+        if (integrity.replacedType() > acceptance.maxCannonReplacedTypeBlocks()) {
+            failures.add("cannon_replaced_type=" + integrity.replacedType()
+                    + ">" + acceptance.maxCannonReplacedTypeBlocks());
+        }
+        if (result.selfDamageBlocks() > acceptance.maxSelfDamageBlocks()) {
+            failures.add("self_damage=" + result.selfDamageBlocks()
+                    + ">" + acceptance.maxSelfDamageBlocks());
+        }
+        return List.copyOf(failures);
     }
 
     private void finishRun(String reason) {
@@ -546,10 +622,111 @@ final class LabRunController implements Listener {
         targetCellsByPosition = Map.of();
         durabilityStates.clear();
         targetBounds = TargetBounds.empty();
+        cannonSnapshot = Map.of();
 
         if (shutdown) {
             Bukkit.getScheduler().runTaskLater(plugin, Bukkit::shutdown, 20L);
         }
+    }
+
+    private Map<BlockKey, String> snapshotCannon(
+            World world,
+            WorldEditService.PasteResult result
+    ) {
+        Map<BlockKey, String> snapshot = new HashMap<>();
+        for (int x = result.minimum().x(); x <= result.maximum().x(); x++) {
+            for (int y = Math.max(world.getMinHeight(), result.minimum().y());
+                 y <= Math.min(world.getMaxHeight() - 1, result.maximum().y()); y++) {
+                for (int z = result.minimum().z(); z <= result.maximum().z(); z++) {
+                    Block block = world.getBlockAt(x, y, z);
+                    if (!block.isEmpty()) {
+                        snapshot.put(new BlockKey(x, y, z), block.getBlockData().getAsString());
+                    }
+                }
+            }
+        }
+        return Map.copyOf(snapshot);
+    }
+
+    private CannonIntegrity inspectCannonIntegrity() {
+        if (cannonSnapshot.isEmpty()) {
+            return CannonIntegrity.empty();
+        }
+        World world = plugin.arenaWorld();
+        int sameState = 0;
+        int stateChanged = 0;
+        int missing = 0;
+        int replacedType = 0;
+        int dispensersInitial = 0;
+        int dispensersRemaining = 0;
+        List<BlockDifference> differences = new ArrayList<>();
+        for (Map.Entry<BlockKey, String> entry : cannonSnapshot.entrySet()) {
+            BlockKey key = entry.getKey();
+            Block block = world.getBlockAt(key.x(), key.y(), key.z());
+            String expectedState = entry.getValue();
+            String expectedType = blockType(expectedState);
+            if (expectedType.equals("minecraft:dispenser")) {
+                dispensersInitial++;
+            }
+            if (block.isEmpty()) {
+                missing++;
+                differences.add(new BlockDifference(
+                        "missing", key.x(), key.y(), key.z(), expectedState, "minecraft:air"));
+            } else if (!block.getType().getKey().toString().equals(expectedType)) {
+                replacedType++;
+                differences.add(new BlockDifference(
+                        "replaced_type", key.x(), key.y(), key.z(),
+                        expectedState, block.getBlockData().getAsString()));
+            } else if (block.getBlockData().getAsString().equals(expectedState)) {
+                sameState++;
+            } else {
+                stateChanged++;
+                differences.add(new BlockDifference(
+                        "state_changed", key.x(), key.y(), key.z(),
+                        expectedState, block.getBlockData().getAsString()));
+            }
+            if (block.getState() instanceof Dispenser) {
+                dispensersRemaining++;
+            }
+        }
+        return new CannonIntegrity(
+                cannonSnapshot.size(),
+                sameState,
+                stateChanged,
+                missing,
+                replacedType,
+                dispensersInitial,
+                dispensersRemaining,
+                differences
+        );
+    }
+
+    private void writeIntegrityDiff(Path directory, CannonIntegrity integrity) throws IOException {
+        Files.createDirectories(directory);
+        StringBuilder csv = new StringBuilder(
+                "kind,x,y,z,expected_block_data,actual_block_data\n");
+        for (BlockDifference difference : integrity.differences()) {
+            csv.append(difference.kind()).append(',')
+                    .append(difference.x()).append(',')
+                    .append(difference.y()).append(',')
+                    .append(difference.z()).append(',')
+                    .append(csv(difference.expected())).append(',')
+                    .append(csv(difference.actual())).append('\n');
+        }
+        Files.writeString(
+                directory.resolve("cannon-integrity.csv"),
+                csv,
+                StandardCharsets.UTF_8
+        );
+    }
+
+    private static String csv(String value) {
+        return "\"" + value.replace("\"", "\"\"") + "\"";
+    }
+
+    private static String blockType(String blockData) {
+        int properties = blockData.indexOf('[');
+        return properties < 0 ? blockData : blockData.substring(0, properties);
     }
 
     private void stopRegenMonitor() {
@@ -1238,6 +1415,15 @@ final class LabRunController implements Listener {
                       "self_damage_blocks": %d,
                       "maximum_tnt_entities": %d,
                       "maximum_falling_blocks": %d,
+                      "maximum_forward_distance": %.6f,
+                      "minimum_forward_distance": %.6f,
+                      "cannon_initial_blocks": %d,
+                      "cannon_same_state_blocks": %d,
+                      "cannon_state_changed_blocks": %d,
+                      "cannon_missing_blocks": %d,
+                      "cannon_replaced_type_blocks": %d,
+                      "cannon_initial_dispensers": %d,
+                      "cannon_remaining_dispensers": %d,
                       "target_blocks_destroyed": %d,
                       "target_peak_destroyed": %d,
                       "target_ever_destroyed": %d,
@@ -1251,6 +1437,8 @@ final class LabRunController implements Listener {
                       "companion_cells_restored": %d,
                       "durability_hits": %d,
                       "durability_breaks": %d,
+                      "contract_pass": %s,
+                      "contract_failures": %s,
                       "error": %s
                     }
                     """.formatted(
@@ -1262,6 +1450,15 @@ final class LabRunController implements Listener {
                     shot.selfDamageBlocks(),
                     shot.maximumTnt(),
                     shot.maximumFallingBlocks(),
+                    shot.maximumForwardDistance(),
+                    shot.minimumForwardDistance(),
+                    shot.integrity().initial(),
+                    shot.integrity().sameState(),
+                    shot.integrity().stateChanged(),
+                    shot.integrity().missing(),
+                    shot.integrity().replacedType(),
+                    shot.integrity().dispensersInitial(),
+                    shot.integrity().dispensersRemaining(),
                     shot.targetDestroyed(),
                     shot.targetPeakDestroyed(),
                     shot.targetEverDestroyed(),
@@ -1275,6 +1472,8 @@ final class LabRunController implements Listener {
                     shot.companionRestored(),
                     shot.durabilityHits(),
                     shot.durabilityBreaks(),
+                    shot.contractPass(),
+                    jsonArray(shot.contractFailures()),
                     shot.error() == null ? "null" : "\"" + json(shot.error()) + "\""
             ));
         }
@@ -1307,6 +1506,16 @@ final class LabRunController implements Listener {
                     "expiration_ticks": %d,
                     "only_tnt": %s,
                     "hit_radius": %.3f
+                  },
+                  "acceptance": {
+                    "require_payload": %s,
+                    "min_target_destroyed": %d,
+                    "min_falling_blocks": %d,
+                    "min_forward_distance": %.6f,
+                    "min_remaining_dispenser_ratio": %.6f,
+                    "max_cannon_missing_blocks": %d,
+                    "max_cannon_replaced_type_blocks": %d,
+                    "max_self_damage_blocks": %d
                   },
                   "volleys_per_shot": %d,
                   "volley_interval_ticks": %d,
@@ -1343,6 +1552,14 @@ final class LabRunController implements Listener {
                 scenario == null ? 0 : scenario.durability().expirationTicks(),
                 scenario != null && scenario.durability().onlyTnt(),
                 scenario == null ? 0.0 : scenario.durability().hitRadius(),
+                scenario != null && scenario.acceptance().requirePayload(),
+                scenario == null ? 0 : scenario.acceptance().minTargetDestroyed(),
+                scenario == null ? 0 : scenario.acceptance().minFallingBlocks(),
+                scenario == null ? 0.0 : scenario.acceptance().minForwardDistance(),
+                scenario == null ? 0.0 : scenario.acceptance().minRemainingDispenserRatio(),
+                scenario == null ? Integer.MAX_VALUE : scenario.acceptance().maxCannonMissingBlocks(),
+                scenario == null ? Integer.MAX_VALUE : scenario.acceptance().maxCannonReplacedTypeBlocks(),
+                scenario == null ? Integer.MAX_VALUE : scenario.acceptance().maxSelfDamageBlocks(),
                 scenario == null ? 0 : scenario.volleysPerShot(),
                 scenario == null ? 0 : scenario.volleyIntervalTicks(),
                 Instant.now(),
@@ -1371,6 +1588,12 @@ final class LabRunController implements Listener {
                 .replace("\"", "\\\"")
                 .replace("\n", "\\n")
                 .replace("\r", "\\r");
+    }
+
+    private static String jsonArray(List<String> values) {
+        return values.stream()
+                .map(value -> "\"" + json(value) + "\"")
+                .collect(java.util.stream.Collectors.joining(",", "[", "]"));
     }
 
     private static String indent(String value, int spaces) {
@@ -1713,6 +1936,35 @@ final class LabRunController implements Listener {
         }
     }
 
+    private record BlockDifference(
+            String kind,
+            int x,
+            int y,
+            int z,
+            String expected,
+            String actual
+    ) {
+    }
+
+    private record CannonIntegrity(
+            int initial,
+            int sameState,
+            int stateChanged,
+            int missing,
+            int replacedType,
+            int dispensersInitial,
+            int dispensersRemaining,
+            List<BlockDifference> differences
+    ) {
+        private CannonIntegrity {
+            differences = List.copyOf(differences);
+        }
+
+        private static CannonIntegrity empty() {
+            return new CannonIntegrity(0, 0, 0, 0, 0, 0, 0, List.of());
+        }
+    }
+
     private record CompletedShot(
             int number,
             String finishReason,
@@ -1735,8 +1987,20 @@ final class LabRunController implements Listener {
             int durabilityBreaks,
             int maximumTnt,
             int maximumFallingBlocks,
+            double maximumForwardDistance,
+            double minimumForwardDistance,
+            CannonIntegrity integrity,
+            List<String> contractFailures,
             String error
     ) {
+        private CompletedShot {
+            contractFailures = List.copyOf(contractFailures);
+        }
+
+        private boolean contractPass() {
+            return contractFailures.isEmpty();
+        }
+
         private static CompletedShot preparationError(
                 int number,
                 int targetTotal,
@@ -1764,6 +2028,10 @@ final class LabRunController implements Listener {
                     0, // durability breaks
                     0, // maximum TNT
                     0, // maximum falling blocks
+                    0.0, // maximum forward distance
+                    0.0, // minimum forward distance
+                    CannonIntegrity.empty(),
+                    List.of("preparation_error"),
                     exception.getClass().getSimpleName() + ": " + exception.getMessage()
             );
         }

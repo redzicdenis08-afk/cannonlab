@@ -30,6 +30,8 @@ MIN_DURABILITY_HITS="${CANNONLAB_MIN_DURABILITY_HITS:-}"
 MIN_DURABILITY_BREAKS="${CANNONLAB_MIN_DURABILITY_BREAKS:-}"
 MAX_COMPANION_MISSING="${CANNONLAB_MAX_COMPANION_MISSING:-}"
 MIN_COMPANION_RESTORED="${CANNONLAB_MIN_COMPANION_RESTORED:-}"
+REQUIRE_FIELD_CANDIDATE="${CANNONLAB_REQUIRE_FIELD_CANDIDATE:-false}"
+REQUIRE_READINESS="${CANNONLAB_REQUIRE_READINESS:-false}"
 ARENA_RADIUS_X="${CANNONLAB_ARENA_RADIUS_X:-32}"
 ARENA_RADIUS_Y="${CANNONLAB_ARENA_RADIUS_Y:-16}"
 ARENA_RADIUS_Z="${CANNONLAB_ARENA_RADIUS_Z:-16}"
@@ -40,6 +42,28 @@ rm -rf "$WORK" "$ARTIFACTS"
 mkdir -p "$PLUGINS" "$DATA/cannons" "$DATA/targets" "$DATA/scenarios" "$DATA/results" "$ARTIFACTS"
 exec > >(tee -a "$ARTIFACTS/cloud-smoke.log") 2>&1
 trap 'code=$?; echo "cloud-smoke.sh failed at line $LINENO with exit code $code"; exit $code' ERR
+
+SCENARIO_PATH="$ROOT/scenarios/$SCENARIO"
+if [[ ! -f "$SCENARIO_PATH" ]]; then
+  echo "Scenario does not exist: $SCENARIO_PATH" >&2
+  exit 1
+fi
+SCENARIO_AUDIT_ARGS=(
+  "$SCENARIO_PATH"
+  --json-out "$ARTIFACTS/scenario-integrity.json"
+)
+case "${REQUIRE_FIELD_CANDIDATE,,}" in
+  1|true|yes) SCENARIO_AUDIT_ARGS+=(--require-field-candidate) ;;
+  0|false|no) ;;
+  *) echo "Invalid CANNONLAB_REQUIRE_FIELD_CANDIDATE=$REQUIRE_FIELD_CANDIDATE" >&2; exit 1 ;;
+esac
+case "${REQUIRE_READINESS,,}" in
+  1|true|yes) SCENARIO_AUDIT_ARGS+=(--require-readiness) ;;
+  0|false|no) ;;
+  *) echo "Invalid CANNONLAB_REQUIRE_READINESS=$REQUIRE_READINESS" >&2; exit 1 ;;
+esac
+python3 "$ROOT/scripts/scenario-integrity-audit.py" "${SCENARIO_AUDIT_ARGS[@]}" \
+  | tee "$ARTIFACTS/scenario-integrity.stdout.json"
 
 if [[ -n "$SERVER_JAR_OVERRIDE" ]]; then
   if [[ ! -f "$SERVER_JAR_OVERRIDE" ]]; then
@@ -178,7 +202,7 @@ set +e
 (
   cd "$SERVER"
   timeout --signal=TERM --kill-after=30s "${TIMEOUT_SECONDS}s" \
-    java -Xms1G -Xmx3G "-Dcannonlab.scenario=$SCENARIO" -jar server.jar --nogui
+    java -Xms1G -Xmx3G "-Dcannonlab.scenario=$SCENARIO" -Dcannonlab.fresh-world=true -jar server.jar --nogui
 ) >"$STDOUT" 2>"$STDERR"
 SERVER_EXIT=$?
 set -e

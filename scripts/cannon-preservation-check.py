@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import importlib.util
 import json
 from collections import Counter, defaultdict
@@ -67,6 +68,8 @@ CRITICAL_TYPES = {
     "minecraft:lava",
 }
 CONTROL_SUFFIXES = ("_button", "_pressure_plate")
+_SCRIPT_CACHE: dict[str, Any] = {}
+_MODEL_CACHE: dict[tuple[str, int, int], dict[str, Any]] = {}
 FUNCTIONAL_SUFFIXES = (
     "_button",
     "_pressure_plate",
@@ -78,12 +81,16 @@ VOLATILE_PROPERTIES = {"power", "powered", "triggered", "lit"}
 
 
 def load_script(name: str, filename: str) -> Any:
+    cached = _SCRIPT_CACHE.get(filename)
+    if cached is not None:
+        return cached
     script = Path(__file__).resolve().with_name(filename)
     spec = importlib.util.spec_from_file_location(name, script)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"unable to load {script}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    _SCRIPT_CACHE[filename] = module
     return module
 
 
@@ -375,12 +382,19 @@ def impacted_modules_for_point(
 
 
 def load_model(auditor: Any, path: Path) -> dict[str, Any]:
+    path = path.resolve()
+    stat = path.stat()
+    cache_key = (str(path), int(stat.st_size), int(stat.st_mtime_ns))
+    cached = _MODEL_CACHE.get(cache_key)
+    if cached is not None:
+        return copy.deepcopy(cached)
     root_name, root, trailing, decoded_size, container_diagnostics = auditor.load(path)
     model = auditor.decode_any(root_name, root)
     model["_trailing_bytes"] = len(trailing)
     model["_decoded_bytes"] = decoded_size
     model["_container_diagnostics"] = container_diagnostics
-    return model
+    _MODEL_CACHE[cache_key] = model
+    return copy.deepcopy(model)
 
 
 def normalize_block_entity_id(value: Any) -> str:

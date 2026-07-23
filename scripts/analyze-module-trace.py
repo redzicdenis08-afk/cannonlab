@@ -22,6 +22,8 @@ COMPONENT_EVENTS = {
 }
 TNT_TYPES = {"TNT", "PRIMED_TNT"}
 FALLING_TYPES = {"FALLING_BLOCK"}
+_MODULE_REPORT_CACHE: dict[tuple[str, int, int, int, int], dict[str, Any]] = {}
+MAX_MODULE_REPORT_CACHE_ENTRIES = 64
 
 
 def load_module_map() -> Any:
@@ -32,6 +34,32 @@ def load_module_map() -> Any:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def cached_module_report(
+    module_map: Any,
+    schematic: Path,
+    chunk_limit: int,
+    assignment_radius: int,
+) -> dict[str, Any]:
+    resolved = schematic.resolve()
+    stat = resolved.stat()
+    key = (
+        str(resolved),
+        int(stat.st_mtime_ns),
+        int(stat.st_size),
+        int(chunk_limit),
+        int(assignment_radius),
+    )
+    if key not in _MODULE_REPORT_CACHE:
+        if len(_MODULE_REPORT_CACHE) >= MAX_MODULE_REPORT_CACHE_ENTRIES:
+            _MODULE_REPORT_CACHE.pop(next(iter(_MODULE_REPORT_CACHE)))
+        _MODULE_REPORT_CACHE[key] = module_map.build_report(
+            resolved,
+            chunk_limit,
+            assignment_radius,
+        )
+    return _MODULE_REPORT_CACHE[key]
 
 
 def integer(row: dict[str, str], key: str, default: int = 0) -> int:
@@ -277,7 +305,12 @@ def build_report(
     spawn_radius: float = 3.0,
 ) -> dict[str, Any]:
     module_map = load_module_map()
-    module_report = module_map.build_report(schematic, chunk_limit, assignment_radius)
+    module_report = cached_module_report(
+        module_map,
+        schematic,
+        chunk_limit,
+        assignment_radius,
+    )
     rows = read_trace(trace)
     position_index = module_position_index(module_report)
     modules_by_id = {

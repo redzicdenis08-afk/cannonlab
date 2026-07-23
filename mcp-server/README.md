@@ -22,12 +22,16 @@ Use one of these before spending time on runtime tests:
 - `fast_cannon_intake`: one call for format/limit audit, functional and module mapping, and anti-pancake geometry profiling against real reference cannons
 - `profile_cannon`: rapidly compare a candidate with one or more decoded references and reject fake-modern geometry
 - `prepare_reference_cannon`: convert a proven Litematica or Sponge source into deterministic Sponge v2, then audit and profile the exact output
+- `audit_paste_alignment`: translate schematic-minimum chunk scans into the actual WorldEdit player paste-point frame, including `WEOffsetX/Z`
+- `audit_scenario_integrity`: expose lab assists and weak evidence gates before a result is promoted
 - `map_cannon_modules`: map bank-centered modules, exact repeated lanes, controls, timing parts, directional links, and conservative role candidates
 - `check_cannon_preservation`: fail closed when an edit exceeds its declared block, module, control, fluid, dispenser-bank, block-entity, or alignment-confidence budget
 - `compare_cannon_modules`: find exact translated module families and clearly labeled feature-level near matches across two designs
 - `compare_cannon_cores`: recover exact translated partial functional cores even when bank-centric module boundaries differ, while rejecting generic dispenser-panel overlap
 - `analyze_module_trace`: join a real schematic to `causal-events.csv`, recover observed module phases, correlate spawned entities, and capture spawn velocity, fuse, and explosion positions for unambiguous UUIDs
-- `compare_module_traces`: enforce translation-normalized unchanged-module contracts for timing, cohorts, spawn physics, fuse, and impact location
+- `compare_module_traces`: enforce translation-normalized runtime contract v3 for exclusive modules plus fully accounted shared-component and joint entity-source cohorts
+- `analyze_repair_family`: screen every repair by run metrics, spend exact geometry on the strongest metric candidates, then spend full causal replay only on the strongest bounded candidates; candidates skipped by either evidence budget remain non-promotable
+- `extend_repair_family_runtime`: add causal replay to a requested runtime-rank window from an existing tournament without paying the metric and geometry cost again
 
 For modern raid work, pass the strongest real reference cannons available and use `intent=modern-raid`. Small field-calibration cannons must use `intent=calibration` so the morphology gate does not pretend every valid diagnostic build needs full raid-cannon complexity.
 
@@ -35,12 +39,15 @@ For modern raid work, pass the strongest real reference cannons available and us
 
 - `inspect_cannon`: static format, chunk, block-entity, functional-component, and module analysis
 - `fast_cannon_intake`: combined fast audit, structural map, reference comparison, and next-action verdict
+- `audit_paste_alignment`: safe player chunk-local paste offsets plus separate block-entity pressure
+- `audit_scenario_integrity`: field-candidate and readiness eligibility for one runtime scenario
 - `map_cannon_modules`: conservative module boundaries and exact translation-family detection without invented runtime roles
 - `check_cannon_preservation`: exact reference-to-candidate structural and block-entity diff, module impact map, alignment confidence, risk score, and fail-closed policy verdict
 - `compare_cannon_modules`: exact whole-module families plus conservative unmatched/near-match analysis
 - `compare_cannon_cores`: translation-voted partial-core overlap with connectedness, mechanism-diversity, and generic-bank rejection gates
 - `analyze_module_trace`: exact component-to-module runtime mapping, shared-component ambiguity, and bounded entity-source physics correlations
-- `compare_module_traces`: exact-geometry module replay contracts with timing, position, velocity, fuse, impact, coverage, and allowed-change controls
+- `compare_module_traces`: exact-geometry replay contracts with source accounting, shared-component timing, joint source dispensers, velocity, fuse, impact, and allowed-change controls
+- `analyze_repair_family`: transparent repair scoring, Pareto-front ranking, promotion blockers, and deterministic collateral-drift summaries
 - `profile_cannon`: structural morphology and real-reference comparison without inventing subsystem roles
 - `prepare_reference_cannon`: deterministic Sponge v2 conversion plus output audit and geometry profile
 - `audit_cannon_corpus`: batch-compares a private folder of `.schem` and `.litematic` designs without publishing the files

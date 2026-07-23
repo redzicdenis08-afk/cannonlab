@@ -172,7 +172,7 @@ def load(path: Path) -> tuple[str, dict[str, Any], bytes, int, dict[str, Any]]:
                 "appended_terminal_end_tags": 0,
             }
             return name, root, trailing, len(decoded), diagnostics
-        except OSError as exc:
+        except (OSError, zlib.error, EOFError) as exc:
             name, root, trailing, repaired, diagnostics = recover_truncated_gzip_nbt(raw, exc)
             return name, root, trailing, len(repaired), diagnostics
 

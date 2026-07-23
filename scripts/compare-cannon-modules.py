@@ -9,14 +9,20 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any
 
+_MODULE_MAP: Any | None = None
+
 
 def load_module_map() -> Any:
+    global _MODULE_MAP
+    if _MODULE_MAP is not None:
+        return _MODULE_MAP
     script = Path(__file__).resolve().with_name("cannon-module-map.py")
     spec = importlib.util.spec_from_file_location("cannonlab_module_map", script)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"unable to load {script}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    _MODULE_MAP = module
     return module
 
 

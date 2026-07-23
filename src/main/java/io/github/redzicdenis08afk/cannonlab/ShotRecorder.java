@@ -61,6 +61,9 @@ final class ShotRecorder implements Listener {
     private int selfDamageBlocks;
     private int maximumTnt;
     private int maximumFallingBlocks;
+    private double maximumForwardDistance;
+    private double minimumForwardDistance;
+    private LabScenario.TargetDirection targetDirection = LabScenario.TargetDirection.EAST;
     private int causalEvents;
     private int redstoneEvents;
     private int dispenseEvents;
@@ -91,6 +94,7 @@ final class ShotRecorder implements Listener {
             int shotMaxTicks,
             int requiredQuietTicks,
             int requiredTicksBeforeQuiet,
+            LabScenario.TargetDirection recordingTargetDirection,
             Consumer<ShotResult> onComplete
     ) throws IOException {
         stopWithoutCallback();
@@ -123,6 +127,7 @@ final class ShotRecorder implements Listener {
         origin = recordingOrigin.clone();
         cannonOrigin = recordingCannonOrigin.clone();
         cannonBounds = recordingCannonBounds;
+        targetDirection = recordingTargetDirection;
         maxTicks = shotMaxTicks;
         quietTicksRequired = requiredQuietTicks;
         minimumTicksBeforeQuiet = Math.max(0, requiredTicksBeforeQuiet);
@@ -135,6 +140,8 @@ final class ShotRecorder implements Listener {
         selfDamageBlocks = 0;
         maximumTnt = 0;
         maximumFallingBlocks = 0;
+        maximumForwardDistance = 0.0;
+        minimumForwardDistance = 0.0;
         causalEvents = 0;
         redstoneEvents = 0;
         dispenseEvents = 0;
@@ -188,6 +195,9 @@ final class ShotRecorder implements Listener {
             }
 
             Vector velocity = entity.getVelocity();
+            double forwardDistance = forwardDistance(entity.getLocation());
+            maximumForwardDistance = Math.max(maximumForwardDistance, forwardDistance);
+            minimumForwardDistance = Math.min(minimumForwardDistance, forwardDistance);
             writeEvent(
                     "ENTITY",
                     entity.getType().name(),
@@ -811,6 +821,20 @@ final class ShotRecorder implements Listener {
         return count;
     }
 
+    private double forwardDistance(Location location) {
+        if (cannonOrigin == null) {
+            return 0.0;
+        }
+        double deltaX = location.getX() - cannonOrigin.getX();
+        double deltaZ = location.getZ() - cannonOrigin.getZ();
+        return switch (targetDirection) {
+            case EAST -> deltaX;
+            case WEST -> -deltaX;
+            case SOUTH -> deltaZ;
+            case NORTH -> -deltaZ;
+        };
+    }
+
     private boolean causalEnabled() {
         return plugin.getConfig().getBoolean("telemetry.causal.enabled", true);
     }
@@ -836,6 +860,8 @@ final class ShotRecorder implements Listener {
                 selfDamageBlocks,
                 maximumTnt,
                 maximumFallingBlocks,
+                maximumForwardDistance,
+                minimumForwardDistance,
                 causalEvents,
                 redstoneEvents,
                 dispenseEvents,
@@ -880,6 +906,8 @@ final class ShotRecorder implements Listener {
                   "self_damage_blocks": %d,
                   "maximum_tnt_entities": %d,
                   "maximum_falling_blocks": %d,
+                  "maximum_forward_distance": %.6f,
+                  "minimum_forward_distance": %.6f,
                   "causal_events": %d,
                   "redstone_events": %d,
                   "dispense_events": %d,
@@ -899,6 +927,8 @@ final class ShotRecorder implements Listener {
                 result.selfDamageBlocks(),
                 result.maximumTnt(),
                 result.maximumFallingBlocks(),
+                result.maximumForwardDistance(),
+                result.minimumForwardDistance(),
                 result.causalEvents(),
                 result.redstoneEvents(),
                 result.dispenseEvents(),
@@ -964,6 +994,8 @@ final class ShotRecorder implements Listener {
             int selfDamageBlocks,
             int maximumTnt,
             int maximumFallingBlocks,
+            double maximumForwardDistance,
+            double minimumForwardDistance,
             int causalEvents,
             int redstoneEvents,
             int dispenseEvents,
