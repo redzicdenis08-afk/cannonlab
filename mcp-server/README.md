@@ -27,7 +27,8 @@ Use one of these before spending time on runtime tests:
 - `compare_cannon_modules`: find exact translated module families and clearly labeled feature-level near matches across two designs
 - `compare_cannon_cores`: recover exact translated partial functional cores even when bank-centric module boundaries differ, while rejecting generic dispenser-panel overlap
 - `analyze_module_trace`: join a real schematic to `causal-events.csv`, recover observed module phases, correlate spawned entities, and capture spawn velocity, fuse, and explosion positions for unambiguous UUIDs
-- `compare_module_traces`: enforce translation-normalized unchanged-module contracts for timing, cohorts, spawn physics, fuse, and impact location
+- `compare_module_traces`: enforce translation-normalized runtime contract v3 for exclusive modules plus fully accounted shared-component and joint entity-source cohorts
+- `analyze_repair_family`: rank bounded repair variants by repeated survival, self-damage reduction, target retention, structural preservation, and protected-module runtime drift
 
 For modern raid work, pass the strongest real reference cannons available and use `intent=modern-raid`. Small field-calibration cannons must use `intent=calibration` so the morphology gate does not pretend every valid diagnostic build needs full raid-cannon complexity.
 
@@ -40,7 +41,8 @@ For modern raid work, pass the strongest real reference cannons available and us
 - `compare_cannon_modules`: exact whole-module families plus conservative unmatched/near-match analysis
 - `compare_cannon_cores`: translation-voted partial-core overlap with connectedness, mechanism-diversity, and generic-bank rejection gates
 - `analyze_module_trace`: exact component-to-module runtime mapping, shared-component ambiguity, and bounded entity-source physics correlations
-- `compare_module_traces`: exact-geometry module replay contracts with timing, position, velocity, fuse, impact, coverage, and allowed-change controls
+- `compare_module_traces`: exact-geometry replay contracts with source accounting, shared-component timing, joint source dispensers, velocity, fuse, impact, and allowed-change controls
+- `analyze_repair_family`: transparent repair scoring, Pareto-front ranking, promotion blockers, and deterministic collateral-drift summaries
 - `profile_cannon`: structural morphology and real-reference comparison without inventing subsystem roles
 - `prepare_reference_cannon`: deterministic Sponge v2 conversion plus output audit and geometry profile
 - `audit_cannon_corpus`: batch-compares a private folder of `.schem` and `.litematic` designs without publishing the files

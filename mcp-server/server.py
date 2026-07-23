@@ -26,14 +26,14 @@ def _inside_root(raw: str | Path, *, must_exist: bool = True) -> Path:
     return path
 
 
-def _run_json(args: list[str]) -> dict[str, Any]:
+def _run_json(args: list[str], *, timeout: int = 180) -> dict[str, Any]:
     result = subprocess.run(
         args,
         cwd=ROOT,
         check=False,
         capture_output=True,
         text=True,
-        timeout=180,
+        timeout=timeout,
     )
     if result.returncode not in (0, 2):
         raise RuntimeError(
@@ -320,9 +320,12 @@ def compare_module_traces(
     max_fuse_delta: int = 1,
     max_explosion_position_delta: float = 1.0,
     minimum_component_event_coverage: float = 0.95,
-    minimum_entity_correlation_coverage: float = 0.80,
-    minimum_module_entity_profile_coverage: float = 1.0,
-    max_ambiguous_component_events: int = 0,
+    minimum_entity_correlation_coverage: float = 0.0,
+    minimum_entity_source_accounting_coverage: float = 0.95,
+    minimum_shared_component_accounting_coverage: float = 0.95,
+    minimum_joint_entity_accounting_coverage: float = 0.95,
+    minimum_module_entity_profile_coverage: float = 0.0,
+    max_ambiguous_component_events: int = 1_000_000,
     minimum_pairing_confidence: str = "high",
     max_pairing_residual_distance: int = 0,
     allow_ambiguous_pairing: bool = False,
@@ -331,6 +334,8 @@ def compare_module_traces(
     allowed_candidate_modules: list[str] | None = None,
     max_extra_active_candidate_modules: int = 0,
     allow_entity_physics_changes: bool = False,
+    allow_shared_component_cohort_changes: bool = False,
+    allow_joint_entity_cohort_changes: bool = False,
 ) -> dict[str, Any]:
     """Fail when untouched exact-geometry modules stop replaying their reference runtime contract."""
     reference_cannon = _inside_root(reference_schematic)
@@ -362,6 +367,12 @@ def compare_module_traces(
         str(minimum_component_event_coverage),
         "--minimum-entity-correlation-coverage",
         str(minimum_entity_correlation_coverage),
+        "--minimum-entity-source-accounting-coverage",
+        str(minimum_entity_source_accounting_coverage),
+        "--minimum-shared-component-accounting-coverage",
+        str(minimum_shared_component_accounting_coverage),
+        "--minimum-joint-entity-accounting-coverage",
+        str(minimum_joint_entity_accounting_coverage),
         "--minimum-module-entity-profile-coverage",
         str(minimum_module_entity_profile_coverage),
         "--max-ambiguous-component-events",
@@ -381,9 +392,64 @@ def compare_module_traces(
         args += ["--allow-candidate-module", module_id]
     if allow_entity_physics_changes:
         args.append("--allow-entity-physics-changes")
+    if allow_shared_component_cohort_changes:
+        args.append("--allow-shared-component-cohort-changes")
+    if allow_joint_entity_cohort_changes:
+        args.append("--allow-joint-entity-cohort-changes")
     if allow_ambiguous_pairing:
         args.append("--allow-ambiguous-pairing")
     return _run_json(args)
+
+
+@mcp.tool()
+def analyze_repair_family(
+    reference_schematic: str,
+    reference_summary: str,
+    candidate_roots: list[str],
+    cannon_directories: list[str],
+    chunk_limit: int = 160,
+    include_pattern: str = "",
+    max_runtime_contract_runs: int = 3,
+    minimum_dispenser_survival: float = 0.95,
+    minimum_self_damage_reduction: float = 0.10,
+    minimum_target_retention: float = 0.80,
+    maximum_structural_change_ratio: float = 0.03,
+) -> dict[str, Any]:
+    """Rank bounded repair variants by survival, self-damage, target retention, repeatability, and collateral drift."""
+    reference_cannon = _inside_root(reference_schematic)
+    reference_run = _inside_root(reference_summary)
+    roots = [_inside_root(path) for path in candidate_roots]
+    cannon_dirs = [_inside_root(path) for path in cannon_directories]
+    if not roots:
+        raise ValueError("candidate_roots must contain at least one path")
+    if not cannon_dirs:
+        raise ValueError("cannon_directories must contain at least one path")
+    args = [
+        sys.executable,
+        str(SCRIPTS / "analyze-repair-family.py"),
+        str(reference_cannon),
+        str(reference_run),
+        *(str(path) for path in roots),
+    ]
+    for directory in cannon_dirs:
+        args += ["--cannon-directory", str(directory)]
+    args += [
+        "--chunk-limit",
+        str(chunk_limit),
+        "--include-pattern",
+        include_pattern,
+        "--max-runtime-contract-runs",
+        str(max_runtime_contract_runs),
+        "--minimum-dispenser-survival",
+        str(minimum_dispenser_survival),
+        "--minimum-self-damage-reduction",
+        str(minimum_self_damage_reduction),
+        "--minimum-target-retention",
+        str(minimum_target_retention),
+        "--maximum-structural-change-ratio",
+        str(maximum_structural_change_ratio),
+    ]
+    return _run_json(args, timeout=900)
 
 
 

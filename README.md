@@ -184,7 +184,20 @@ python scripts/compare-module-traces.py `
   --json-out runtime-contract.json
 ```
 
-Every exact-geometry module outside the declared change set must retain its configured activation timing, event counts, dispensed items, correlated entity cohorts, spawn position, velocity, fuse, and attributed explosion timing and location. Candidate coordinates are normalized through the exact module translation, so harmless schematic padding passes while real trajectory drift fails. Unknown allowed-module IDs, weak correlation coverage, and excessive ambiguous component events also fail. A pass protects the untouched portion of the machine; it does not prove the edited module itself works.
+Every exact-geometry module outside the declared change set must retain its configured activation timing, event counts, dispensed items, correlated entity cohorts, spawn position, velocity, fuse, and attributed explosion timing and location. Candidate coordinates are normalized through the exact module translation, so harmless schematic padding passes while real trajectory drift fails. Runtime contract v3 does not invent one owner when multiple modules can equally source the same event or entity. It requires complete source accounting, compares shared-component event cohorts, and compares joint entity-source cohorts down to translated dispenser identities, source timing, entity counts, velocity, fuse distributions, and explosion timing. This permits legitimate shared-source ambiguity without turning missing attribution into a silent pass. A pass protects the untouched portion of the machine; it does not prove the edited module itself works.
+
+Rank a family of bounded repair attempts instead of guessing from filenames or one lucky shot:
+
+```powershell
+python scripts/analyze-repair-family.py `
+  reference.schem reference-results/run-summary.json `
+  candidate-results/ `
+  --cannon-directory cannons/ `
+  --max-runtime-contract-runs 3 `
+  --json-out repair-family.json
+```
+
+The repair-family analyzer deduplicates mirrored results by `run_id`, rejects conflicting duplicates and runs whose target, distance, layers, bounds, arena, or regeneration contract differs from the reference, then joins exact geometry, every available bounded shot trace, repeat-shot survival, self-damage, target retention, repeatability, and protected-module runtime contracts. It exposes the scoring weights, marks the Pareto front, and only returns `PROMOTION_READY_BOUNDED_REPAIR` when the performance gain is real, the structural edit stays bounded, and untouched modules retain their runtime contract.
 
 ## Scenario structure
 
