@@ -5,8 +5,12 @@ on:
     paths:
       - 'scripts/schem-audit.py'
       - 'scripts/test-schem-recovery.py'
+      - 'scripts/paste-alignment-audit.py'
+      - 'scripts/scenario-integrity-audit.py'
+      - 'scripts/test-runtime-integrity.py'
       - 'scripts/cannon-static-map.py'
       - 'scripts/cannon-module-map.py'
+      - 'scripts/test-static-analysis-cache.py'
       - 'scripts/cannon-preservation-check.py'
       - 'scripts/compare-cannon-modules.py'
       - 'scripts/compare-cannon-cores.py'
@@ -16,6 +20,8 @@ on:
       - 'scripts/test-module-runtime-contract-v3.py'
       - 'scripts/analyze-repair-family.py'
       - 'scripts/test-repair-family.py'
+      - 'scripts/extend-repair-family-runtime.py'
+      - 'scripts/test-repair-runtime-extension.py'
       - 'scripts/cannon-geometry-profile.py'
       - 'scripts/audit-cannon-corpus.py'
       - 'scripts/explain-causal-trace.py'
@@ -49,8 +55,12 @@ jobs:
           python -m py_compile \
             scripts/schem-audit.py \
             scripts/test-schem-recovery.py \
+            scripts/paste-alignment-audit.py \
+            scripts/scenario-integrity-audit.py \
+            scripts/test-runtime-integrity.py \
             scripts/cannon-static-map.py \
             scripts/cannon-module-map.py \
+            scripts/test-static-analysis-cache.py \
             scripts/cannon-preservation-check.py \
             scripts/compare-cannon-modules.py \
             scripts/compare-cannon-cores.py \
@@ -60,6 +70,8 @@ jobs:
             scripts/test-module-runtime-contract-v3.py \
             scripts/analyze-repair-family.py \
             scripts/test-repair-family.py \
+            scripts/extend-repair-family-runtime.py \
+            scripts/test-repair-runtime-extension.py \
             scripts/cannon-geometry-profile.py \
             scripts/audit-cannon-corpus.py \
             scripts/explain-causal-trace.py \
@@ -96,6 +108,10 @@ jobs:
       - name: Prove narrow corrupted-gzip recovery
         run: |
           python scripts/test-schem-recovery.py
+
+      - name: Prove paste-point and evidence integrity gates
+        run: |
+          python scripts/test-runtime-integrity.py
 
       - name: Prove module-preservation gate
         run: |
@@ -356,6 +372,14 @@ jobs:
       - name: Prove bounded repair-family ranking
         run: |
           python scripts/test-repair-family.py
+
+      - name: Prove incremental repair runtime extension
+        run: |
+          python scripts/test-repair-runtime-extension.py
+
+      - name: Prove static analysis cache safety
+        run: |
+          python scripts/test-static-analysis-cache.py
 
       - name: Prove support-gap dispenser clustering
         run: |

@@ -107,6 +107,16 @@ python scripts/schem-audit.py cannon-ec.schem `
 
 Use `--block-entity-limit N` only when a live server test has established a real cap. Do not guess the ExtremeCraft FAWE limit.
 
+Convert schematic-minimum chunk offsets into the actual player `//paste` frame before publishing placement instructions:
+
+```powershell
+python scripts/paste-alignment-audit.py cannon.schem `
+  --chunk-limit 160 `
+  --json-out paste-alignment.json
+```
+
+Sponge `Metadata.WEOffsetX/Z` can move the schematic minimum relative to the player's paste point. The report preserves both frames and reports the safe player chunk-local X/Z offsets explicitly. It also reports block-entity pressure separately without inventing a live FAWE cap.
+
 ## Reference-first module preservation
 
 Map a real cannon before editing it:
@@ -193,11 +203,23 @@ python scripts/analyze-repair-family.py `
   reference.schem reference-results/run-summary.json `
   candidate-results/ `
   --cannon-directory cannons/ `
+  --max-geometry-candidates 24 `
+  --max-runtime-candidates 8 `
   --max-runtime-contract-runs 3 `
   --json-out repair-family.json
 ```
 
-The repair-family analyzer deduplicates mirrored results by `run_id`, rejects conflicting duplicates and runs whose target, distance, layers, bounds, arena, or regeneration contract differs from the reference, then joins exact geometry, every available bounded shot trace, repeat-shot survival, self-damage, target retention, repeatability, and protected-module runtime contracts. It exposes the scoring weights, marks the Pareto front, and only returns `PROMOTION_READY_BOUNDED_REPAIR` when the performance gain is real, the structural edit stays bounded, and untouched modules retain their runtime contract.
+The repair-family analyzer deduplicates mirrored results by `run_id`, rejects conflicting duplicates and runs whose target, distance, layers, bounds, arena, or regeneration contract differs from the reference, then runs a three-stage tournament: cheap run-metric screening for every candidate, exact geometry for the strongest `--max-geometry-candidates`, and causal replay for the strongest `--max-runtime-candidates`. Candidates outside either evidence budget remain visible but cannot be promoted. The report exposes metric, geometry, and final score components, marks the Pareto front only among runtime-tested candidates, and only returns `PROMOTION_READY_BOUNDED_REPAIR` when the performance gain is real, the structural edit stays bounded, and untouched modules retain their runtime contract.
+
+Extend an existing tournament without rerunning metric or geometry stages:
+
+```powershell
+python scripts/extend-repair-family-runtime.py repair-family.json `
+  --runtime-rank-from 9 `
+  --runtime-count 4 `
+  --max-runtime-contract-runs 1 `
+  --json-out repair-family-ranks-9-12.json
+```
 
 ## Scenario structure
 
@@ -215,6 +237,15 @@ cannon:
   fire-pulse-ticks: 4
 limits:
   enforce-dispenser-limit: true
+acceptance:
+  require-payload: true
+  min-target-destroyed: 1
+  min-falling-blocks: 0
+  min-forward-distance: 120
+  min-remaining-dispenser-ratio: 0.99
+  max-cannon-missing-blocks: 20
+  max-cannon-replaced-type-blocks: 10
+  max-self-damage-blocks: 20
 target:
   type: hotdog
   material: cobblestone
@@ -247,6 +278,18 @@ Supported target types are `dry`, `watered`, `cobble-regen`, `filter`, `slab-fil
 `cannon.fire-input` preserves the simple one-input format. `cannon.fire-inputs` powers every listed coordinate on the same tick and is intended for segmented or distributed cannon circuits.
 
 The configured arena radius must include the cannon, complete flight path, every target layer, and one extra block for water, lava, or slab frontage. CannonLab fails loudly instead of silently building targets outside the loaded arena.
+
+Audit the scenario itself before promoting a result:
+
+```powershell
+python scripts/scenario-integrity-audit.py scenarios/candidate.yml `
+  --require-field-candidate `
+  --json-out scenario-integrity.json
+```
+
+The integrity audit exposes collision guides, forced TNT velocities, diagnostic magazine cutoffs, direct-dispenser fire, disabled dispenser limits, and weak survival/range/target gates. Assisted scenarios remain useful diagnostics, but their results cannot be promoted as standalone cannon or EC-readiness evidence.
+
+Acceptance is enforced inside the Java runtime. A failed shot writes `contract_pass: false`, the exact failure list, cannon survival counts, and `cannon-integrity.csv`; the run ends with `finish_reason: contract_failed`. Existing scenarios without explicit acceptance remain runnable for diagnosis, but the scenario audit classifies them as `INCOMPLETE`. Set `CANNONLAB_REQUIRE_FIELD_CANDIDATE=true` or `CANNONLAB_REQUIRE_READINESS=true` in either launcher to fail before server startup when the requested evidence level is not met.
 
 ## Included defense scenarios
 

@@ -67,6 +67,13 @@ def inspect_cannon(path: str, chunk_limit: int = 160) -> dict[str, Any]:
         "--chunk-limit",
         str(chunk_limit),
     ])
+    paste_alignment = _run_json([
+        sys.executable,
+        str(SCRIPTS / "paste-alignment-audit.py"),
+        str(source),
+        "--chunk-limit",
+        str(chunk_limit),
+    ])
     static_map = _run_json([
         sys.executable,
         str(SCRIPTS / "cannon-static-map.py"),
@@ -81,7 +88,12 @@ def inspect_cannon(path: str, chunk_limit: int = 160) -> dict[str, Any]:
         "--chunk-limit",
         str(chunk_limit),
     ])
-    return {"audit": audit, "static_map": static_map, "module_map": module_map}
+    return {
+        "audit": audit,
+        "paste_alignment": paste_alignment,
+        "static_map": static_map,
+        "module_map": module_map,
+    }
 
 
 @mcp.tool()
@@ -98,6 +110,13 @@ def fast_cannon_intake(
     audit = _run_json([
         sys.executable,
         str(SCRIPTS / "schem-audit.py"),
+        str(source),
+        "--chunk-limit",
+        str(chunk_limit),
+    ])
+    paste_alignment = _run_json([
+        sys.executable,
+        str(SCRIPTS / "paste-alignment-audit.py"),
         str(source),
         "--chunk-limit",
         str(chunk_limit),
@@ -128,6 +147,7 @@ def fast_cannon_intake(
     ])
     return {
         "audit": audit,
+        "paste_alignment": paste_alignment,
         "static_map": static_map,
         "module_map": module_map,
         "geometry_profile": profile,
@@ -136,6 +156,46 @@ def fast_cannon_intake(
             "candidate from flat dispenser rows when the profile fails."
         ),
     }
+
+
+@mcp.tool()
+def audit_paste_alignment(
+    path: str,
+    chunk_limit: int = 160,
+    block_entity_limit: int | None = None,
+) -> dict[str, Any]:
+    """Convert schematic-minimum alignment into the actual WorldEdit player paste-point frame."""
+    source = _inside_root(path)
+    args = [
+        sys.executable,
+        str(SCRIPTS / "paste-alignment-audit.py"),
+        str(source),
+        "--chunk-limit",
+        str(chunk_limit),
+    ]
+    if block_entity_limit is not None:
+        args += ["--block-entity-limit", str(block_entity_limit)]
+    return _run_json(args)
+
+
+@mcp.tool()
+def audit_scenario_integrity(
+    scenario_path: str,
+    require_field_candidate: bool = False,
+    require_readiness: bool = False,
+) -> dict[str, Any]:
+    """Expose lab assists and weak gates before a run is promoted as cannon evidence."""
+    scenario = _inside_root(scenario_path)
+    args = [
+        sys.executable,
+        str(SCRIPTS / "scenario-integrity-audit.py"),
+        str(scenario),
+    ]
+    if require_field_candidate:
+        args.append("--require-field-candidate")
+    if require_readiness:
+        args.append("--require-readiness")
+    return _run_json(args)
 
 
 @mcp.tool()
@@ -410,12 +470,14 @@ def analyze_repair_family(
     chunk_limit: int = 160,
     include_pattern: str = "",
     max_runtime_contract_runs: int = 3,
+    max_geometry_candidates: int = 24,
+    max_runtime_candidates: int = 8,
     minimum_dispenser_survival: float = 0.95,
     minimum_self_damage_reduction: float = 0.10,
     minimum_target_retention: float = 0.80,
     maximum_structural_change_ratio: float = 0.03,
 ) -> dict[str, Any]:
-    """Rank bounded repair variants by survival, self-damage, target retention, repeatability, and collateral drift."""
+    """Screen every repair cheaply, then replay the strongest bounded candidates for collateral drift."""
     reference_cannon = _inside_root(reference_schematic)
     reference_run = _inside_root(reference_summary)
     roots = [_inside_root(path) for path in candidate_roots]
@@ -440,6 +502,10 @@ def analyze_repair_family(
         include_pattern,
         "--max-runtime-contract-runs",
         str(max_runtime_contract_runs),
+        "--max-geometry-candidates",
+        str(max_geometry_candidates),
+        "--max-runtime-candidates",
+        str(max_runtime_candidates),
         "--minimum-dispenser-survival",
         str(minimum_dispenser_survival),
         "--minimum-self-damage-reduction",
@@ -449,6 +515,32 @@ def analyze_repair_family(
         "--maximum-structural-change-ratio",
         str(maximum_structural_change_ratio),
     ]
+    return _run_json(args, timeout=900)
+
+
+@mcp.tool()
+def extend_repair_family_runtime(
+    source_report: str,
+    runtime_rank_from: int = 1,
+    runtime_count: int = 4,
+    max_runtime_contract_runs: int = 1,
+    include_existing: bool = False,
+) -> dict[str, Any]:
+    """Add causal replay to a prior repair tournament rank window without rerunning geometry."""
+    report = _inside_root(source_report)
+    args = [
+        sys.executable,
+        str(SCRIPTS / "extend-repair-family-runtime.py"),
+        str(report),
+        "--runtime-rank-from",
+        str(runtime_rank_from),
+        "--runtime-count",
+        str(runtime_count),
+        "--max-runtime-contract-runs",
+        str(max_runtime_contract_runs),
+    ]
+    if include_existing:
+        args.append("--include-existing")
     return _run_json(args, timeout=900)
 
 

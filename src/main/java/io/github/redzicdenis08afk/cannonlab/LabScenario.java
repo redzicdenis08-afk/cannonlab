@@ -44,6 +44,7 @@ record LabScenario(
         List<TargetStage> targetStages,
         RegenConfig regeneration,
         DurabilityConfig durability,
+        AcceptanceConfig acceptance,
         int shots,
         int volleysPerShot,
         int volleyIntervalTicks,
@@ -159,6 +160,26 @@ record LabScenario(
         );
         List<TargetStage> targetStages = stages(yaml, legacyStage);
         DurabilityConfig durability = durability(yaml);
+        AcceptanceConfig acceptance = new AcceptanceConfig(
+                yaml.getBoolean("acceptance.require-payload", false),
+                Math.max(0, yaml.getInt("acceptance.min-target-destroyed", 0)),
+                Math.max(0, yaml.getInt("acceptance.min-falling-blocks", 0)),
+                Math.max(0.0, yaml.getDouble("acceptance.min-forward-distance", 0.0)),
+                Math.max(0.0, Math.min(1.0,
+                        yaml.getDouble("acceptance.min-remaining-dispenser-ratio", 0.0))),
+                Math.max(0, yaml.getInt(
+                        "acceptance.max-cannon-missing-blocks",
+                        Integer.MAX_VALUE
+                )),
+                Math.max(0, yaml.getInt(
+                        "acceptance.max-cannon-replaced-type-blocks",
+                        Integer.MAX_VALUE
+                )),
+                Math.max(0, yaml.getInt(
+                        "acceptance.max-self-damage-blocks",
+                        Integer.MAX_VALUE
+                ))
+        );
 
         return new LabScenario(
                 scenarioName,
@@ -193,6 +214,7 @@ record LabScenario(
                 targetStages,
                 regeneration,
                 durability,
+                acceptance,
                 Math.max(1, yaml.getInt("run.shots", 1)),
                 Math.max(1, yaml.getInt("run.volleys-per-shot", 1)),
                 Math.max(1, yaml.getInt("run.volley-interval-ticks", 20)),
@@ -420,6 +442,18 @@ record LabScenario(
         int hitsToBreak(Material material) {
             return materials.getOrDefault(material, 1);
         }
+    }
+
+    record AcceptanceConfig(
+            boolean requirePayload,
+            int minTargetDestroyed,
+            int minFallingBlocks,
+            double minForwardDistance,
+            double minRemainingDispenserRatio,
+            int maxCannonMissingBlocks,
+            int maxCannonReplacedTypeBlocks,
+            int maxSelfDamageBlocks
+    ) {
     }
 
     record TargetStage(
