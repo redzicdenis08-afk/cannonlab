@@ -8,6 +8,7 @@ import json
 import math
 import struct
 import sys
+import zlib
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, BinaryIO, Iterable
@@ -78,18 +79,110 @@ def payload(stream: BinaryIO, tag: int) -> Any:
     raise NBTError(f"unknown NBT tag {tag}")
 
 
-def load(path: Path) -> tuple[str, dict[str, Any], bytes, int]:
-    raw = path.read_bytes()
-    try:
-        decoded = gzip.decompress(raw)
-    except OSError:
-        decoded = raw
+def parse_decoded_nbt(decoded: bytes) -> tuple[str, dict[str, Any], bytes]:
     stream = io.BytesIO(decoded)
     root_type = unpack(stream, "B")
     if root_type != COMPOUND:
         raise NBTError(f"root tag {root_type} is not a compound")
     name = nbt_string(stream)
-    return name, payload(stream, COMPOUND), stream.read(), len(decoded)
+    return name, payload(stream, COMPOUND), stream.read()
+
+
+def gzip_deflate_bounds(raw: bytes) -> tuple[int, int]:
+    if len(raw) < 18 or raw[:2] != b"\x1f\x8b" or raw[2] != 8:
+        raise NBTError("not a supported gzip/deflate stream")
+    flags = raw[3]
+    if flags & 0xE0:
+        raise NBTError(f"gzip reserved flags are set: 0x{flags:02x}")
+    cursor = 10
+    trailer_start = len(raw) - 8
+    if flags & 0x04:
+        if cursor + 2 > trailer_start:
+            raise NBTError("truncated gzip extra-field length")
+        extra_length = struct.unpack("<H", raw[cursor:cursor + 2])[0]
+        cursor += 2 + extra_length
+    for flag in (0x08, 0x10):
+        if flags & flag:
+            terminator = raw.find(b"\x00", cursor, trailer_start)
+            if terminator < 0:
+                raise NBTError("unterminated gzip string header field")
+            cursor = terminator + 1
+    if flags & 0x02:
+        cursor += 2
+    if cursor >= trailer_start:
+        raise NBTError("gzip stream has no deflate payload")
+    return cursor, trailer_start
+
+
+def recover_truncated_gzip_nbt(raw: bytes, strict_error: Exception) -> tuple[str, dict[str, Any], bytes, bytes, dict[str, Any]]:
+    start, end = gzip_deflate_bounds(raw)
+    try:
+        decoded = zlib.decompress(raw[start:end], -zlib.MAX_WBITS)
+    except zlib.error as exc:
+        raise NBTError(f"gzip decompression failed: {strict_error}; raw deflate recovery failed: {exc}") from exc
+
+    expected_size = struct.unpack("<I", raw[-4:])[0]
+    repair_candidates = []
+    for missing_end_tags in range(1, 5):
+        repaired = decoded + (b"\x00" * missing_end_tags)
+        if expected_size != (len(repaired) & 0xFFFFFFFF):
+            continue
+        try:
+            name, root, trailing = parse_decoded_nbt(repaired)
+        except NBTError:
+            continue
+        if trailing:
+            continue
+        repair_candidates.append((missing_end_tags, repaired, name, root, trailing))
+
+    if len(repair_candidates) != 1:
+        raise NBTError(
+            f"gzip decompression failed: {strict_error}; recoverable terminal TAG_End candidate count={len(repair_candidates)}"
+        )
+
+    missing_end_tags, repaired, name, root, trailing = repair_candidates[0]
+    diagnostics = {
+        "compression": "gzip-recovered-terminal-end-tags",
+        "strict_gzip_valid": False,
+        "strict_error": str(strict_error),
+        "raw_deflate_valid": True,
+        "decoded_bytes_before_repair": len(decoded),
+        "decoded_bytes_after_repair": len(repaired),
+        "gzip_isize": expected_size,
+        "appended_terminal_end_tags": missing_end_tags,
+        "repair_scope": "terminal TAG_End bytes only",
+        "warning": (
+            "The gzip trailer failed validation and the raw NBT ended before terminal TAG_End bytes. "
+            "CannonLab recovered exactly one structurally complete candidate whose repaired length matches gzip ISIZE."
+        ),
+    }
+    return name, root, trailing, repaired, diagnostics
+
+
+def load(path: Path) -> tuple[str, dict[str, Any], bytes, int, dict[str, Any]]:
+    raw = path.read_bytes()
+    if raw[:2] == b"\x1f\x8b":
+        try:
+            decoded = gzip.decompress(raw)
+            name, root, trailing = parse_decoded_nbt(decoded)
+            diagnostics = {
+                "compression": "gzip",
+                "strict_gzip_valid": True,
+                "raw_deflate_valid": True,
+                "appended_terminal_end_tags": 0,
+            }
+            return name, root, trailing, len(decoded), diagnostics
+        except OSError as exc:
+            name, root, trailing, repaired, diagnostics = recover_truncated_gzip_nbt(raw, exc)
+            return name, root, trailing, len(repaired), diagnostics
+
+    name, root, trailing = parse_decoded_nbt(raw)
+    return name, root, trailing, len(raw), {
+        "compression": "raw-nbt",
+        "strict_gzip_valid": None,
+        "raw_deflate_valid": None,
+        "appended_terminal_end_tags": 0,
+    }
 
 
 def varints(data: bytes, expected: int) -> list[int]:
@@ -410,7 +503,7 @@ def main() -> int:
     parser.add_argument("--allow-data-version-retag", action="store_true", help="Allow numeric DataVersion retagging without Mojang datafixing")
     args = parser.parse_args()
 
-    root_name, root, trailing, uncompressed_size = load(args.schematic)
+    root_name, root, trailing, uncompressed_size, container_diagnostics = load(args.schematic)
     model = decode_any(root_name, root)
     blocks = model["blocks"]
     dimensions = model["source_dimensions"]
@@ -469,6 +562,8 @@ def main() -> int:
     )
 
     errors, warnings = [], []
+    if container_diagnostics.get("warning"):
+        warnings.append(str(container_diagnostics["warning"]))
     if model["format"] == "sponge-v2" and model["version"] != 2:
         errors.append(f"Version={model['version']} expected=2")
     if args.expect_format and model["format"] != args.expect_format:
@@ -519,6 +614,7 @@ def main() -> int:
         "root_name": root_name,
         "gzip_bytes": args.schematic.stat().st_size,
         "uncompressed_bytes": uncompressed_size,
+        "container_diagnostics": container_diagnostics,
         "version": model["version"],
         "sub_version": model["sub_version"],
         "data_version": model["data_version"],

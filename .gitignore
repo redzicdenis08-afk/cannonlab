@@ -5,3 +5,5 @@ lab-artifacts/
 .idea/
 *.iml
 server/
+__pycache__/
+*.pyc

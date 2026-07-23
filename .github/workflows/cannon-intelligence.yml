@@ -5,6 +5,13 @@ on:
     paths:
       - 'scripts/schem-audit.py'
       - 'scripts/cannon-static-map.py'
+      - 'scripts/cannon-module-map.py'
+      - 'scripts/cannon-preservation-check.py'
+      - 'scripts/compare-cannon-modules.py'
+      - 'scripts/compare-cannon-cores.py'
+      - 'scripts/test-core-comparison.py'
+      - 'scripts/analyze-module-trace.py'
+      - 'scripts/compare-module-traces.py'
       - 'scripts/cannon-geometry-profile.py'
       - 'scripts/audit-cannon-corpus.py'
       - 'scripts/explain-causal-trace.py'
@@ -38,9 +45,17 @@ jobs:
           python -m py_compile \
             scripts/schem-audit.py \
             scripts/cannon-static-map.py \
+            scripts/cannon-module-map.py \
+            scripts/cannon-preservation-check.py \
+            scripts/compare-cannon-modules.py \
+            scripts/compare-cannon-cores.py \
+            scripts/test-core-comparison.py \
+            scripts/analyze-module-trace.py \
+            scripts/compare-module-traces.py \
             scripts/cannon-geometry-profile.py \
             scripts/audit-cannon-corpus.py \
             scripts/explain-causal-trace.py \
+            scripts/analyze-causal-quality.py \
             mcp-server/server.py
 
       - name: Prove native Litematica static mapping
@@ -51,15 +66,275 @@ jobs:
             --json-out lab-artifacts/litematic-audit.json
           python scripts/cannon-static-map.py /tmp/probe-one-dispenser.litematic \
             --json-out lab-artifacts/litematic-static-map.json > /dev/null
+          python scripts/cannon-module-map.py /tmp/probe-one-dispenser.litematic \
+            --json-out lab-artifacts/litematic-module-map.json > /dev/null
           python - <<'PY'
           import json
           from pathlib import Path
           report = json.loads(Path('lab-artifacts/litematic-static-map.json').read_text())
+          modules = json.loads(Path('lab-artifacts/litematic-module-map.json').read_text())
           assert report['status'] == 'PASS', report
           assert report['largest_dispenser_bank']['count'] == 1, report
           assert report['architecture_summary']['functional_height'] == 1, report
           assert report['truth_boundary']['runtime_confirmed'] is False, report
+          assert modules['status'] == 'PASS', modules
+          assert modules['architecture_summary']['modules'] == 1, modules
+          assert 'support_gap_bridges' in modules['modules'][0], modules
+          assert 'module_couplings' in modules, modules
+          assert modules['truth_boundary']['runtime_roles_confirmed'] is False, modules
           print('Static mapping preserves geometry and reports real functional height.')
+          PY
+
+      - name: Prove module-preservation gate
+        run: |
+          base64 --decode cannons/probe-four-dispenser.schem.b64 > /tmp/probe-four-dispenser.schem
+          python scripts/cannon-module-map.py /tmp/probe-four-dispenser.schem \
+            --json-out lab-artifacts/four-module-map.json > /dev/null
+          python scripts/cannon-preservation-check.py \
+            /tmp/probe-one-dispenser.litematic /tmp/probe-one-dispenser.litematic \
+            --json-out lab-artifacts/preservation-identical.json > /dev/null
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          script = Path('scripts/schem-audit.py')
+          spec = importlib.util.spec_from_file_location('audit', script)
+          audit = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(audit)
+          source = Path('/tmp/probe-one-dispenser.litematic')
+          root_name, root, _trailing, _size, _container = audit.load(source)
+          model = audit.decode_any(root_name, root)
+          stripped = dict(model)
+          stripped['block_entities'] = []
+          audit.write_sponge_v2(Path('/tmp/probe-one-no-block-entity.schem'), stripped, 3465)
+
+          preservation_script = Path('scripts/cannon-preservation-check.py')
+          preservation_spec = importlib.util.spec_from_file_location('preservation', preservation_script)
+          preservation = importlib.util.module_from_spec(preservation_spec)
+          preservation_spec.loader.exec_module(preservation)
+          ambiguous = preservation.choose_translation(
+              audit,
+              {
+                  (0, 0, 0): 'minecraft:dispenser[facing=east]',
+                  (10, 0, 0): 'minecraft:dispenser[facing=east]',
+              },
+              {(5, 0, 0): 'minecraft:dispenser[facing=east]'},
+              'translate',
+          )
+          assert ambiguous['ambiguous_best_score'] is True, ambiguous
+
+          shift = 5
+          model['blocks'] = {
+              (x + shift, y, z): state
+              for (x, y, z), state in model['blocks'].items()
+          }
+          model['block_entities'] = [
+              dict(entity, pos=(entity['pos'][0] + shift, entity['pos'][1], entity['pos'][2]))
+              for entity in model['block_entities']
+          ]
+          model['source_dimensions'] = dict(
+              model['source_dimensions'],
+              width=model['source_dimensions']['width'] + shift,
+          )
+          audit.write_sponge_v2(Path('/tmp/probe-one-shifted.schem'), model, 3465)
+          PY
+          python scripts/cannon-preservation-check.py \
+            /tmp/probe-one-dispenser.litematic /tmp/probe-one-shifted.schem \
+            --allow-dimension-change \
+            --json-out lab-artifacts/preservation-translated.json > /dev/null
+
+          set +e
+          python scripts/cannon-preservation-check.py \
+            /tmp/probe-one-dispenser.litematic /tmp/probe-one-shifted.schem \
+            --allow-dimension-change --alignment-mode exact \
+            --json-out lab-artifacts/preservation-exact-frame.json > /dev/null
+          exact_code=$?
+
+          python scripts/cannon-preservation-check.py \
+            /tmp/probe-one-dispenser.litematic /tmp/probe-one-no-block-entity.schem \
+            --json-out lab-artifacts/preservation-block-entity-loss.json > /dev/null
+          block_entity_code=$?
+
+          python scripts/cannon-preservation-check.py \
+            /tmp/probe-one-dispenser.litematic /tmp/probe-four-dispenser.schem \
+            --json-out lab-artifacts/preservation-rebuild.json > /dev/null
+          code=$?
+          set -e
+          test "$exact_code" -eq 2
+          test "$block_entity_code" -eq 2
+          test "$code" -eq 2
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          modules = json.loads(Path('lab-artifacts/four-module-map.json').read_text())
+          identical = json.loads(Path('lab-artifacts/preservation-identical.json').read_text())
+          translated = json.loads(Path('lab-artifacts/preservation-translated.json').read_text())
+          exact_frame = json.loads(Path('lab-artifacts/preservation-exact-frame.json').read_text())
+          block_entity_loss = json.loads(Path('lab-artifacts/preservation-block-entity-loss.json').read_text())
+          rebuild = json.loads(Path('lab-artifacts/preservation-rebuild.json').read_text())
+          assert modules['architecture_summary']['modules'] >= 1, modules
+          assert identical['status'] == 'PASS', identical
+          assert identical['summary']['edit_class'] == 'exact-structural-clone', identical
+          assert translated['status'] == 'PASS', translated
+          assert translated['alignment']['selected_translation'] == [-5, 0, 0], translated
+          assert translated['summary']['structural_changes'] == 0, translated
+          assert exact_frame['status'] == 'FAIL', exact_frame
+          assert block_entity_loss['status'] == 'FAIL', block_entity_loss
+          assert block_entity_loss['summary']['structural_changes'] == 0, block_entity_loss
+          assert 'block_entity_topology_changed' in block_entity_loss['failures'], block_entity_loss
+          assert rebuild['status'] == 'FAIL', rebuild
+          assert rebuild['summary']['risk_level'] == 'critical', rebuild
+          assert 'dispenser_bank_topology_changed' in rebuild['failures'], rebuild
+          print('Reference-preserving clones pass and broad cannon replacements fail closed.')
+          PY
+
+      - name: Prove translated partial-core intelligence
+        run: |
+          python scripts/test-core-comparison.py
+
+      - name: Prove shared-module and runtime-phase intelligence
+        run: |
+          python scripts/compare-cannon-modules.py \
+            /tmp/probe-four-dispenser.schem /tmp/probe-four-dispenser.schem \
+            --json-out lab-artifacts/module-compare-identical.json > /dev/null
+          cat > /tmp/module-trace.csv <<'CSV'
+          tick,server_tick,sequence,event,component_id,block_type,world_x,world_y,world_z,relative_x,relative_y,relative_z,old_power,new_power,direction,moved_blocks,item,entity_uuid,entity_type,vx,vy,vz,fuse,details
+          0,1000,1,REDSTONE_CHANGE,"D[1,1,1]",DISPENSER,1,101,1,1,1,1,0,15,,0,,,,0,0,0,-1,
+          2,1002,2,DISPENSE,"D[1,1,1]",DISPENSER,1,101,1,1,1,1,-1,-1,,0,TNT,,,0,0,0,-1,amount=1
+          3,1003,3,ENTITY_ADD,,,1.5,101.5,1.5,1.5,1.5,1.5,-1,-1,,0,,00000000-0000-0000-0000-000000000001,PRIMED_TNT,0.1,0.2,-0.3,79,source=entity-add
+          80,1080,4,EXPLOSION,,,20,101,-40,20,1,-40,-1,-1,,0,,00000000-0000-0000-0000-000000000001,PRIMED_TNT,0,0,0,-1,affected_blocks=12
+          CSV
+          python scripts/analyze-module-trace.py \
+            /tmp/probe-four-dispenser.schem /tmp/module-trace.csv \
+            --json-out lab-artifacts/module-trace.json > /dev/null
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          source = Path('/tmp/module-trace.csv').read_text()
+          delayed = (
+              source
+              .replace('2,1002,2,DISPENSE', '10,1010,2,DISPENSE')
+              .replace('3,1003,3,ENTITY_ADD', '11,1011,3,ENTITY_ADD')
+              .replace('80,1080,4,EXPLOSION', '88,1088,4,EXPLOSION')
+          )
+          Path('/tmp/module-trace-delayed.csv').write_text(delayed)
+          physics_bad = (
+              source
+              .replace('0.1,0.2,-0.3,79', '0.6,0.2,-0.3,79')
+              .replace('20,101,-40,20,1,-40', '25,101,-40,25,1,-40')
+          )
+          Path('/tmp/module-trace-physics-bad.csv').write_text(physics_bad)
+
+          audit_script = Path('scripts/schem-audit.py')
+          audit_spec = importlib.util.spec_from_file_location('audit_runtime', audit_script)
+          audit = importlib.util.module_from_spec(audit_spec)
+          audit_spec.loader.exec_module(audit)
+          root_name, root, _trailing, _size, _container = audit.load(Path('/tmp/probe-four-dispenser.schem'))
+          shifted = audit.decode_any(root_name, root)
+          shift = 5
+          shifted['blocks'] = {
+              (x + shift, y, z): state
+              for (x, y, z), state in shifted['blocks'].items()
+          }
+          shifted['block_entities'] = [
+              dict(entity, pos=(entity['pos'][0] + shift, entity['pos'][1], entity['pos'][2]))
+              for entity in shifted['block_entities']
+          ]
+          shifted['source_dimensions'] = dict(
+              shifted['source_dimensions'],
+              width=shifted['source_dimensions']['width'] + shift,
+          )
+          audit.write_sponge_v2(Path('/tmp/probe-four-shifted.schem'), shifted, 3465)
+          shifted_trace = (
+              source
+              .replace('D[1,1,1]', 'D[6,1,1]')
+              .replace(',1,101,1,1,1,1,', ',6,101,1,6,1,1,')
+              .replace(',1.5,101.5,1.5,1.5,1.5,1.5,', ',6.5,101.5,1.5,6.5,1.5,1.5,')
+              .replace(',20,101,-40,20,1,-40,', ',25,101,-40,25,1,-40,')
+          )
+          Path('/tmp/module-trace-shifted.csv').write_text(shifted_trace)
+          PY
+          python scripts/compare-module-traces.py \
+            /tmp/probe-four-dispenser.schem /tmp/module-trace.csv \
+            /tmp/probe-four-dispenser.schem /tmp/module-trace.csv \
+            --json-out lab-artifacts/module-runtime-contract-pass.json > /dev/null
+          python scripts/compare-module-traces.py \
+            /tmp/probe-four-dispenser.schem /tmp/module-trace.csv \
+            /tmp/probe-four-shifted.schem /tmp/module-trace-shifted.csv \
+            --json-out lab-artifacts/module-runtime-translated-pass.json > /dev/null
+          set +e
+          python scripts/compare-module-traces.py \
+            /tmp/probe-four-dispenser.schem /tmp/module-trace.csv \
+            /tmp/probe-four-dispenser.schem /tmp/module-trace-delayed.csv \
+            --json-out lab-artifacts/module-runtime-contract-fail.json > /dev/null
+          contract_code=$?
+          python scripts/compare-module-traces.py \
+            /tmp/probe-four-dispenser.schem /tmp/module-trace.csv \
+            /tmp/probe-four-dispenser.schem /tmp/module-trace-physics-bad.csv \
+            --json-out lab-artifacts/module-runtime-physics-fail.json > /dev/null
+          physics_code=$?
+          python scripts/compare-module-traces.py \
+            /tmp/probe-four-dispenser.schem /tmp/module-trace.csv \
+            /tmp/probe-four-dispenser.schem /tmp/module-trace.csv \
+            --allow-reference-module MODULE-999 \
+            --json-out lab-artifacts/module-runtime-unknown-allow.json > /dev/null
+          unknown_allow_code=$?
+          python scripts/compare-module-traces.py \
+            /tmp/probe-four-dispenser.schem /tmp/module-trace.csv \
+            /tmp/probe-four-dispenser.schem /tmp/module-trace.csv \
+            --allow-reference-module MODULE-001 \
+            --json-out lab-artifacts/module-runtime-all-allowed.json > /dev/null
+          all_allowed_code=$?
+          set -e
+          test "$contract_code" -eq 2
+          test "$physics_code" -eq 2
+          test "$unknown_allow_code" -eq 2
+          test "$all_allowed_code" -eq 2
+
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          comparison = json.loads(Path('lab-artifacts/module-compare-identical.json').read_text())
+          trace = json.loads(Path('lab-artifacts/module-trace.json').read_text())
+          contract_pass = json.loads(Path('lab-artifacts/module-runtime-contract-pass.json').read_text())
+          translated_pass = json.loads(Path('lab-artifacts/module-runtime-translated-pass.json').read_text())
+          contract_fail = json.loads(Path('lab-artifacts/module-runtime-contract-fail.json').read_text())
+          physics_fail = json.loads(Path('lab-artifacts/module-runtime-physics-fail.json').read_text())
+          unknown_allow = json.loads(Path('lab-artifacts/module-runtime-unknown-allow.json').read_text())
+          all_allowed = json.loads(Path('lab-artifacts/module-runtime-all-allowed.json').read_text())
+          assert comparison['summary']['exact_signature_families'] == 1, comparison
+          assert comparison['summary']['exact_shared_components'] == 4, comparison
+          assert comparison['summary']['first_exact_component_coverage'] == 1.0, comparison
+          assert comparison['translation_alignment']['pairing_confidence'] == 'high', comparison
+          assert comparison['translation_alignment']['max_residual_distance'] == 0, comparison
+          assert trace['summary']['component_event_coverage'] == 1.0, trace
+          assert trace['summary']['unambiguous_entity_correlations'] == 1, trace
+          assert trace['summary']['attributed_explosions'] == 1, trace
+          assert trace['summary']['phase_cohorts'] == 1, trace
+          assert trace['entity_source_cohorts'][0]['mean_velocity'] == [0.1, 0.2, -0.3], trace
+          assert trace['explosion_source_cohorts'][0]['explosion_tick'] == 80, trace
+          assert trace['phase_order'][0]['runtime_role_candidates'][0]['label'] == 'early-tnt-cohort-source-candidate', trace
+          assert trace['truth_boundary']['subsystem_roles_confirmed'] is False, trace
+          assert contract_pass['status'] == 'PASS', contract_pass
+          assert contract_pass['summary']['failed_runtime_contracts'] == 0, contract_pass
+          assert contract_pass['summary']['module_pairing_confidence'] == 'high', contract_pass
+          assert contract_pass['summary']['module_pairing_max_residual_distance'] == 0, contract_pass
+          assert contract_pass['summary']['protected_runtime_contracts'] == 1, contract_pass
+          assert translated_pass['status'] == 'PASS', translated_pass
+          translated_contract = translated_pass['module_runtime_contracts'][0]
+          assert translated_contract['candidate_translation'] == [5, 0, 0], translated_contract
+          assert translated_contract['entity_physics']['max_observed']['spawn_position_delta'] == 0.0, translated_contract
+          assert translated_contract['entity_physics']['max_observed']['explosion_position_delta'] == 0.0, translated_contract
+          assert contract_fail['status'] == 'FAIL', contract_fail
+          assert 'unchanged_module_runtime_contract_failed' in contract_fail['failures'], contract_fail
+          assert 'first_tnt_spawn_tick_delta_exceeded' in contract_fail['module_runtime_contracts'][0]['failures'], contract_fail
+          assert physics_fail['status'] == 'FAIL', physics_fail
+          assert 'entity_spawn_velocity_delta_exceeded' in physics_fail['module_runtime_contracts'][0]['failures'], physics_fail
+          assert 'entity_explosion_position_delta_exceeded' in physics_fail['module_runtime_contracts'][0]['failures'], physics_fail
+          assert unknown_allow['status'] == 'FAIL', unknown_allow
+          assert 'unknown_allowed_reference_modules' in unknown_allow['failures'], unknown_allow
+          assert all_allowed['status'] == 'FAIL', all_allowed
+          assert 'minimum_unchanged_runtime_contracts_not_met' in all_allowed['failures'], all_allowed
+          print('Exact module matching, runtime-phase correlation, and unchanged-module replay contracts passed.')
           PY
 
       - name: Prove support-gap dispenser clustering
@@ -74,6 +349,40 @@ jobs:
           points = {(0, 0, 0), (0, 2, 0)}
           assert len(module.connected_components(points)) == 2
           assert len(module.proximity_clusters(points)) == 1
+          trace_script = Path('scripts/analyze-module-trace.py')
+          trace_spec = importlib.util.spec_from_file_location('module_trace', trace_script)
+          module_trace = importlib.util.module_from_spec(trace_spec)
+          trace_spec.loader.exec_module(module_trace)
+          shared_index = module_trace.module_position_index({
+              'modules': [
+                  {'module_id': 'MODULE-001', 'component_positions': [[1, 0, 0]]},
+                  {'module_id': 'MODULE-002', 'component_positions': []},
+              ],
+              'shared_component_assignments': [
+                  {
+                      'pos': [1, 0, 0],
+                      'candidate_module_ids': ['MODULE-001', 'MODULE-002'],
+                  },
+              ],
+          })
+          assert shared_index[(1, 0, 0)] == ['MODULE-001', 'MODULE-002'], shared_index
+
+          compare_script = Path('scripts/compare-cannon-modules.py')
+          compare_spec = importlib.util.spec_from_file_location('module_compare', compare_script)
+          module_compare = importlib.util.module_from_spec(compare_spec)
+          compare_spec.loader.exec_module(module_compare)
+          left = [
+              {'module_id': 'L1', 'signature': 'same', 'component_count': 10, 'bounds': {'min': [0, 0, 0]}},
+              {'module_id': 'L2', 'signature': 'same', 'component_count': 10, 'bounds': {'min': [10, 0, 0]}},
+          ]
+          right = [
+              {'module_id': 'R2', 'signature': 'same', 'component_count': 10, 'bounds': {'min': [15, 0, 0]}},
+              {'module_id': 'R1', 'signature': 'same', 'component_count': 10, 'bounds': {'min': [5, 0, 0]}},
+          ]
+          _matches, _used_left, _used_right, alignment = module_compare.exact_matches(left, right)
+          assert alignment['selected'] == [5, 0, 0], alignment
+          assert alignment['pairing_confidence'] == 'high', alignment
+          assert alignment['max_residual_distance'] == 0, alignment
           print('Support-sized gaps no longer shred one structural bank.')
           PY
 
@@ -90,7 +399,8 @@ jobs:
           set -e
           test "$code" -eq 2
           mkdir -p /tmp/corpus
-          cp /tmp/probe-one-dispenser.litematic /tmp/corpus/
+          cp /tmp/probe-one-dispenser.litematic /tmp/corpus/probe-a.litematic
+          cp /tmp/probe-one-dispenser.litematic /tmp/corpus/probe-b.litematic
           python scripts/audit-cannon-corpus.py /tmp/corpus \
             --json-out lab-artifacts/corpus-profile.json > /dev/null
           python - <<'PY'
@@ -102,8 +412,13 @@ jobs:
           assert calibration['status'] == 'PASS', calibration
           assert modern['status'] == 'FAIL', modern
           assert 'functional_height_at_least_16' in modern['failures'], modern
+          assert corpus['design_count'] == 2, corpus
           assert corpus['designs'][0]['functional_height'] == 1, corpus
-          print('Calibration remains allowed while fake-modern geometry is rejected.')
+          assert corpus['module_intelligence']['shared_module_families'] == 1, corpus
+          assert corpus['pairwise_module_overlap'][0]['first_component_coverage'] == 1.0, corpus
+          assert len(corpus['pairwise_partial_core_overlap']) == 1, corpus
+          assert corpus['pairwise_partial_core_overlap'][0]['shared_core_candidate'] is False, corpus
+          print('Calibration remains allowed, fake-modern geometry is rejected, and shared corpus modules are indexed.')
           PY
 
       - name: Prove causal explanation logic

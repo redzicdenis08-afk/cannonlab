@@ -17,6 +17,8 @@ The laboratory can:
 - enforce the current user-reported ExtremeCraft limit of 160 dispensers per chunk
 - test conservative or historical limits such as 128 through an explicit CLI override
 - audit total and per-chunk block-entity pressure separately from dispenser limits
+- map dispenser-bank-centered modules, repeated translated lanes, controls, timing parts, and directional links
+- compare every candidate against its exact reference and fail closed on broad, cross-module, control, fluid, or dispenser-bank changes
 - trigger one or multiple cannon inputs through real redstone power
 - generate dry, watered, fluid-regen, filter, slab-filter, hotdog-lane, and staggered-pillar targets
 - place targets north, south, east, or west with vertical and lateral offsets
@@ -104,6 +106,85 @@ python scripts/schem-audit.py cannon-ec.schem `
 `--allow-data-version-retag` changes the numeric DataVersion and does not run Mojang's DataFixerUpper. Use it only after confirming every block and block-state property exists in the target version. The converter preserves geometry, palette states, empty dispenser block entities, and signed Litematica region orientation, then emits deterministic gzip-compressed Sponge v2 NBT.
 
 Use `--block-entity-limit N` only when a live server test has established a real cap. Do not guess the ExtremeCraft FAWE limit.
+
+## Reference-first module preservation
+
+Map a real cannon before editing it:
+
+```powershell
+python scripts/cannon-module-map.py reference.litematic `
+  --chunk-limit 160 `
+  --json-out reference-modules.json
+```
+
+The module map anchors functional components to real dispenser banks, detects exact translated module and slice families, inventories controls and timing components, measures support-gap bridge risk, and emits a static module-coupling graph from shared components, face adjacency, and directional endpoints. It never promotes a tall bank or piston cluster into a confirmed charge, hammer, nuke, OSRB, leftshot, or payload module without causal runtime evidence.
+
+Gate a proposed edit against the exact reference:
+
+```powershell
+python scripts/cannon-preservation-check.py reference.litematic candidate.schem `
+  --max-structural-change-ratio 0.03 `
+  --max-functional-change-ratio 0.05 `
+  --max-modules-touched 1 `
+  --allow-module MODULE-003 `
+  --allow-type minecraft:repeater `
+  --json-out preservation.json
+```
+
+The default policy rejects unexpected critical-component edits, source-dimension changes, operator-control changes, dispenser-bank topology changes, explicit block-entity topology changes, ambiguous alignment, and edits spanning more than one inferred module. A preservation pass proves only that geometry stayed inside the declared edit budget. The candidate must still reproduce the reference firing sequence and pass runtime defense tests.
+
+By default, the preservation gate may apply one global integer translation to align Litematica and Sponge coordinate frames. The selected translation, candidate scores, coverage, and ambiguity are reported. Ambiguous best translations fail unless explicitly allowed, and alignment confidence must be at least `medium`. Rotation, reflection, scaling, and local warping are never permitted. Use `--alignment-mode exact` when coordinate identity itself is part of the contract.
+
+Compare two proven designs and extract only exact translated module families:
+
+```powershell
+python scripts/compare-cannon-modules.py nuke.litematic leftshot.litematic `
+  --near-match-threshold 0.82 `
+  --minimum-shared-core-components 8 `
+  --json-out shared-core.json
+```
+
+Exact matches require the same canonical block states and relative coordinates after translation. Near matches use block-count, dimensions, dispenser, kind, and facing features and remain heuristic. Neither result proves that the modules fire in the same phase.
+
+When two related cannons preserve a timing spine or lower machine core but attach enough extra banks to change the inferred whole-module boundaries, use the partial-core comparator:
+
+```powershell
+python scripts/compare-cannon-cores.py nuke.litematic leftshot.litematic `
+  --minimum-shared-functional 16 `
+  --minimum-connected-functional 8 `
+  --minimum-shared-non-dispenser 8 `
+  --minimum-mechanism-diversity 2 `
+  --json-out translated-core.json
+```
+
+The search votes on intact local functional neighborhoods, evaluates exact canonical-state overlap under the strongest translations, and requires a connected, mechanism-diverse, non-dispenser core. Matching only a generic dispenser panel is reported but rejected as a shared-core candidate. The result is still static geometry evidence, not proof of common runtime semantics.
+
+Join a static module map to a real shot trace:
+
+```powershell
+python scripts/analyze-module-trace.py reference.schem `
+  lab-artifacts/results/shot-001/causal-events.csv `
+  --json-out module-trace.json
+```
+
+The trace analyzer maps component events by exact schematic-relative coordinates, preserves equal-distance shared-module ambiguity, groups simultaneous modules into firing phases, correlates entity spawns to nearby dispense events within a bounded tick and distance window, follows unambiguous TNT UUIDs into explosions, and records source-attributed spawn and explosion cohorts with position, velocity, and fuse evidence. It deliberately emits labels such as `early-tnt-cohort-source-candidate` rather than pretending it has proven charge, booster, hammer, nuke, OSRB, leftshot, or reverse semantics.
+
+After editing, enforce the unchanged-module runtime contract:
+
+```powershell
+python scripts/compare-module-traces.py `
+  reference.schem reference-causal-events.csv `
+  candidate.schem candidate-causal-events.csv `
+  --max-timing-delta 2 `
+  --max-spawn-position-delta 0.25 `
+  --max-spawn-velocity-delta 0.02 `
+  --max-explosion-position-delta 1.0 `
+  --allow-reference-module MODULE-003 `
+  --max-extra-active-candidate-modules 1 `
+  --json-out runtime-contract.json
+```
+
+Every exact-geometry module outside the declared change set must retain its configured activation timing, event counts, dispensed items, correlated entity cohorts, spawn position, velocity, fuse, and attributed explosion timing and location. Candidate coordinates are normalized through the exact module translation, so harmless schematic padding passes while real trajectory drift fails. Unknown allowed-module IDs, weak correlation coverage, and excessive ambiguous component events also fail. A pass protects the untouched portion of the machine; it does not prove the edited module itself works.
 
 ## Scenario structure
 
