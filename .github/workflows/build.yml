@@ -4,6 +4,13 @@ on:
   push:
     branches: [main]
   pull_request:
+    paths:
+      - 'src/**'
+      - 'build.gradle*'
+      - 'settings.gradle*'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
   workflow_dispatch:
 
 concurrency:

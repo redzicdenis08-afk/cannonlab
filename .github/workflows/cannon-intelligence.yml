@@ -2,6 +2,23 @@ name: Cannon Intelligence
 
 on:
   pull_request:
+    paths:
+      - 'scripts/schem-audit.py'
+      - 'scripts/cannon-static-map.py'
+      - 'scripts/cannon-geometry-profile.py'
+      - 'scripts/audit-cannon-corpus.py'
+      - 'scripts/explain-causal-trace.py'
+      - 'scripts/analyze-causal-quality.py'
+      - 'mcp-server/**'
+      - 'audit-fixtures/**'
+      - 'src/**'
+      - 'build.gradle*'
+      - 'settings.gradle*'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - 'scripts/cloud-smoke.sh'
+      - 'scenarios/probe-redstone-diagnostic.yml'
   workflow_dispatch:
 
 concurrency:

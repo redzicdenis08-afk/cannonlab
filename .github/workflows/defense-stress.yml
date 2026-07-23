@@ -2,6 +2,18 @@ name: Professional Defense Stress
 
 on:
   pull_request:
+    paths:
+      - 'src/**'
+      - 'build.gradle*'
+      - 'settings.gradle*'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - 'scripts/cloud-smoke.sh'
+      - 'scripts/assert-results.py'
+      - 'scenarios/**'
+      - 'cannons/**'
+      - 'targets/**'
   workflow_dispatch:
 
 concurrency:
