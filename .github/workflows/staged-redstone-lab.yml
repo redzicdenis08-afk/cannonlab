@@ -1,0 +1,104 @@
+name: Staged Redstone Lab Bundle
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Add diagnostic delayed redstone cohort
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          scenario = Path('src/main/java/io/github/redzicdenis08afk/cannonlab/LabScenario.java')
+          text = scenario.read_text()
+          old = '        List<BlockPoint> fireInputs,\n        BlockPoint directDispenser,'
+          new = '        List<BlockPoint> fireInputs,\n        List<BlockPoint> delayedFireInputs,\n        int delayedFireTicks,\n        BlockPoint directDispenser,'
+          assert old in text
+          text = text.replace(old, new, 1)
+          old = '        fireInputs = List.copyOf(fireInputs);\n        targetStages = List.copyOf(targetStages);'
+          new = '        fireInputs = List.copyOf(fireInputs);\n        delayedFireInputs = List.copyOf(delayedFireInputs);\n        targetStages = List.copyOf(targetStages);'
+          assert old in text
+          text = text.replace(old, new, 1)
+          old = '''        List<BlockPoint> fireInputs = configuredInputs.isEmpty()
+                  ? List.of(primaryFireInput)
+                  : configuredInputs;
+          BlockPoint directDispenser'''
+          new = '''        List<BlockPoint> fireInputs = configuredInputs.isEmpty()
+                  ? List.of(primaryFireInput)
+                  : configuredInputs;
+          List<BlockPoint> delayedFireInputs = points(yaml, "cannon.delayed-fire-inputs");
+          int delayedFireTicks = Math.max(0, yaml.getInt("cannon.delayed-fire-ticks", 0));
+          BlockPoint directDispenser'''
+          assert old in text
+          text = text.replace(old, new, 1)
+          old = '                fireInputs,\n                directDispenser,'
+          new = '                fireInputs,\n                delayedFireInputs,\n                delayedFireTicks,\n                directDispenser,'
+          assert old in text
+          text = text.replace(old, new, 1)
+          scenario.write_text(text)
+
+          controller = Path('src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java')
+          text = controller.read_text()
+          old = '            case REDSTONE -> pulseRedstone(world, pasteOrigin);'
+          new = '''            case REDSTONE -> {
+                  pulseRedstone(world, pasteOrigin, scenario.fireInputs(), "primary");
+                  if (!scenario.delayedFireInputs().isEmpty()) {
+                      Bukkit.getScheduler().runTaskLater(plugin, () ->
+                              pulseRedstone(world, pasteOrigin, scenario.delayedFireInputs(), "delayed"),
+                              scenario.delayedFireTicks());
+                  }
+              }'''
+          assert old in text
+          text = text.replace(old, new, 1)
+          old = '''    private void pulseRedstone(World world, Location pasteOrigin) {
+          Map<String, PulseState> uniquePulses = new LinkedHashMap<>();
+          for (LabScenario.BlockPoint point : scenario.fireInputs()) {'''
+          new = '''    private void pulseRedstone(
+              World world,
+              Location pasteOrigin,
+              List<LabScenario.BlockPoint> inputs,
+              String stage
+          ) {
+          Map<String, PulseState> uniquePulses = new LinkedHashMap<>();
+          for (LabScenario.BlockPoint point : inputs) {'''
+          assert old in text
+          text = text.replace(old, new, 1)
+          text = text.replace(
+              '            throw new IllegalStateException("No redstone fire inputs configured.");',
+              '            throw new IllegalStateException("No redstone fire inputs configured for stage " + stage + ".");',
+              1,
+          )
+          old = '                    "previous=" + pulse.previousType() + ";pulse_ticks=" + scenario.firePulseTicks()'
+          new = '                    "stage=" + stage + ";previous=" + pulse.previousType() + ";pulse_ticks=" + scenario.firePulseTicks()'
+          assert old in text
+          text = text.replace(old, new, 1)
+          controller.write_text(text)
+          PY
+      - name: Build patched CannonLab
+        run: gradle clean build --stacktrace
+      - name: Package diagnostic plugin
+        run: |
+          mkdir -p staged-lab
+          cp build/libs/CannonLab-*.jar staged-lab/CannonLab-staged-redstone.jar
+          sha256sum staged-lab/CannonLab-staged-redstone.jar > staged-lab/sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-Staged-Redstone
+          path: staged-lab/**
+          retention-days: 1
