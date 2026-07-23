@@ -58,7 +58,7 @@ def _reference_args(reference_paths: list[str] | None) -> list[str]:
 
 @mcp.tool()
 def inspect_cannon(path: str, chunk_limit: int = 160) -> dict[str, Any]:
-    """Decode a Sponge/Litematica cannon, audit EC limits, and map structural components."""
+    """Decode a Sponge/Litematica cannon, audit EC limits, and map structural modules."""
     source = _inside_root(path)
     audit = _run_json([
         sys.executable,
@@ -74,7 +74,14 @@ def inspect_cannon(path: str, chunk_limit: int = 160) -> dict[str, Any]:
         "--chunk-limit",
         str(chunk_limit),
     ])
-    return {"audit": audit, "static_map": static_map}
+    module_map = _run_json([
+        sys.executable,
+        str(SCRIPTS / "cannon-module-map.py"),
+        str(source),
+        "--chunk-limit",
+        str(chunk_limit),
+    ])
+    return {"audit": audit, "static_map": static_map, "module_map": module_map}
 
 
 @mcp.tool()
@@ -102,6 +109,13 @@ def fast_cannon_intake(
         "--chunk-limit",
         str(chunk_limit),
     ])
+    module_map = _run_json([
+        sys.executable,
+        str(SCRIPTS / "cannon-module-map.py"),
+        str(source),
+        "--chunk-limit",
+        str(chunk_limit),
+    ])
     profile = _run_json([
         sys.executable,
         str(SCRIPTS / "cannon-geometry-profile.py"),
@@ -115,12 +129,262 @@ def fast_cannon_intake(
     return {
         "audit": audit,
         "static_map": static_map,
+        "module_map": module_map,
         "geometry_profile": profile,
         "next_action": (
             "Use a proven reference as the edit base. Do not generate a modern raid "
             "candidate from flat dispenser rows when the profile fails."
         ),
     }
+
+
+@mcp.tool()
+def map_cannon_modules(
+    path: str,
+    chunk_limit: int = 160,
+    assignment_radius: int = 6,
+) -> dict[str, Any]:
+    """Map dispenser-bank modules, repeated lanes, controls, timing parts, and conservative role candidates."""
+    source = _inside_root(path)
+    return _run_json([
+        sys.executable,
+        str(SCRIPTS / "cannon-module-map.py"),
+        str(source),
+        "--chunk-limit",
+        str(chunk_limit),
+        "--assignment-radius",
+        str(assignment_radius),
+    ])
+
+
+@mcp.tool()
+def check_cannon_preservation(
+    reference_path: str,
+    candidate_path: str,
+    chunk_limit: int = 160,
+    max_structural_change_ratio: float = 0.03,
+    max_functional_change_ratio: float = 0.05,
+    max_modules_touched: int = 1,
+    max_unexpected_critical_changes: int = 0,
+    allowed_types: list[str] | None = None,
+    allowed_modules: list[str] | None = None,
+    allow_dimension_change: bool = False,
+    allow_block_entity_topology_change: bool = False,
+    allow_ambiguous_alignment: bool = False,
+    minimum_alignment_confidence: str = "medium",
+    alignment_mode: str = "translate",
+) -> dict[str, Any]:
+    """Reject broad rebuilds by proving a candidate stayed within an explicit reference-preservation policy."""
+    reference = _inside_root(reference_path)
+    candidate = _inside_root(candidate_path)
+    args = [
+        sys.executable,
+        str(SCRIPTS / "cannon-preservation-check.py"),
+        str(reference),
+        str(candidate),
+        "--chunk-limit",
+        str(chunk_limit),
+        "--max-structural-change-ratio",
+        str(max_structural_change_ratio),
+        "--max-functional-change-ratio",
+        str(max_functional_change_ratio),
+        "--max-modules-touched",
+        str(max_modules_touched),
+        "--max-unexpected-critical-changes",
+        str(max_unexpected_critical_changes),
+        "--alignment-mode",
+        alignment_mode,
+        "--minimum-alignment-confidence",
+        minimum_alignment_confidence,
+    ]
+    for block_type in allowed_types or []:
+        args += ["--allow-type", block_type]
+    for module_id in allowed_modules or []:
+        args += ["--allow-module", module_id]
+    if allow_dimension_change:
+        args.append("--allow-dimension-change")
+    if allow_block_entity_topology_change:
+        args.append("--allow-block-entity-topology-change")
+    if allow_ambiguous_alignment:
+        args.append("--allow-ambiguous-alignment")
+    return _run_json(args)
+
+
+@mcp.tool()
+def compare_cannon_modules(
+    first_path: str,
+    second_path: str,
+    chunk_limit: int = 160,
+    assignment_radius: int = 6,
+    near_match_threshold: float = 0.82,
+    minimum_shared_core_components: int = 8,
+) -> dict[str, Any]:
+    """Find exact translated module families and conservative near matches between two real cannons."""
+    first = _inside_root(first_path)
+    second = _inside_root(second_path)
+    return _run_json([
+        sys.executable,
+        str(SCRIPTS / "compare-cannon-modules.py"),
+        str(first),
+        str(second),
+        "--chunk-limit",
+        str(chunk_limit),
+        "--assignment-radius",
+        str(assignment_radius),
+        "--near-match-threshold",
+        str(near_match_threshold),
+        "--minimum-shared-core-components",
+        str(minimum_shared_core_components),
+    ])
+
+
+@mcp.tool()
+def compare_cannon_cores(
+    first_path: str,
+    second_path: str,
+    anchor_radius: int = 2,
+    minimum_anchor_neighbours: int = 3,
+    max_anchor_instances: int = 48,
+    top_translations: int = 32,
+    minimum_shared_functional: int = 16,
+    minimum_connected_functional: int = 8,
+    minimum_shared_non_dispenser: int = 8,
+    minimum_mechanism_diversity: int = 2,
+) -> dict[str, Any]:
+    """Find an exact translated partial cannon core even when inferred whole-module boundaries differ."""
+    first = _inside_root(first_path)
+    second = _inside_root(second_path)
+    return _run_json([
+        sys.executable,
+        str(SCRIPTS / "compare-cannon-cores.py"),
+        str(first),
+        str(second),
+        "--anchor-radius",
+        str(anchor_radius),
+        "--minimum-anchor-neighbours",
+        str(minimum_anchor_neighbours),
+        "--max-anchor-instances",
+        str(max_anchor_instances),
+        "--top-translations",
+        str(top_translations),
+        "--minimum-shared-functional",
+        str(minimum_shared_functional),
+        "--minimum-connected-functional",
+        str(minimum_connected_functional),
+        "--minimum-shared-non-dispenser",
+        str(minimum_shared_non_dispenser),
+        "--minimum-mechanism-diversity",
+        str(minimum_mechanism_diversity),
+    ])
+
+
+@mcp.tool()
+def analyze_module_trace(
+    schematic_path: str,
+    trace_path: str,
+    chunk_limit: int = 160,
+    assignment_radius: int = 6,
+    correlation_ticks: int = 2,
+    spawn_radius: float = 3.0,
+) -> dict[str, Any]:
+    """Join exact schematic modules to a causal trace and recover observed firing phases and entity correlations."""
+    schematic = _inside_root(schematic_path)
+    trace = _inside_root(trace_path)
+    return _run_json([
+        sys.executable,
+        str(SCRIPTS / "analyze-module-trace.py"),
+        str(schematic),
+        str(trace),
+        "--chunk-limit",
+        str(chunk_limit),
+        "--assignment-radius",
+        str(assignment_radius),
+        "--correlation-ticks",
+        str(correlation_ticks),
+        "--spawn-radius",
+        str(spawn_radius),
+    ])
+
+
+@mcp.tool()
+def compare_module_traces(
+    reference_schematic: str,
+    reference_trace: str,
+    candidate_schematic: str,
+    candidate_trace: str,
+    chunk_limit: int = 160,
+    assignment_radius: int = 6,
+    max_timing_delta: int = 2,
+    max_spawn_position_delta: float = 0.25,
+    max_spawn_velocity_delta: float = 0.02,
+    max_fuse_delta: int = 1,
+    max_explosion_position_delta: float = 1.0,
+    minimum_component_event_coverage: float = 0.95,
+    minimum_entity_correlation_coverage: float = 0.80,
+    minimum_module_entity_profile_coverage: float = 1.0,
+    max_ambiguous_component_events: int = 0,
+    minimum_pairing_confidence: str = "high",
+    max_pairing_residual_distance: int = 0,
+    allow_ambiguous_pairing: bool = False,
+    minimum_unchanged_runtime_contracts: int = 1,
+    allowed_reference_modules: list[str] | None = None,
+    allowed_candidate_modules: list[str] | None = None,
+    max_extra_active_candidate_modules: int = 0,
+    allow_entity_physics_changes: bool = False,
+) -> dict[str, Any]:
+    """Fail when untouched exact-geometry modules stop replaying their reference runtime contract."""
+    reference_cannon = _inside_root(reference_schematic)
+    reference_events = _inside_root(reference_trace)
+    candidate_cannon = _inside_root(candidate_schematic)
+    candidate_events = _inside_root(candidate_trace)
+    args = [
+        sys.executable,
+        str(SCRIPTS / "compare-module-traces.py"),
+        str(reference_cannon),
+        str(reference_events),
+        str(candidate_cannon),
+        str(candidate_events),
+        "--chunk-limit",
+        str(chunk_limit),
+        "--assignment-radius",
+        str(assignment_radius),
+        "--max-timing-delta",
+        str(max_timing_delta),
+        "--max-spawn-position-delta",
+        str(max_spawn_position_delta),
+        "--max-spawn-velocity-delta",
+        str(max_spawn_velocity_delta),
+        "--max-fuse-delta",
+        str(max_fuse_delta),
+        "--max-explosion-position-delta",
+        str(max_explosion_position_delta),
+        "--minimum-component-event-coverage",
+        str(minimum_component_event_coverage),
+        "--minimum-entity-correlation-coverage",
+        str(minimum_entity_correlation_coverage),
+        "--minimum-module-entity-profile-coverage",
+        str(minimum_module_entity_profile_coverage),
+        "--max-ambiguous-component-events",
+        str(max_ambiguous_component_events),
+        "--minimum-pairing-confidence",
+        minimum_pairing_confidence,
+        "--max-pairing-residual-distance",
+        str(max_pairing_residual_distance),
+        "--minimum-unchanged-runtime-contracts",
+        str(minimum_unchanged_runtime_contracts),
+        "--max-extra-active-candidate-modules",
+        str(max_extra_active_candidate_modules),
+    ]
+    for module_id in allowed_reference_modules or []:
+        args += ["--allow-reference-module", module_id]
+    for module_id in allowed_candidate_modules or []:
+        args += ["--allow-candidate-module", module_id]
+    if allow_entity_physics_changes:
+        args.append("--allow-entity-physics-changes")
+    if allow_ambiguous_pairing:
+        args.append("--allow-ambiguous-pairing")
+    return _run_json(args)
+
 
 
 @mcp.tool()
@@ -231,16 +495,38 @@ def prepare_reference_cannon(
 
 
 @mcp.tool()
-def audit_cannon_corpus(directory: str, chunk_limit: int = 160) -> dict[str, Any]:
-    """Batch-audit a private directory of Sponge and Litematica cannons for structural comparison."""
+def audit_cannon_corpus(
+    directory: str,
+    chunk_limit: int = 160,
+    minimum_shared_core_components: int = 8,
+    minimum_shared_functional: int = 16,
+    minimum_connected_functional: int = 8,
+    minimum_shared_non_dispenser: int = 8,
+    minimum_mechanism_diversity: int = 2,
+    skip_partial_core_overlap: bool = False,
+) -> dict[str, Any]:
+    """Batch-audit a private cannon directory, including whole-module and translated partial-core overlap."""
     source = _inside_root(directory)
-    return _run_json([
+    args = [
         sys.executable,
         str(SCRIPTS / "audit-cannon-corpus.py"),
         str(source),
         "--chunk-limit",
         str(chunk_limit),
-    ])
+        "--minimum-shared-core-components",
+        str(minimum_shared_core_components),
+        "--minimum-shared-functional",
+        str(minimum_shared_functional),
+        "--minimum-connected-functional",
+        str(minimum_connected_functional),
+        "--minimum-shared-non-dispenser",
+        str(minimum_shared_non_dispenser),
+        "--minimum-mechanism-diversity",
+        str(minimum_mechanism_diversity),
+    ]
+    if skip_partial_core_overlap:
+        args.append("--skip-partial-core-overlap")
+    return _run_json(args)
 
 
 @mcp.tool()

@@ -31,9 +31,31 @@ FUNCTIONAL_TYPES = {
     "minecraft:water",
     "minecraft:lava",
     "minecraft:soul_sand",
+    "minecraft:sand",
+    "minecraft:red_sand",
+    "minecraft:gravel",
+    "minecraft:anvil",
+    "minecraft:chipped_anvil",
+    "minecraft:damaged_anvil",
+    "minecraft:piston_head",
+    "minecraft:moving_piston",
+    "minecraft:note_block",
+    "minecraft:target",
+    "minecraft:redstone_lamp",
+    "minecraft:scaffolding",
+    "minecraft:rail",
+    "minecraft:detector_rail",
+    "minecraft:activator_rail",
     "minecraft:powered_rail",
 }
 CONTROL_SUFFIXES = ("_button", "_pressure_plate")
+FUNCTIONAL_SUFFIXES = (
+    "_button",
+    "_pressure_plate",
+    "_trapdoor",
+    "_fence_gate",
+    "_concrete_powder",
+)
 FACING_VECTORS = {
     "east": (1, 0, 0),
     "west": (-1, 0, 0),
@@ -69,6 +91,10 @@ def load_auditor() -> Any:
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def is_functional_type(block_type: str) -> bool:
+    return block_type in FUNCTIONAL_TYPES or block_type.endswith(FUNCTIONAL_SUFFIXES)
 
 
 def component_prefix(block_type: str) -> str:
@@ -326,7 +352,7 @@ def main() -> int:
     args = parser.parse_args()
 
     auditor = load_auditor()
-    root_name, root, _trailing, _size = auditor.load(args.schematic)
+    root_name, root, _trailing, _size, container_diagnostics = auditor.load(args.schematic)
     model = auditor.decode_any(root_name, root)
     blocks = model["blocks"]
 
@@ -337,7 +363,7 @@ def main() -> int:
     )
     functional_points = [
         pos for pos, state in blocks.items()
-        if auditor.base(state) in FUNCTIONAL_TYPES
+        if is_functional_type(auditor.base(state))
     ]
     functional_box = bounds(functional_points) if functional_points else None
     dispenser_banks = map_dispenser_banks(auditor, blocks, args.chunk_limit)
@@ -351,6 +377,7 @@ def main() -> int:
         "status": "PASS",
         "file": str(args.schematic),
         "format": model["format"],
+        "container_diagnostics": container_diagnostics,
         "data_version": model["data_version"],
         "dimensions": model["source_dimensions"],
         "functional_bounds": functional_box,
@@ -360,7 +387,7 @@ def main() -> int:
             ),
             "functional_type_diversity": len([
                 block_type for block_type in counts
-                if block_type in FUNCTIONAL_TYPES
+                if is_functional_type(block_type)
             ]),
             "dispenser_count": len(dispenser_points),
             "dispenser_y_layers": len(dispenser_layers),

@@ -210,7 +210,7 @@ def profile_model(auditor: Any, model: dict[str, Any], chunk_limit: int) -> dict
 
 
 def load_profile(auditor: Any, path: Path, chunk_limit: int) -> dict[str, Any]:
-    root_name, root, _trailing, _size = auditor.load(path)
+    root_name, root, _trailing, _size, _container_diagnostics = auditor.load(path)
     model = auditor.decode_any(root_name, root)
     return profile_model(auditor, model, chunk_limit)
 
