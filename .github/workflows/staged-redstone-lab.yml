@@ -1,4 +1,4 @@
-name: Staged Cannon Replay Lab
+name: Staged Cannon Control Lab
 
 on:
   push:
@@ -23,80 +23,17 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.2.1'
-      - name: Add arbitrary direct dispenser stages
-        run: |
-          python3 - <<'PY'
-          from pathlib import Path
-
-          scenario = Path('src/main/java/io/github/redzicdenis08afk/cannonlab/LabScenario.java')
-          text = scenario.read_text()
-          text = text.replace('        BlockPoint directDispenser,\n        int firePulseTicks,', '        BlockPoint directDispenser,\n        List<DirectStage> directStages,\n        int firePulseTicks,', 1)
-          text = text.replace('        fireInputs = List.copyOf(fireInputs);\n        targetStages = List.copyOf(targetStages);', '        fireInputs = List.copyOf(fireInputs);\n        directStages = List.copyOf(directStages);\n        targetStages = List.copyOf(targetStages);', 1)
-          text = text.replace('        String fireModeName = yaml.getString("cannon.fire-mode", "redstone");', '        List<DirectStage> directStages = directStages(yaml);\n\n        String fireModeName = yaml.getString("cannon.fire-mode", "redstone");', 1)
-          text = text.replace('                fireInputs,\n                directDispenser,\n                Math.max(1, yaml.getInt("cannon.fire-pulse-ticks", 2)),', '                fireInputs,\n                directDispenser,\n                directStages,\n                Math.max(1, yaml.getInt("cannon.fire-pulse-ticks", 2)),', 1)
-          parser = '''    private static List<DirectStage> directStages(YamlConfiguration yaml) {
-              List<DirectStage> result = new ArrayList<>();
-              for (Map<?, ?> entry : yaml.getMapList("cannon.direct-stages")) {
-                  int tick = Math.max(0, integer(entry.get("tick"), 0));
-                  List<BlockPoint> dispensers = new ArrayList<>();
-                  Object raw = entry.get("dispensers");
-                  if (raw instanceof List<?> list) {
-                      for (Object item : list) {
-                          if (item instanceof Map<?, ?> point) dispensers.add(new BlockPoint(integer(point.get("x"), 0), integer(point.get("y"), 0), integer(point.get("z"), 0)));
-                      }
-                  }
-                  if (!dispensers.isEmpty()) result.add(new DirectStage(tick, List.copyOf(dispensers)));
-              }
-              return List.copyOf(result);
-          }
-
-'''
-          text = text.replace('    private static BlockPoint point(YamlConfiguration yaml, String path, BlockPoint fallback) {', parser + '    private static BlockPoint point(YamlConfiguration yaml, String path, BlockPoint fallback) {', 1)
-          text = text.replace('    record BlockPoint(int x, int y, int z) {\n    }', '    record BlockPoint(int x, int y, int z) {\n    }\n\n    record DirectStage(int tick, List<BlockPoint> dispensers) {\n    }', 1)
-          text = text.replace('        DIRECT_DISPENSE\n    }', '        DIRECT_DISPENSE,\n        DIRECT_STAGED\n    }', 1)
-          required = ('List<DirectStage> directStages', 'cannon.direct-stages', 'record DirectStage', 'DIRECT_STAGED')
-          assert all(token in text for token in required), required
-          scenario.write_text(text)
-
-          controller = Path('src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java')
-          text = controller.read_text()
-          text = text.replace('            case DIRECT_DISPENSE -> dispenseDirectly(world, pasteOrigin);\n            case BUTTON -> pressButtons(world, pasteOrigin);', '            case DIRECT_DISPENSE -> dispenseDirectly(world, pasteOrigin);\n            case DIRECT_STAGED -> dispenseStaged(world, pasteOrigin);\n            case BUTTON -> pressButtons(world, pasteOrigin);', 1)
-          method = '''    private void dispenseStaged(World world, Location pasteOrigin) {
-              if (scenario.directStages().isEmpty()) throw new IllegalStateException("No cannon.direct-stages configured.");
-              recorder.recordControlEvent("FIRE_INPUT", pasteOrigin, "mode=direct-staged;stages=" + scenario.directStages().size());
-              for (LabScenario.DirectStage stage : scenario.directStages()) {
-                  Bukkit.getScheduler().runTaskLater(plugin, () -> {
-                      int consumed = 0;
-                      for (LabScenario.BlockPoint point : stage.dispensers()) {
-                          Location location = relative(pasteOrigin, point);
-                          Block block = world.getBlockAt(location);
-                          if (!(block.getState() instanceof Dispenser dispenser)) throw new IllegalStateException("Staged coordinate " + coordinates(location) + " contains " + block.getType());
-                          int before = countTnt(dispenser);
-                          if (before < 1) continue;
-                          boolean ok = dispenser.dispense();
-                          int after = countTnt((Dispenser) block.getState());
-                          if (!ok || after >= before) throw new IllegalStateException("Staged dispense failed at " + coordinates(location));
-                          consumed++;
-                      }
-                      plugin.getLogger().info("Direct staged cohort tick=" + stage.tick() + " | requested=" + stage.dispensers().size() + " | consumed=" + consumed);
-                  }, stage.tick());
-              }
-          }
-
-'''
-          text = text.replace('    private void dispenseDirectly(World world, Location pasteOrigin) {', method + '    private void dispenseDirectly(World world, Location pasteOrigin) {', 1)
-          assert 'case DIRECT_STAGED' in text and 'private void dispenseStaged' in text
-          controller.write_text(text)
-          PY
+      - name: Add staged redstone and timed lever controls
+        run: python3 scripts/patch-staged-redstone.py
       - name: Build patched CannonLab
         run: gradle clean build --stacktrace
       - name: Package diagnostic plugin
         run: |
           mkdir -p staged-lab
-          cp build/libs/CannonLab-*.jar staged-lab/CannonLab-staged-replay.jar
-          sha256sum staged-lab/CannonLab-staged-replay.jar > staged-lab/sha256.txt
+          cp build/libs/CannonLab-*.jar staged-lab/CannonLab-staged-controls.jar
+          sha256sum staged-lab/CannonLab-staged-controls.jar > staged-lab/sha256.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: CannonLab-Staged-Replay
+          name: CannonLab-Staged-Controls
           path: staged-lab/**
           retention-days: 1
