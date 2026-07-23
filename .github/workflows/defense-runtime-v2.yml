@@ -3,6 +3,7 @@ name: Defense Runtime V2
 on:
   pull_request:
     paths:
+      - '.github/workflows/defense-runtime-v2.yml'
       - 'src/**'
       - 'scripts/cloud-smoke.sh'
       - 'scripts/assert-results.py'
@@ -84,20 +85,26 @@ jobs:
           from pathlib import Path
           summaries = list(Path('lab-artifacts/results').rglob('run-summary.json'))
           events = list(Path('lab-artifacts/results').rglob('events.csv'))
+          causal = list(Path('lab-artifacts/results').rglob('causal-events.csv'))
           assert len(summaries) == 1, summaries
           assert len(events) == 1, events
+          assert len(causal) == 1, causal
           summary = json.loads(summaries[0].read_text())
           with events[0].open(newline='', encoding='utf-8') as handle:
               event_counts = {}
               for row in csv.DictReader(handle):
                   event_counts[row['event']] = event_counts.get(row['event'], 0) + 1
+          with causal[0].open(newline='', encoding='utf-8') as handle:
+              causal_counts = {}
+              for row in csv.DictReader(handle):
+                  causal_counts[row['event']] = causal_counts.get(row['event'], 0) + 1
           assert summary['volleys_per_shot'] == 4, summary
           assert summary['durability']['effective_mode'] == 'SIMULATE', summary
           assert summary['shots'][0]['durability_hits'] >= 3, summary
           assert summary['shots'][0]['durability_breaks'] >= 1, summary
           assert summary['shots'][0]['companion_cells_missing'] == 0, summary
-          assert event_counts.get('VOLLEY_FIRE') == 4, event_counts
-          assert event_counts.get('FIRE_INPUT') == 4, event_counts
+          assert causal_counts.get('VOLLEY_FIRE') == 4, causal_counts
+          assert causal_counts.get('FIRE_INPUT') == 4, causal_counts
           assert event_counts.get('DURABILITY_HIT', 0) >= 3, event_counts
           assert event_counts.get('DURABILITY_BREAK', 0) >= 1, event_counts
           print('Sustained Paper pressure, durability and companion-state contract passed.')

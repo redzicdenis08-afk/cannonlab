@@ -3,6 +3,7 @@ name: Exact Sakura Runtime
 on:
   pull_request:
     paths:
+      - '.github/workflows/sakura-runtime.yml'
       - 'src/**'
       - 'build.gradle*'
       - 'settings.gradle*'
@@ -224,7 +225,7 @@ jobs:
           import csv
           from pathlib import Path
           summaries = list(Path('lab-artifacts/results').rglob('run-summary.json'))
-          events = list(Path('lab-artifacts/results').rglob('events.csv'))
+          events = list(Path('lab-artifacts/results').rglob('causal-events.csv'))
           assert len(summaries) == 1, summaries
           assert len(events) == 1, events
           summary = json.loads(summaries[0].read_text())
