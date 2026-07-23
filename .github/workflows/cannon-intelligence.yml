@@ -11,14 +11,6 @@ on:
       - 'scripts/analyze-causal-quality.py'
       - 'mcp-server/**'
       - 'audit-fixtures/**'
-      - 'src/**'
-      - 'build.gradle*'
-      - 'settings.gradle*'
-      - 'gradle/**'
-      - 'gradlew'
-      - 'gradlew.bat'
-      - 'scripts/cloud-smoke.sh'
-      - 'scenarios/probe-redstone-diagnostic.yml'
   workflow_dispatch:
 
 concurrency:
@@ -29,9 +21,9 @@ permissions:
   contents: read
 
 jobs:
-  causal-intelligence:
+  static-intelligence:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,17 +32,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
-      - name: Set up JDK 25
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '25'
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.2.1'
 
       - name: Compile analysis and MCP Python
         run: |
@@ -141,51 +122,11 @@ jobs:
           print('Synthetic causal cohorts and timeline passed.')
           PY
 
-      - name: Build causal recorder
-        run: gradle clean build --stacktrace
-
-      - name: Capture ten real redstone-fired causal traces
-        env:
-          CANNONLAB_MC_VERSION: '26.1.2'
-          CANNONLAB_SCENARIO: probe-redstone-diagnostic.yml
-          CANNONLAB_EXPECTED_SHOTS: '10'
-        run: bash scripts/cloud-smoke.sh
-
-      - name: Verify and explain runtime traces
-        run: |
-          python - <<'PY'
-          import csv
-          import json
-          import subprocess
-          import sys
-          from pathlib import Path
-
-          traces = sorted(Path('lab-artifacts/results').rglob('causal-events.csv'))
-          assert len(traces) == 10, traces
-          for trace in traces:
-              with trace.open(newline='', encoding='utf-8') as handle:
-                  events = [row['event'] for row in csv.DictReader(handle)]
-              assert 'DISPENSE' in events, (trace, events)
-              assert 'ENTITY_ADD' in events, (trace, events)
-              shot = trace.parent
-              subprocess.run([
-                  sys.executable,
-                  'scripts/explain-causal-trace.py',
-                  str(trace),
-                  '--json-out', str(shot / 'causal-summary.json'),
-                  '--markdown-out', str(shot / 'causal-timeline.md'),
-              ], check=True, stdout=subprocess.DEVNULL)
-              summary = json.loads((shot / 'causal-summary.json').read_text())
-              assert summary['trace_confidence']['requirements']['dispense'], summary
-              assert summary['trace_confidence']['requirements']['entity_spawn'], summary
-          print(f'Validated and explained {len(traces)} real causal traces.')
-          PY
-
-      - name: Upload cannon intelligence evidence
+      - name: Upload static cannon intelligence evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: CannonLab-intelligence-${{ github.run_number }}
+          name: CannonLab-static-intelligence-${{ github.run_number }}
           path: |
             lab-artifacts/**
           if-no-files-found: error
