@@ -252,7 +252,7 @@ final class LabRunController implements Listener {
                                 pasteOrigin,
                                 "volley=" + scheduledVolley + "/" + scenario.volleysPerShot()
                         );
-                        fire(world, pasteOrigin);
+                        fire(world, arenaOrigin, pasteOrigin);
                     } catch (RuntimeException exception) {
                         plugin.getLogger().severe("Shot " + shotNumber
                                 + " volley " + scheduledVolley
@@ -273,7 +273,7 @@ final class LabRunController implements Listener {
         }
     }
 
-    private void fire(World world, Location pasteOrigin) {
+    private void fire(World world, Location arenaOrigin, Location pasteOrigin) {
         if (!running || cancelled || scenario == null) {
             return;
         }
@@ -282,7 +282,21 @@ final class LabRunController implements Listener {
             case DIRECT_DISPENSE -> dispenseDirectly(world, pasteOrigin);
             case BUTTON -> pressButtons(world, pasteOrigin);
             case REDSTONE -> pulseRedstone(world, pasteOrigin);
+            case TNT_PROBE -> spawnTntProbe(world, arenaOrigin);
         }
+    }
+
+    private void spawnTntProbe(World world, Location arenaOrigin) {
+        Location spawn = relative(arenaOrigin, scenario.probeTntOrigin()).add(0.5, 0.1, 0.5);
+        recorder.recordControlEvent(
+                "FIRE_INPUT",
+                spawn,
+                "mode=tnt-probe;diagnostic=true;fuse=" + scenario.probeTntFuseTicks()
+        );
+        TNTPrimed tnt = world.spawn(spawn, TNTPrimed.class);
+        tnt.setFuseTicks(scenario.probeTntFuseTicks());
+        plugin.getLogger().info("Diagnostic TNT probe spawned at " + coordinates(spawn)
+                + " | fuse=" + scenario.probeTntFuseTicks());
     }
 
     private void dispenseDirectly(World world, Location pasteOrigin) {

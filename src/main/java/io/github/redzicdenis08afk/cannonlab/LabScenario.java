@@ -19,6 +19,8 @@ record LabScenario(
         BlockPoint fireInput,
         List<BlockPoint> fireInputs,
         BlockPoint directDispenser,
+        BlockPoint probeTntOrigin,
+        int probeTntFuseTicks,
         int firePulseTicks,
         boolean suppressPasteSideEffects,
         int settleBeforeFillTicks,
@@ -74,6 +76,11 @@ record LabScenario(
                 yaml,
                 "cannon.direct-dispenser",
                 new BlockPoint(fireInputs.getFirst().x() + 1, fireInputs.getFirst().y(), fireInputs.getFirst().z())
+        );
+        BlockPoint probeTntOrigin = point(
+                yaml,
+                "cannon.probe-tnt-origin",
+                new BlockPoint(0, 1, 0)
         );
 
         String fireModeName = yaml.getString("cannon.fire-mode", "redstone");
@@ -161,6 +168,8 @@ record LabScenario(
                 primaryFireInput,
                 fireInputs,
                 directDispenser,
+                probeTntOrigin,
+                Math.max(1, yaml.getInt("cannon.probe-tnt-fuse-ticks", 80)),
                 Math.max(1, yaml.getInt("cannon.fire-pulse-ticks", 2)),
                 suppressPasteSideEffects,
                 settleBeforeFillTicks,
@@ -434,7 +443,8 @@ record LabScenario(
     enum FireMode {
         REDSTONE,
         BUTTON,
-        DIRECT_DISPENSE
+        DIRECT_DISPENSE,
+        TNT_PROBE
     }
 
     enum TargetType {

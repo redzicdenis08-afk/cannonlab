@@ -148,7 +148,7 @@ run:
   shutdown-when-finished: true
 ```
 
-Supported target types are `dry`, `watered`, `cobble-regen`, `filter`, `slab-filter`, `hotdog`, and `pillars`. Supported directions are `north`, `south`, `east`, and `west`. Supported fire modes are `redstone` and `direct-dispense`; `direct` is accepted as an alias.
+Supported target types are `dry`, `watered`, `cobble-regen`, `filter`, `slab-filter`, `hotdog`, and `pillars`. Supported directions are `north`, `south`, `east`, and `west`. Supported fire modes are `redstone`, `button`, `direct-dispense`, and diagnostic-only `tnt-probe`; `direct` is accepted as an alias. `tnt-probe` isolates defense physics and is never evidence that a cannon schematic works.
 
 `cannon.fire-input` preserves the simple one-input format. `cannon.fire-inputs` powers every listed coordinate on the same tick and is intended for segmented or distributed cannon circuits.
 

@@ -103,6 +103,8 @@ run:
 
 Every scheduled input produces a `VOLLEY_FIRE` event. Runtime evidence must contain the expected number of events; configuration alone is not accepted as proof that every volley fired.
 
+For defense calibration independent of a cannon schematic, `cannon.fire-mode: tnt-probe` spawns one stationary, measured TNT entity per volley at `cannon.probe-tnt-origin`, relative to the arena origin. This mode is explicitly diagnostic and records `FIRE_INPUT` with `mode=tnt-probe`. It proves target, durability, fluid and regeneration behavior only. It must never be used as evidence that a cannon's redstone, charge or payload works.
+
 ## Durable blocks
 
 Durability is configured independently from wall geometry:

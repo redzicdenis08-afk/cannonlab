@@ -64,6 +64,7 @@ jobs:
           CANNONLAB_LIFETIME_TOLERANCE: '0'
           CANNONLAB_MIN_TARGET_PEAK_DESTROYED: '1'
           CANNONLAB_MIN_LAYER_BREACHED: '1'
+          CANNONLAB_MAX_SELF_DAMAGE_BLOCKS: '0'
           CANNONLAB_MIN_DURABILITY_HITS: '3'
           CANNONLAB_MIN_DURABILITY_BREAKS: '1'
           CANNONLAB_MAX_COMPANION_MISSING: '0'
@@ -96,6 +97,7 @@ jobs:
           assert summary['shots'][0]['durability_breaks'] >= 1, summary
           assert summary['shots'][0]['companion_cells_missing'] == 0, summary
           assert event_counts.get('VOLLEY_FIRE') == 4, event_counts
+          assert event_counts.get('FIRE_INPUT') == 4, event_counts
           assert event_counts.get('DURABILITY_HIT', 0) >= 3, event_counts
           assert event_counts.get('DURABILITY_BREAK', 0) >= 1, event_counts
           print('Sustained Paper pressure, durability and companion-state contract passed.')
