@@ -88,3 +88,48 @@ A meaningful defense run should combine several gates rather than merely requiri
 - unique UUIDs between shots and clean arena resets
 
 A cannon that passes only the plumbing probes is not considered defense-tested.
+
+## Sustained pressure runs
+
+`run.volleys-per-shot` and `run.volley-interval-ticks` fire repeated inputs into the same pasted cannon and the same live defense course. The recorder stays open through the final volley plus the configured quiet window. This is the correct mode for comparing burst pressure against regeneration because the wall is not reset between impacts.
+
+```yaml
+run:
+  shots: 1
+  volleys-per-shot: 4
+  volley-interval-ticks: 100
+  quiet-ticks: 80
+```
+
+Every scheduled input produces a `VOLLEY_FIRE` event. Runtime evidence must contain the expected number of events; configuration alone is not accepted as proof that every volley fired.
+
+For defense calibration independent of a cannon schematic, `cannon.fire-mode: tnt-probe` spawns one stationary, measured TNT entity per volley at `cannon.probe-tnt-origin`, relative to the arena origin. This mode is explicitly diagnostic and records `FIRE_INPUT` with `mode=tnt-probe`. It proves target, durability, fluid and regeneration behavior only. It must never be used as evidence that a cannon's redstone, charge or payload works.
+
+## Durable blocks
+
+Durability is configured independently from wall geometry:
+
+```yaml
+target:
+  durability:
+    mode: auto
+    expiration-ticks: 1200
+    only-tnt: true
+    hit-radius: 4.0
+    materials:
+      obsidian: 4
+      anvil: 3
+```
+
+- `native` requires Sakura's durable-block runtime and fails loudly elsewhere.
+- `auto` uses native Sakura durability when available and the diagnostic simulator on Paper.
+- `simulate` is a clearly labeled Paper diagnostic. It uses explosion proximity and must not be presented as private-server parity.
+- `disabled` leaves vanilla or server behavior untouched.
+
+The simulator exports `DURABILITY_HIT` and `DURABILITY_BREAK`. Native Sakura runs prove the actual server implementation through target damage rather than pretending simulator counters came from Sakura.
+
+## Water, lava and slab companion cells
+
+Generated water fronts, lava backs and slab fronts are tracked separately from solid target blocks. Exact target schematics also preserve and track non-air, non-solid cells. CannonLab records `COMPANION_MISSING` when protection changes and `COMPANION_RESTORE` when stage regeneration restores it.
+
+This prevents a false pass where the obsidian remains but the water curtain disappeared. Companion restoration shares the stage's `max-blocks-per-cycle` budget with solid-block restoration.

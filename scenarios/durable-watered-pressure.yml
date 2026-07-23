@@ -1,0 +1,39 @@
+name: durable-watered-pressure
+cannon:
+  file: probe-one-dispenser.schem
+  origin: {x: -16, y: 0, z: 0}
+  fire-mode: tnt-probe
+  probe-tnt-origin: {x: 0, y: 1, z: 0}
+  probe-tnt-fuse-ticks: 80
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: watered
+  material: obsidian
+  direction: east
+  distance: 3
+  width: 1
+  height: 1
+  y-offset: 1
+  layers: 1
+  spacing: 3
+  regeneration:
+    enabled: true
+    delay-ticks: 40
+    interval-ticks: 5
+    max-blocks-per-cycle: 2
+  durability:
+    mode: simulate
+    expiration-ticks: 1200
+    only-tnt: true
+    hit-radius: 5.0
+    materials:
+      obsidian: 4
+run:
+  shots: 1
+  volleys-per-shot: 4
+  volley-interval-ticks: 100
+  warmup-ticks: 20
+  max-shot-ticks: 560
+  quiet-ticks: 80
+  shutdown-when-finished: true

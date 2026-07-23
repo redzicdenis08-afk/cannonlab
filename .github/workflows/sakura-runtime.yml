@@ -3,6 +3,7 @@ name: Exact Sakura Runtime
 on:
   pull_request:
     paths:
+      - '.github/workflows/sakura-runtime.yml'
       - 'src/**'
       - 'build.gradle*'
       - 'settings.gradle*'
@@ -166,6 +167,83 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CannonLab-Sakura-multi-TNT-${{ github.run_number }}
+          path: lab-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  sakura-durable-pressure:
+    needs: build-sakura
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout CannonLab
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Download pinned runtime bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: CannonLab-Sakura-build-${{ github.run_number }}
+          path: downloaded-sakura
+
+      - name: Restore prebuilt CannonLab plugin
+        run: |
+          mkdir -p build/libs
+          cp downloaded-sakura/sakura-runtime-bundle/build/libs/CannonLab-*.jar build/libs/
+          (cd downloaded-sakura && sha256sum --check sakura-runtime-bundle/runtime-bundle.sha256)
+
+      - name: Run native four-hit obsidian pressure on Sakura
+        env:
+          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/downloaded-sakura/sakura-runtime-bundle/sakura-26.1.2.jar
+          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 native durable pressure
+          CANNONLAB_SCENARIO: durable-dry-pressure.yml
+          CANNONLAB_EXPECTED_SHOTS: '1'
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '1'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '4'
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_MIN_TARGET_PEAK_DESTROYED: '1'
+          CANNONLAB_MIN_LAYER_BREACHED: '1'
+          CANNONLAB_MAX_SELF_DAMAGE_BLOCKS: '0'
+          CANNONLAB_MAX_COMPANION_MISSING: '0'
+          CANNONLAB_TIMEOUT_SECONDS: '600'
+          CANNONLAB_ARENA_RADIUS_X: '24'
+          CANNONLAB_ARENA_RADIUS_Y: '16'
+          CANNONLAB_ARENA_RADIUS_Z: '16'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Verify native Sakura durability selection
+        run: |
+          python - <<'PY'
+          import json
+          import csv
+          from pathlib import Path
+          summaries = list(Path('lab-artifacts/results').rglob('run-summary.json'))
+          events = list(Path('lab-artifacts/results').rglob('causal-events.csv'))
+          assert len(summaries) == 1, summaries
+          assert len(events) == 1, events
+          summary = json.loads(summaries[0].read_text())
+          with events[0].open(newline='', encoding='utf-8') as handle:
+              volley_events = sum(1 for row in csv.DictReader(handle) if row['event'] == 'VOLLEY_FIRE')
+          assert summary['durability']['configured_mode'] == 'AUTO', summary
+          assert summary['durability']['effective_mode'] == 'NATIVE', summary
+          assert summary['volleys_per_shot'] == 4, summary
+          assert summary['shots'][0]['target_peak_destroyed'] >= 1, summary
+          assert volley_events == 4, volley_events
+          print('Pinned Sakura selected native durability and broke the four-hit target.')
+          PY
+
+      - name: Upload Sakura durable-pressure evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-Sakura-durable-pressure-${{ github.run_number }}
           path: lab-artifacts/**
           if-no-files-found: warn
           retention-days: 30

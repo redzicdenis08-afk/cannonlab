@@ -1,0 +1,120 @@
+name: Defense Runtime V2
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/defense-runtime-v2.yml'
+      - 'src/**'
+      - 'scripts/cloud-smoke.sh'
+      - 'scripts/assert-results.py'
+      - 'scenarios/durable-dry-pressure.yml'
+      - 'scenarios/durable-watered-pressure.yml'
+      - 'cannons/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  paper-defense-pressure:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: durable-dry
+            scenario: durable-dry-pressure.yml
+            require_regen: 'false'
+            min_regen: ''
+          - label: durable-watered-regen
+            scenario: durable-watered-pressure.yml
+            require_regen: 'true'
+            min_regen: '1'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Build CannonLab
+        run: gradle clean build --stacktrace
+
+      - name: Run ${{ matrix.label }} sustained pressure
+        env:
+          CANNONLAB_SCENARIO: ${{ matrix.scenario }}
+          CANNONLAB_SERVER_LABEL: Paper 26.1.2 ${{ matrix.label }} pressure
+          CANNONLAB_EXPECTED_SHOTS: '1'
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '1'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '4'
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_MIN_TARGET_PEAK_DESTROYED: '1'
+          CANNONLAB_MIN_LAYER_BREACHED: '1'
+          CANNONLAB_MAX_SELF_DAMAGE_BLOCKS: '0'
+          CANNONLAB_MIN_DURABILITY_HITS: '3'
+          CANNONLAB_MIN_DURABILITY_BREAKS: '1'
+          CANNONLAB_MAX_COMPANION_MISSING: '0'
+          CANNONLAB_REQUIRE_REGEN: ${{ matrix.require_regen }}
+          CANNONLAB_MIN_REGEN_RESTORED: ${{ matrix.min_regen }}
+          CANNONLAB_TIMEOUT_SECONDS: '600'
+          CANNONLAB_ARENA_RADIUS_X: '24'
+          CANNONLAB_ARENA_RADIUS_Y: '16'
+          CANNONLAB_ARENA_RADIUS_Z: '16'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Verify durability mode and volley contract
+        run: |
+          python - <<'PY'
+          import json
+          import csv
+          from pathlib import Path
+          summaries = list(Path('lab-artifacts/results').rglob('run-summary.json'))
+          events = list(Path('lab-artifacts/results').rglob('events.csv'))
+          causal = list(Path('lab-artifacts/results').rglob('causal-events.csv'))
+          assert len(summaries) == 1, summaries
+          assert len(events) == 1, events
+          assert len(causal) == 1, causal
+          summary = json.loads(summaries[0].read_text())
+          with events[0].open(newline='', encoding='utf-8') as handle:
+              event_counts = {}
+              for row in csv.DictReader(handle):
+                  event_counts[row['event']] = event_counts.get(row['event'], 0) + 1
+          with causal[0].open(newline='', encoding='utf-8') as handle:
+              causal_counts = {}
+              for row in csv.DictReader(handle):
+                  causal_counts[row['event']] = causal_counts.get(row['event'], 0) + 1
+          assert summary['volleys_per_shot'] == 4, summary
+          assert summary['durability']['effective_mode'] == 'SIMULATE', summary
+          assert summary['shots'][0]['durability_hits'] >= 3, summary
+          assert summary['shots'][0]['durability_breaks'] >= 1, summary
+          assert summary['shots'][0]['companion_cells_missing'] == 0, summary
+          assert causal_counts.get('VOLLEY_FIRE') == 4, causal_counts
+          assert causal_counts.get('FIRE_INPUT') == 4, causal_counts
+          assert event_counts.get('DURABILITY_HIT', 0) >= 3, event_counts
+          assert event_counts.get('DURABILITY_BREAK', 0) >= 1, event_counts
+          print('Sustained Paper pressure, durability and companion-state contract passed.')
+          PY
+
+      - name: Upload ${{ matrix.label }} evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-defense-v2-${{ matrix.label }}-${{ github.run_number }}
+          path: lab-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30

@@ -1,6 +1,7 @@
 package io.github.redzicdenis08afk.cannonlab;
 
 import org.bukkit.Material;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
@@ -18,6 +19,8 @@ record LabScenario(
         BlockPoint fireInput,
         List<BlockPoint> fireInputs,
         BlockPoint directDispenser,
+        BlockPoint probeTntOrigin,
+        int probeTntFuseTicks,
         int firePulseTicks,
         boolean suppressPasteSideEffects,
         int settleBeforeFillTicks,
@@ -40,7 +43,10 @@ record LabScenario(
         int pillarSpacing,
         List<TargetStage> targetStages,
         RegenConfig regeneration,
+        DurabilityConfig durability,
         int shots,
+        int volleysPerShot,
+        int volleyIntervalTicks,
         int warmupTicks,
         int maxShotTicks,
         int quietTicks,
@@ -70,6 +76,11 @@ record LabScenario(
                 yaml,
                 "cannon.direct-dispenser",
                 new BlockPoint(fireInputs.getFirst().x() + 1, fireInputs.getFirst().y(), fireInputs.getFirst().z())
+        );
+        BlockPoint probeTntOrigin = point(
+                yaml,
+                "cannon.probe-tnt-origin",
+                new BlockPoint(0, 1, 0)
         );
 
         String fireModeName = yaml.getString("cannon.fire-mode", "redstone");
@@ -147,6 +158,7 @@ record LabScenario(
                 regeneration
         );
         List<TargetStage> targetStages = stages(yaml, legacyStage);
+        DurabilityConfig durability = durability(yaml);
 
         return new LabScenario(
                 scenarioName,
@@ -156,6 +168,8 @@ record LabScenario(
                 primaryFireInput,
                 fireInputs,
                 directDispenser,
+                probeTntOrigin,
+                Math.max(1, yaml.getInt("cannon.probe-tnt-fuse-ticks", 80)),
                 Math.max(1, yaml.getInt("cannon.fire-pulse-ticks", 2)),
                 suppressPasteSideEffects,
                 settleBeforeFillTicks,
@@ -178,7 +192,10 @@ record LabScenario(
                 pillarSpacing,
                 targetStages,
                 regeneration,
+                durability,
                 Math.max(1, yaml.getInt("run.shots", 1)),
+                Math.max(1, yaml.getInt("run.volleys-per-shot", 1)),
+                Math.max(1, yaml.getInt("run.volley-interval-ticks", 20)),
                 Math.max(1, yaml.getInt("run.warmup-ticks", 20)),
                 Math.max(20, yaml.getInt("run.max-shot-ticks", 240)),
                 Math.max(2, yaml.getInt("run.quiet-ticks", 20)),
@@ -228,6 +245,41 @@ record LabScenario(
                 Math.max(0, integer(values.get("delay-ticks"), fallback.delayTicks())),
                 Math.max(1, integer(values.get("interval-ticks"), fallback.intervalTicks())),
                 Math.max(1, integer(values.get("max-blocks-per-cycle"), fallback.maxBlocksPerCycle()))
+        );
+    }
+
+    private static DurabilityConfig durability(YamlConfiguration yaml) {
+        String rawMode = yaml.getString("target.durability.mode", "disabled");
+        DurabilityMode mode;
+        try {
+            mode = DurabilityMode.valueOf(normalize(rawMode));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException(
+                    "Unsupported target.durability.mode: " + rawMode,
+                    exception
+            );
+        }
+
+        Map<Material, Integer> materials = new LinkedHashMap<>();
+        ConfigurationSection section = yaml.getConfigurationSection("target.durability.materials");
+        if (section != null) {
+            for (String key : section.getKeys(false)) {
+                Material parsed = material(key, null, "target.durability.materials." + key);
+                materials.put(parsed, Math.max(1, section.getInt(key, 1)));
+            }
+        }
+        if (mode != DurabilityMode.DISABLED && materials.isEmpty()) {
+            materials.put(Material.OBSIDIAN, 4);
+            materials.put(Material.ANVIL, 3);
+            materials.put(Material.CHIPPED_ANVIL, 3);
+            materials.put(Material.DAMAGED_ANVIL, 3);
+        }
+        return new DurabilityConfig(
+                mode,
+                Math.max(1, yaml.getInt("target.durability.expiration-ticks", 1200)),
+                yaml.getBoolean("target.durability.only-tnt", true),
+                Math.max(0.5, yaml.getDouble("target.durability.hit-radius", 4.0)),
+                materials
         );
     }
 
@@ -350,6 +402,26 @@ record LabScenario(
     ) {
     }
 
+    record DurabilityConfig(
+            DurabilityMode mode,
+            int expirationTicks,
+            boolean onlyTnt,
+            double hitRadius,
+            Map<Material, Integer> materials
+    ) {
+        DurabilityConfig {
+            materials = Map.copyOf(materials);
+        }
+
+        boolean enabled() {
+            return mode != DurabilityMode.DISABLED && !materials.isEmpty();
+        }
+
+        int hitsToBreak(Material material) {
+            return materials.getOrDefault(material, 1);
+        }
+    }
+
     record TargetStage(
             String name,
             TargetType type,
@@ -371,7 +443,8 @@ record LabScenario(
     enum FireMode {
         REDSTONE,
         BUTTON,
-        DIRECT_DISPENSE
+        DIRECT_DISPENSE,
+        TNT_PROBE
     }
 
     enum TargetType {
@@ -389,5 +462,12 @@ record LabScenario(
         SOUTH,
         EAST,
         WEST
+    }
+
+    enum DurabilityMode {
+        DISABLED,
+        AUTO,
+        NATIVE,
+        SIMULATE
     }
 }

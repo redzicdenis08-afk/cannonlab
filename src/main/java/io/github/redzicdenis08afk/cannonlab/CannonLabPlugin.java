@@ -46,6 +46,7 @@ public final class CannonLabPlugin extends JavaPlugin {
         recorder = new ShotRecorder(this);
         runController = new LabRunController(this, worldEditService, recorder);
         Bukkit.getPluginManager().registerEvents(recorder, this);
+        Bukkit.getPluginManager().registerEvents(runController, this);
 
         getLogger().info("CannonLab 0.3 enabled. WorldEdit automation is ready."
                 + " Forced chunks=" + forcedChunks.size());
