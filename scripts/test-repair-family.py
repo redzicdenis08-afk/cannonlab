@@ -302,7 +302,26 @@ def main() -> int:
         )
         assert [shot for shot, _ in subject.available_shot_traces(multi_summary)] == [1, 2]
 
-    print("Repair-family ranking promotes the bounded stable fix and rejects the destructive drifting variant.")
+        empty_results = root / "empty-results"
+        empty_results.mkdir()
+        subject.load_script = lambda name, filename: fake_tools[filename]
+        try:
+            empty_report = subject.build_report(
+                reference_schematic,
+                reference_summary,
+                [empty_results],
+                [cannons],
+                max_runtime_contract_runs=1,
+            )
+        finally:
+            subject.load_script = original_loader
+        assert empty_report["status"] == "FAIL", empty_report
+        assert empty_report["candidate_count"] == 0, empty_report
+        assert "no_candidate_repairs_resolved" in empty_report["failures"], empty_report
+
+    print(
+        "Repair-family ranking promotes the bounded stable fix, rejects destructive drift, and fails closed when no candidates resolve."
+    )
     return 0
 
 

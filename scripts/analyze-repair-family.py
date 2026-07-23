@@ -821,8 +821,9 @@ def build_report(
         str(row["cannon_file"]),
     ))
 
+    failures = [] if candidates else ["no_candidate_repairs_resolved"]
     return {
-        "status": "PASS",
+        "status": "PASS" if not failures else "FAIL",
         "schema": "cannonlab-repair-family-v1",
         "reference": {
             "schematic": str(reference_schematic),
@@ -859,6 +860,7 @@ def build_report(
         },
         "candidate_count": len(candidates),
         "pareto_front_count": sum(bool(row["pareto_front"]) for row in candidates),
+        "failures": failures,
         "candidates": candidates,
         "skipped": skipped,
         "truth_boundary": (
@@ -905,7 +907,7 @@ def main() -> int:
         args.json_out.parent.mkdir(parents=True, exist_ok=True)
         args.json_out.write_text(rendered + "\n", encoding="utf-8")
     print(rendered)
-    return 0
+    return 0 if report["status"] == "PASS" else 2
 
 
 if __name__ == "__main__":
