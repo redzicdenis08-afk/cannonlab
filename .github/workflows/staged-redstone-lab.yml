@@ -27,67 +27,72 @@ jobs:
 
           scenario = Path('src/main/java/io/github/redzicdenis08afk/cannonlab/LabScenario.java')
           text = scenario.read_text()
-          old = '        List<BlockPoint> fireInputs,\n        BlockPoint directDispenser,'
-          new = '        List<BlockPoint> fireInputs,\n        List<BlockPoint> delayedFireInputs,\n        int delayedFireTicks,\n        BlockPoint directDispenser,'
-          assert old in text
-          text = text.replace(old, new, 1)
-          old = '        fireInputs = List.copyOf(fireInputs);\n        targetStages = List.copyOf(targetStages);'
-          new = '        fireInputs = List.copyOf(fireInputs);\n        delayedFireInputs = List.copyOf(delayedFireInputs);\n        targetStages = List.copyOf(targetStages);'
-          assert old in text
-          text = text.replace(old, new, 1)
-          old = '''        List<BlockPoint> fireInputs = configuredInputs.isEmpty()
-                  ? List.of(primaryFireInput)
-                  : configuredInputs;
-          BlockPoint directDispenser'''
-          new = '''        List<BlockPoint> fireInputs = configuredInputs.isEmpty()
-                  ? List.of(primaryFireInput)
-                  : configuredInputs;
-          List<BlockPoint> delayedFireInputs = points(yaml, "cannon.delayed-fire-inputs");
-          int delayedFireTicks = Math.max(0, yaml.getInt("cannon.delayed-fire-ticks", 0));
-          BlockPoint directDispenser'''
-          assert old in text
-          text = text.replace(old, new, 1)
-          old = '                fireInputs,\n                directDispenser,'
-          new = '                fireInputs,\n                delayedFireInputs,\n                delayedFireTicks,\n                directDispenser,'
-          assert old in text
-          text = text.replace(old, new, 1)
+          text = text.replace(
+              '        List<BlockPoint> fireInputs,\n        BlockPoint directDispenser,',
+              '        List<BlockPoint> fireInputs,\n        List<BlockPoint> delayedFireInputs,\n        int delayedFireTicks,\n        BlockPoint directDispenser,',
+              1,
+          )
+          text = text.replace(
+              '        fireInputs = List.copyOf(fireInputs);\n        targetStages = List.copyOf(targetStages);',
+              '        fireInputs = List.copyOf(fireInputs);\n        delayedFireInputs = List.copyOf(delayedFireInputs);\n        targetStages = List.copyOf(targetStages);',
+              1,
+          )
+          anchor = '        BlockPoint directDispenser = point(\n'
+          insertion = ('        List<BlockPoint> delayedFireInputs = points(yaml, "cannon.delayed-fire-inputs");\n'
+                       '        int delayedFireTicks = Math.max(0, yaml.getInt("cannon.delayed-fire-ticks", 0));\n')
+          text = text.replace(anchor, insertion + anchor, 1)
+          text = text.replace(
+              '                fireInputs,\n                directDispenser,',
+              '                fireInputs,\n                delayedFireInputs,\n                delayedFireTicks,\n                directDispenser,',
+              1,
+          )
+          required = ('List<BlockPoint> delayedFireInputs', 'delayedFireInputs = List.copyOf',
+                      'cannon.delayed-fire-inputs', 'delayedFireTicks,\n                directDispenser')
+          assert all(token in text for token in required), required
           scenario.write_text(text)
 
           controller = Path('src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java')
           text = controller.read_text()
-          old = '            case REDSTONE -> pulseRedstone(world, pasteOrigin);'
-          new = '''            case REDSTONE -> {
-                  pulseRedstone(world, pasteOrigin, scenario.fireInputs(), "primary");
-                  if (!scenario.delayedFireInputs().isEmpty()) {
-                      Bukkit.getScheduler().runTaskLater(plugin, () ->
-                              pulseRedstone(world, pasteOrigin, scenario.delayedFireInputs(), "delayed"),
-                              scenario.delayedFireTicks());
-                  }
-              }'''
-          assert old in text
-          text = text.replace(old, new, 1)
-          old = '''    private void pulseRedstone(World world, Location pasteOrigin) {
-          Map<String, PulseState> uniquePulses = new LinkedHashMap<>();
-          for (LabScenario.BlockPoint point : scenario.fireInputs()) {'''
-          new = '''    private void pulseRedstone(
-              World world,
-              Location pasteOrigin,
-              List<LabScenario.BlockPoint> inputs,
-              String stage
-          ) {
-          Map<String, PulseState> uniquePulses = new LinkedHashMap<>();
-          for (LabScenario.BlockPoint point : inputs) {'''
-          assert old in text
-          text = text.replace(old, new, 1)
+          text = text.replace(
+              '            case REDSTONE -> pulseRedstone(world, pasteOrigin);',
+              '''            case REDSTONE -> {
+                pulseRedstone(world, pasteOrigin, scenario.fireInputs(), "primary");
+                if (!scenario.delayedFireInputs().isEmpty()) {
+                    Bukkit.getScheduler().runTaskLater(plugin, () ->
+                            pulseRedstone(world, pasteOrigin, scenario.delayedFireInputs(), "delayed"),
+                            scenario.delayedFireTicks());
+                }
+            }''',
+              1,
+          )
+          text = text.replace(
+              '    private void pulseRedstone(World world, Location pasteOrigin) {',
+              '''    private void pulseRedstone(
+            World world,
+            Location pasteOrigin,
+            List<LabScenario.BlockPoint> inputs,
+            String stage
+    ) {''',
+              1,
+          )
+          text = text.replace(
+              '        for (LabScenario.BlockPoint point : scenario.fireInputs()) {\n            Location pulseLocation',
+              '        for (LabScenario.BlockPoint point : inputs) {\n            Location pulseLocation',
+              1,
+          )
           text = text.replace(
               '            throw new IllegalStateException("No redstone fire inputs configured.");',
               '            throw new IllegalStateException("No redstone fire inputs configured for stage " + stage + ".");',
               1,
           )
-          old = '                    "previous=" + pulse.previousType() + ";pulse_ticks=" + scenario.firePulseTicks()'
-          new = '                    "stage=" + stage + ";previous=" + pulse.previousType() + ";pulse_ticks=" + scenario.firePulseTicks()'
-          assert old in text
-          text = text.replace(old, new, 1)
+          text = text.replace(
+              '                    "previous=" + pulse.previousType() + ";pulse_ticks=" + scenario.firePulseTicks()',
+              '                    "stage=" + stage + ";previous=" + pulse.previousType() + ";pulse_ticks=" + scenario.firePulseTicks()',
+              1,
+          )
+          required = ('scenario.delayedFireInputs()', 'List<LabScenario.BlockPoint> inputs',
+                      'for (LabScenario.BlockPoint point : inputs)', '"stage=" + stage')
+          assert all(token in text for token in required), required
           controller.write_text(text)
           PY
       - name: Build patched CannonLab
