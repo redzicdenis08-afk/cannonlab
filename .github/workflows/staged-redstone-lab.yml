@@ -1,0 +1,39 @@
+name: Staged Cannon Control Lab
+
+on:
+  push:
+    branches:
+      - lab/staged-redstone-runtime
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Add staged redstone and timed lever controls
+        run: python3 scripts/patch-staged-redstone.py
+      - name: Build patched CannonLab
+        run: gradle clean build --stacktrace
+      - name: Package diagnostic plugin
+        run: |
+          mkdir -p staged-lab
+          cp build/libs/CannonLab-*.jar staged-lab/CannonLab-staged-controls.jar
+          sha256sum staged-lab/CannonLab-staged-controls.jar > staged-lab/sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-Staged-Controls
+          path: staged-lab/**
+          retention-days: 1

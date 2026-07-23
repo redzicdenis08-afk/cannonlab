@@ -1,0 +1,36 @@
+name: Selective Fill PR Build
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Patch selective native-button fill
+        run: python3 scripts/patch-selective-fill.py
+      - name: Build
+        run: gradle clean build --stacktrace
+      - name: Package
+        run: |
+          mkdir -p selective-fill
+          cp build/libs/CannonLab-*.jar selective-fill/CannonLab-selective-fill.jar
+          sha256sum selective-fill/CannonLab-selective-fill.jar > selective-fill/sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-Selective-Fill
+          path: selective-fill/**
+          retention-days: 1

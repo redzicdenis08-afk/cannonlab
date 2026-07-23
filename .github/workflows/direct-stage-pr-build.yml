@@ -1,0 +1,36 @@
+name: Direct Stage PR Build
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Patch direct staged replay
+        run: python3 scripts/patch-direct-stage.py
+      - name: Build
+        run: gradle clean build --stacktrace
+      - name: Package
+        run: |
+          mkdir -p direct-stage
+          cp build/libs/CannonLab-*.jar direct-stage/CannonLab-direct-stage.jar
+          sha256sum direct-stage/CannonLab-direct-stage.jar > direct-stage/sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-Direct-Stage
+          path: direct-stage/**
+          retention-days: 1
