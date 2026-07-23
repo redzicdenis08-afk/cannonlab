@@ -19,6 +19,9 @@ record LabScenario(
         List<BlockPoint> fireInputs,
         BlockPoint directDispenser,
         int firePulseTicks,
+        boolean suppressPasteSideEffects,
+        int settleBeforeFillTicks,
+        int fillToFireTicks,
         boolean enforceDispenserLimit,
         TargetType targetType,
         TargetDirection targetDirection,
@@ -80,6 +83,10 @@ record LabScenario(
                 throw new IllegalArgumentException("Unsupported cannon.fire-mode: " + fireModeName, exception);
             }
         }
+
+        boolean suppressPasteSideEffects = yaml.getBoolean("cannon.suppress-paste-side-effects", false);
+        int settleBeforeFillTicks = Math.max(0, yaml.getInt("cannon.settle-before-fill-ticks", 0));
+        int fillToFireTicks = Math.max(0, yaml.getInt("cannon.fill-to-fire-ticks", 0));
 
         TargetType targetType = targetType(yaml.getString("target.type", "watered"), "target.type");
         TargetDirection targetDirection = targetDirection(
@@ -150,6 +157,9 @@ record LabScenario(
                 fireInputs,
                 directDispenser,
                 Math.max(1, yaml.getInt("cannon.fire-pulse-ticks", 2)),
+                suppressPasteSideEffects,
+                settleBeforeFillTicks,
+                fillToFireTicks,
                 yaml.getBoolean("limits.enforce-dispenser-limit", true),
                 targetType,
                 targetDirection,
@@ -360,6 +370,7 @@ record LabScenario(
 
     enum FireMode {
         REDSTONE,
+        BUTTON,
         DIRECT_DISPENSE
     }
 

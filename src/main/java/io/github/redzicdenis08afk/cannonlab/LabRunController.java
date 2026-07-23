@@ -131,7 +131,8 @@ final class LabRunController {
                     world,
                     schematic,
                     pasteOrigin,
-                    false
+                    false,
+                    scenario.suppressPasteSideEffects()
             );
 
             TargetBuild targetBuild = scenario.targetFile().isBlank()
@@ -140,7 +141,7 @@ final class LabRunController {
             targetCells = targetBuild.cells();
             targetBounds = targetBuild.bounds();
 
-            FillAudit audit = auditAndFill(world, pasteResult);
+            FillAudit audit = auditDispensers(world, pasteResult);
             int dispenserLimitPerChunk = dispenserLimitPerChunk();
             if (scenario.enforceDispenserLimit()
                     && audit.maximumPerChunk() > dispenserLimitPerChunk) {
@@ -189,6 +190,28 @@ final class LabRunController {
             );
             regenMonitor.start();
 
+            long fillDelay = scenario.settleBeforeFillTicks();
+            Runnable fillAction = () -> {
+                try {
+                    int filled = fillDispensers(world, pasteResult);
+                    plugin.getLogger().info("Filled " + filled + " dispensers after "
+                            + fillDelay + " empty-settle ticks.");
+                } catch (RuntimeException exception) {
+                    plugin.getLogger().severe("Shot " + shotNumber
+                            + " fill failed: " + exception.getMessage());
+                    exception.printStackTrace();
+                }
+            };
+            if (fillDelay == 0) {
+                fillAction.run();
+            } else {
+                Bukkit.getScheduler().runTaskLater(plugin, fillAction, fillDelay);
+            }
+
+            long fireDelay = Math.max(
+                    scenario.warmupTicks(),
+                    fillDelay + scenario.fillToFireTicks()
+            );
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 try {
                     fire(world, pasteOrigin);
@@ -197,7 +220,7 @@ final class LabRunController {
                             + " firing failed: " + exception.getMessage());
                     exception.printStackTrace();
                 }
-            }, scenario.warmupTicks());
+            }, fireDelay);
         } catch (IOException | WorldEditException | RuntimeException exception) {
             stopRegenMonitor();
             plugin.getLogger().severe("Run preparation failed: " + exception.getMessage());
@@ -217,6 +240,7 @@ final class LabRunController {
 
         switch (scenario.fireMode()) {
             case DIRECT_DISPENSE -> dispenseDirectly(world, pasteOrigin);
+            case BUTTON -> pressButtons(world, pasteOrigin);
             case REDSTONE -> pulseRedstone(world, pasteOrigin);
         }
     }
@@ -244,6 +268,69 @@ final class LabRunController {
         if (!dispensed || tntAfter >= tntBefore) {
             throw new IllegalStateException("Dispenser API did not consume TNT at "
                     + coordinates(dispenserLocation));
+        }
+    }
+
+    private void pressButtons(World world, Location pasteOrigin) {
+        int pressed = 0;
+        for (LabScenario.BlockPoint point : scenario.fireInputs()) {
+            Location location = relative(pasteOrigin, point);
+            Block block = world.getBlockAt(location);
+            BlockData data = block.getBlockData();
+            if (!block.getType().name().endsWith("_BUTTON")) {
+                throw new IllegalStateException("Button fire coordinate "
+                        + coordinates(location) + " contains " + data.getAsString());
+            }
+            recorder.recordControlEvent(
+                    "FIRE_INPUT",
+                    location,
+                    "mode=button;implementation=native-button-block"
+            );
+            pressNativeButton(block);
+            pressed++;
+        }
+        if (pressed == 0) {
+            throw new IllegalStateException("No button fire inputs configured.");
+        }
+    }
+
+    private void pressNativeButton(Block block) {
+        try {
+            Class<?> craftBlockClass = Class.forName("org.bukkit.craftbukkit.block.CraftBlock");
+            Class<?> buttonBlockClass = Class.forName("net.minecraft.world.level.block.ButtonBlock");
+            if (!craftBlockClass.isInstance(block)) {
+                throw new IllegalStateException("Unsupported Bukkit block implementation: "
+                        + block.getClass().getName());
+            }
+
+            Object state = craftBlockClass.getMethod("getBlockState").invoke(block);
+            Object nmsBlock = state.getClass().getMethod("getBlock").invoke(state);
+            if (!buttonBlockClass.isInstance(nmsBlock)) {
+                throw new IllegalStateException("Block is not backed by ButtonBlock: "
+                        + nmsBlock.getClass().getName());
+            }
+            Object level = craftBlockClass.getMethod("getLevel").invoke(block);
+            Object position = craftBlockClass.getMethod("getPosition").invoke(block);
+
+            java.lang.reflect.Method press = null;
+            for (java.lang.reflect.Method candidate : buttonBlockClass.getMethods()) {
+                if (candidate.getName().equals("press") && candidate.getParameterCount() == 4) {
+                    press = candidate;
+                    break;
+                }
+            }
+            if (press == null) {
+                throw new NoSuchMethodException("ButtonBlock.press(BlockState, Level, BlockPos, Player)");
+            }
+            press.invoke(nmsBlock, state, level, position, null);
+            plugin.getLogger().info("Native button press at " + coordinates(block.getLocation()));
+        } catch (ReflectiveOperationException exception) {
+            Throwable cause = exception instanceof java.lang.reflect.InvocationTargetException
+                    && exception.getCause() != null
+                    ? exception.getCause()
+                    : exception;
+            throw new IllegalStateException("Unable to invoke native button press at "
+                    + coordinates(block.getLocation()) + ": " + cause, cause);
         }
     }
 
@@ -724,7 +811,7 @@ final class LabRunController {
         }
     }
 
-    private FillAudit auditAndFill(World world, WorldEditService.PasteResult result) {
+    private FillAudit auditDispensers(World world, WorldEditService.PasteResult result) {
         Map<ChunkKey, Integer> counts = new HashMap<>();
         int total = 0;
 
@@ -738,16 +825,6 @@ final class LabRunController {
                     }
 
                     dispenser.getInventory().clear();
-                    for (int slot = 0; slot < dispenser.getInventory().getSize(); slot++) {
-                        dispenser.getInventory().setItem(slot, new ItemStack(Material.TNT, 64));
-                    }
-
-                    int expectedTnt = dispenser.getInventory().getSize() * 64;
-                    if (countTnt(dispenser) != expectedTnt) {
-                        throw new IllegalStateException("TNT fill verification failed at "
-                                + x + "," + y + "," + z);
-                    }
-
                     total++;
                     counts.merge(new ChunkKey(x >> 4, z >> 4), 1, Integer::sum);
                 }
@@ -763,6 +840,32 @@ final class LabRunController {
             }
         }
         return new FillAudit(total, max, maxChunk, new LinkedHashMap<>(counts));
+    }
+
+    private int fillDispensers(World world, WorldEditService.PasteResult result) {
+        int total = 0;
+        for (int x = result.minimum().x(); x <= result.maximum().x(); x++) {
+            for (int y = Math.max(world.getMinHeight(), result.minimum().y());
+                 y <= Math.min(world.getMaxHeight() - 1, result.maximum().y()); y++) {
+                for (int z = result.minimum().z(); z <= result.maximum().z(); z++) {
+                    BlockState state = world.getBlockAt(x, y, z).getState();
+                    if (!(state instanceof Dispenser dispenser)) {
+                        continue;
+                    }
+                    dispenser.getInventory().clear();
+                    for (int slot = 0; slot < dispenser.getInventory().getSize(); slot++) {
+                        dispenser.getInventory().setItem(slot, new ItemStack(Material.TNT, 64));
+                    }
+                    int expectedTnt = dispenser.getInventory().getSize() * 64;
+                    if (countTnt(dispenser) != expectedTnt) {
+                        throw new IllegalStateException("TNT fill verification failed at "
+                                + x + "," + y + "," + z);
+                    }
+                    total++;
+                }
+            }
+        }
+        return total;
     }
 
     private int dispenserLimitPerChunk() {

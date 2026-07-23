@@ -13,6 +13,7 @@ import com.sk89q.worldedit.function.operation.Operations;
 import com.sk89q.worldedit.math.BlockVector3;
 import com.sk89q.worldedit.regions.CuboidRegion;
 import com.sk89q.worldedit.session.ClipboardHolder;
+import com.sk89q.worldedit.util.SideEffectSet;
 import com.sk89q.worldedit.world.block.BlockTypes;
 import org.bukkit.Location;
 import org.bukkit.World;
@@ -45,6 +46,16 @@ final class WorldEditService {
 
     PasteResult paste(World world, File schematic, Location destination, boolean ignoreAir)
             throws IOException, WorldEditException {
+        return paste(world, schematic, destination, ignoreAir, false);
+    }
+
+    PasteResult paste(
+            World world,
+            File schematic,
+            Location destination,
+            boolean ignoreAir,
+            boolean suppressSideEffects
+    ) throws IOException, WorldEditException {
         ClipboardFormat format = ClipboardFormats.findByFile(schematic);
         if (format == null) {
             throw new IOException("Unknown schematic format: " + schematic.getName());
@@ -60,6 +71,10 @@ final class WorldEditService {
 
         try (EditSession editSession = WorldEdit.getInstance()
                 .newEditSession(BukkitAdapter.adapt(world))) {
+            if (suppressSideEffects) {
+                editSession.setFastMode(true);
+                editSession.setSideEffectApplier(SideEffectSet.none());
+            }
             Operation operation = new ClipboardHolder(clipboard)
                     .createPaste(editSession)
                     .to(target)
