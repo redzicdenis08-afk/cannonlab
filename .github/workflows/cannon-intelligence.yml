@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'scripts/schem-audit.py'
+      - 'scripts/test-schem-recovery.py'
       - 'scripts/cannon-static-map.py'
       - 'scripts/cannon-module-map.py'
       - 'scripts/cannon-preservation-check.py'
@@ -47,6 +48,7 @@ jobs:
         run: |
           python -m py_compile \
             scripts/schem-audit.py \
+            scripts/test-schem-recovery.py \
             scripts/cannon-static-map.py \
             scripts/cannon-module-map.py \
             scripts/cannon-preservation-check.py \
@@ -90,6 +92,10 @@ jobs:
           assert modules['truth_boundary']['runtime_roles_confirmed'] is False, modules
           print('Static mapping preserves geometry and reports real functional height.')
           PY
+
+      - name: Prove narrow corrupted-gzip recovery
+        run: |
+          python scripts/test-schem-recovery.py
 
       - name: Prove module-preservation gate
         run: |
