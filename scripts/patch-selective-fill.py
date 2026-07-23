@@ -14,40 +14,89 @@ text = one(
     text,
     "        List<BlockPoint> fireInputs,\n        BlockPoint directDispenser,",
     "        List<BlockPoint> fireInputs,\n"
+    "        List<BlockPoint> delayedButtonInputs,\n"
+    "        int delayedButtonTicks,\n"
     "        List<BlockPoint> fillDispensers,\n"
     "        int fillTntPerDispenser,\n"
     "        BlockPoint directDispenser,",
-    "record fill fields",
+    "record diagnostic fields",
 )
 text = one(
     text,
     "        fireInputs = List.copyOf(fireInputs);\n        targetStages = List.copyOf(targetStages);",
     "        fireInputs = List.copyOf(fireInputs);\n"
+    "        delayedButtonInputs = List.copyOf(delayedButtonInputs);\n"
     "        fillDispensers = List.copyOf(fillDispensers);\n"
     "        targetStages = List.copyOf(targetStages);",
-    "immutable fill list",
+    "immutable diagnostic lists",
 )
 text = one(
     text,
     "        BlockPoint directDispenser = point(\n",
+    "        List<BlockPoint> delayedButtonInputs = points(yaml, \"cannon.delayed-button-inputs\");\n"
+    "        int delayedButtonTicks = Math.max(0, yaml.getInt(\"cannon.delayed-button-ticks\", 0));\n"
     "        List<BlockPoint> fillDispensers = points(yaml, \"cannon.fill-dispensers\");\n"
     "        int fillTntPerDispenser = Math.max(1, Math.min(576, yaml.getInt(\"cannon.fill-tnt-per-dispenser\", 576)));\n"
     "        BlockPoint directDispenser = point(\n",
-    "parse fill settings",
+    "parse diagnostic settings",
 )
 text = one(
     text,
     "                fireInputs,\n                directDispenser,",
     "                fireInputs,\n"
+    "                delayedButtonInputs,\n"
+    "                delayedButtonTicks,\n"
     "                fillDispensers,\n"
     "                fillTntPerDispenser,\n"
     "                directDispenser,",
-    "constructor fill args",
+    "constructor diagnostic args",
 )
 scenario.write_text(text)
 
 controller = Path("src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java")
 text = controller.read_text()
+text = one(
+    text,
+    "            case BUTTON -> pressButtons(world, pasteOrigin);",
+    '''            case BUTTON -> {
+                pressButtons(world, pasteOrigin, scenario.fireInputs(), "primary");
+                if (!scenario.delayedButtonInputs().isEmpty()) {
+                    Bukkit.getScheduler().runTaskLater(plugin, () ->
+                                    pressButtons(world, pasteOrigin, scenario.delayedButtonInputs(), "delayed"),
+                            scenario.delayedButtonTicks());
+                }
+            }''',
+    "button staging switch",
+)
+text = one(
+    text,
+    "    private void pressButtons(World world, Location pasteOrigin) {",
+    '''    private void pressButtons(
+            World world,
+            Location pasteOrigin,
+            List<LabScenario.BlockPoint> inputs,
+            String stage
+    ) {''',
+    "button method signature",
+)
+text = one(
+    text,
+    "        for (LabScenario.BlockPoint point : scenario.fireInputs()) {",
+    "        for (LabScenario.BlockPoint point : inputs) {",
+    "button input loop",
+)
+text = one(
+    text,
+    '                    "mode=button;implementation=native-button-block"',
+    '                    "mode=button;stage=" + stage + ";implementation=native-button-block"',
+    "button telemetry stage",
+)
+text = one(
+    text,
+    '            throw new IllegalStateException("No button fire inputs configured.");',
+    '            throw new IllegalStateException("No button fire inputs configured for stage " + stage + ".");',
+    "button empty error",
+)
 text = one(
     text,
     "                    int filled = fillDispensers(world, pasteResult);",
@@ -149,4 +198,4 @@ new_method = '''    private int fillDispensers(
 '''
 text = one(text, old_method, new_method, "fill method")
 controller.write_text(text)
-print("selective exact-fill patch applied")
+print("selective exact-fill + delayed native-button patch applied")
