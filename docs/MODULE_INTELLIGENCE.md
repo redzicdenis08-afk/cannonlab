@@ -117,9 +117,11 @@ Candidate entity, source-component, and explosion coordinates are transformed ba
 
 ## Repair-family ranking
 
-`scripts/analyze-repair-family.py` compares multiple bounded repair variants against one exact reference and its run summary. It deduplicates mirrored run summaries by `run_id`, rejects conflicting duplicates and mismatched target, distance, layer, bounds, arena, and regeneration contracts before ranking, consumes every available bounded shot trace, and combines repeat-shot completion, dispenser survival, self-damage reduction, target retention, repeatability, structural preservation, and unchanged-module runtime contracts. The report exposes every score component, identifies the Pareto front, and separates a clean bounded repair from a performance win that damages unrelated modules.
+`scripts/analyze-repair-family.py` compares multiple bounded repair variants against one exact reference and its run summary. It deduplicates mirrored run summaries by `run_id`, rejects conflicting duplicates and mismatched target, distance, layer, bounds, arena, and regeneration contracts, then uses three evidence stages: run metrics for every candidate, exact geometry for the strongest metric-screened candidates, and causal replay for the strongest bounded geometry candidates. Configurable geometry and runtime budgets make large experiment archives practical without promoting missing evidence. Candidates skipped by either stage remain visible and explicitly non-promotable. The final report exposes metric, geometry, and final scores, identifies the Pareto front only among runtime-tested candidates, and separates a clean bounded repair from a performance win that damages unrelated modules.
 
 A candidate is not promotion-ready unless it has completed runtime evidence, passes the scenario contract, meets survival and target-retention thresholds, reduces self-damage, stays within the structural-change budget, and preserves protected module behavior.
+
+`scripts/extend-repair-family-runtime.py` consumes an existing tournament report and adds causal replay to a requested runtime-rank window. It reuses the prior metric and geometry evidence, skips ranks already tested unless explicitly requested, and fails closed when the report has no eligible candidates. This is the fast path for expanding ranks 9–12, 13–16, and later windows without repeating the static tournament.
 
 ## Required workflow for advanced edits
 

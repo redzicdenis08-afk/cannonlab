@@ -7,6 +7,7 @@ import json
 import math
 import re
 import statistics
+import time
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Iterable
@@ -567,7 +568,7 @@ def repair_score(
         for report in runtime_reports
         if report.get("status") in {"PASS", "FAIL"}
     )
-    collateral = 1.0 - failed / max(1, protected)
+    collateral = 1.0 - failed / protected if protected > 0 else 0.0
     repeatability = mean([
         float(performance.get("self_damage_stability") or 0.0),
         float(performance.get("target_damage_stability") or 0.0),
@@ -600,6 +601,172 @@ def repair_score(
     return round(score, 6), {key: round(value, 6) for key, value in components.items()}
 
 
+def screening_score(
+    performance: dict[str, Any],
+    baseline: dict[str, Any],
+    structural_change_ratio: float,
+    comparison: dict[str, Any],
+) -> tuple[float, dict[str, float]]:
+    baseline_self = float(baseline.get("mean_self_damage") or 0.0)
+    baseline_target = float(baseline.get("mean_target_destroyed") or 0.0)
+    self_reduction = (
+        baseline_self - float(performance.get("mean_self_damage") or 0.0)
+    ) / max(1.0, baseline_self)
+    target_retention = (
+        float(performance.get("mean_target_destroyed") or 0.0)
+        / max(1.0, baseline_target)
+    )
+    repeatability = mean([
+        float(performance.get("self_damage_stability") or 0.0),
+        float(performance.get("target_damage_stability") or 0.0),
+        float(performance.get("explosion_stability") or 0.0),
+        float(performance.get("spawn_stability") or 0.0),
+    ])
+    comparison_summary = comparison.get("summary") or {}
+    exact_coverage = float(
+        comparison_summary.get("first_exact_component_coverage") or 0.0
+    )
+    components = {
+        "reliability": max(0.0, min(1.0, mean([
+            float(performance.get("completion_rate") or 0.0),
+            1.0 - float(performance.get("error_rate") or 0.0),
+            float(performance.get("contract_pass_rate") or 0.0),
+        ]))),
+        "dispenser_survival": max(
+            0.0,
+            min(1.0, float(performance.get("mean_dispenser_survival") or 0.0)),
+        ),
+        "self_damage_reduction": max(0.0, min(1.0, self_reduction)),
+        "target_retention": max(0.0, min(1.0, target_retention)),
+        "repeatability": max(0.0, min(1.0, repeatability)),
+        "structural_preservation": max(
+            0.0,
+            min(1.0, 1.0 - structural_change_ratio),
+        ),
+        "exact_module_coverage": max(0.0, min(1.0, exact_coverage)),
+    }
+    weights = {
+        "reliability": 0.25,
+        "dispenser_survival": 0.25,
+        "self_damage_reduction": 0.20,
+        "target_retention": 0.15,
+        "repeatability": 0.08,
+        "structural_preservation": 0.04,
+        "exact_module_coverage": 0.03,
+    }
+    score = sum(components[key] * weights[key] for key in weights) * 100.0
+    return round(score, 6), {
+        key: round(value, 6)
+        for key, value in components.items()
+    }
+
+
+def metric_screening_score(
+    performance: dict[str, Any],
+    baseline: dict[str, Any],
+) -> tuple[float, dict[str, float]]:
+    baseline_self = float(baseline.get("mean_self_damage") or 0.0)
+    baseline_target = float(baseline.get("mean_target_destroyed") or 0.0)
+    self_reduction = (
+        baseline_self - float(performance.get("mean_self_damage") or 0.0)
+    ) / max(1.0, baseline_self)
+    target_retention = (
+        float(performance.get("mean_target_destroyed") or 0.0)
+        / max(1.0, baseline_target)
+    )
+    repeatability = mean([
+        float(performance.get("self_damage_stability") or 0.0),
+        float(performance.get("target_damage_stability") or 0.0),
+        float(performance.get("explosion_stability") or 0.0),
+        float(performance.get("spawn_stability") or 0.0),
+    ])
+    components = {
+        "reliability": max(0.0, min(1.0, mean([
+            float(performance.get("completion_rate") or 0.0),
+            1.0 - float(performance.get("error_rate") or 0.0),
+            float(performance.get("contract_pass_rate") or 0.0),
+        ]))),
+        "dispenser_survival": max(
+            0.0,
+            min(1.0, float(performance.get("mean_dispenser_survival") or 0.0)),
+        ),
+        "self_damage_reduction": max(0.0, min(1.0, self_reduction)),
+        "target_retention": max(0.0, min(1.0, target_retention)),
+        "repeatability": max(0.0, min(1.0, repeatability)),
+    }
+    weights = {
+        "reliability": 0.30,
+        "dispenser_survival": 0.30,
+        "self_damage_reduction": 0.20,
+        "target_retention": 0.15,
+        "repeatability": 0.05,
+    }
+    score = sum(components[key] * weights[key] for key in weights) * 100.0
+    return round(score, 6), {
+        key: round(value, 6)
+        for key, value in components.items()
+    }
+
+
+def passes_metric_screen(
+    performance: dict[str, Any],
+    baseline: dict[str, Any],
+    *,
+    minimum_dispenser_survival: float,
+    minimum_self_damage_reduction: float,
+    minimum_target_retention: float,
+) -> bool:
+    self_reduction = (
+        float(baseline.get("mean_self_damage") or 0.0)
+        - float(performance.get("mean_self_damage") or 0.0)
+    ) / max(1.0, float(baseline.get("mean_self_damage") or 0.0))
+    target_retention = (
+        float(performance.get("mean_target_destroyed") or 0.0)
+        / max(1.0, float(baseline.get("mean_target_destroyed") or 0.0))
+    )
+    return all((
+        int(performance.get("shot_count") or 0) > 0,
+        float(performance.get("completion_rate") or 0.0) >= 1.0,
+        float(performance.get("error_rate") or 0.0) <= 0.0,
+        float(performance.get("contract_pass_rate") or 0.0) >= 1.0,
+        float(performance.get("mean_dispenser_survival") or 0.0)
+        >= minimum_dispenser_survival,
+        self_reduction >= minimum_self_damage_reduction,
+        target_retention >= minimum_target_retention,
+    ))
+
+
+def passes_runtime_screen(
+    performance: dict[str, Any],
+    baseline: dict[str, Any],
+    structural_change_ratio: float,
+    *,
+    minimum_dispenser_survival: float,
+    minimum_self_damage_reduction: float,
+    minimum_target_retention: float,
+    maximum_structural_change_ratio: float,
+) -> bool:
+    self_reduction = (
+        float(baseline.get("mean_self_damage") or 0.0)
+        - float(performance.get("mean_self_damage") or 0.0)
+    ) / max(1.0, float(baseline.get("mean_self_damage") or 0.0))
+    target_retention = (
+        float(performance.get("mean_target_destroyed") or 0.0)
+        / max(1.0, float(baseline.get("mean_target_destroyed") or 0.0))
+    )
+    return all((
+        int(performance.get("shot_count") or 0) > 0,
+        float(performance.get("completion_rate") or 0.0) >= 1.0,
+        float(performance.get("error_rate") or 0.0) <= 0.0,
+        float(performance.get("contract_pass_rate") or 0.0) >= 1.0,
+        float(performance.get("mean_dispenser_survival") or 0.0)
+        >= minimum_dispenser_survival,
+        self_reduction >= minimum_self_damage_reduction,
+        target_retention >= minimum_target_retention,
+        structural_change_ratio <= maximum_structural_change_ratio,
+    ))
+
+
 def dominates(first: dict[str, Any], second: dict[str, Any]) -> bool:
     first_metrics = first["decision_metrics"]
     second_metrics = second["decision_metrics"]
@@ -630,6 +797,7 @@ def promotion_verdict(
     runtime_reports: list[dict[str, Any]],
     structural_change_ratio: float,
     *,
+    has_geometry_evidence: bool,
     minimum_dispenser_survival: float,
     minimum_self_damage_reduction: float,
     minimum_target_retention: float,
@@ -649,6 +817,8 @@ def promotion_verdict(
         if report.get("status") in {"PASS", "FAIL"}
     ]
     blockers: list[str] = []
+    if not has_geometry_evidence:
+        blockers.append("no_geometry_evidence")
     if int(performance.get("shot_count") or 0) <= 0:
         blockers.append("no_completed_shots")
     if float(performance.get("completion_rate") or 0.0) < 1.0:
@@ -663,7 +833,10 @@ def promotion_verdict(
         blockers.append("self_damage_reduction_below_minimum")
     if target_retention < minimum_target_retention:
         blockers.append("target_retention_below_minimum")
-    if structural_change_ratio > maximum_structural_change_ratio:
+    if (
+        has_geometry_evidence
+        and structural_change_ratio > maximum_structural_change_ratio
+    ):
         blockers.append("structural_change_ratio_above_maximum")
     if not completed_contracts:
         blockers.append("no_runtime_contract_evidence")
@@ -677,11 +850,12 @@ def promotion_verdict(
         if blocker not in {
             "protected_module_runtime_drift",
             "no_runtime_contract_evidence",
+            "no_geometry_evidence",
         }
     ]
     if promotion_ready:
         verdict = "PROMOTION_READY_BOUNDED_REPAIR"
-    elif blockers == ["no_runtime_contract_evidence"]:
+    elif set(blockers).issubset({"no_geometry_evidence", "no_runtime_contract_evidence"}):
         verdict = "INSUFFICIENT_RUNTIME_EVIDENCE"
     elif not non_contract_blockers and "protected_module_runtime_drift" in blockers:
         verdict = "PERFORMANCE_WIN_WITH_COLLATERAL_DRIFT"
@@ -715,6 +889,8 @@ def validate_configuration(
     *,
     chunk_limit: int,
     max_runtime_contract_runs: int,
+    max_geometry_candidates: int,
+    max_runtime_candidates: int,
     minimum_dispenser_survival: float,
     minimum_self_damage_reduction: float,
     minimum_target_retention: float,
@@ -724,6 +900,10 @@ def validate_configuration(
         raise ValueError("chunk_limit must be positive")
     if max_runtime_contract_runs <= 0:
         raise ValueError("max_runtime_contract_runs must be positive")
+    if max_geometry_candidates < 0:
+        raise ValueError("max_geometry_candidates must be zero or positive")
+    if max_runtime_candidates < 0:
+        raise ValueError("max_runtime_candidates must be zero or positive")
     for name, value in (
         ("minimum_dispenser_survival", minimum_dispenser_survival),
         ("minimum_self_damage_reduction", minimum_self_damage_reduction),
@@ -743,14 +923,19 @@ def build_report(
     chunk_limit: int = 160,
     include_pattern: str = "",
     max_runtime_contract_runs: int = 3,
+    max_geometry_candidates: int = 0,
+    max_runtime_candidates: int = 0,
     minimum_dispenser_survival: float = 0.95,
     minimum_self_damage_reduction: float = 0.10,
     minimum_target_retention: float = 0.80,
     maximum_structural_change_ratio: float = 0.03,
 ) -> dict[str, Any]:
+    total_started = time.perf_counter()
     validate_configuration(
         chunk_limit=chunk_limit,
         max_runtime_contract_runs=max_runtime_contract_runs,
+        max_geometry_candidates=max_geometry_candidates,
+        max_runtime_candidates=max_runtime_candidates,
         minimum_dispenser_survival=minimum_dispenser_survival,
         minimum_self_damage_reduction=minimum_self_damage_reduction,
         minimum_target_retention=minimum_target_retention,
@@ -797,7 +982,8 @@ def build_report(
             continue
         grouped[cannon_file].append(path)
 
-    candidates: list[dict[str, Any]] = []
+    discovery_finished = time.perf_counter()
+    metric_candidates: list[dict[str, Any]] = []
     for cannon_file, paths in sorted(grouped.items()):
         schematic = resolve_schematic(cannon_file, cannon_directories)
         if schematic is None:
@@ -811,11 +997,127 @@ def build_report(
             continue
 
         performance = summarize_performance(paths)
-        preservation = permissive_preservation(checker, reference_schematic, schematic, chunk_limit)
-        comparison = comparator.build_report(
-            reference_schematic,
-            schematic,
-            chunk_limit=chunk_limit,
+        metric_score, metric_components = metric_screening_score(
+            performance,
+            baseline,
+        )
+        metric_candidates.append({
+            "cannon_file": cannon_file,
+            "schematic": schematic,
+            "summary_paths": paths,
+            "performance": performance,
+            "metric_screening_score": metric_score,
+            "metric_screening_components": metric_components,
+            "passes_metric_screen": passes_metric_screen(
+                performance,
+                baseline,
+                minimum_dispenser_survival=minimum_dispenser_survival,
+                minimum_self_damage_reduction=minimum_self_damage_reduction,
+                minimum_target_retention=minimum_target_retention,
+            ),
+        })
+
+    metric_candidates.sort(key=lambda row: (
+        not bool(row["passes_metric_screen"]),
+        -float(row["metric_screening_score"]),
+        str(row["cannon_file"]),
+    ))
+    metric_screening_finished = time.perf_counter()
+    geometry_candidate_count = (
+        len(metric_candidates)
+        if max_geometry_candidates == 0
+        else min(max_geometry_candidates, len(metric_candidates))
+    )
+
+    prepared: list[dict[str, Any]] = []
+    for metric_rank, metric_candidate in enumerate(metric_candidates, start=1):
+        selected_for_geometry = metric_rank <= geometry_candidate_count
+        performance = metric_candidate["performance"]
+        schematic = metric_candidate["schematic"]
+        if selected_for_geometry:
+            preservation = permissive_preservation(
+                checker,
+                reference_schematic,
+                schematic,
+                chunk_limit,
+            )
+            comparison = comparator.build_report(
+                reference_schematic,
+                schematic,
+                chunk_limit=chunk_limit,
+            )
+            structural_ratio = float(
+                (preservation.get("summary") or {}).get("structural_change_ratio")
+                or 0.0
+            )
+            screen_score, screen_components = screening_score(
+                performance,
+                baseline,
+                structural_ratio,
+                comparison,
+            )
+            passes_runtime = passes_runtime_screen(
+                performance,
+                baseline,
+                structural_ratio,
+                minimum_dispenser_survival=minimum_dispenser_survival,
+                minimum_self_damage_reduction=minimum_self_damage_reduction,
+                minimum_target_retention=minimum_target_retention,
+                maximum_structural_change_ratio=maximum_structural_change_ratio,
+            )
+        else:
+            preservation = {}
+            comparison = {}
+            structural_ratio = 1.0
+            screen_score = None
+            screen_components = {}
+            passes_runtime = False
+        prepared.append({
+            **metric_candidate,
+            "metric_rank": metric_rank,
+            "selected_for_geometry": selected_for_geometry,
+            "preservation": preservation,
+            "comparison": comparison,
+            "structural_ratio": structural_ratio,
+            "screening_score": screen_score,
+            "screening_components": screen_components,
+            "passes_runtime_screen": passes_runtime,
+        })
+
+    static_screening_finished = time.perf_counter()
+    runtime_order = sorted(
+        [row for row in prepared if row["selected_for_geometry"]],
+        key=lambda row: (
+        not bool(row["passes_runtime_screen"]),
+        -float(row["screening_score"] or 0.0),
+        float(row["structural_ratio"]),
+        str(row["cannon_file"]),
+        ),
+    )
+    runtime_rank = {
+        str(row["cannon_file"]): index
+        for index, row in enumerate(runtime_order, start=1)
+    }
+    runtime_candidate_count = (
+        len(runtime_order)
+        if max_runtime_candidates == 0
+        else min(max_runtime_candidates, len(runtime_order))
+    )
+
+    candidates: list[dict[str, Any]] = []
+    runtime_replay_started = time.perf_counter()
+    for prepared_candidate in prepared:
+        cannon_file = str(prepared_candidate["cannon_file"])
+        schematic = prepared_candidate["schematic"]
+        paths = prepared_candidate["summary_paths"]
+        performance = prepared_candidate["performance"]
+        preservation = prepared_candidate["preservation"]
+        comparison = prepared_candidate["comparison"]
+        structural_ratio = float(prepared_candidate["structural_ratio"])
+        screening_rank = runtime_rank.get(cannon_file)
+        selected_for_runtime = (
+            screening_rank is not None
+            and screening_rank <= runtime_candidate_count
         )
         runtime = runtime_contracts(
             contract_tool,
@@ -826,9 +1128,8 @@ def build_report(
             paths,
             chunk_limit=chunk_limit,
             max_runs=max_runtime_contract_runs,
-        )
+        ) if selected_for_runtime else []
         runtime_drift = aggregate_runtime_drift(runtime)
-        structural_ratio = float((preservation.get("summary") or {}).get("structural_change_ratio") or 0.0)
         score, score_components = repair_score(
             performance,
             baseline,
@@ -840,6 +1141,7 @@ def build_report(
             baseline,
             runtime,
             structural_ratio,
+            has_geometry_evidence=bool(prepared_candidate["selected_for_geometry"]),
             minimum_dispenser_survival=minimum_dispenser_survival,
             minimum_self_damage_reduction=minimum_self_damage_reduction,
             minimum_target_retention=minimum_target_retention,
@@ -868,9 +1170,50 @@ def build_report(
             "schematic": str(schematic),
             "repair_score": score,
             "promotion": promotion,
+            "geometry_screening": {
+                "rank": prepared_candidate["metric_rank"],
+                "selected_for_geometry": prepared_candidate[
+                    "selected_for_geometry"
+                ],
+                "metric_screening_score": prepared_candidate[
+                    "metric_screening_score"
+                ],
+                "metric_screening_components": prepared_candidate[
+                    "metric_screening_components"
+                ],
+                "passes_metric_promotion_thresholds": prepared_candidate[
+                    "passes_metric_screen"
+                ],
+                "selection_reason": (
+                    "selected_by_geometry_candidate_budget"
+                    if prepared_candidate["selected_for_geometry"]
+                    else "not_selected_by_geometry_candidate_budget"
+                ),
+            },
+            "runtime_screening": {
+                "rank": screening_rank,
+                "selected_for_runtime": selected_for_runtime,
+                "screening_score": prepared_candidate["screening_score"],
+                "screening_components": prepared_candidate["screening_components"],
+                "passes_non_runtime_promotion_thresholds": prepared_candidate[
+                    "passes_runtime_screen"
+                ],
+                "selection_reason": (
+                    "selected_by_runtime_candidate_budget"
+                    if selected_for_runtime
+                    else (
+                        "not_geometry_screened"
+                        if not prepared_candidate["selected_for_geometry"]
+                        else "not_selected_by_runtime_candidate_budget"
+                    )
+                ),
+            },
             "score_components": score_components,
             "performance": performance,
             "geometry": {
+                "evidence_available": bool(
+                    prepared_candidate["selected_for_geometry"]
+                ),
                 "structural_changes": (preservation.get("summary") or {}).get("structural_changes"),
                 "structural_change_ratio": structural_ratio,
                 "functional_changes": (preservation.get("summary") or {}).get("functional_changes"),
@@ -881,6 +1224,9 @@ def build_report(
                 "impacted_modules": preservation.get("impacted_modules") or [],
             },
             "module_comparison": {
+                "evidence_available": bool(
+                    prepared_candidate["selected_for_geometry"]
+                ),
                 "summary": comparison.get("summary") or {},
                 "translation_alignment": comparison.get("translation_alignment") or {},
                 "unmatched_reference_modules": comparison.get("unmatched_first_modules") or [],
@@ -888,6 +1234,7 @@ def build_report(
             },
             "runtime_contracts": runtime,
             "runtime_drift_summary": runtime_drift,
+            "pareto_eligible": bool(contract_reports),
             "decision_metrics": {
                 "mean_dispenser_survival": float(performance.get("mean_dispenser_survival") or 0.0),
                 "self_damage_reduction": self_reduction,
@@ -900,10 +1247,17 @@ def build_report(
         }
         candidates.append(candidate)
 
+    runtime_replay_finished = time.perf_counter()
+
+    pareto_candidates = [
+        candidate
+        for candidate in candidates
+        if candidate["pareto_eligible"]
+    ]
     for candidate in candidates:
-        candidate["pareto_front"] = not any(
+        candidate["pareto_front"] = bool(candidate["pareto_eligible"]) and not any(
             other is not candidate and dominates(other, candidate)
-            for other in candidates
+            for other in pareto_candidates
         )
     candidates.sort(key=lambda row: (
         not bool((row.get("promotion") or {}).get("promotion_ready")),
@@ -915,7 +1269,7 @@ def build_report(
     failures = [] if candidates else ["no_candidate_repairs_resolved"]
     return {
         "status": "PASS" if not failures else "FAIL",
-        "schema": "cannonlab-repair-family-v1",
+        "schema": "cannonlab-repair-family-v3",
         "reference": {
             "schematic": str(reference_schematic),
             "run_summary": str(reference_summary),
@@ -933,6 +1287,37 @@ def build_report(
             "cannon_directories": [str(path) for path in cannon_directories],
             "include_pattern": include_pattern,
             "max_runtime_contract_runs": max_runtime_contract_runs,
+            "max_geometry_candidates": max_geometry_candidates,
+            "geometry_candidates_selected": geometry_candidate_count,
+            "geometry_candidates_not_selected": max(
+                0,
+                len(metric_candidates) - geometry_candidate_count,
+            ),
+            "max_runtime_candidates": max_runtime_candidates,
+            "runtime_candidates_selected": runtime_candidate_count,
+            "runtime_candidates_not_selected": max(
+                0,
+                len(prepared) - runtime_candidate_count,
+            ),
+            "phase_timings_seconds": {
+                "discovery_and_contract_filtering": round(
+                    discovery_finished - total_started,
+                    6,
+                ),
+                "metric_screening": round(
+                    metric_screening_finished - discovery_finished,
+                    6,
+                ),
+                "static_geometry_screening": round(
+                    static_screening_finished - metric_screening_finished,
+                    6,
+                ),
+                "causal_runtime_replay": round(
+                    runtime_replay_finished - runtime_replay_started,
+                    6,
+                ),
+                "total": round(runtime_replay_finished - total_started, 6),
+            },
             "promotion_thresholds": {
                 "minimum_dispenser_survival": minimum_dispenser_survival,
                 "minimum_self_damage_reduction": minimum_self_damage_reduction,
@@ -948,6 +1333,22 @@ def build_report(
                 "repeatability": 0.07,
                 "structural_preservation": 0.03,
             },
+            "screening_score_weights": {
+                "reliability": 0.25,
+                "dispenser_survival": 0.25,
+                "self_damage_reduction": 0.20,
+                "target_retention": 0.15,
+                "repeatability": 0.08,
+                "structural_preservation": 0.04,
+                "exact_module_coverage": 0.03,
+            },
+            "metric_screening_score_weights": {
+                "reliability": 0.30,
+                "dispenser_survival": 0.30,
+                "self_damage_reduction": 0.20,
+                "target_retention": 0.15,
+                "repeatability": 0.05,
+            },
         },
         "candidate_count": len(candidates),
         "pareto_front_count": sum(bool(row["pareto_front"]) for row in candidates),
@@ -956,6 +1357,7 @@ def build_report(
         "skipped": skipped,
         "truth_boundary": (
             "The ranking compares local run summaries, exact decoded geometry, and local causal traces. "
+            "Candidates outside the geometry or runtime replay budgets remain visible but cannot be promoted. "
             "The balanced score is transparent but value-dependent; Pareto-front labels avoid pretending one "
             "weighting is universal. Local Paper or Sakura evidence does not prove private ExtremeCraft parity."
         ),
@@ -973,6 +1375,18 @@ def main() -> int:
     parser.add_argument("--chunk-limit", type=int, default=160)
     parser.add_argument("--include-pattern", default="")
     parser.add_argument("--max-runtime-contract-runs", type=int, default=3)
+    parser.add_argument(
+        "--max-geometry-candidates",
+        type=int,
+        default=0,
+        help="0 analyzes exact geometry for every candidate; positive values analyze only the strongest metric-screened candidates",
+    )
+    parser.add_argument(
+        "--max-runtime-candidates",
+        type=int,
+        default=0,
+        help="0 replays every candidate; positive values replay only the strongest screened candidates",
+    )
     parser.add_argument("--minimum-dispenser-survival", type=float, default=0.95)
     parser.add_argument("--minimum-self-damage-reduction", type=float, default=0.10)
     parser.add_argument("--minimum-target-retention", type=float, default=0.80)
@@ -988,6 +1402,8 @@ def main() -> int:
         chunk_limit=args.chunk_limit,
         include_pattern=args.include_pattern,
         max_runtime_contract_runs=args.max_runtime_contract_runs,
+        max_geometry_candidates=args.max_geometry_candidates,
+        max_runtime_candidates=args.max_runtime_candidates,
         minimum_dispenser_survival=args.minimum_dispenser_survival,
         minimum_self_damage_reduction=args.minimum_self_damage_reduction,
         minimum_target_retention=args.minimum_target_retention,

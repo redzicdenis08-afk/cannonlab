@@ -88,6 +88,8 @@ def main() -> int:
         subject.validate_configuration(
             chunk_limit=160,
             max_runtime_contract_runs=0,
+            max_geometry_candidates=0,
+            max_runtime_candidates=0,
             minimum_dispenser_survival=0.95,
             minimum_self_damage_reduction=0.10,
             minimum_target_retention=0.80,
@@ -98,6 +100,38 @@ def main() -> int:
     else:
         raise AssertionError("invalid runtime-contract count was accepted")
 
+    try:
+        subject.validate_configuration(
+            chunk_limit=160,
+            max_runtime_contract_runs=1,
+            max_geometry_candidates=-1,
+            max_runtime_candidates=0,
+            minimum_dispenser_survival=0.95,
+            minimum_self_damage_reduction=0.10,
+            minimum_target_retention=0.80,
+            maximum_structural_change_ratio=0.03,
+        )
+    except ValueError as exc:
+        assert "max_geometry_candidates" in str(exc)
+    else:
+        raise AssertionError("negative geometry-candidate budget was accepted")
+
+    try:
+        subject.validate_configuration(
+            chunk_limit=160,
+            max_runtime_contract_runs=1,
+            max_geometry_candidates=0,
+            max_runtime_candidates=-1,
+            minimum_dispenser_survival=0.95,
+            minimum_self_damage_reduction=0.10,
+            minimum_target_retention=0.80,
+            maximum_structural_change_ratio=0.03,
+        )
+    except ValueError as exc:
+        assert "max_runtime_candidates" in str(exc)
+    else:
+        raise AssertionError("negative runtime-candidate budget was accepted")
+
     with tempfile.TemporaryDirectory(prefix="cannonlab-repair-family-") as temporary:
         root = Path(temporary)
         cannons = root / "cannons"
@@ -107,8 +141,15 @@ def main() -> int:
         reference_schematic = cannons / "reference.schem"
         good_schematic = cannons / "repair-good.schem"
         bad_schematic = cannons / "repair-bad.schem"
+        flashy_schematic = cannons / "repair-flashy.schem"
         mismatch_schematic = cannons / "repair-easy-target.schem"
-        for path in (reference_schematic, good_schematic, bad_schematic, mismatch_schematic):
+        for path in (
+            reference_schematic,
+            good_schematic,
+            bad_schematic,
+            flashy_schematic,
+            mismatch_schematic,
+        ):
             path.write_bytes(path.name.encode("utf-8"))
 
         reference_summary = write_run(
@@ -153,6 +194,16 @@ def main() -> int:
         )
         write_run(
             results,
+            run_id="flashy-run",
+            cannon_file=flashy_schematic.name,
+            self_damage=20,
+            target_destroyed=100,
+            initial_dispensers=100,
+            remaining_dispensers=100,
+            contract_pass=True,
+        )
+        write_run(
+            results,
             run_id="easy-target-run",
             cannon_file=mismatch_schematic.name,
             self_damage=0,
@@ -165,7 +216,11 @@ def main() -> int:
         mirror = results / "mirrored-good-run-1"
         shutil.copytree(good_summary_one.parent, mirror)
 
+        preservation_calls: list[str] = []
+        comparison_calls: list[str] = []
+
         def preservation(reference: Path, candidate: Path, **kwargs: Any) -> dict[str, Any]:
+            preservation_calls.append(candidate.name)
             good = "good" in candidate.name
             ratio = 0.01 if good else 0.08
             return {
@@ -182,6 +237,7 @@ def main() -> int:
             }
 
         def comparison(reference: Path, candidate: Path, **kwargs: Any) -> dict[str, Any]:
+            comparison_calls.append(candidate.name)
             return {
                 "summary": {"exact_module_matches": 2},
                 "translation_alignment": {
@@ -192,6 +248,8 @@ def main() -> int:
                 "unmatched_second_modules": [{"module_id": "C-EDIT"}],
             }
 
+        runtime_calls: list[str] = []
+
         def runtime_contract(
             reference: Path,
             reference_trace: Path,
@@ -199,6 +257,7 @@ def main() -> int:
             candidate_trace: Path,
             **kwargs: Any,
         ) -> dict[str, Any]:
+            runtime_calls.append(candidate.name)
             good = "good" in candidate.name
             if good:
                 return {
@@ -302,15 +361,21 @@ def main() -> int:
             subject.load_script = original_loader
 
         assert report["status"] == "PASS", report
-        assert report["candidate_count"] == 2, report
-        assert report["configuration"]["discovered_summary_count"] == 6, report
-        assert report["configuration"]["unique_run_count"] == 5, report
+        assert report["candidate_count"] == 3, report
+        assert report["configuration"]["discovered_summary_count"] == 7, report
+        assert report["configuration"]["unique_run_count"] == 6, report
         assert any(
             row.get("cannon_file") == mismatch_schematic.name
             and row.get("reason") == "test_contract_mismatch"
             for row in report["skipped"]
         ), report
-        good, bad = report["candidates"]
+        candidates_by_file = {
+            row["cannon_file"]: row
+            for row in report["candidates"]
+        }
+        good = candidates_by_file[good_schematic.name]
+        bad = candidates_by_file[bad_schematic.name]
+        flashy = candidates_by_file[flashy_schematic.name]
         assert good["cannon_file"] == good_schematic.name, report
         assert good["promotion"]["promotion_ready"] is True, good
         assert good["promotion"]["verdict"] == "PROMOTION_READY_BOUNDED_REPAIR", good
@@ -324,6 +389,64 @@ def main() -> int:
         assert bad["runtime_drift_summary"]["deterministic_shared_cohorts"] == 1, bad
         assert bad["runtime_drift_summary"]["deterministic_joint_cohorts"] == 1, bad
         assert bad["pareto_front"] is False, bad
+        assert flashy["promotion"]["promotion_ready"] is False, flashy
+        assert "structural_change_ratio_above_maximum" in flashy["promotion"]["blockers"], flashy
+
+        runtime_calls.clear()
+        preservation_calls.clear()
+        comparison_calls.clear()
+        subject.load_script = lambda name, filename: fake_tools[filename]
+        try:
+            screened_report = subject.build_report(
+                reference_schematic,
+                reference_summary,
+                [results],
+                [cannons],
+                max_runtime_contract_runs=1,
+                max_geometry_candidates=2,
+                max_runtime_candidates=1,
+            )
+        finally:
+            subject.load_script = original_loader
+        assert screened_report["status"] == "PASS", screened_report
+        assert screened_report["configuration"]["runtime_candidates_selected"] == 1
+        assert screened_report["configuration"]["runtime_candidates_not_selected"] == 2
+        assert screened_report["configuration"]["geometry_candidates_selected"] == 2
+        assert screened_report["configuration"]["geometry_candidates_not_selected"] == 1
+        screened_by_file = {
+            row["cannon_file"]: row
+            for row in screened_report["candidates"]
+        }
+        screened_good = screened_by_file[good_schematic.name]
+        screened_bad = screened_by_file[bad_schematic.name]
+        screened_flashy = screened_by_file[flashy_schematic.name]
+        assert screened_good["cannon_file"] == good_schematic.name, screened_report
+        assert screened_good["geometry_screening"]["selected_for_geometry"] is True
+        assert screened_good["runtime_screening"]["selected_for_runtime"] is True
+        assert screened_good["promotion"]["promotion_ready"] is True
+        assert screened_bad["cannon_file"] == bad_schematic.name, screened_report
+        assert screened_bad["geometry_screening"]["selected_for_geometry"] is False
+        assert screened_bad["geometry"]["evidence_available"] is False
+        assert screened_bad["runtime_screening"]["selected_for_runtime"] is False
+        assert screened_bad["runtime_contracts"] == []
+        assert screened_bad["pareto_eligible"] is False
+        assert screened_bad["pareto_front"] is False
+        assert "no_runtime_contract_evidence" in screened_bad["promotion"]["blockers"]
+        assert "no_geometry_evidence" in screened_bad["promotion"]["blockers"]
+        assert screened_flashy["geometry_screening"]["selected_for_geometry"] is True
+        assert screened_flashy["runtime_screening"]["selected_for_runtime"] is False
+        assert "structural_change_ratio_above_maximum" in screened_flashy[
+            "promotion"
+        ]["blockers"]
+        assert set(preservation_calls) == {
+            good_schematic.name,
+            flashy_schematic.name,
+        }, preservation_calls
+        assert set(comparison_calls) == {
+            good_schematic.name,
+            flashy_schematic.name,
+        }, comparison_calls
+        assert runtime_calls == [good_schematic.name], runtime_calls
 
         multi_summary = write_run(
             results,
@@ -368,7 +491,7 @@ def main() -> int:
         assert "no_candidate_repairs_resolved" in empty_report["failures"], empty_report
 
     print(
-        "Repair-family ranking promotes the bounded stable fix, rejects destructive drift, and fails closed when no candidates resolve."
+        "Repair-family ranking screens cheaply, replays only top candidates, promotes the bounded stable fix, rejects destructive drift, and fails closed when no candidates resolve."
     )
     return 0
 

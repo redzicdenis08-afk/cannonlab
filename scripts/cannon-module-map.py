@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import importlib.util
 import json
@@ -67,6 +68,9 @@ FACING_VECTORS = {
     "south": (0, 0, 1),
     "north": (0, 0, -1),
 }
+
+_SCRIPT_CACHE: dict[str, Any] = {}
+_REPORT_CACHE: dict[tuple[str, int, int, int, int], dict[str, Any]] = {}
 NEIGHBOURS = (
     (1, 0, 0),
     (-1, 0, 0),
@@ -88,12 +92,16 @@ COMPONENT_ID_RE = re.compile(r"\[(-?\d+),(-?\d+),(-?\d+)\]$")
 
 
 def load_script(name: str, filename: str) -> Any:
+    cached = _SCRIPT_CACHE.get(filename)
+    if cached is not None:
+        return cached
     script = Path(__file__).resolve().with_name(filename)
     spec = importlib.util.spec_from_file_location(name, script)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"unable to load {script}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    _SCRIPT_CACHE[filename] = module
     return module
 
 
@@ -326,6 +334,18 @@ def module_role_candidates(module: dict[str, Any]) -> list[dict[str, str]]:
 
 
 def build_report(path: Path, chunk_limit: int = 160, assignment_radius: int = 6) -> dict[str, Any]:
+    path = path.resolve()
+    stat = path.stat()
+    cache_key = (
+        str(path),
+        int(stat.st_size),
+        int(stat.st_mtime_ns),
+        int(chunk_limit),
+        int(assignment_radius),
+    )
+    cached = _REPORT_CACHE.get(cache_key)
+    if cached is not None:
+        return copy.deepcopy(cached)
     auditor = load_script("cannonlab_schem_audit", "schem-audit.py")
     static_map = load_script("cannonlab_static_map", "cannon-static-map.py")
     root_name, root, trailing, decoded_size, container_diagnostics = auditor.load(path)
@@ -604,7 +624,8 @@ def build_report(path: Path, chunk_limit: int = 160, assignment_radius: int = 6)
             ),
         },
     }
-    return report
+    _REPORT_CACHE[cache_key] = report
+    return copy.deepcopy(report)
 
 
 def main() -> int:
