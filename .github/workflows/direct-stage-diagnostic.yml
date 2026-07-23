@@ -1,0 +1,155 @@
+name: Direct Stage Diagnostic Build
+
+on:
+  push:
+    branches:
+      - lab/staged-redstone-runtime
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - name: Add direct staged dispenser replay
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          def one(text, old, new, label):
+              count = text.count(old)
+              if count != 1:
+                  raise RuntimeError(f'{label}: expected 1 match, found {count}')
+              return text.replace(old, new, 1)
+
+          scenario = Path('src/main/java/io/github/redzicdenis08afk/cannonlab/LabScenario.java')
+          text = scenario.read_text()
+          text = one(text,
+              '        BlockPoint directDispenser,\n        int firePulseTicks,',
+              '        BlockPoint directDispenser,\n        List<DirectStage> directStages,\n        int firePulseTicks,',
+              'record field')
+          text = one(text,
+              '        fireInputs = List.copyOf(fireInputs);\n        targetStages = List.copyOf(targetStages);',
+              '        fireInputs = List.copyOf(fireInputs);\n        directStages = List.copyOf(directStages);\n        targetStages = List.copyOf(targetStages);',
+              'immutable list')
+          text = one(text,
+              '        String fireModeName = yaml.getString("cannon.fire-mode", "redstone");',
+              '        List<DirectStage> directStages = directStages(yaml);\n\n        String fireModeName = yaml.getString("cannon.fire-mode", "redstone");',
+              'parse stage')
+          text = one(text,
+              '                fireInputs,\n                directDispenser,\n                Math.max(1, yaml.getInt("cannon.fire-pulse-ticks", 2)),',
+              '                fireInputs,\n                directDispenser,\n                directStages,\n                Math.max(1, yaml.getInt("cannon.fire-pulse-ticks", 2)),',
+              'constructor args')
+          parser = '''    private static List<DirectStage> directStages(YamlConfiguration yaml) {
+              List<DirectStage> result = new ArrayList<>();
+              for (Map<?, ?> entry : yaml.getMapList("cannon.direct-stages")) {
+                  int tick = Math.max(0, integer(entry.get("tick"), 0));
+                  List<BlockPoint> dispensers = new ArrayList<>();
+                  Object raw = entry.get("dispensers");
+                  if (raw instanceof List<?> list) {
+                      for (Object item : list) {
+                          if (item instanceof Map<?, ?> point) {
+                              dispensers.add(new BlockPoint(
+                                      integer(point.get("x"), 0),
+                                      integer(point.get("y"), 0),
+                                      integer(point.get("z"), 0)
+                              ));
+                          }
+                      }
+                  }
+                  if (!dispensers.isEmpty()) {
+                      result.add(new DirectStage(tick, List.copyOf(dispensers)));
+                  }
+              }
+              return List.copyOf(result);
+          }
+
+'''
+          text = one(text,
+              '    private static BlockPoint point(YamlConfiguration yaml, String path, BlockPoint fallback) {',
+              parser + '    private static BlockPoint point(YamlConfiguration yaml, String path, BlockPoint fallback) {',
+              'parser method')
+          text = one(text,
+              '    record BlockPoint(int x, int y, int z) {\n    }',
+              '    record BlockPoint(int x, int y, int z) {\n    }\n\n    record DirectStage(int tick, List<BlockPoint> dispensers) {\n    }',
+              'stage record')
+          text = one(text,
+              '        DIRECT_DISPENSE\n    }',
+              '        DIRECT_DISPENSE,\n        DIRECT_STAGED\n    }',
+              'fire enum')
+          scenario.write_text(text)
+
+          controller = Path('src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java')
+          text = controller.read_text()
+          text = one(text,
+              '            case DIRECT_DISPENSE -> dispenseDirectly(world, pasteOrigin);\n            case BUTTON -> pressButtons(world, pasteOrigin);',
+              '            case DIRECT_DISPENSE -> dispenseDirectly(world, pasteOrigin);\n            case DIRECT_STAGED -> dispenseStaged(world, pasteOrigin);\n            case BUTTON -> pressButtons(world, pasteOrigin);',
+              'fire switch')
+          method = '''    private void dispenseStaged(World world, Location pasteOrigin) {
+              if (scenario.directStages().isEmpty()) {
+                  throw new IllegalStateException("No cannon.direct-stages configured.");
+              }
+              recorder.recordControlEvent(
+                      "FIRE_INPUT",
+                      pasteOrigin,
+                      "mode=direct-staged;stages=" + scenario.directStages().size()
+              );
+              for (LabScenario.DirectStage stage : scenario.directStages()) {
+                  Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                      int consumed = 0;
+                      for (LabScenario.BlockPoint point : stage.dispensers()) {
+                          Location location = relative(pasteOrigin, point);
+                          Block block = world.getBlockAt(location);
+                          if (!(block.getState() instanceof Dispenser dispenser)) {
+                              throw new IllegalStateException("Staged coordinate "
+                                      + coordinates(location) + " contains " + block.getType());
+                          }
+                          int before = countTnt(dispenser);
+                          if (before < 1) {
+                              continue;
+                          }
+                          boolean ok = dispenser.dispense();
+                          int after = countTnt((Dispenser) block.getState());
+                          if (!ok || after >= before) {
+                              throw new IllegalStateException("Staged dispense failed at "
+                                      + coordinates(location));
+                          }
+                          consumed++;
+                      }
+                      plugin.getLogger().info("Direct staged cohort tick=" + stage.tick()
+                              + " | requested=" + stage.dispensers().size()
+                              + " | consumed=" + consumed);
+                  }, stage.tick());
+              }
+          }
+
+'''
+          text = one(text,
+              '    private void dispenseDirectly(World world, Location pasteOrigin) {',
+              method + '    private void dispenseDirectly(World world, Location pasteOrigin) {',
+              'stage method')
+          controller.write_text(text)
+          PY
+      - name: Build
+        run: gradle clean build --stacktrace
+      - name: Package
+        run: |
+          mkdir -p direct-stage
+          cp build/libs/CannonLab-*.jar direct-stage/CannonLab-direct-stage.jar
+          sha256sum direct-stage/CannonLab-direct-stage.jar > direct-stage/sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-Direct-Stage
+          path: direct-stage/**
+          retention-days: 1
