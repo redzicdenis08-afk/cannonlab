@@ -12,10 +12,20 @@ Use this workflow for modern factions cannons, Sponge schematics, Litematics, Sa
 
 Never collapse these levels.
 
-## Required workflow
+## Fast default workflow
 
-1. Run `inspect_cannon`.
-2. Reject malformed formats, unsupported redstone, illegal chunk distributions, or unexplained block-entity pressure.
+1. Use `fast_cannon_intake` once. Pass the candidate plus the strongest real reference cannons available.
+2. For a format-only or quick upload task, use `prepare_reference_cannon`; do not redesign the cannon.
+3. If `modern_raid_morphology` fails, reject the candidate immediately. Do not spend runtime hours proving a flat toy fires.
+4. Start edits from a decoded proven reference. Preserve its exact block-state geometry and causal sequence until one measured variable is intentionally changed.
+5. Run real redstone only after static structure, chunk alignment, block entities, control input, and morphology pass.
+6. Test the narrow changed module first, then the whole cannon.
+7. Return the `.schem` and the smallest honest evidence summary. Do not narrate every internal step.
+
+## Required deep workflow
+
+1. Run `inspect_cannon` or `fast_cannon_intake`.
+2. Reject malformed formats, unsupported redstone, illegal chunk distributions, unexplained block-entity pressure, or fake-modern morphology.
 3. Read the static functional map. Describe shapes and connectivity only.
 4. Run the cannon through real redstone, not direct dispenser activation, when judging its actual firing circuit.
 5. Run `explain_shot` on every shot.
@@ -25,6 +35,22 @@ Never collapse these levels.
 9. Test one variable at a time.
 10. Preserve failed shots and their evidence.
 
+## Anti-pancake gate
+
+For `intent=modern-raid`, the candidate must show all of the following before expensive runtime work:
+
+- at least 16 blocks of functional vertical depth
+- at least 8 dispenser Y layers
+- observer logic
+- piston logic
+- a multi-delay repeater network
+- water protection
+- a real button or lever
+- at least 8 functional block types
+- at least one legal X/Z alignment under the configured chunk limit
+
+These thresholds are structural rejection gates, not proof that a cannon works. Use `intent=calibration` for small field-calibration cannons.
+
 ## Language discipline
 
 Allowed:
@@ -32,6 +58,7 @@ Allowed:
 - “A 21x41 south-facing dispenser panel is geometry-confirmed.”
 - “This 384-TNT cohort fires 18 ticks before the falling-block cohort.”
 - “The bank is a charge candidate because its TNT cohort precedes acceleration.”
+- “This candidate fails modern morphology because it has one dispenser layer and no observers.”
 
 Not allowed:
 
@@ -39,6 +66,7 @@ Not allowed:
 - “It looks like a hammer.”
 - “It should work on ExtremeCraft.”
 - “Local Sakura proves EC.”
+- “A flat dispenser tray is a modern cannon because it fires TNT.”
 
 ## ExtremeCraft profile
 
@@ -48,11 +76,14 @@ Not allowed:
 - Empty dispenser inventories are intentional because `/p tntfill` fills them.
 - Sponge v2, DataVersion 3465 is the field-verified paste target.
 - Chunk alignment must be recorded for every paste.
+- Paste empty, settle, fill, then use the real control input.
 - `/schemdb` and `/mechanic` are not valid recommendations for this project.
 
 ## Design rule
 
 Do not generate a “modern cannon” by arranging flat dispenser rows from abstract theory. Start from runtime-confirmed modules or a proven imported design, preserve its causal sequence, then solve EC chunk and paste constraints around it.
+
+When no proven module exists, the honest output is a diagnostic prototype, not a raid cannon.
 
 ## Completion evidence
 
@@ -60,10 +91,11 @@ A cannon task is not complete until the repository contains:
 
 - source schematic and SHA-256
 - static audit JSON
+- geometry profile JSON
 - functional map JSON
 - scenario YAML
 - causal trace CSV
-- causal explanation JSON/Markdown
+- causal explanation JSON or Markdown
 - repeatability results
 - Sakura result
 - EC canary notes where applicable

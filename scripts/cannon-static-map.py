@@ -4,11 +4,9 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
-import sys
 from collections import Counter, defaultdict, deque
 from pathlib import Path
 from typing import Any
-
 
 AIR = {"minecraft:air", "minecraft:cave_air", "minecraft:void_air"}
 FUNCTIONAL_TYPES = {
@@ -33,6 +31,7 @@ FUNCTIONAL_TYPES = {
     "minecraft:water",
     "minecraft:lava",
     "minecraft:soul_sand",
+    "minecraft:powered_rail",
 }
 CONTROL_SUFFIXES = ("_button", "_pressure_plate")
 FACING_VECTORS = {
@@ -43,7 +42,23 @@ FACING_VECTORS = {
     "south": (0, 0, 1),
     "north": (0, 0, -1),
 }
-NEIGHBOURS = ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1))
+NEIGHBOURS = (
+    (1, 0, 0),
+    (-1, 0, 0),
+    (0, 1, 0),
+    (0, -1, 0),
+    (0, 0, 1),
+    (0, 0, -1),
+)
+PROXIMITY_OFFSETS = tuple(
+    (dx, dy, dz)
+    for dx in range(-2, 3)
+    for dy in range(-2, 3)
+    for dz in range(-2, 3)
+    if (dx, dy, dz) != (0, 0, 0)
+    and max(abs(dx), abs(dy), abs(dz)) <= 2
+    and abs(dx) + abs(dy) + abs(dz) <= 3
+)
 
 
 def load_auditor() -> Any:
@@ -97,7 +112,11 @@ def bounds(points: list[tuple[int, int, int]]) -> dict[str, Any]:
     }
 
 
-def distribution(points: list[tuple[int, int, int]], offset_x: int, offset_z: int) -> Counter[tuple[int, int]]:
+def distribution(
+    points: list[tuple[int, int, int]],
+    offset_x: int,
+    offset_z: int,
+) -> Counter[tuple[int, int]]:
     return Counter(((x + offset_x) // 16, (z + offset_z) // 16) for x, _y, z in points)
 
 
@@ -117,10 +136,18 @@ def alignment_scan(points: list[tuple[int, int, int]], limit: int) -> dict[str, 
     best = min(scans, key=by_key)
     worst = max(scans, key=by_key)
     safe = [row for row in scans if row["max"] <= limit]
-    return {"best": best, "worst": worst, "safe_alignment_count": len(safe), "safe_alignments": safe}
+    return {
+        "best": best,
+        "worst": worst,
+        "safe_alignment_count": len(safe),
+        "safe_alignments": safe,
+    }
 
 
-def connected_components(points: set[tuple[int, int, int]]) -> list[list[tuple[int, int, int]]]:
+def groups_from_offsets(
+    points: set[tuple[int, int, int]],
+    offsets: tuple[tuple[int, int, int], ...],
+) -> list[list[tuple[int, int, int]]]:
     remaining = set(points)
     groups = []
     while remaining:
@@ -131,13 +158,21 @@ def connected_components(points: set[tuple[int, int, int]]) -> list[list[tuple[i
         while queue:
             point = queue.popleft()
             group.append(point)
-            for dx, dy, dz in NEIGHBOURS:
+            for dx, dy, dz in offsets:
                 neighbour = (point[0] + dx, point[1] + dy, point[2] + dz)
                 if neighbour in remaining:
                     remaining.remove(neighbour)
                     queue.append(neighbour)
         groups.append(sorted(group))
     return sorted(groups, key=lambda group: (-len(group), group[0]))
+
+
+def connected_components(points: set[tuple[int, int, int]]) -> list[list[tuple[int, int, int]]]:
+    return groups_from_offsets(points, NEIGHBOURS)
+
+
+def proximity_clusters(points: set[tuple[int, int, int]]) -> list[list[tuple[int, int, int]]]:
+    return groups_from_offsets(points, PROXIMITY_OFFSETS)
 
 
 def shape_name(box: dict[str, Any], count: int) -> str:
@@ -155,7 +190,11 @@ def shape_name(box: dict[str, Any], count: int) -> str:
     return "irregular-volume"
 
 
-def map_dispenser_banks(auditor: Any, blocks: dict[tuple[int, int, int], str], chunk_limit: int) -> list[dict[str, Any]]:
+def map_dispenser_banks(
+    auditor: Any,
+    blocks: dict[tuple[int, int, int], str],
+    chunk_limit: int,
+) -> list[dict[str, Any]]:
     by_facing: dict[str, set[tuple[int, int, int]]] = defaultdict(set)
     for pos, state in blocks.items():
         if auditor.base(state) != "minecraft:dispenser":
@@ -165,9 +204,17 @@ def map_dispenser_banks(auditor: Any, blocks: dict[tuple[int, int, int], str], c
 
     banks = []
     for facing, positions in sorted(by_facing.items()):
-        for group in connected_components(positions):
+        touching = connected_components(positions)
+        touching_lookup = {
+            point: index + 1
+            for index, group in enumerate(touching)
+            for point in group
+        }
+        for group in proximity_clusters(positions):
             box = bounds(group)
             density = len(group) / max(1, box["volume"])
+            y_layers = sorted({point[1] for point in group})
+            touching_groups = sorted({touching_lookup[point] for point in group})
             bank = {
                 "bank_id": f"DBANK-{len(banks) + 1:03d}",
                 "facing": facing,
@@ -175,16 +222,31 @@ def map_dispenser_banks(auditor: Any, blocks: dict[tuple[int, int, int], str], c
                 "shape": shape_name(box, len(group)),
                 "density": round(density, 6),
                 "bounds": box,
-                "component_ids": [component_id("minecraft:dispenser", point) for point in group],
+                "y_layers": len(y_layers),
+                "y_span": max(y_layers) - min(y_layers) + 1,
+                "touching_group_count": len(touching_groups),
+                "cluster_rule": (
+                    "same-facing dispensers linked across support-sized gaps up to "
+                    "two blocks; structural grouping only"
+                ),
+                "component_ids": [
+                    component_id("minecraft:dispenser", point) for point in group
+                ],
                 "alignment": alignment_scan(group, chunk_limit),
                 "role": "unclassified",
-                "role_evidence": "Static geometry cannot prove charge/stack/hammer/booster/OSRB role.",
+                "role_evidence": (
+                    "Static geometry cannot prove charge/stack/hammer/booster/OSRB role."
+                ),
             }
             banks.append(bank)
     return sorted(banks, key=lambda bank: (-bank["count"], bank["bank_id"]))
 
 
-def list_components(auditor: Any, blocks: dict[tuple[int, int, int], str], block_type: str) -> list[dict[str, Any]]:
+def list_components(
+    auditor: Any,
+    blocks: dict[tuple[int, int, int], str],
+    block_type: str,
+) -> list[dict[str, Any]]:
     output = []
     for pos, state in sorted(blocks.items()):
         if auditor.base(state) != block_type:
@@ -198,7 +260,10 @@ def list_components(auditor: Any, blocks: dict[tuple[int, int, int], str], block
     return output
 
 
-def controls(auditor: Any, blocks: dict[tuple[int, int, int], str]) -> list[dict[str, Any]]:
+def controls(
+    auditor: Any,
+    blocks: dict[tuple[int, int, int], str],
+) -> list[dict[str, Any]]:
     output = []
     for pos, state in sorted(blocks.items()):
         block_type = auditor.base(state)
@@ -214,7 +279,10 @@ def controls(auditor: Any, blocks: dict[tuple[int, int, int], str]) -> list[dict
     return output
 
 
-def observer_links(auditor: Any, blocks: dict[tuple[int, int, int], str]) -> list[dict[str, Any]]:
+def observer_links(
+    auditor: Any,
+    blocks: dict[tuple[int, int, int], str],
+) -> list[dict[str, Any]]:
     links = []
     for pos, state in sorted(blocks.items()):
         if auditor.base(state) != "minecraft:observer":
@@ -249,7 +317,9 @@ def observer_links(auditor: Any, blocks: dict[tuple[int, int, int], str]) -> lis
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Create a conservative functional map for Sponge/Litematica cannons")
+    parser = argparse.ArgumentParser(
+        description="Create a conservative functional map for Sponge/Litematica cannons"
+    )
     parser.add_argument("schematic", type=Path)
     parser.add_argument("--chunk-limit", type=int, default=160)
     parser.add_argument("--json-out", type=Path)
@@ -260,10 +330,22 @@ def main() -> int:
     model = auditor.decode_any(root_name, root)
     blocks = model["blocks"]
 
-    counts = Counter(auditor.base(state) for state in blocks.values() if auditor.base(state) not in AIR)
-    functional_points = [pos for pos, state in blocks.items() if auditor.base(state) in FUNCTIONAL_TYPES]
+    counts = Counter(
+        auditor.base(state)
+        for state in blocks.values()
+        if auditor.base(state) not in AIR
+    )
+    functional_points = [
+        pos for pos, state in blocks.items()
+        if auditor.base(state) in FUNCTIONAL_TYPES
+    ]
     functional_box = bounds(functional_points) if functional_points else None
     dispenser_banks = map_dispenser_banks(auditor, blocks, args.chunk_limit)
+    dispenser_points = [
+        pos for pos, state in blocks.items()
+        if auditor.base(state) == "minecraft:dispenser"
+    ]
+    dispenser_layers = sorted({point[1] for point in dispenser_points})
 
     report = {
         "status": "PASS",
@@ -272,6 +354,22 @@ def main() -> int:
         "data_version": model["data_version"],
         "dimensions": model["source_dimensions"],
         "functional_bounds": functional_box,
+        "architecture_summary": {
+            "functional_height": (
+                functional_box["dimensions"]["y"] if functional_box else 0
+            ),
+            "functional_type_diversity": len([
+                block_type for block_type in counts
+                if block_type in FUNCTIONAL_TYPES
+            ]),
+            "dispenser_count": len(dispenser_points),
+            "dispenser_y_layers": len(dispenser_layers),
+            "dispenser_y_span": (
+                max(dispenser_layers) - min(dispenser_layers) + 1
+                if dispenser_layers else 0
+            ),
+            "dispenser_bank_count": len(dispenser_banks),
+        },
         "block_type_counts": dict(sorted(counts.items())),
         "controls": controls(auditor, blocks),
         "repeaters": list_components(auditor, blocks, "minecraft:repeater"),
@@ -288,7 +386,9 @@ def main() -> int:
             "geometry_confirmed": True,
             "runtime_confirmed": False,
             "subsystem_roles_confirmed": False,
-            "note": "Names such as charge, hammer, booster, nuke and OSRB require causal runtime evidence.",
+            "note": (
+                "Names such as charge, hammer, booster, nuke and OSRB require causal runtime evidence."
+            ),
         },
     }
     rendered = json.dumps(report, indent=2)
@@ -303,5 +403,11 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except Exception as exc:
-        print(json.dumps({"status": "ERROR", "error": f"{type(exc).__name__}: {exc}"}, indent=2), file=sys.stderr)
+        print(
+            json.dumps(
+                {"status": "ERROR", "error": f"{type(exc).__name__}: {exc}"},
+                indent=2,
+            ),
+            file=__import__("sys").stderr,
+        )
         raise SystemExit(3)

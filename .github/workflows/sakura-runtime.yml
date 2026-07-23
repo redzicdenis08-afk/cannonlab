@@ -2,6 +2,19 @@ name: Exact Sakura Runtime
 
 on:
   pull_request:
+    paths:
+      - 'src/**'
+      - 'build.gradle*'
+      - 'settings.gradle*'
+      - 'gradle/**'
+      - 'gradlew'
+      - 'gradlew.bat'
+      - 'scripts/build-sakura-26.1.2.sh'
+      - 'scripts/cloud-smoke.sh'
+      - 'scripts/assert-results.py'
+      - 'scenarios/**'
+      - 'cannons/**'
+      - 'targets/**'
   workflow_dispatch:
 
 concurrency:

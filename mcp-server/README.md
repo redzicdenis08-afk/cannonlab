@@ -15,9 +15,22 @@ On Windows, use `.venv\Scripts\python.exe`.
 
 The server uses stdio by default and never connects to ExtremeCraft. Paths are jailed to the CannonLab repository.
 
-## Tools
+## Fast path
+
+Use one of these before spending time on runtime tests:
+
+- `fast_cannon_intake`: one call for format/limit audit, functional mapping, and anti-pancake geometry profiling against real reference cannons
+- `profile_cannon`: rapidly compare a candidate with one or more decoded references and reject fake-modern geometry
+- `prepare_reference_cannon`: convert a proven Litematica or Sponge source into deterministic Sponge v2, then audit and profile the exact output
+
+For modern raid work, pass the strongest real reference cannons available and use `intent=modern-raid`. Small field-calibration cannons must use `intent=calibration` so the morphology gate does not pretend every valid diagnostic build needs full raid-cannon complexity.
+
+## All tools
 
 - `inspect_cannon`: static format, chunk, block-entity and functional-component analysis
+- `fast_cannon_intake`: combined fast audit, structural map, reference comparison, and next-action verdict
+- `profile_cannon`: structural morphology and real-reference comparison without inventing subsystem roles
+- `prepare_reference_cannon`: deterministic Sponge v2 conversion plus output audit and geometry profile
 - `audit_cannon_corpus`: batch-compares a private folder of `.schem` and `.litematic` designs without publishing the files
 - `explain_shot`: converts `causal-events.csv` into firing cohorts and a compact timeline
 - `analyze_shot_quality`: scores trigger latency, firing cohorts, target convergence, falling payload and cannon self-damage

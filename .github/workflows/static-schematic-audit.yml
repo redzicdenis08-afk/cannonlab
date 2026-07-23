@@ -2,6 +2,14 @@ name: Static Schematic Audit
 
 on:
   pull_request:
+    paths:
+      - 'scripts/schem-audit.py'
+      - 'scripts/cannon-static-map.py'
+      - 'scripts/cannon-geometry-profile.py'
+      - 'scripts/audit-cannon-corpus.py'
+      - 'scripts/test-negative-litematic.py'
+      - 'audit-fixtures/**'
+      - 'cannons/**'
   workflow_dispatch:
 
 concurrency:

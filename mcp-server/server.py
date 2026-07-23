@@ -48,6 +48,14 @@ def _run_json(args: list[str]) -> dict[str, Any]:
     return payload
 
 
+def _reference_args(reference_paths: list[str] | None) -> list[str]:
+    args: list[str] = []
+    for raw in reference_paths or []:
+        reference = _inside_root(raw)
+        args += ["--reference", str(reference)]
+    return args
+
+
 @mcp.tool()
 def inspect_cannon(path: str, chunk_limit: int = 160) -> dict[str, Any]:
     """Decode a Sponge/Litematica cannon, audit EC limits, and map structural components."""
@@ -67,6 +75,159 @@ def inspect_cannon(path: str, chunk_limit: int = 160) -> dict[str, Any]:
         str(chunk_limit),
     ])
     return {"audit": audit, "static_map": static_map}
+
+
+@mcp.tool()
+def fast_cannon_intake(
+    path: str,
+    reference_paths: list[str] | None = None,
+    intent: str = "modern-raid",
+    chunk_limit: int = 160,
+) -> dict[str, Any]:
+    """One fast call for SHA-safe intake, EC audit, structural map, and anti-pancake comparison."""
+    if intent not in {"calibration", "modern-raid"}:
+        raise ValueError("intent must be calibration or modern-raid")
+    source = _inside_root(path)
+    audit = _run_json([
+        sys.executable,
+        str(SCRIPTS / "schem-audit.py"),
+        str(source),
+        "--chunk-limit",
+        str(chunk_limit),
+    ])
+    static_map = _run_json([
+        sys.executable,
+        str(SCRIPTS / "cannon-static-map.py"),
+        str(source),
+        "--chunk-limit",
+        str(chunk_limit),
+    ])
+    profile = _run_json([
+        sys.executable,
+        str(SCRIPTS / "cannon-geometry-profile.py"),
+        str(source),
+        "--chunk-limit",
+        str(chunk_limit),
+        "--intent",
+        intent,
+        *_reference_args(reference_paths),
+    ])
+    return {
+        "audit": audit,
+        "static_map": static_map,
+        "geometry_profile": profile,
+        "next_action": (
+            "Use a proven reference as the edit base. Do not generate a modern raid "
+            "candidate from flat dispenser rows when the profile fails."
+        ),
+    }
+
+
+@mcp.tool()
+def profile_cannon(
+    path: str,
+    reference_paths: list[str] | None = None,
+    intent: str = "modern-raid",
+    chunk_limit: int = 160,
+) -> dict[str, Any]:
+    """Compare a candidate with real reference cannons and reject fake-modern geometry in seconds."""
+    if intent not in {"calibration", "modern-raid"}:
+        raise ValueError("intent must be calibration or modern-raid")
+    source = _inside_root(path)
+    return _run_json([
+        sys.executable,
+        str(SCRIPTS / "cannon-geometry-profile.py"),
+        str(source),
+        "--chunk-limit",
+        str(chunk_limit),
+        "--intent",
+        intent,
+        *_reference_args(reference_paths),
+    ])
+
+
+@mcp.tool()
+def prepare_reference_cannon(
+    source_path: str,
+    output_path: str,
+    reference_paths: list[str] | None = None,
+    intent: str = "calibration",
+    chunk_limit: int = 160,
+    data_version: int = 3465,
+) -> dict[str, Any]:
+    """Convert a proven source to deterministic Sponge v2, then audit and profile the exact output."""
+    if intent not in {"calibration", "modern-raid"}:
+        raise ValueError("intent must be calibration or modern-raid")
+    source = _inside_root(source_path)
+    output = _inside_root(output_path, must_exist=False)
+    if output.suffix.lower() != ".schem":
+        raise ValueError("output_path must end in .schem")
+    if output.exists():
+        raise FileExistsError(output)
+
+    conversion = _run_json([
+        sys.executable,
+        str(SCRIPTS / "schem-audit.py"),
+        str(source),
+        "--chunk-limit",
+        str(chunk_limit),
+        "--convert-sponge-out",
+        str(output),
+        "--output-data-version",
+        str(data_version),
+        "--allow-data-version-retag",
+    ])
+    if not output.exists():
+        return {
+            "status": "FAIL",
+            "conversion": conversion,
+            "error": "conversion did not produce the requested output",
+        }
+
+    output_audit = _run_json([
+        sys.executable,
+        str(SCRIPTS / "schem-audit.py"),
+        str(output),
+        "--chunk-limit",
+        str(chunk_limit),
+        "--expect-format",
+        "sponge-v2",
+    ])
+    static_map = _run_json([
+        sys.executable,
+        str(SCRIPTS / "cannon-static-map.py"),
+        str(output),
+        "--chunk-limit",
+        str(chunk_limit),
+    ])
+    profile = _run_json([
+        sys.executable,
+        str(SCRIPTS / "cannon-geometry-profile.py"),
+        str(output),
+        "--chunk-limit",
+        str(chunk_limit),
+        "--intent",
+        intent,
+        *_reference_args(reference_paths),
+    ])
+    return {
+        "status": (
+            "PASS"
+            if output_audit.get("status") == "PASS"
+            and profile.get("status") == "PASS"
+            else "FAIL"
+        ),
+        "source": str(source.relative_to(ROOT)),
+        "output": str(output.relative_to(ROOT)),
+        "conversion": conversion,
+        "output_audit": output_audit,
+        "static_map": static_map,
+        "geometry_profile": profile,
+        "truth_boundary": (
+            "Conversion preserves decoded geometry. It does not prove the source's "
+            "runtime sequence or ExtremeCraft readiness."
+        ),
+    }
 
 
 @mcp.tool()

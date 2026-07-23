@@ -2,6 +2,15 @@ name: Cannon Intelligence
 
 on:
   pull_request:
+    paths:
+      - 'scripts/schem-audit.py'
+      - 'scripts/cannon-static-map.py'
+      - 'scripts/cannon-geometry-profile.py'
+      - 'scripts/audit-cannon-corpus.py'
+      - 'scripts/explain-causal-trace.py'
+      - 'scripts/analyze-causal-quality.py'
+      - 'mcp-server/**'
+      - 'audit-fixtures/**'
   workflow_dispatch:
 
 concurrency:
@@ -12,9 +21,9 @@ permissions:
   contents: read
 
 jobs:
-  causal-intelligence:
+  static-intelligence:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,22 +33,13 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Set up JDK 25
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '25'
-
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '9.2.1'
-
       - name: Compile analysis and MCP Python
         run: |
           python -m py_compile \
             scripts/schem-audit.py \
             scripts/cannon-static-map.py \
+            scripts/cannon-geometry-profile.py \
+            scripts/audit-cannon-corpus.py \
             scripts/explain-causal-trace.py \
             mcp-server/server.py
 
@@ -57,8 +57,53 @@ jobs:
           report = json.loads(Path('lab-artifacts/litematic-static-map.json').read_text())
           assert report['status'] == 'PASS', report
           assert report['largest_dispenser_bank']['count'] == 1, report
+          assert report['architecture_summary']['functional_height'] == 1, report
           assert report['truth_boundary']['runtime_confirmed'] is False, report
-          print('Static mapping preserves the geometry/runtime truth boundary.')
+          print('Static mapping preserves geometry and reports real functional height.')
+          PY
+
+      - name: Prove support-gap dispenser clustering
+        run: |
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          script = Path('scripts/cannon-static-map.py')
+          spec = importlib.util.spec_from_file_location('static_map', script)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          points = {(0, 0, 0), (0, 2, 0)}
+          assert len(module.connected_components(points)) == 2
+          assert len(module.proximity_clusters(points)) == 1
+          print('Support-sized gaps no longer shred one structural bank.')
+          PY
+
+      - name: Prove anti-pancake morphology gate
+        run: |
+          python scripts/cannon-geometry-profile.py /tmp/probe-one-dispenser.litematic \
+            --intent calibration \
+            --json-out lab-artifacts/calibration-profile.json > /dev/null
+          set +e
+          python scripts/cannon-geometry-profile.py /tmp/probe-one-dispenser.litematic \
+            --intent modern-raid \
+            --json-out lab-artifacts/modern-profile.json > /dev/null
+          code=$?
+          set -e
+          test "$code" -eq 2
+          mkdir -p /tmp/corpus
+          cp /tmp/probe-one-dispenser.litematic /tmp/corpus/
+          python scripts/audit-cannon-corpus.py /tmp/corpus \
+            --json-out lab-artifacts/corpus-profile.json > /dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          calibration = json.loads(Path('lab-artifacts/calibration-profile.json').read_text())
+          modern = json.loads(Path('lab-artifacts/modern-profile.json').read_text())
+          corpus = json.loads(Path('lab-artifacts/corpus-profile.json').read_text())
+          assert calibration['status'] == 'PASS', calibration
+          assert modern['status'] == 'FAIL', modern
+          assert 'functional_height_at_least_16' in modern['failures'], modern
+          assert corpus['designs'][0]['functional_height'] == 1, corpus
+          print('Calibration remains allowed while fake-modern geometry is rejected.')
           PY
 
       - name: Prove causal explanation logic
@@ -77,51 +122,11 @@ jobs:
           print('Synthetic causal cohorts and timeline passed.')
           PY
 
-      - name: Build causal recorder
-        run: gradle clean build --stacktrace
-
-      - name: Capture ten real redstone-fired causal traces
-        env:
-          CANNONLAB_MC_VERSION: '26.1.2'
-          CANNONLAB_SCENARIO: probe-redstone-diagnostic.yml
-          CANNONLAB_EXPECTED_SHOTS: '10'
-        run: bash scripts/cloud-smoke.sh
-
-      - name: Verify and explain runtime traces
-        run: |
-          python - <<'PY'
-          import csv
-          import json
-          import subprocess
-          import sys
-          from pathlib import Path
-
-          traces = sorted(Path('lab-artifacts/results').rglob('causal-events.csv'))
-          assert len(traces) == 10, traces
-          for trace in traces:
-              with trace.open(newline='', encoding='utf-8') as handle:
-                  events = [row['event'] for row in csv.DictReader(handle)]
-              assert 'DISPENSE' in events, (trace, events)
-              assert 'ENTITY_ADD' in events, (trace, events)
-              shot = trace.parent
-              subprocess.run([
-                  sys.executable,
-                  'scripts/explain-causal-trace.py',
-                  str(trace),
-                  '--json-out', str(shot / 'causal-summary.json'),
-                  '--markdown-out', str(shot / 'causal-timeline.md'),
-              ], check=True, stdout=subprocess.DEVNULL)
-              summary = json.loads((shot / 'causal-summary.json').read_text())
-              assert summary['trace_confidence']['requirements']['dispense'], summary
-              assert summary['trace_confidence']['requirements']['entity_spawn'], summary
-          print(f'Validated and explained {len(traces)} real causal traces.')
-          PY
-
-      - name: Upload cannon intelligence evidence
+      - name: Upload static cannon intelligence evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: CannonLab-intelligence-${{ github.run_number }}
+          name: CannonLab-static-intelligence-${{ github.run_number }}
           path: |
             lab-artifacts/**
           if-no-files-found: error
