@@ -23,6 +23,7 @@ import org.bukkit.event.block.BlockExplodeEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.Vector;
 
 import java.io.File;
 import java.io.IOException;
@@ -294,6 +295,8 @@ final class LabRunController implements Listener {
                 "mode=tnt-probe;diagnostic=true;fuse=" + scenario.probeTntFuseTicks()
         );
         TNTPrimed tnt = world.spawn(spawn, TNTPrimed.class);
+        tnt.setGravity(false);
+        tnt.setVelocity(new Vector(0.0, 0.0, 0.0));
         tnt.setFuseTicks(scenario.probeTntFuseTicks());
         plugin.getLogger().info("Diagnostic TNT probe spawned at " + coordinates(spawn)
                 + " | fuse=" + scenario.probeTntFuseTicks());
