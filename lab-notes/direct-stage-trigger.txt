@@ -1,0 +1,1 @@
+Trigger direct-stage diagnostic artifact build.
