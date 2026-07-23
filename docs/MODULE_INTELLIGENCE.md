@@ -108,10 +108,18 @@ For every module outside the declared change set, the default contract compares:
 - entity spawn positions and velocities
 - fuse values
 - explosion ticks and positions
-- component-event and entity-correlation coverage
-- ambiguous component-event counts
+- component-event, entity-source, shared-component, and joint-entity accounting coverage
+- shared-component event cohorts and their tick distributions
+- joint entity-source cohorts, including translated source dispenser identities and dispense timing
+- ambiguous component-event counts without inventing one owner for shared evidence
 
-Candidate entity and explosion coordinates are transformed back into the reference module frame before comparison. This lets a padded or converted schematic pass without allowing real trajectory drift. Unknown allowed-module IDs fail instead of being ignored.
+Candidate entity, source-component, and explosion coordinates are transformed back into the reference module frame before comparison. This lets a padded or converted schematic pass without allowing real source, timing, fuse, trajectory, or impact drift. Runtime contract v3 permits ambiguity only when the ambiguous evidence is fully accounted for and its shared cohort remains unchanged. Unknown allowed-module IDs fail instead of being ignored.
+
+## Repair-family ranking
+
+`scripts/analyze-repair-family.py` compares multiple bounded repair variants against one exact reference and its run summary. It deduplicates mirrored run summaries by `run_id`, rejects conflicting duplicates and mismatched target, distance, layer, bounds, arena, and regeneration contracts before ranking, consumes every available bounded shot trace, and combines repeat-shot completion, dispenser survival, self-damage reduction, target retention, repeatability, structural preservation, and unchanged-module runtime contracts. The report exposes every score component, identifies the Pareto front, and separates a clean bounded repair from a performance win that damages unrelated modules.
+
+A candidate is not promotion-ready unless it has completed runtime evidence, passes the scenario contract, meets survival and target-retention thresholds, reduces self-damage, stays within the structural-change budget, and preserves protected module behavior.
 
 ## Required workflow for advanced edits
 
@@ -123,7 +131,8 @@ Candidate entity and explosion coordinates are transformed back into the referen
 6. Produce the candidate from the reference, never from a fresh blank schematic.
 7. Run the preservation gate.
 8. Re-run the same scenario and compare causal traces.
-9. Run defense, endurance, alignment, and self-damage gates.
-10. Use a small live ExtremeCraft calibration or canary before an EC-ready claim.
+9. Rank the repair family across repeated runs and reject collateral runtime drift.
+10. Run defense, endurance, alignment, and self-damage gates.
+11. Use a small live ExtremeCraft calibration or canary before an EC-ready claim.
 
 Public Paper or Sakura success remains local evidence. Private ExtremeCraft configuration, patches, plugins, anti-lag behavior, durable blocks, regeneration, fluid handling, TNT restrictions, and FAWE limits can still change the result.
