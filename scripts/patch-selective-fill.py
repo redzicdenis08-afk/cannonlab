@@ -81,8 +81,22 @@ text = one(
 )
 text = one(
     text,
-    "        for (LabScenario.BlockPoint point : scenario.fireInputs()) {",
-    "        for (LabScenario.BlockPoint point : inputs) {",
+    '''    private void pressButtons(
+            World world,
+            Location pasteOrigin,
+            List<LabScenario.BlockPoint> inputs,
+            String stage
+    ) {
+        int pressed = 0;
+        for (LabScenario.BlockPoint point : scenario.fireInputs()) {''',
+    '''    private void pressButtons(
+            World world,
+            Location pasteOrigin,
+            List<LabScenario.BlockPoint> inputs,
+            String stage
+    ) {
+        int pressed = 0;
+        for (LabScenario.BlockPoint point : inputs) {''',
     "button input loop",
 )
 text = one(
