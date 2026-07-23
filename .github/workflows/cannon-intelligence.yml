@@ -40,6 +40,8 @@ jobs:
           python -m py_compile \
             scripts/schem-audit.py \
             scripts/cannon-static-map.py \
+            scripts/cannon-geometry-profile.py \
+            scripts/audit-cannon-corpus.py \
             scripts/explain-causal-trace.py \
             mcp-server/server.py
 
@@ -57,8 +59,53 @@ jobs:
           report = json.loads(Path('lab-artifacts/litematic-static-map.json').read_text())
           assert report['status'] == 'PASS', report
           assert report['largest_dispenser_bank']['count'] == 1, report
+          assert report['architecture_summary']['functional_height'] == 1, report
           assert report['truth_boundary']['runtime_confirmed'] is False, report
-          print('Static mapping preserves the geometry/runtime truth boundary.')
+          print('Static mapping preserves geometry and reports real functional height.')
+          PY
+
+      - name: Prove support-gap dispenser clustering
+        run: |
+          python - <<'PY'
+          import importlib.util
+          from pathlib import Path
+          script = Path('scripts/cannon-static-map.py')
+          spec = importlib.util.spec_from_file_location('static_map', script)
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
+          points = {(0, 0, 0), (0, 2, 0)}
+          assert len(module.connected_components(points)) == 2
+          assert len(module.proximity_clusters(points)) == 1
+          print('Support-sized gaps no longer shred one structural bank.')
+          PY
+
+      - name: Prove anti-pancake morphology gate
+        run: |
+          python scripts/cannon-geometry-profile.py /tmp/probe-one-dispenser.litematic \
+            --intent calibration \
+            --json-out lab-artifacts/calibration-profile.json > /dev/null
+          set +e
+          python scripts/cannon-geometry-profile.py /tmp/probe-one-dispenser.litematic \
+            --intent modern-raid \
+            --json-out lab-artifacts/modern-profile.json > /dev/null
+          code=$?
+          set -e
+          test "$code" -eq 2
+          mkdir -p /tmp/corpus
+          cp /tmp/probe-one-dispenser.litematic /tmp/corpus/
+          python scripts/audit-cannon-corpus.py /tmp/corpus \
+            --json-out lab-artifacts/corpus-profile.json > /dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          calibration = json.loads(Path('lab-artifacts/calibration-profile.json').read_text())
+          modern = json.loads(Path('lab-artifacts/modern-profile.json').read_text())
+          corpus = json.loads(Path('lab-artifacts/corpus-profile.json').read_text())
+          assert calibration['status'] == 'PASS', calibration
+          assert modern['status'] == 'FAIL', modern
+          assert 'functional_height_at_least_16' in modern['failures'], modern
+          assert corpus['designs'][0]['functional_height'] == 1, corpus
+          print('Calibration remains allowed while fake-modern geometry is rejected.')
           PY
 
       - name: Prove causal explanation logic
