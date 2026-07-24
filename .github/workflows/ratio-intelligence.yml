@@ -1,0 +1,105 @@
+name: 384 Ratio Intelligence
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/cannon-ratio-audit.py'
+      - 'scripts/test-cannon-ratio-audit.py'
+      - 'profiles/ratios/**'
+      - 'profiles/parity/**'
+      - 'profiles/archetypes/**'
+      - 'docs/ADVANCED_CANNON_INTELLIGENCE_RESEARCH.md'
+      - '.github/workflows/ratio-intelligence.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  ratio-intelligence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile ratio intelligence
+        run: |
+          python -m py_compile \
+            scripts/cannon-ratio-audit.py \
+            scripts/test-cannon-ratio-audit.py
+
+      - name: Run fail-closed regressions
+        run: python scripts/test-cannon-ratio-audit.py
+
+      - name: Audit public 384 profiles
+        run: |
+          mkdir -p lab-artifacts/ratio-intelligence
+          python scripts/cannon-ratio-audit.py \
+            profiles/ratios/public-0.7-384-osrb-1-above-barrel.json \
+            --json-out lab-artifacts/ratio-intelligence/public-0.7-384-osrb.json \
+            > /dev/null
+          python scripts/cannon-ratio-audit.py \
+            profiles/ratios/public-1.2-384-4os-derived.json \
+            --json-out lab-artifacts/ratio-intelligence/public-1.2-384-derived.json \
+            > /dev/null
+          python scripts/cannon-ratio-audit.py \
+            profiles/ratios/public-0.7-384-osrb-1-above-barrel.json \
+            --compare profiles/ratios/public-1.2-384-4os-derived.json \
+            --json-out lab-artifacts/ratio-intelligence/profile-comparison.json \
+            > /dev/null
+
+      - name: Validate machine-readable research profiles
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          paths = sorted(Path('profiles').rglob('*.json'))
+          assert paths, 'no profile JSON found'
+          for path in paths:
+              payload = json.loads(path.read_text(encoding='utf-8'))
+              assert isinstance(payload, dict), path
+              assert int(payload.get('schema_version', 0)) == 1, path
+
+          osrb = json.loads(
+              Path('lab-artifacts/ratio-intelligence/public-0.7-384-osrb.json')
+              .read_text(encoding='utf-8')
+          )
+          assert osrb['stack_accounting']['base_stack_amount'] == 384, osrb
+          assert osrb['stack_accounting']['restack_payload_amount'] == 9, osrb
+          assert osrb['truth_boundary']['runtime_physics_confirmed'] is False, osrb
+
+          parity = json.loads(
+              Path('profiles/parity/extremecraft-private-parity-required-v1.json')
+              .read_text(encoding='utf-8')
+          )
+          assert len(parity['dimensions']) >= 16, parity
+          assert parity['status'] == 'UNMEASURED', parity
+
+          ontology = json.loads(
+              Path('profiles/archetypes/advanced-cannon-ontology-v1.json')
+              .read_text(encoding='utf-8')
+          )
+          family_ids = {row['id'] for row in ontology['families']}
+          assert {'384-stacker', 'osrb', 'nuke', 'left-right-shoot'} <= family_ids, family_ids
+          assert ontology['truth_boundary']['static_shape_proves_runtime_role'] is False
+
+          print(f'Validated {len(paths)} machine-readable profile files.')
+          PY
+
+      - name: Upload ratio evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ratio-intelligence
+          path: lab-artifacts/ratio-intelligence
+          if-no-files-found: error

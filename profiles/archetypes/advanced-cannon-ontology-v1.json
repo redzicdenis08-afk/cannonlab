@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "id": "advanced-factions-cannon-ontology-v1",
+  "title": "Evidence-first advanced factions cannon ontology",
+  "truth_boundary": {
+    "term_name_proves_geometry": false,
+    "filename_proves_function": false,
+    "static_shape_proves_runtime_role": false,
+    "runtime_role_requires": ["source-accounted activation trace", "entity spawn and explosion cohorts", "target interaction evidence", "repeatable outcome"],
+    "legality_is_server_specific": true
+  },
+  "core_components": [
+    {
+      "id": "power",
+      "aliases": ["main power", "sand power", "hammer power", "booster"],
+      "claimed_role": "Propulsion or movement cohort.",
+      "minimum_observables": ["explosion cohort", "payload velocity delta", "directional travel"],
+      "do_not_infer_from": ["large dispenser bank alone"]
+    },
+    {
+      "id": "compression",
+      "aliases": ["sand comp", "sand compressor"],
+      "claimed_role": "Produces or releases a dense falling-block payload.",
+      "minimum_observables": ["piston sequence", "falling-block spawn count", "spawn positions"],
+      "do_not_infer_from": ["piston cluster alone"]
+    },
+    {
+      "id": "reverse",
+      "aliases": ["rev", "reverse charge", "reverse hammer"],
+      "claimed_role": "Changes vertical payload direction or restacking behavior.",
+      "minimum_observables": ["pre/post explosion velocity", "vertical displacement", "payload ordering"],
+      "do_not_infer_from": ["the word rev in a filename"]
+    },
+    {
+      "id": "hybrid",
+      "aliases": ["hybrid sand", "fusion", "parafusion"],
+      "claimed_role": "Co-locates falling payload and TNT so protected or watered cells can be damaged.",
+      "minimum_observables": ["same-cell or bounded-distance TNT/falling payload", "fluid displacement", "target damage"],
+      "do_not_infer_from": ["sand and TNT existing somewhere in the cannon"]
+    },
+    {
+      "id": "hammer",
+      "aliases": ["stacking hammer", "reverse hammer", "OSRB hammer", "nuke hammer"],
+      "claimed_role": "Explosion cohort that changes payload stacking or impact geometry.",
+      "minimum_observables": ["source TNT cohort", "payload velocity delta", "stack formation outcome"],
+      "do_not_infer_from": ["dispenser count ratio alone"]
+    },
+    {
+      "id": "stopper",
+      "aliases": ["stopper TNT"],
+      "claimed_role": "Constrains or arrests an entity cohort before a later effect.",
+      "minimum_observables": ["velocity reduction", "bounded final position", "later cohort dependency"],
+      "do_not_infer_from": ["late TNT cohort alone"]
+    },
+    {
+      "id": "scatter",
+      "aliases": ["scatter TNT", "impact scatter"],
+      "claimed_role": "Final or near-final TNT cohort that spreads damage around the payload impact.",
+      "minimum_observables": ["late explosion cohort", "impact position", "target damage footprint"],
+      "do_not_infer_from": ["last dispenser bank alone"]
+    },
+    {
+      "id": "guider_and_barrel",
+      "aliases": ["guider", "barrel", "floating barrel", "external barrel"],
+      "claimed_role": "Constrains trajectory and impact height/direction.",
+      "minimum_observables": ["collision path", "position trace", "impact height"],
+      "do_not_infer_from": ["single wall or slab line"]
+    }
+  ],
+  "families": [
+    {
+      "id": "384-stacker",
+      "aliases": ["384", "384 sand stacker"],
+      "outcome_contract": "A base falling payload accounting to the authored nominal 384 stack before optional attachments.",
+      "minimum_evidence": ["ratio accounting", "falling-block spawn count", "formed stack height or impact stack evidence"],
+      "known_public_profiles": ["public-0.7-384-osrb-1-above-barrel", "public-1.2-384-4os-derived"]
+    },
+    {
+      "id": "osrb",
+      "aliases": ["one shot regen bust", "one-shot regen busting"],
+      "outcome_contract": "Breaks the intended regeneration interaction within one firing cycle under a named defense contract.",
+      "minimum_evidence": ["restack payload trace", "OSRB hammer trace", "regen timing trace", "single-cycle breach"],
+      "attachments": ["OSRB sand", "OSRB hammer"]
+    },
+    {
+      "id": "oneshot",
+      "aliases": ["OS", "one shot"],
+      "outcome_contract": "Completes the named wall interaction in one cycle, without silently weakening the target.",
+      "minimum_evidence": ["exact target contract", "single-cycle causal trace", "breach evidence"]
+    },
+    {
+      "id": "nuke",
+      "aliases": ["efficient nuke", "pseudo nuke", "horizontal nuke", "reverse nuke", "push nuke", "up-down nuke"],
+      "outcome_contract": "Creates a multi-cell or staged destruction pattern described by a precise target contract.",
+      "minimum_evidence": ["nuke segment cohorts", "segment timing", "damage footprint", "wall count per cycle"],
+      "variants": ["efficient", "pseudo", "horizontal", "reverse", "push", "up-down"]
+    },
+    {
+      "id": "slab-bust",
+      "aliases": ["slabbust", "tunnel effect"],
+      "outcome_contract": "Damages the intended slab-protected cell at the required impact location.",
+      "minimum_evidence": ["payload ordering", "collision/impact trace", "slab cell destruction"]
+    },
+    {
+      "id": "drop-bust",
+      "aliases": ["dropbust"],
+      "outcome_contract": "Drops the destructive cohort into the intended protected cell.",
+      "minimum_evidence": ["vertical position trace", "impact cell", "target destruction"]
+    },
+    {
+      "id": "left-right-shoot",
+      "aliases": ["leftshoot", "rightshoot", "splitter fusion"],
+      "outcome_contract": "Applies a controlled lateral displacement before the final payload interaction.",
+      "minimum_evidence": ["lateral impulse source", "X/Z displacement trace", "final impact and breach"],
+      "variants": ["left", "right", "reverse-left/right"]
+    },
+    {
+      "id": "double-tap",
+      "aliases": ["doubletap"],
+      "outcome_contract": "Produces two intentional target interactions in one named firing cycle.",
+      "minimum_evidence": ["two separated impact/explosion cohorts", "same cycle identity", "target state between taps"]
+    },
+    {
+      "id": "anti-patch",
+      "aliases": ["AP", "webbust AP"],
+      "outcome_contract": "Maintains the named breach behavior against a patching or web defense contract.",
+      "minimum_evidence": ["defense state", "payload path", "patch/web interaction", "breach"]
+    },
+    {
+      "id": "anti-gravity",
+      "aliases": ["anti-grav", "AG"],
+      "outcome_contract": "Produces the intended nonstandard vertical payload behavior.",
+      "minimum_evidence": ["vertical impulse graph", "entity ordering", "impact"]
+    },
+    {
+      "id": "cubic",
+      "aliases": ["cubic cannon"],
+      "outcome_contract": "Matches a defined multi-axis firing contract.",
+      "minimum_evidence": ["multi-axis source cohorts", "3D trajectory trace", "target outcome"]
+    },
+    {
+      "id": "midair",
+      "aliases": ["midair cannon"],
+      "outcome_contract": "Performs an intended payload transformation or impact while not relying on a normal fixed barrel contact.",
+      "minimum_evidence": ["airborne interaction tick", "source cohort", "post-interaction trajectory", "impact"]
+    },
+    {
+      "id": "worm",
+      "aliases": ["worm", "snake"],
+      "outcome_contract": "Produces a repeated moving destruction sequence under an exact rule and target contract.",
+      "minimum_evidence": ["per-segment source and explosion identity", "movement sequence", "damage path"]
+    },
+    {
+      "id": "alien-probe",
+      "aliases": ["probe", "alien probe"],
+      "outcome_contract": "Achieves the named probing impact behavior with exact timing and collision evidence.",
+      "minimum_evidence": ["impact-timed TNT trace", "collision state", "target outcome"]
+    },
+    {
+      "id": "adjustable",
+      "aliases": ["adjust", "U-fusion", "multi-adjust"],
+      "outcome_contract": "Changes impact position through a controlled operator setting.",
+      "minimum_evidence": ["setting value", "changed source timing/geometry", "impact delta", "repeatability"]
+    }
+  ],
+  "defense_contracts": ["dry wall", "watered wall", "durable obsidian", "slab filter", "filter", "hotdog regen", "staggered pillar", "patch/web defense", "reverse layer", "roof layer", "mixed 15-chunk course", "high-Y course"],
+  "classification_policy": {
+    "static": "May emit candidate terms only when geometry features match, never a confirmed role.",
+    "runtime": "May promote a role after source-accounted cohorts and expected payload transformation are observed.",
+    "field": "May promote server readiness only after the exact design, paste point, target, range and workflow pass live."
+  }
+}
