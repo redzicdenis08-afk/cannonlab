@@ -1,0 +1,295 @@
+name: Real 20-Block One Stacker Search
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/real-20-block-one-stacker.yml'
+      - 'scripts/patch-staged-redstone.py'
+      - 'scripts/generate-stacker20-candidates.py'
+      - 'scripts/build-sakura-26.1.2.sh'
+      - 'scripts/cloud-smoke.sh'
+      - 'scripts/assert-results.py'
+      - 'scripts/scenario-integrity-audit.py'
+      - 'src/**'
+      - 'build.gradle*'
+      - 'settings.gradle*'
+      - 'gradle/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Add bounded delayed redstone cohort
+        run: python3 scripts/patch-staged-redstone.py
+
+      - name: Generate and audit canonical candidates
+        run: |
+          python3 scripts/generate-stacker20-candidates.py \
+            --output-directory stacker20-generated/cannons \
+            --manifest stacker20-generated/manifest.json
+          for file in stacker20-generated/cannons/*.schem; do
+            python3 scripts/schem-audit.py "$file" \
+              --chunk-limit 160 \
+              --expect-format sponge-v2 \
+              --require-all-alignments-safe \
+              --json-out "$file.audit.json"
+          done
+
+      - name: Build CannonLab
+        run: gradle clean build --stacktrace
+
+      - name: Build pinned public Sakura 26.1.2
+        run: bash scripts/build-sakura-26.1.2.sh
+
+      - name: Package exact runtime
+        run: |
+          mkdir -p stacker20-runtime/build/libs
+          cp build/libs/CannonLab-*.jar stacker20-runtime/build/libs/
+          cp .sakura-26.1.2.jar stacker20-runtime/sakura-26.1.2.jar
+          cp -R stacker20-generated stacker20-runtime/generated
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stacker20-runtime-${{ github.run_number }}
+          path: stacker20-runtime/**
+          if-no-files-found: error
+          retention-days: 14
+
+  twenty-block-search:
+    needs: build-runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {id: c40-d68, charge: 40, delay: 68, total_tnt: 44}
+          - {id: c40-d72, charge: 40, delay: 72, total_tnt: 44}
+          - {id: c40-d76, charge: 40, delay: 76, total_tnt: 44}
+          - {id: c48-d68, charge: 48, delay: 68, total_tnt: 52}
+          - {id: c48-d72, charge: 48, delay: 72, total_tnt: 52}
+          - {id: c48-d76, charge: 48, delay: 76, total_tnt: 52}
+          - {id: c52-d68, charge: 52, delay: 68, total_tnt: 56}
+          - {id: c52-d72, charge: 52, delay: 72, total_tnt: 56}
+          - {id: c52-d76, charge: 52, delay: 76, total_tnt: 56}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: stacker20-runtime-${{ github.run_number }}
+          path: stacker20-runtime
+
+      - name: Restore runtime and render exact scenario
+        env:
+          CASE_ID: ${{ matrix.id }}
+          CHARGE: ${{ matrix.charge }}
+          DELAY: ${{ matrix.delay }}
+        run: |
+          mkdir -p build/libs scenarios cannons
+          cp stacker20-runtime/build/libs/CannonLab-*.jar build/libs/
+          cp stacker20-runtime/generated/cannons/*.schem.b64 cannons/
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          case = os.environ["CASE_ID"]
+          charge = int(os.environ["CHARGE"])
+          delay = int(os.environ["DELAY"])
+          top_x = range(3, 9) if charge == 40 else range(1, 9)
+          primary = [
+              {"x": x, "y": 3, "z": z}
+              for x in top_x
+              for z in range(2, 6)
+          ]
+          primary += [
+              {"x": x, "y": 1, "z": z}
+              for x in range(1, 9)
+              for z in (0, 7)
+          ]
+          if charge == 52:
+              primary += [
+                  {"x": -1, "y": 1, "z": z}
+                  for z in range(2, 6)
+              ]
+          delayed = [
+              {"x": 9, "y": 2, "z": z}
+              for z in range(2, 6)
+          ] + [
+              {"x": 11, "y": 3, "z": 3},
+              {"x": 11, "y": 3, "z": 4},
+          ]
+
+          def points(rows):
+              return "\n".join(
+                  f"      - {{x: {row['x']}, y: {row['y']}, z: {row['z']}}}"
+                  for row in rows
+              )
+
+          scenario = f"""name: stacker20-{case}
+          cannon:
+            file: EC160-STACKER20-C{charge}-P4-S2-v2.schem
+            origin: {{x: 0, y: 0, z: 0}}
+            fire-mode: redstone
+            fire-inputs:
+          {points(primary)}
+            delayed-fire-inputs:
+          {points(delayed)}
+            delayed-fire-ticks: {delay}
+            fire-pulse-ticks: 4
+            settle-before-fill-ticks: 40
+            fill-to-fire-ticks: 20
+          limits:
+            enforce-dispenser-limit: true
+          acceptance:
+            require-payload: true
+            min-target-destroyed: 1
+            min-falling-blocks: 1
+            min-embedded-payload-explosions: 1
+            min-forward-distance: 20
+            min-remaining-dispenser-ratio: 1.0
+            max-cannon-missing-blocks: 0
+            max-cannon-replaced-type-blocks: 0
+            max-cannon-unexpected-blocks: 0
+            max-self-damage-blocks: 0
+          target:
+            type: watered
+            material: obsidian
+            direction: east
+            distance: 32
+            width: 1
+            height: 1
+            y-offset: 1
+            lateral-offset: 3
+            layers: 1
+            spacing: 3
+            durability:
+              mode: simulate
+              expiration-ticks: 1200
+              only-tnt: true
+              hit-radius: 4.0
+              materials:
+                obsidian: 4
+            regeneration:
+              enabled: false
+          run:
+            shots: 1
+            rebuild-cannon-between-shots: false
+            warmup-ticks: 40
+            max-shot-ticks: 240
+            quiet-ticks: 50
+            shutdown-when-finished: true
+          """
+          scenario = "\n".join(
+              line[10:] if line.startswith("          ") else line
+              for line in scenario.splitlines()
+          ) + "\n"
+          Path(f"scenarios/stacker20-{case}.yml").write_text(scenario, encoding="utf-8")
+          print(scenario)
+          PY
+
+      - name: Fire across a real 20-block clear corridor
+        env:
+          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/stacker20-runtime/sakura-26.1.2.jar
+          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 stacker20 ${{ matrix.id }}
+          CANNONLAB_SCENARIO: stacker20-${{ matrix.id }}.yml
+          CANNONLAB_EXPECTED_SHOTS: '1'
+          CANNONLAB_REQUIRE_CUMULATIVE_CANNON: 'true'
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: ${{ matrix.total_tnt }}
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: ${{ matrix.total_tnt }}
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_MIN_FORWARD_TRAVEL: '20'
+          CANNONLAB_MAX_TARGET_MISS_DISTANCE: '4'
+          CANNONLAB_MIN_TARGET_PEAK_DESTROYED: '1'
+          CANNONLAB_MIN_LAYER_BREACHED: '1'
+          CANNONLAB_MIN_EMBEDDED_PAYLOAD_EXPLOSIONS: '1'
+          CANNONLAB_MAX_SELF_DAMAGE_BLOCKS: '0'
+          CANNONLAB_MAX_CANNON_UNEXPECTED_BLOCKS: '0'
+          CANNONLAB_TIMEOUT_SECONDS: '600'
+          CANNONLAB_ARENA_RADIUS_X: '48'
+          CANNONLAB_ARENA_RADIUS_Y: '16'
+          CANNONLAB_ARENA_RADIUS_Z: '16'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Upload exact candidate evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stacker20-${{ matrix.id }}-${{ github.run_number }}
+          path: lab-artifacts/**
+          if-no-files-found: warn
+          retention-days: 14
+
+  summarize:
+    needs: twenty-block-search
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: stacker20-*-${{ github.run_number }}
+          path: evidence
+      - name: Build non-promoting search index
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          rows = []
+          for summary in sorted(Path("evidence").rglob("run-summary.json")):
+              data = json.loads(summary.read_text(encoding="utf-8"))
+              rows.append({
+                  "artifact": summary.parts[1] if len(summary.parts) > 1 else summary.parent.name,
+                  "status": data.get("status"),
+                  "finish_reason": data.get("finish_reason"),
+                  "shots": data.get("shots"),
+              })
+          report = {
+              "schema_version": 1,
+              "status": "LOCAL_RUNTIME_SEARCH_ONLY",
+              "candidate_count": len(rows),
+              "candidates": rows,
+              "truth_boundary": {
+                  "private_extremecraft_parity": False,
+                  "field_ready_promoted": False,
+              },
+          }
+          Path("stacker20-search-report.json").write_text(
+              json.dumps(report, indent=2, sort_keys=True) + "\n",
+              encoding="utf-8",
+          )
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stacker20-search-report-${{ github.run_number }}
+          path: stacker20-search-report.json
+          if-no-files-found: error
+          retention-days: 14

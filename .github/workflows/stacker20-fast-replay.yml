@@ -1,0 +1,219 @@
+name: Stacker20 Fast Pinned Runtime Replay
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/stacker20-fast-replay.yml'
+      - 'scripts/patch-staged-redstone.py'
+      - 'scripts/generate-stacker20-compact.py'
+      - 'scripts/cloud-smoke.sh'
+      - 'scripts/assert-results.py'
+      - 'scripts/scenario-integrity-audit.py'
+      - 'src/**'
+      - 'build.gradle*'
+      - 'settings.gradle*'
+      - 'gradle/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        payload_delay: [2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Download previously successful pinned Sakura runtime
+        uses: actions/download-artifact@v4
+        with:
+          name: stacker20-runtime-1
+          path: reused-runtime
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: redzicdenis08-afk/cannonlab
+          run-id: 30130075781
+
+      - name: Build three-clock CannonLab plugin
+        run: |
+          python3 scripts/patch-staged-redstone.py
+          gradle clean build --stacktrace
+
+      - name: Generate exact held-sand candidate
+        run: |
+          python3 scripts/generate-stacker20-compact.py \
+            --output-directory generated/cannons \
+            --manifest generated/manifest.json
+          python3 scripts/schem-audit.py \
+            generated/cannons/EC160-STACKER20-C28-HELD-SAND-P4-S2-v7.schem \
+            --chunk-limit 160 \
+            --expect-format sponge-v2 \
+            --require-all-alignments-safe \
+            --expect-dispensers 32 \
+            --json-out generated/held-sand-audit.json
+
+      - name: Restore candidate and render scenario
+        env:
+          PAYLOAD_DELAY: ${{ matrix.payload_delay }}
+          SAND_DELAY: '76'
+        run: |
+          mkdir -p cannons scenarios
+          cp generated/cannons/*.schem.b64 cannons/
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          payload_delay = int(os.environ['PAYLOAD_DELAY'])
+          sand_delay = int(os.environ['SAND_DELAY'])
+          primary = []
+          for x in (6, 7, 8):
+              for z in range(2, 6):
+                  primary.append({'x': x, 'y': -1, 'z': z})
+          for x in (6, 7):
+              for z in range(2, 6):
+                  primary.append({'x': x, 'y': 3, 'z': z})
+          for x in (6, 7, 8):
+              primary.extend((
+                  {'x': x, 'y': 1, 'z': 0},
+                  {'x': x, 'y': 1, 'z': 7},
+              ))
+          for z in (3, 4):
+              primary.append({'x': 4, 'y': 1, 'z': z})
+
+          payload = [
+              {'x': 9, 'y': 4, 'z': z}
+              for z in range(2, 6)
+          ]
+          sand = [
+              {'x': 10, 'y': 4, 'z': 3},
+              {'x': 10, 'y': 4, 'z': 4},
+          ]
+
+          def points(rows):
+              return '\n'.join(
+                  f"      - {{x: {row['x']}, y: {row['y']}, z: {row['z']}}}"
+                  for row in rows
+              )
+
+          scenario = f'''name: stacker20-held-sand-p{payload_delay}-s{sand_delay}
+          cannon:
+            file: EC160-STACKER20-C28-HELD-SAND-P4-S2-v7.schem
+            origin: {{x: 0, y: 0, z: 0}}
+            fire-mode: redstone
+            fire-inputs:
+          {points(primary)}
+            delayed-fire-inputs:
+          {points(payload)}
+            delayed-fire-ticks: {payload_delay}
+            secondary-delayed-fire-inputs:
+          {points(sand)}
+            secondary-delayed-fire-ticks: {sand_delay}
+            fire-pulse-ticks: 4
+            settle-before-fill-ticks: 40
+            fill-to-fire-ticks: 20
+          limits:
+            enforce-dispenser-limit: true
+          acceptance:
+            require-payload: true
+            min-target-destroyed: 1
+            min-falling-blocks: 1
+            min-embedded-payload-explosions: 1
+            min-forward-distance: 20
+            min-remaining-dispenser-ratio: 1.0
+            max-cannon-missing-blocks: 2
+            max-cannon-replaced-type-blocks: 0
+            max-cannon-unexpected-blocks: 2
+            max-self-damage-blocks: 0
+          target:
+            type: watered
+            material: obsidian
+            direction: east
+            distance: 33
+            width: 1
+            height: 1
+            y-offset: 1
+            lateral-offset: 3
+            layers: 1
+            spacing: 3
+            durability:
+              mode: simulate
+              expiration-ticks: 1200
+              only-tnt: true
+              hit-radius: 4.0
+              materials:
+                obsidian: 4
+            regeneration:
+              enabled: false
+          run:
+            shots: 1
+            rebuild-cannon-between-shots: false
+            warmup-ticks: 40
+            max-shot-ticks: 320
+            quiet-ticks: 120
+            shutdown-when-finished: true
+          '''
+          scenario = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in scenario.splitlines()
+          ) + '\n'
+          Path(
+              f'scenarios/stacker20-held-sand-p{payload_delay}-s{sand_delay}.yml'
+          ).write_text(scenario, encoding='utf-8')
+          print(scenario)
+          PY
+
+      - name: Fire through the 20-block clear corridor
+        env:
+          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/reused-runtime/sakura-26.1.2.jar
+          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 held-sand stacker20 p${{ matrix.payload_delay }} s76
+          CANNONLAB_SCENARIO: stacker20-held-sand-p${{ matrix.payload_delay }}-s76.yml
+          CANNONLAB_EXPECTED_SHOTS: '1'
+          CANNONLAB_REQUIRE_CUMULATIVE_CANNON: 'true'
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '32'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '32'
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_MIN_FORWARD_TRAVEL: '20'
+          CANNONLAB_MAX_TARGET_MISS_DISTANCE: '4'
+          CANNONLAB_MIN_TARGET_PEAK_DESTROYED: '1'
+          CANNONLAB_MIN_LAYER_BREACHED: '1'
+          CANNONLAB_MIN_EMBEDDED_PAYLOAD_EXPLOSIONS: '1'
+          CANNONLAB_MAX_SELF_DAMAGE_BLOCKS: '0'
+          CANNONLAB_MAX_CANNON_UNEXPECTED_BLOCKS: '2'
+          CANNONLAB_TIMEOUT_SECONDS: '600'
+          CANNONLAB_ARENA_RADIUS_X: '52'
+          CANNONLAB_ARENA_RADIUS_Y: '16'
+          CANNONLAB_ARENA_RADIUS_Z: '16'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Upload exact evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stacker20-held-sand-p${{ matrix.payload_delay }}-s76-${{ github.run_number }}
+          path: |
+            lab-artifacts/**
+            generated/**
+          if-no-files-found: warn
+          retention-days: 14
