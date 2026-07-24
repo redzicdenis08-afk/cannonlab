@@ -7,10 +7,14 @@ on:
       - 'scripts/cannon-ratio-audit.py'
       - 'scripts/analyze-impulse-graph.py'
       - 'scripts/cannon-synthesis-planner.py'
+      - 'scripts/promote-cannon-component.py'
+      - 'scripts/generate-causal-repair-family.py'
       - 'profiles/ratios/**'
       - 'profiles/parity/**'
       - 'profiles/archetypes/**'
       - 'profiles/synthesis/**'
+      - 'profiles/components/**'
+      - 'profiles/repairs/**'
       - '.github/workflows/advanced-cannon-mcp.yml'
   workflow_dispatch:
 
@@ -57,13 +61,15 @@ jobs:
               'audit_cannon_ratio',
               'analyze_impulse_graph',
               'plan_cannon_synthesis',
+              'promote_cannon_component',
+              'generate_causal_repair_family',
               'list_advanced_cannon_profiles',
           }
           tools = asyncio.run(advanced_server.mcp.list_tools())
           names = {tool.name for tool in tools}
           assert expected <= names, {'missing': sorted(expected - names), 'available': sorted(names)}
           assert set(advanced_server.REGISTERED_ADVANCED_TOOLS) == expected
-          print(f'FastMCP registered {len(names)} total tools including all four advanced tools.')
+          print(f'FastMCP registered {len(names)} total tools including all six advanced tools.')
           PY
 
       - name: Capture advanced tool inventory
