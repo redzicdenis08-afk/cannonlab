@@ -171,9 +171,55 @@ def build_5stacker(barrel_len=10, stacks=5, sand_loaders=4, payloads=4):
                  "dispensers":len(BE),"barrel_len":barrel_len,"range_target":15,
                  "all_dispensers_face":"east"}
 
+def build_minimal_5stacker():
+    """
+    v4: launch-sim-validated minimal 5-stacker for point-blank (15-block) walls.
+    Design from cannon_fire_full.py: 5 charge dispensers stacked directly BEHIND
+    a single projectile dispenser on the fire axis, in a water trough, single
+    ignition. Projectile self-primes off the charge blast and detonates on impact.
+    All dispensers face EAST so /tntfill works.
+    """
+    B={}; BE=[]
+    def put(x,y,z,v): B[(x,y,z)]=v
+    OBS="minecraft:obsidian"; WATER="minecraft:water[level=0]"
+    DISP_E="minecraft:dispenser[facing=east,triggered=false]"
+    DUST="minecraft:redstone_wire[east=side,west=side,north=side,south=side,power=0]"
+    LEVER="minecraft:lever[face=floor,facing=north,powered=false]"
+    L=6  # short barrel, point-blank
+    # trough shell (1-wide lane at z=0), y=1 lane, floor y=0, walls z=-1,z=1, roof y=2..6 open front
+    for x in range(-1, L+1):
+        put(x,0,0,OBS)              # floor
+        put(x,1,-1,OBS); put(x,2,-1,OBS)   # -z wall
+        put(x,1, 1,OBS); put(x,2, 1,OBS)   # +z wall
+        put(x,3,0,OBS)              # roof
+    put(-1,1,0,OBS); put(-1,2,0,OBS)       # back wall (behind charges)
+    # water in the trough (protects the barrel), leave the muzzle end open
+    for x in range(0, L-1):
+        put(x,1,0,WATER)
+    # 5 CHARGE dispensers stacked vertically at x=0 (behind projectile), facing EAST
+    for y in (1,2,3,4,5):
+        put(0,y,0,DISP_E); BE.append(((0,y,0),"minecraft:dispenser"))
+    # extend shell up to cover the charge stack
+    for y in (4,5,6):
+        put(-1,y,0,OBS); put(0,y,-1,OBS); put(0,y,1,OBS); put(1,y,-1,OBS); put(1,y,1,OBS)
+    put(0,6,0,OBS)
+    # PROJECTILE dispenser one block EAST of the charges, facing EAST (fires down the muzzle)
+    put(1,1,0,DISP_E); BE.append(((1,1,0),"minecraft:dispenser"))
+    # single ignition: redstone line on the roof + lever
+    for x in range(0, L):
+        put(x,4,0,DUST) if False else None
+    for x in range(0, L):
+        put(x,-1,0,OBS) if False else None
+    for x in range(1, L+1):
+        put(x,3,0,OBS); put(x,4,0,DUST)   # dust on roof over the front barrel
+    put(1,4,-1,OBS); put(1,5,-1,LEVER)
+    return B,BE,{"version":4,"type":"minimal-5stacker","charges":5,"projectiles":1,
+                 "dispensers":len(BE),"barrel_len":L,"range_target":15,
+                 "validated":"launch physics (hits 15-block wall in sim)","face":"east"}
+
 if __name__=="__main__":
-    B,BE,meta=build_5stacker()
-    W,H,L,pal,nbe=write_schem("5stacker-sandcomp-v3.schem", B, BE)
-    print(f"built 5-stacker sand-comp: {W}x{H}x{L}  palette={pal}  dispensers={nbe}")
+    B,BE,meta=build_minimal_5stacker()
+    W,H,L,pal,nbe=write_schem("minimal-5stacker-v4.schem", B, BE)
+    print(f"built minimal 5-stacker v4: {W}x{H}x{L}  palette={pal}  dispensers={nbe}")
     print(f"  meta: {meta}")
-    print("  wrote 5stacker-sandcomp-v3.schem")
+    print("  wrote minimal-5stacker-v4.schem")
