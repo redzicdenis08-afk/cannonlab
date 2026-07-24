@@ -9,6 +9,7 @@ on:
       - 'scripts/test-legacy-shared-core-audit.py'
       - 'scripts/test-legacy-shared-core-envelope.py'
       - 'scripts/test-legacy-shared-assembly-audit.py'
+      - 'scripts/test-legacy-shared-assembly-review.py'
       - 'profiles/corpus/**'
       - 'evidence/public-corpus/**'
       - 'docs/LEGACY_SHARED_CORE_AUDIT.md'
@@ -51,9 +52,10 @@ jobs:
             scripts/legacy-shared-assembly-audit.py \
             scripts/test-legacy-shared-core-audit.py \
             scripts/test-legacy-shared-core-envelope.py \
-            scripts/test-legacy-shared-assembly-audit.py
+            scripts/test-legacy-shared-assembly-audit.py \
+            scripts/test-legacy-shared-assembly-review.py
 
-      - name: Run metadata, boundary, envelope, and assembly regressions
+      - name: Run metadata, boundary, envelope, assembly, and review regressions
         run: |
           mkdir -p lab-artifacts/shared-core-contract
           set -o pipefail
@@ -61,6 +63,7 @@ jobs:
             python scripts/test-legacy-shared-core-audit.py
             python scripts/test-legacy-shared-core-envelope.py
             python scripts/test-legacy-shared-assembly-audit.py
+            python scripts/test-legacy-shared-assembly-review.py
           } 2>&1 | tee lab-artifacts/shared-core-contract/regressions.log
 
       - name: Verify pinned global transform contract
@@ -142,6 +145,8 @@ jobs:
             --minimum-functional-count 8 \
             --chunk-limit 160 \
             --max-shared-support-nodes 100000 \
+            --near-closed-boundary-limit 16 \
+            --max-boundary-examples 64 \
             --json-out lab-artifacts/shared-core-run/formal-pred-shared-assemblies.json \
             > /dev/null
           python - <<'PY'
@@ -164,9 +169,21 @@ jobs:
           assert assemblies['status'] == 'PASS', assemblies
           assert assemblies['node_inventory']['proven_equivalent_functional_count'] == 2693, assemblies
           assert assemblies['summary']['promotion_eligible_assembly_count'] == 0, assemblies
+          review_count = assemblies['summary']['review_classification_counts'].get(
+              'NEAR_CLOSED_STATIC_REVIEW_CANDIDATE', 0
+          )
+          assert review_count >= 1, assemblies
+          near = [
+              row for row in assemblies['assemblies']
+              if row['review_classification'] == 'NEAR_CLOSED_STATIC_REVIEW_CANDIDATE'
+          ]
+          assert all(row['status'] == 'OPEN_SHARED_ASSEMBLY' for row in near), near
+          assert all(row['promotion_eligible'] is False for row in near), near
+          assert all(row['boundary_examples'] for row in near), near
+          assert assemblies['truth_boundary']['near_closed_review_candidate_is_a_proven_module'] is False, assemblies
           assert assemblies['truth_boundary']['runtime_semantics_confirmed'] is False, assemblies
           assert assemblies['truth_boundary']['ec_ready'] is False, assemblies
-          print('Formal/Pred shared static component, support-envelope, and assembly audits completed without promotion.')
+          print('Formal/Pred static component, envelope, assembly, and near-closed review audits completed without promotion.')
           PY
 
       - name: Copy audit reports and remove raw third-party files
