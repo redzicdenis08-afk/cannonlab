@@ -26,6 +26,7 @@ def load_script(name: str, path: Path) -> ModuleType:
 
 ROOT = Path(__file__).resolve().parents[1]
 CAMPAIGN = load_script("staged_cannon_campaign", ROOT / "scripts" / "run-cannon-campaign.py")
+TEST_PARENT = ROOT / ".campaign-test-work"
 
 
 def digest(path: Path) -> str:
@@ -169,8 +170,8 @@ class FakeRunner:
 
 
 def temp_workspace() -> tempfile.TemporaryDirectory[str]:
-    (ROOT / "lab-artifacts").mkdir(exist_ok=True)
-    return tempfile.TemporaryDirectory(prefix="campaign-test-", dir=ROOT / "lab-artifacts")
+    TEST_PARENT.mkdir(exist_ok=True)
+    return tempfile.TemporaryDirectory(prefix="campaign-test-", dir=TEST_PARENT)
 
 
 def assert_no_runtime_residue() -> None:
@@ -331,10 +332,14 @@ def main() -> None:
         test_runtime_budget_selects_priority_winner_only,
         test_hash_drift_fails_before_delivery,
     ]
-    for test in tests:
-        test()
-        print(f"PASS {test.__name__}")
-    print(f"All {len(tests)} staged cannon campaign regressions passed.")
+    try:
+        for test in tests:
+            test()
+            print(f"PASS {test.__name__}")
+        print(f"All {len(tests)} staged cannon campaign regressions passed.")
+    finally:
+        shutil.rmtree(TEST_PARENT, ignore_errors=True)
+        assert_no_runtime_residue()
 
 
 if __name__ == "__main__":
