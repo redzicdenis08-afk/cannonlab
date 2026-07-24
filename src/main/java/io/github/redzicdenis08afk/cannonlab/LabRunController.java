@@ -70,6 +70,7 @@ final class LabRunController implements Listener {
     private Map<BlockKey, String> cannonSnapshot = Map.of();
     private int durabilityHits;
     private int durabilityBreaks;
+    private boolean controlStateAbortInProgress;
 
     LabRunController(CannonLabPlugin plugin, WorldEditService worldEdit, ShotRecorder recorder) {
         this.plugin = plugin;
@@ -130,6 +131,7 @@ final class LabRunController implements Listener {
             return;
         }
         shotNumber++;
+        controlStateAbortInProgress = false;
 
         try {
             stopRegenMonitor();
@@ -188,12 +190,18 @@ final class LabRunController implements Listener {
                     + " | companionCells=" + targetCompanions.size()
                     + " | regen=" + scenario.regeneration()
                     + " | durability=" + durabilityMode
+                    + " | controlStates=" + scenario.controlStates().size()
                     + " | volleys=" + scenario.volleysPerShot());
 
-            long fillDelay = scenario.settleBeforeFillTicks();
+            long beforeFillControlHorizon = controlStateHorizon(LabScenario.ControlPhase.BEFORE_FILL);
+            long afterFillControlHorizon = controlStateHorizon(LabScenario.ControlPhase.AFTER_FILL);
+            long fillDelay = Math.max(scenario.settleBeforeFillTicks(), beforeFillControlHorizon);
             long fireDelay = Math.max(
-                    scenario.warmupTicks(),
-                    fillDelay + scenario.fillToFireTicks()
+                    Math.max(
+                            scenario.warmupTicks(),
+                            fillDelay + scenario.fillToFireTicks()
+                    ),
+                    fillDelay + afterFillControlHorizon
             );
             long lastVolleyDelay = fireDelay
                     + (long) (scenario.volleysPerShot() - 1) * scenario.volleyIntervalTicks();
@@ -241,11 +249,27 @@ final class LabRunController implements Listener {
             );
             regenMonitor.start();
 
+            if (!scheduleControlStates(
+                    world,
+                    pasteOrigin,
+                    LabScenario.ControlPhase.BEFORE_FILL
+            )) {
+                return;
+            }
+
             Runnable fillAction = () -> {
+                if (!running || cancelled) {
+                    return;
+                }
                 try {
                     int filled = fillDispensers(world, pasteResult);
                     plugin.getLogger().info("Filled " + filled + " dispensers after "
                             + fillDelay + " empty-settle ticks.");
+                    scheduleControlStates(
+                            world,
+                            pasteOrigin,
+                            LabScenario.ControlPhase.AFTER_FILL
+                    );
                 } catch (RuntimeException exception) {
                     plugin.getLogger().severe("Shot " + shotNumber
                             + " fill failed: " + exception.getMessage());
@@ -263,6 +287,9 @@ final class LabRunController implements Listener {
                 long volleyDelay = fireDelay
                         + (long) (volley - 1) * scenario.volleyIntervalTicks();
                 Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                    if (!running || cancelled || scenario == null) {
+                        return;
+                    }
                     try {
                         recorder.recordControlEvent(
                                 "VOLLEY_FIRE",
@@ -505,6 +532,168 @@ final class LabRunController implements Listener {
 
     private int boundedTicks(long ticks) {
         return (int) Math.min(Integer.MAX_VALUE, Math.max(0L, ticks));
+    }
+
+    private long controlStateHorizon(LabScenario.ControlPhase phase) {
+        if (scenario == null) {
+            return 0L;
+        }
+        long horizon = 0L;
+        for (LabScenario.ControlState state : scenario.controlStates()) {
+            if (state.phase() == phase) {
+                horizon = Math.max(
+                        horizon,
+                        (long) state.applyTick() + state.settleTicks() + 1L
+                );
+            }
+        }
+        return horizon;
+    }
+
+    private boolean scheduleControlStates(World world, Location pasteOrigin, LabScenario.ControlPhase phase) {
+        if (scenario == null) {
+            return true;
+        }
+        for (LabScenario.ControlState state : scenario.controlStates()) {
+            if (state.phase() != phase) {
+                continue;
+            }
+            Runnable apply = () -> applyControlStateSafely(world, pasteOrigin, state);
+            if (state.applyTick() == 0) {
+                apply.run();
+                if (!running) {
+                    return false;
+                }
+            } else {
+                Bukkit.getScheduler().runTaskLater(plugin, apply, state.applyTick());
+            }
+        }
+        return true;
+    }
+
+    private void applyControlStateSafely(
+            World world,
+            Location pasteOrigin,
+            LabScenario.ControlState state
+    ) {
+        if (!running || cancelled || controlStateAbortInProgress) {
+            return;
+        }
+        Location location = relative(pasteOrigin, state.point());
+        try {
+            applyControlState(world, location, state);
+        } catch (RuntimeException exception) {
+            abortControlState(state, location, exception);
+        }
+    }
+
+    private void applyControlState(World world, Location location, LabScenario.ControlState state) {
+        Block block = world.getBlockAt(location);
+        BlockData before = block.getBlockData().clone();
+        if (state.expectedMaterial() != null && block.getType() != state.expectedMaterial()) {
+            throw new IllegalStateException("Control state " + state.name()
+                    + " expected " + state.expectedMaterial()
+                    + " at " + coordinates(location)
+                    + " but found " + block.getType());
+        }
+
+        if (!state.expectedBefore().isBlank()) {
+            BlockData expectedBefore = Bukkit.createBlockData(state.expectedBefore());
+            if (expectedBefore.getMaterial() != block.getType() || !sameBlockData(before, expectedBefore)) {
+                throw new IllegalStateException("Control state " + state.name()
+                        + " expected before=" + expectedBefore.getAsString()
+                        + " at " + coordinates(location)
+                        + " but found " + before.getAsString());
+            }
+        }
+
+        BlockData desired = Bukkit.createBlockData(state.blockData());
+        if (desired.getMaterial() != block.getType()) {
+            throw new IllegalStateException("Control state " + state.name()
+                    + " cannot change material at " + coordinates(location)
+                    + " from " + block.getType()
+                    + " to " + desired.getMaterial());
+        }
+
+        recorder.recordControlEvent(
+                "CONTROL_STATE_APPLY",
+                location,
+                "name=" + state.name()
+                        + ";phase=" + state.phase()
+                        + ";before=" + before.getAsString()
+                        + ";desired=" + desired.getAsString()
+                        + ";physics=" + state.applyPhysics()
+        );
+        block.setBlockData(desired, state.applyPhysics());
+
+        Runnable verify = () -> verifyControlState(world, location, state, desired);
+        if (state.settleTicks() == 0) {
+            verify.run();
+        } else {
+            Bukkit.getScheduler().runTaskLater(plugin, verify, state.settleTicks());
+        }
+    }
+
+    private void verifyControlState(
+            World world,
+            Location location,
+            LabScenario.ControlState state,
+            BlockData desired
+    ) {
+        if (!running || cancelled || controlStateAbortInProgress) {
+            return;
+        }
+        BlockData actual = world.getBlockAt(location).getBlockData();
+        if (!sameBlockData(actual, desired)) {
+            abortControlState(
+                    state,
+                    location,
+                    new IllegalStateException("Control state " + state.name()
+                            + " did not settle at " + coordinates(location)
+                            + ": expected " + desired.getAsString()
+                            + " but found " + actual.getAsString())
+            );
+            return;
+        }
+        recorder.recordControlEvent(
+                "CONTROL_STATE_VERIFY",
+                location,
+                "name=" + state.name()
+                        + ";phase=" + state.phase()
+                        + ";settle_ticks=" + state.settleTicks()
+                        + ";actual=" + actual.getAsString()
+        );
+    }
+
+    private boolean sameBlockData(BlockData left, BlockData right) {
+        return left.getAsString().equals(right.getAsString());
+    }
+
+    private void abortControlState(
+            LabScenario.ControlState state,
+            Location location,
+            RuntimeException exception
+    ) {
+        if (!running || controlStateAbortInProgress) {
+            return;
+        }
+        controlStateAbortInProgress = true;
+        recorder.recordControlEvent(
+                "CONTROL_STATE_FAILURE",
+                location,
+                "name=" + state.name() + ";error=" + exception.getMessage()
+        );
+        plugin.getLogger().severe("Control state " + state.name()
+                + " failed at " + coordinates(location)
+                + ": " + exception.getMessage());
+        recorder.cancel();
+        stopRegenMonitor();
+        completedShots.add(CompletedShot.preparationError(
+                shotNumber,
+                targetCells.size(),
+                exception
+        ));
+        finishRun("error");
     }
 
     private void shotCompleted(ShotRecorder.ShotResult result) {

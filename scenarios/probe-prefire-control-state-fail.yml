@@ -1,0 +1,28 @@
+name: probe-prefire-control-state-fail
+cannon:
+  file: probe-button-field.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: button
+  fire-input: {x: 0, y: 1, z: 1}
+  suppress-paste-side-effects: true
+  control-states:
+    - name: reject-wrong-control-material
+      at: {x: 2, y: 1, z: 1}
+      phase: before-fill
+      expected-material: lever
+      block-data: minecraft:lever[face=floor,facing=north,powered=true]
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: dry
+  material: cobblestone
+  direction: east
+  distance: 5
+  width: 3
+  height: 3
+run:
+  shots: 1
+  warmup-ticks: 12
+  max-shot-ticks: 80
+  quiet-ticks: 20
+  shutdown-when-finished: true
