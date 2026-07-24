@@ -106,7 +106,8 @@ def parse_json_stdout(outcome: CommandOutcome) -> dict[str, Any] | None:
 
 def clean_identifier(raw: Any, label: str) -> str:
     value = str(raw or "").strip()
-    if not value or any(character not in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_." for character in value):
+    allowed = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_."
+    if not value or any(character not in allowed for character in value):
         raise CampaignError(f"{label} must use letters, digits, dot, dash, or underscore")
     return value
 
@@ -216,11 +217,11 @@ def command_record(
 
 
 def outcome_passed(outcome: CommandOutcome, payload: dict[str, Any] | None) -> bool:
-    if outcome.returncode != 0:
-        return False
-    if payload is None:
-        return False
-    return str(payload.get("status", "PASS")).upper() not in {"FAIL", "ERROR"}
+    return (
+        outcome.returncode == 0
+        and payload is not None
+        and str(payload.get("status", "PASS")).upper() not in {"FAIL", "ERROR"}
+    )
 
 
 def run_static_stage(
@@ -232,7 +233,7 @@ def run_static_stage(
     chunk_limit = int(stage.get("chunk_limit", 160))
     if chunk_limit <= 0:
         raise CampaignError(f"stage {stage['id']}: chunk_limit must be positive")
-    audit_command = [
+    audit = [
         sys.executable,
         str(root / "scripts" / "schem-audit.py"),
         str(candidate["source"]),
@@ -240,17 +241,17 @@ def run_static_stage(
         str(chunk_limit),
     ]
     if stage.get("expect_format"):
-        audit_command += ["--expect-format", str(stage["expect_format"])]
-    alignment_command = [
+        audit += ["--expect-format", str(stage["expect_format"])]
+    alignment = [
         sys.executable,
         str(root / "scripts" / "paste-alignment-audit.py"),
         str(candidate["source"]),
         "--chunk-limit",
         str(chunk_limit),
     ]
-    commands = []
+    commands: list[dict[str, Any]] = []
     passed = True
-    for command in (audit_command, alignment_command):
+    for command in (audit, alignment):
         outcome = runner(command, root, None, int(stage.get("timeout_seconds", 180)))
         payload = parse_json_stdout(outcome)
         commands.append(command_record(command, outcome, payload))
@@ -289,8 +290,13 @@ def replace_scenario_cannon_file(text: str, runtime_name: str) -> str:
         raise CampaignError(
             f"scenario template must contain exactly one cannon.file entry, found {replacements}"
         )
-    suffix = "\n" if text.endswith("\n") else ""
-    return "\n".join(lines) + suffix
+    return "\n".join(lines) + ("\n" if text.endswith("\n") else "")
+
+
+def runtime_token(candidate: dict[str, Any], stage: dict[str, Any]) -> str:
+    return hashlib.sha256(
+        f"{candidate['id']}:{candidate['sha256']}:{stage['id']}".encode("utf-8")
+    ).hexdigest()[:20]
 
 
 def materialize_scenario(
@@ -300,7 +306,7 @@ def materialize_scenario(
     output_root: Path,
 ) -> tuple[Path, str]:
     template = resolve_repo_path(root, str(stage["scenario"]))
-    runtime_name = f"campaign-{candidate['id']}-{candidate['sha256'][:12]}.schem"
+    runtime_name = f"campaign-{runtime_token(candidate, stage)}.schem"
     rendered = replace_scenario_cannon_file(template.read_text(encoding="utf-8"), runtime_name)
     destination = output_root / "materialized-scenarios" / candidate["id"] / f"{stage['id']}.yml"
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -327,12 +333,11 @@ def run_scenario_integrity_stage(
         command.append("--require-readiness")
     outcome = runner(command, root, None, int(stage.get("timeout_seconds", 180)))
     payload = parse_json_stdout(outcome)
-    passed = outcome_passed(outcome, payload)
     return {
         "id": stage["id"],
         "type": "scenario-integrity",
         "required": bool(stage.get("required", True)),
-        "status": "PASS" if passed else "FAIL",
+        "status": "PASS" if outcome_passed(outcome, payload) else "FAIL",
         "scenario": str(scenario),
         "runtime_cannon_name": runtime_name,
         "commands": [command_record(command, outcome, payload)],
@@ -344,18 +349,14 @@ def runtime_environment(stage: dict[str, Any], scenario_name: str) -> dict[str, 
     environment["CANNONLAB_SCENARIO"] = scenario_name
     environment["CANNONLAB_EXPECTED_SHOTS"] = str(int(stage.get("expected_shots", 1)))
     environment["CANNONLAB_TIMEOUT_SECONDS"] = str(int(stage.get("timeout_seconds", 600)))
-    for key, value in (stage.get("environment") or {}).items():
+    extra = stage.get("environment") or {}
+    if not isinstance(extra, dict):
+        raise CampaignError(f"runtime stage {stage['id']}: environment must be an object")
+    for key, value in extra.items():
         if not isinstance(key, str) or not key.startswith("CANNONLAB_"):
             raise CampaignError(f"runtime environment key must start with CANNONLAB_: {key!r}")
         environment[key] = str(value)
     return environment
-
-
-def runtime_asset_paths(root: Path, token: str) -> tuple[Path, Path]:
-    return (
-        root / "cannons" / f"campaign-{token}.schem.b64",
-        root / "scenarios" / f"campaign-{token}.yml",
-    )
 
 
 def acquire_runtime_lock(root: Path) -> Path:
@@ -379,24 +380,17 @@ def run_runtime_stage(
     runner: CommandRunner,
 ) -> dict[str, Any]:
     materialized, runtime_name = materialize_scenario(root, candidate, stage, output_root)
-    token = hashlib.sha256(
-        f"{candidate['id']}:{candidate['sha256']}:{stage['id']}".encode("utf-8")
-    ).hexdigest()[:20]
-    cannon_asset, scenario_asset = runtime_asset_paths(root, token)
-    scenario_name = scenario_asset.name
-    rendered = replace_scenario_cannon_file(
-        materialized.read_text(encoding="utf-8"),
-        runtime_name,
-    )
-    # The materialized scenario already names runtime_name; this second pass intentionally
-    # validates that the narrow replacement contract remains exactly one cannon.file.
-    scenario_asset.write_text(rendered, encoding="utf-8")
-    cannon_asset.write_bytes(base64.b64encode(candidate["source"].read_bytes()))
-
+    token = runtime_token(candidate, stage)
+    cannon_asset = root / "cannons" / f"{runtime_name}.b64"
+    scenario_asset = root / "scenarios" / f"campaign-{token}.yml"
     lock = acquire_runtime_lock(root)
     try:
+        if cannon_asset.exists() or scenario_asset.exists():
+            raise CampaignError("campaign runtime asset collision")
+        scenario_asset.write_text(materialized.read_text(encoding="utf-8"), encoding="utf-8")
+        cannon_asset.write_bytes(base64.b64encode(candidate["source"].read_bytes()))
         command = ["bash", str(root / "scripts" / "cloud-smoke.sh")]
-        environment = runtime_environment(stage, scenario_name)
+        environment = runtime_environment(stage, scenario_asset.name)
         outcome = runner(
             command,
             root,
@@ -413,14 +407,14 @@ def run_runtime_stage(
             if artifact_destination.exists():
                 shutil.rmtree(artifact_destination)
             shutil.copytree(artifact_source, artifact_destination)
-        passed = outcome.returncode == 0
         return {
             "id": stage["id"],
             "type": "runtime",
             "required": bool(stage.get("required", True)),
-            "status": "PASS" if passed else "FAIL",
+            "status": "PASS" if outcome.returncode == 0 else "FAIL",
             "scenario": str(materialized),
             "runtime_cannon_name": runtime_name,
+            "runtime_candidate_sha256": candidate["sha256"],
             "evidence_directory": str(stage_root),
             "commands": [command_record(command, outcome, None)],
         }
@@ -452,7 +446,10 @@ def planned_stage(
 
 
 def required_failure(stages: Iterable[dict[str, Any]]) -> bool:
-    return any(bool(stage.get("required", True)) and stage.get("status") == "FAIL" for stage in stages)
+    return any(
+        bool(stage.get("required", True)) and stage.get("status") == "FAIL"
+        for stage in stages
+    )
 
 
 def build_plugin(root: Path, runner: CommandRunner, timeout_seconds: int) -> dict[str, Any]:
@@ -481,6 +478,9 @@ def run_campaign(
     validate_manifest(manifest)
     campaign_id = clean_identifier(manifest["id"], "campaign id")
     campaign_root = output_root / campaign_id
+    report_path = campaign_root / "campaign-report.json"
+    if report_path.exists():
+        raise CampaignError(f"campaign output already contains a report: {report_path}")
     campaign_root.mkdir(parents=True, exist_ok=True)
 
     candidates = candidate_rows(root, manifest)
@@ -492,14 +492,13 @@ def run_campaign(
 
     results: list[dict[str, Any]] = []
     for candidate in candidates:
-        delivered = deliver_candidate(candidate, campaign_root)
         row = {
             "id": candidate["id"],
             "priority": candidate["priority"],
             "source": str(candidate["source"]),
             "sha256": candidate["sha256"],
             "metadata": candidate["metadata"],
-            "delivery": delivered,
+            "delivery": deliver_candidate(candidate, campaign_root),
             "stages": [],
             "status": "DELIVERED",
         }
@@ -524,12 +523,22 @@ def run_campaign(
         results.append(row)
 
     build = None
-    if mode == "execute" and runtime_stages and max_runtime > 0:
+    if mode == "plan":
+        by_id = {candidate["id"]: candidate for candidate in candidates}
+        for row in results:
+            for stage in runtime_stages:
+                row["stages"].append(
+                    planned_stage(root, by_id[row["id"]], stage, campaign_root)
+                )
+    elif mode == "execute" and runtime_stages:
         eligible = [row for row in results if row["status"] == "DELIVERED_STATIC_PASS"]
         selected_ids = {row["id"] for row in eligible[:max_runtime]}
         if bool(policy.get("build_plugin", True)) and selected_ids:
             build = build_plugin(root, runner, int(policy.get("build_timeout_seconds", 600)))
             if build["status"] != "PASS":
+                for row in eligible:
+                    if row["id"] in selected_ids:
+                        row["status"] = "DELIVERED_RUNTIME_BLOCKED_BUILD"
                 selected_ids = set()
         by_id = {candidate["id"]: candidate for candidate in candidates}
         for row in results:
@@ -540,10 +549,9 @@ def run_campaign(
                 continue
             candidate = by_id[row["id"]]
             for stage in runtime_stages:
-                stage_result = run_runtime_stage(
-                    root, candidate, stage, campaign_root, runner
+                row["stages"].append(
+                    run_runtime_stage(root, candidate, stage, campaign_root, runner)
                 )
-                row["stages"].append(stage_result)
                 if stop_required and required_failure(row["stages"]):
                     break
             row["status"] = (
@@ -551,26 +559,16 @@ def run_campaign(
                 if required_failure(row["stages"])
                 else "DELIVERED_RUNTIME_PASS"
             )
-    elif mode == "static":
-        pass
-    elif mode == "plan":
-        for row, candidate in zip(results, candidates, strict=True):
-            for stage in runtime_stages:
-                row["stages"].append(planned_stage(root, candidate, stage, campaign_root))
-    elif runtime_stages:
-        for row in results:
-            if row["status"] == "DELIVERED_STATIC_PASS":
-                row["status"] = "DELIVERED_RUNTIME_SKIPPED_BUDGET"
 
-    if mode == "execute":
-        promoted = [row for row in results if row["status"] == "DELIVERED_RUNTIME_PASS"]
-        status = "PASS" if promoted else "FAIL"
-    elif mode == "static":
+    if mode == "plan":
+        status = "PLAN"
+        promoted: list[dict[str, Any]] = []
+    elif mode == "static" or not runtime_stages:
         promoted = [row for row in results if row["status"] == "DELIVERED_STATIC_PASS"]
         status = "PASS" if promoted else "FAIL"
     else:
-        promoted = []
-        status = "PLAN"
+        promoted = [row for row in results if row["status"] == "DELIVERED_RUNTIME_PASS"]
+        status = "PASS" if promoted else "FAIL"
 
     report = {
         "schema_version": 1,
@@ -582,26 +580,46 @@ def run_campaign(
         "build": build,
         "summary": {
             "candidate_count": len(results),
-            "delivered_count": sum(bool(row["delivery"]["delivered_before_testing"]) for row in results),
-            "static_pass_count": sum(row["status"] in {"DELIVERED_STATIC_PASS", "DELIVERED_RUNTIME_PASS", "DELIVERED_RUNTIME_FAIL", "DELIVERED_RUNTIME_SKIPPED_BUDGET"} for row in results),
-            "runtime_pass_count": sum(row["status"] == "DELIVERED_RUNTIME_PASS" for row in results),
-            "runtime_fail_count": sum(row["status"] == "DELIVERED_RUNTIME_FAIL" for row in results),
+            "delivered_count": sum(
+                bool(row["delivery"]["delivered_before_testing"]) for row in results
+            ),
+            "static_pass_count": sum(
+                row["status"]
+                in {
+                    "DELIVERED_STATIC_PASS",
+                    "DELIVERED_RUNTIME_PASS",
+                    "DELIVERED_RUNTIME_FAIL",
+                    "DELIVERED_RUNTIME_SKIPPED_BUDGET",
+                    "DELIVERED_RUNTIME_BLOCKED_BUILD",
+                }
+                for row in results
+            ),
+            "runtime_pass_count": sum(
+                row["status"] == "DELIVERED_RUNTIME_PASS" for row in results
+            ),
+            "runtime_fail_count": sum(
+                row["status"] == "DELIVERED_RUNTIME_FAIL" for row in results
+            ),
             "runtime_budget": max_runtime,
         },
         "candidates": results,
         "promotion": {
-            "status": "LOCAL_RUNTIME_CANDIDATE" if status == "PASS" and mode == "execute" else "NO_RUNTIME_PROMOTION",
+            "status": (
+                "LOCAL_RUNTIME_CANDIDATE"
+                if status == "PASS" and mode == "execute" and runtime_stages
+                else "NO_RUNTIME_PROMOTION"
+            ),
             "winner_ids": [row["id"] for row in promoted],
         },
         "truth_boundary": {
             "candidate_is_exported_even_when_a_gate_fails": True,
             "static_pass_proves_runtime_function": False,
             "local_runtime_pass_proves_private_extremecraft_parity": False,
-            "runtime_budget_exhaustion_is_a_failure": False,
+            "runtime_budget_skip_marks_candidate_failed": False,
             "ec_ready": False,
         },
     }
-    write_json(campaign_root / "campaign-report.json", report)
+    write_json(report_path, report)
     return report
 
 
@@ -637,7 +655,10 @@ def main() -> int:
             },
         }
     if args.json_out:
-        write_json(resolve_repo_path(args.repo_root.resolve(), args.json_out, must_exist=False), report)
+        write_json(
+            resolve_repo_path(args.repo_root.resolve(), args.json_out, must_exist=False),
+            report,
+        )
     print(json.dumps(report, indent=2, sort_keys=True))
     return 0 if report.get("status") in {"PASS", "PLAN"} else 2
 
