@@ -37,7 +37,11 @@ jobs:
             scripts/test-generate-causal-repair-family.py
 
       - name: Run fail-closed repair regressions
-        run: python scripts/test-generate-causal-repair-family.py
+        run: |
+          mkdir -p lab-artifacts/causal-repair-generation
+          set -o pipefail
+          python scripts/test-generate-causal-repair-family.py 2>&1 \
+            | tee lab-artifacts/causal-repair-generation/regressions.txt
 
       - name: Validate repair policy template
         run: |
@@ -50,12 +54,14 @@ jobs:
           PY
 
       - name: Capture help
+        if: always()
         run: |
           mkdir -p lab-artifacts/causal-repair-generation
           python scripts/generate-causal-repair-family.py --help \
             > lab-artifacts/causal-repair-generation/help.txt
 
       - name: Upload evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: causal-repair-generation
