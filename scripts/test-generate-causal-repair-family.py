@@ -160,7 +160,7 @@ def policy_for(
             "max_unexpected_critical_changes": 0,
             "allow_dimension_change": False,
             "allow_block_entity_topology_change": False,
-            "minimum_alignment_confidence": "high",
+            "minimum_alignment_confidence": "medium",
             "alignment_mode": "exact",
         },
     }
