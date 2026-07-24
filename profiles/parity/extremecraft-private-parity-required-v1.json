@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "id": "extremecraft-private-parity-required-v1",
+  "title": "ExtremeCraft private cannon-physics fingerprint contract",
+  "status": "UNMEASURED",
+  "target": {
+    "server": "extremecraft.net",
+    "environment": "Cannoning/Factions parity target",
+    "backend_observation": "Sakura 26.1.2 behind Velocity",
+    "observation_evidence": "field-reported; private patches and configuration remain unknown"
+  },
+  "truth_boundary": {
+    "public_paper_or_sakura_is_live_parity": false,
+    "player_report_is_measured_physics": false,
+    "one_successful_shot_proves_full_parity": false,
+    "required_promotion": "Each dimension needs raw live evidence plus a reproducible local comparison before EC-ready promotion."
+  },
+  "dimensions": [
+    {
+      "id": "tnt.spawn.horizontal_kick",
+      "status": "unknown",
+      "hypotheses": ["vanilla randomized horizontal spawn kick", "zero horizontal spawn kick", "custom distribution"],
+      "canary": "Prime a statistically useful isolated TNT cohort from dispensers and record initial X/Z velocity.",
+      "required_evidence": ["entity count", "spawn tick", "spawn position", "initial velocity", "sample size", "server timestamp"]
+    },
+    {
+      "id": "tnt.fuse.distribution",
+      "status": "unknown",
+      "hypotheses": ["vanilla fuse distribution", "fixed 80-tick fuse", "custom fixed or bounded fuse"],
+      "canary": "Prime isolated TNT and measure entity-add to explosion lifetime without collisions.",
+      "required_evidence": ["entity UUID or stable identity", "spawn tick", "explosion tick", "at least 100 samples"]
+    },
+    {
+      "id": "redstone.dispenser.activation_order",
+      "status": "unknown",
+      "hypotheses": ["vanilla neighbor/update ordering", "fixed W,E,N,S,Down,Up style order", "private deterministic ordering"],
+      "canary": "Fire symmetric six-direction dispenser fixtures repeatedly and compare event order.",
+      "required_evidence": ["fixture schematic hash", "per-dispensation tick and sequence", "repeat count"]
+    },
+    {
+      "id": "entity.collision.axis_order",
+      "status": "unknown",
+      "hypotheses": ["vanilla asymmetric X/Z resolution", "east-west collision stabilization", "custom collision patch"],
+      "canary": "Run mirrored east/west and north/south TNT/falling-block collision fixtures.",
+      "required_evidence": ["mirrored fixture hashes", "position and velocity each tick", "final displacement distribution"]
+    },
+    {
+      "id": "tnt.water_motion",
+      "status": "unknown",
+      "hypotheses": ["TNT moves normally in water", "TNT movement in water prevented", "custom drag or velocity cap"],
+      "canary": "Compare dry and submerged isolated TNT trajectories with identical initial conditions.",
+      "required_evidence": ["fluid layout", "tick positions", "tick velocities", "fuse continuity"]
+    },
+    {
+      "id": "tnt.velocity_and_despawn_limits",
+      "status": "unknown",
+      "hypotheses": ["no private flight-speed despawn", "velocity clamp", "distance or speed based removal", "chunk-boundary removal"],
+      "canary": "Sweep controlled launch velocities and distances below destructive levels.",
+      "required_evidence": ["launch cohort", "maximum observed velocity", "removal tick and location", "chunk coordinates"]
+    },
+    {
+      "id": "explosion.batch_and_per_tick_limits",
+      "status": "unknown",
+      "hypotheses": ["all due explosions processed", "per-tick cap with carry-over", "per-tick cap with removal", "async or reordered processing"],
+      "canary": "Prime increasing synchronized cohorts and record due-versus-observed explosion counts and ordering.",
+      "required_evidence": ["cohort size", "due tick", "observed explosion sequence", "TPS/MSPT if visible"]
+    },
+    {
+      "id": "falling_block.tick_and_collision",
+      "status": "unknown",
+      "hypotheses": ["public Sakura behavior", "async falling-block processing", "custom collision, merge or removal behavior"],
+      "canary": "Run sand, gravel and concrete-powder cohorts through controlled piston, water and TNT interactions.",
+      "required_evidence": ["material", "spawn order", "position and velocity each tick", "block/entity conversion events"]
+    },
+    {
+      "id": "piston_chain_and_observer_updates",
+      "status": "unknown",
+      "hypotheses": ["public Sakura behavior", "private piston-chain patch", "observer/update suppression under load"],
+      "canary": "Use minimal repeatable piston/observer chains at increasing length and concurrent TNT load.",
+      "required_evidence": ["fixture hash", "input tick", "piston extend/retract order", "observer pulse order", "failure threshold"]
+    },
+    {
+      "id": "chunk_loading_and_crossing",
+      "status": "unknown",
+      "hypotheses": ["entities remain ticked through intended range", "player-distance gating", "chunk crossing reorder", "inactive chunk removal"],
+      "canary": "Send uniquely identifiable harmless entities across chunk and region boundaries at known speeds.",
+      "required_evidence": ["player position", "loaded chunk evidence", "entity tick continuity", "boundary coordinates"]
+    },
+    {
+      "id": "limits.dispensers_per_chunk",
+      "status": "field-reported-160",
+      "hypotheses": ["160 per X/Z chunk column", "context-dependent or recently changed cap"],
+      "canary": "Paste exact 159, 160 and 161 controls at all relevant player paste-point offsets.",
+      "required_evidence": ["schematic hash", "WE offsets", "player chunk-local paste point", "paste result", "count by chunk"]
+    },
+    {
+      "id": "limits.fawe_block_entities",
+      "status": "unknown",
+      "hypotheses": ["global paste cap", "per-chunk cap", "per-operation cap", "permission-tier dependent cap"],
+      "canary": "Paste non-dispenser block-entity controls separately from dispenser controls.",
+      "required_evidence": ["block-entity count and types", "chunk distribution", "exact error", "permission context"]
+    },
+    {
+      "id": "durability.material_hit_contract",
+      "status": "unknown",
+      "hypotheses": ["native Sakura durable blocks", "private hit counts", "radius/source restrictions", "expiration window"],
+      "canary": "Isolated dry and watered hits against each relevant material at fixed explosion positions.",
+      "required_evidence": ["material", "hit number", "source TNT position", "water state", "break/restore tick"]
+    },
+    {
+      "id": "regeneration.algorithm",
+      "status": "unknown",
+      "hypotheses": ["fixed delay", "interval/cap regeneration", "structure-template regeneration", "damage-triggered custom logic"],
+      "canary": "Damage one known defense cell at a time, then controlled multi-cell and sustained-volley variants.",
+      "required_evidence": ["original structure", "damage tick", "replacement order", "delay", "interval", "per-cycle cap"]
+    },
+    {
+      "id": "osrb.clip_and_restack",
+      "status": "unknown",
+      "hypotheses": ["public ratio clips wet and dry", "dry-only clipping", "server-specific restack displacement", "OSRB disabled or altered"],
+      "canary": "Ratio-level isolated OSRB payload first, then the exact reference schematic with source-accounted trace.",
+      "required_evidence": ["ratio profile ID", "exact target cell layout", "payload order", "clip result", "restack position", "raw trace"]
+    },
+    {
+      "id": "full_cannon.field_workflow",
+      "status": "partially-field-reported",
+      "hypotheses": ["paste empty, settle, fill, then real input is required", "additional hidden initialization or cooldown exists"],
+      "canary": "Repeat the exact accepted workflow with a field-verified calibration cannon and compare all initialization events.",
+      "required_evidence": ["paste time", "settle ticks", "fill time", "fire input", "unexpected pre-fire activations", "survival snapshot"]
+    }
+  ],
+  "promotion_gate": {
+    "minimum_repeat_count_per_stochastic_dimension": 100,
+    "requires_raw_trace": true,
+    "requires_fixture_hash": true,
+    "requires_local_replay": true,
+    "requires_exact_server_date": true,
+    "requires_no_private_credentials_in_artifacts": true
+  }
+}
