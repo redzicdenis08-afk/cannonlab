@@ -1,0 +1,201 @@
+name: Stacker20 Fast Pinned Runtime Replay
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/stacker20-fast-replay.yml'
+      - 'scripts/generate-stacker20-candidates.py'
+      - 'scripts/cloud-smoke.sh'
+      - 'scripts/assert-results.py'
+      - 'scripts/scenario-integrity-audit.py'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        delay: [68, 72, 76]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Download previously successful staged Sakura runtime
+        uses: actions/download-artifact@v4
+        with:
+          name: stacker20-runtime-1
+          path: reused-runtime
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: redzicdenis08-afk/cannonlab
+          run-id: 30130075781
+
+      - name: Generate exact canonical candidates
+        run: |
+          python3 scripts/generate-stacker20-candidates.py \
+            --output-directory generated/cannons \
+            --manifest generated/manifest.json
+          python3 scripts/schem-audit.py \
+            generated/cannons/EC160-STACKER20-C52-P4-S2-v2.schem \
+            --chunk-limit 160 \
+            --expect-format sponge-v2 \
+            --require-all-alignments-safe \
+            --json-out generated/c52-audit.json
+
+      - name: Restore runtime and render scenario
+        env:
+          DELAY: ${{ matrix.delay }}
+        run: |
+          mkdir -p build/libs cannons scenarios
+          cp reused-runtime/build/libs/CannonLab-*.jar build/libs/
+          cp generated/cannons/*.schem.b64 cannons/
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+
+          delay = int(os.environ['DELAY'])
+          primary = [
+              {'x': x, 'y': 3, 'z': z}
+              for x in range(1, 9)
+              for z in range(2, 6)
+          ]
+          primary += [
+              {'x': x, 'y': 1, 'z': z}
+              for x in range(1, 9)
+              for z in (0, 7)
+          ]
+          primary += [
+              {'x': -1, 'y': 1, 'z': z}
+              for z in range(2, 6)
+          ]
+          delayed = [
+              {'x': 9, 'y': 2, 'z': z}
+              for z in range(2, 6)
+          ] + [
+              {'x': 11, 'y': 3, 'z': 3},
+              {'x': 11, 'y': 3, 'z': 4},
+          ]
+
+          def points(rows):
+              return '\n'.join(
+                  f"      - {{x: {row['x']}, y: {row['y']}, z: {row['z']}}}"
+                  for row in rows
+              )
+
+          scenario = f'''name: stacker20-fast-c52-d{delay}
+          cannon:
+            file: EC160-STACKER20-C52-P4-S2-v2.schem
+            origin: {{x: 0, y: 0, z: 0}}
+            fire-mode: redstone
+            fire-inputs:
+          {points(primary)}
+            delayed-fire-inputs:
+          {points(delayed)}
+            delayed-fire-ticks: {delay}
+            fire-pulse-ticks: 4
+            settle-before-fill-ticks: 40
+            fill-to-fire-ticks: 20
+          limits:
+            enforce-dispenser-limit: true
+          acceptance:
+            require-payload: true
+            min-target-destroyed: 1
+            min-falling-blocks: 1
+            min-embedded-payload-explosions: 1
+            min-forward-distance: 20
+            min-remaining-dispenser-ratio: 1.0
+            max-cannon-missing-blocks: 0
+            max-cannon-replaced-type-blocks: 0
+            max-cannon-unexpected-blocks: 0
+            max-self-damage-blocks: 0
+          target:
+            type: watered
+            material: obsidian
+            direction: east
+            distance: 32
+            width: 1
+            height: 1
+            y-offset: 1
+            lateral-offset: 3
+            layers: 1
+            spacing: 3
+            durability:
+              mode: simulate
+              expiration-ticks: 1200
+              only-tnt: true
+              hit-radius: 4.0
+              materials:
+                obsidian: 4
+            regeneration:
+              enabled: false
+          run:
+            shots: 1
+            rebuild-cannon-between-shots: false
+            warmup-ticks: 40
+            max-shot-ticks: 240
+            quiet-ticks: 50
+            shutdown-when-finished: true
+          '''
+          scenario = '\n'.join(
+              line[10:] if line.startswith('          ') else line
+              for line in scenario.splitlines()
+          ) + '\n'
+          Path(f'scenarios/stacker20-fast-c52-d{delay}.yml').write_text(
+              scenario,
+              encoding='utf-8',
+          )
+          print(scenario)
+          PY
+
+      - name: Fire through the 20-block clear corridor
+        env:
+          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/reused-runtime/sakura-26.1.2.jar
+          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 pinned runtime stacker20 c52 d${{ matrix.delay }}
+          CANNONLAB_SCENARIO: stacker20-fast-c52-d${{ matrix.delay }}.yml
+          CANNONLAB_EXPECTED_SHOTS: '1'
+          CANNONLAB_REQUIRE_CUMULATIVE_CANNON: 'true'
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '56'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '56'
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_MIN_FORWARD_TRAVEL: '20'
+          CANNONLAB_MAX_TARGET_MISS_DISTANCE: '4'
+          CANNONLAB_MIN_TARGET_PEAK_DESTROYED: '1'
+          CANNONLAB_MIN_LAYER_BREACHED: '1'
+          CANNONLAB_MIN_EMBEDDED_PAYLOAD_EXPLOSIONS: '1'
+          CANNONLAB_MAX_SELF_DAMAGE_BLOCKS: '0'
+          CANNONLAB_MAX_CANNON_UNEXPECTED_BLOCKS: '0'
+          CANNONLAB_TIMEOUT_SECONDS: '600'
+          CANNONLAB_ARENA_RADIUS_X: '48'
+          CANNONLAB_ARENA_RADIUS_Y: '16'
+          CANNONLAB_ARENA_RADIUS_Z: '16'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Upload exact evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: stacker20-fast-c52-d${{ matrix.delay }}-${{ github.run_number }}
+          path: |
+            lab-artifacts/**
+            generated/**
+          if-no-files-found: warn
+          retention-days: 14
