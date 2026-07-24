@@ -1,0 +1,26 @@
+name: Output Corridor Repeatability
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/analyze-output-corridor.py'
+      - 'scripts/test-output-corridor.py'
+      - '.github/workflows/output-corridor.yml'
+      - 'README.md'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  output-corridor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test output-corridor and direction-repeatability analysis
+        run: python3 scripts/test-output-corridor.py
