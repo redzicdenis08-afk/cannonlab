@@ -1,6 +1,16 @@
 name: First-Principles Cannon Foundry
 
 on:
+  push:
+    branches:
+      - 'feat/first-principles-cannon-foundry'
+    paths:
+      - 'scripts/plan-first-principles-cannon.py'
+      - 'scripts/first-principles-cannon-core.py'
+      - 'scripts/test-first-principles-cannon.py'
+      - 'profiles/from-scratch/**'
+      - 'docs/FIRST_PRINCIPLES_CANNON_FOUNDRY.md'
+      - '.github/workflows/first-principles-cannon.yml'
   pull_request:
     paths:
       - 'scripts/plan-first-principles-cannon.py'
