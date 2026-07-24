@@ -1,0 +1,201 @@
+name: Quick Watered One Stacker
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/quick-watered-one-stacker.yml'
+      - 'cannons/EC160-QUICK-ONE-STACKER-WATERED-OBBY-v0.schem.b64'
+      - 'scripts/build-sakura-26.1.2.sh'
+      - 'scripts/cloud-smoke.sh'
+      - 'scripts/assert-results.py'
+      - 'scripts/scenario-integrity-audit.py'
+      - 'src/**'
+      - 'build.gradle*'
+      - 'settings.gradle*'
+      - 'gradle/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout CannonLab
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build CannonLab plugin
+        run: gradle clean build --stacktrace
+
+      - name: Build pinned public Sakura 26.1.2
+        run: bash scripts/build-sakura-26.1.2.sh
+
+      - name: Package runtime
+        run: |
+          mkdir -p quick-runtime/build/libs
+          cp build/libs/CannonLab-*.jar quick-runtime/build/libs/
+          cp .sakura-26.1.2.jar quick-runtime/sakura-26.1.2.jar
+          sha256sum quick-runtime/sakura-26.1.2.jar quick-runtime/build/libs/CannonLab-*.jar \
+            | tee quick-runtime/runtime.sha256
+
+      - name: Upload runtime
+        uses: actions/upload-artifact@v4
+        with:
+          name: quick-one-stacker-runtime-${{ github.run_number }}
+          path: quick-runtime/**
+          if-no-files-found: error
+          retention-days: 14
+
+  watered-obby-search:
+    needs: build-runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: auto-single-d5
+            durability_mode: auto
+            distance: 5
+            volleys: 1
+            minimum_explosions: 4
+          - id: auto-burst-d5
+            durability_mode: auto
+            distance: 5
+            volleys: 4
+            minimum_explosions: 16
+          - id: simulate-single-d5
+            durability_mode: simulate
+            distance: 5
+            volleys: 1
+            minimum_explosions: 4
+          - id: simulate-single-d6
+            durability_mode: simulate
+            distance: 6
+            volleys: 1
+            minimum_explosions: 4
+    steps:
+      - name: Checkout CannonLab
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Download runtime
+        uses: actions/download-artifact@v4
+        with:
+          name: quick-one-stacker-runtime-${{ github.run_number }}
+          path: quick-runtime
+
+      - name: Restore runtime and write exact scenario
+        env:
+          CASE_ID: ${{ matrix.id }}
+          DURABILITY_MODE: ${{ matrix.durability_mode }}
+          TARGET_DISTANCE: ${{ matrix.distance }}
+          VOLLEYS: ${{ matrix.volleys }}
+        run: |
+          mkdir -p build/libs scenarios
+          cp quick-runtime/build/libs/CannonLab-*.jar build/libs/
+          sha256sum --check quick-runtime/runtime.sha256
+          cat > "scenarios/quick-one-stacker-$CASE_ID.yml" <<YAML
+          name: quick-one-stacker-$CASE_ID
+          cannon:
+            file: EC160-QUICK-ONE-STACKER-WATERED-OBBY-v0.schem
+            origin: {x: 0, y: 0, z: 0}
+            fire-mode: redstone
+            fire-input: {x: 1, y: 2, z: 2}
+            fire-pulse-ticks: 4
+            settle-before-fill-ticks: 20
+            fill-to-fire-ticks: 20
+          limits:
+            enforce-dispenser-limit: true
+          acceptance:
+            require-payload: true
+            min-target-destroyed: 1
+            min-falling-blocks: 0
+            min-forward-distance: 0
+            min-remaining-dispenser-ratio: 1.0
+            max-cannon-missing-blocks: 0
+            max-cannon-replaced-type-blocks: 0
+            max-cannon-unexpected-blocks: 0
+            max-self-damage-blocks: 0
+          target:
+            type: watered
+            material: obsidian
+            direction: east
+            distance: $TARGET_DISTANCE
+            width: 1
+            height: 1
+            y-offset: 2
+            lateral-offset: 2
+            layers: 1
+            spacing: 3
+            durability:
+              mode: $DURABILITY_MODE
+              expiration-ticks: 1200
+              only-tnt: true
+              hit-radius: 4.0
+              materials:
+                obsidian: 4
+            regeneration:
+              enabled: false
+          run:
+            shots: 1
+            volleys-per-shot: $VOLLEYS
+            volley-interval-ticks: 100
+            rebuild-cannon-between-shots: false
+            warmup-ticks: 20
+            max-shot-ticks: 520
+            quiet-ticks: 80
+            shutdown-when-finished: true
+          YAML
+
+      - name: Fire against watered obsidian
+        env:
+          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/quick-runtime/sakura-26.1.2.jar
+          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 quick one-stacker ${{ matrix.id }}
+          CANNONLAB_SCENARIO: quick-one-stacker-${{ matrix.id }}.yml
+          CANNONLAB_EXPECTED_SHOTS: '1'
+          CANNONLAB_REQUIRE_CUMULATIVE_CANNON: 'true'
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '4'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: ${{ matrix.minimum_explosions }}
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_MIN_TARGET_PEAK_DESTROYED: '1'
+          CANNONLAB_MIN_DURABILITY_HITS: '4'
+          CANNONLAB_MIN_DURABILITY_BREAKS: '1'
+          CANNONLAB_MAX_SELF_DAMAGE_BLOCKS: '0'
+          CANNONLAB_MAX_CANNON_UNEXPECTED_BLOCKS: '0'
+          CANNONLAB_TIMEOUT_SECONDS: '600'
+          CANNONLAB_ARENA_RADIUS_X: '16'
+          CANNONLAB_ARENA_RADIUS_Y: '12'
+          CANNONLAB_ARENA_RADIUS_Z: '12'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Upload exact evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: quick-one-stacker-${{ matrix.id }}-${{ github.run_number }}
+          path: lab-artifacts/**
+          if-no-files-found: warn
+          retention-days: 14
