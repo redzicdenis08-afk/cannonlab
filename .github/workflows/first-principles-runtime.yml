@@ -1,0 +1,348 @@
+name: First-Principles Sakura Runtime
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/first-principles-runtime.yml'
+      - 'scripts/generate-first-principles-rigs.py'
+      - 'profiles/from-scratch/primitive-rig-families-v1.json'
+      - 'scripts/build-sakura-26.1.2.sh'
+      - 'scripts/cloud-smoke.sh'
+      - 'scripts/assert-results.py'
+      - 'scripts/scenario-integrity-audit.py'
+      - 'src/**'
+      - 'build.gradle*'
+      - 'settings.gradle*'
+      - 'gradle/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - name: Checkout CannonLab
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Gradle cache
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build CannonLab plugin
+        run: gradle clean build --stacktrace
+
+      - name: Build pinned public Sakura 26.1.2
+        run: bash scripts/build-sakura-26.1.2.sh
+
+      - name: Generate exact primitive candidates
+        run: |
+          python scripts/generate-first-principles-rigs.py \
+            profiles/from-scratch/primitive-rig-families-v1.json \
+            --output-directory primitive-rigs/candidates \
+            --json-out primitive-rigs/manifest-copy.json \
+            > primitive-rigs/generator.stdout.json
+
+      - name: Prepare immutable runtime bundle
+        run: |
+          mkdir -p first-principles-runtime-bundle/build/libs
+          cp .sakura-26.1.2.jar first-principles-runtime-bundle/sakura-26.1.2.jar
+          cp build/libs/CannonLab-*.jar first-principles-runtime-bundle/build/libs/
+          cp -R primitive-rigs first-principles-runtime-bundle/primitive-rigs
+          find first-principles-runtime-bundle -type f -print0 \
+            | sort -z \
+            | xargs -0 sha256sum \
+            | tee first-principles-runtime-bundle/runtime-bundle.sha256
+
+      - name: Upload immutable runtime bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: first-principles-runtime-bundle-${{ github.run_number }}
+          path: first-principles-runtime-bundle/**
+          if-no-files-found: error
+          retention-days: 30
+
+  charge-c04-endurance:
+    needs: build-runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout CannonLab
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Download runtime bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: first-principles-runtime-bundle-${{ github.run_number }}
+          path: downloaded-runtime
+
+      - name: Restore runtime and charge fixture
+        run: |
+          mkdir -p build/libs cannons scenarios
+          cp downloaded-runtime/first-principles-runtime-bundle/build/libs/CannonLab-*.jar build/libs/
+          (cd downloaded-runtime && sha256sum --check first-principles-runtime-bundle/runtime-bundle.sha256)
+          base64 --wrap=0 \
+            downloaded-runtime/first-principles-runtime-bundle/primitive-rigs/candidates/charge-c04.schem \
+            > cannons/charge-c04.schem.b64
+          cat > scenarios/fp-charge-c04-endurance.yml <<'YAML'
+          name: fp-charge-c04-endurance
+          cannon:
+            file: charge-c04.schem
+            origin: {x: 0, y: 0, z: 0}
+            fire-mode: redstone
+            fire-inputs:
+              - {x: 1, y: 2, z: 2}
+              - {x: 1, y: 2, z: 8}
+              - {x: 1, y: 2, z: 14}
+              - {x: 1, y: 2, z: 20}
+            fire-pulse-ticks: 4
+            settle-before-fill-ticks: 20
+            fill-to-fire-ticks: 20
+          limits:
+            enforce-dispenser-limit: true
+          target:
+            type: dry
+            material: cobblestone
+            direction: east
+            distance: 12
+            width: 5
+            height: 5
+            layers: 1
+            spacing: 3
+          acceptance:
+            require-payload: true
+            min-target-destroyed: 0
+            min-falling-blocks: 0
+            min-forward-distance: 0
+            min-remaining-dispenser-ratio: 1.0
+            max-cannon-missing-blocks: 0
+            max-cannon-replaced-type-blocks: 0
+            max-cannon-unexpected-blocks: 0
+            max-self-damage-blocks: 0
+          run:
+            shots: 100
+            rebuild-cannon-between-shots: false
+            warmup-ticks: 20
+            max-shot-ticks: 140
+            quiet-ticks: 10
+            shutdown-when-finished: true
+          YAML
+
+      - name: Run 100-shot enclosed charge endurance
+        env:
+          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/downloaded-runtime/first-principles-runtime-bundle/sakura-26.1.2.jar
+          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 first-principles charge-c04
+          CANNONLAB_SCENARIO: fp-charge-c04-endurance.yml
+          CANNONLAB_EXPECTED_SHOTS: '100'
+          CANNONLAB_REQUIRE_CUMULATIVE_CANNON: 'true'
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '16'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '16'
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_MAX_SELF_DAMAGE_BLOCKS: '0'
+          CANNONLAB_MAX_CANNON_UNEXPECTED_BLOCKS: '0'
+          CANNONLAB_TIMEOUT_SECONDS: '1200'
+          CANNONLAB_ARENA_RADIUS_X: '24'
+          CANNONLAB_ARENA_RADIUS_Y: '16'
+          CANNONLAB_ARENA_RADIUS_Z: '32'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Upload charge endurance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fp-charge-c04-runtime-${{ github.run_number }}
+          path: lab-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  trajectory-sweep:
+    needs: build-runtime
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        candidate:
+          - payload-d1
+          - payload-d2
+          - payload-d3
+          - payload-d4
+          - guider-l004-d1
+          - guider-l008-d1
+          - guider-l012-d1
+          - guider-l016-d1
+    steps:
+      - name: Checkout CannonLab
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Download runtime bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: first-principles-runtime-bundle-${{ github.run_number }}
+          path: downloaded-runtime
+
+      - name: Restore runtime and selected fixture
+        env:
+          CANDIDATE: ${{ matrix.candidate }}
+        run: |
+          mkdir -p build/libs cannons scenarios
+          cp downloaded-runtime/first-principles-runtime-bundle/build/libs/CannonLab-*.jar build/libs/
+          (cd downloaded-runtime && sha256sum --check first-principles-runtime-bundle/runtime-bundle.sha256)
+          base64 --wrap=0 \
+            "downloaded-runtime/first-principles-runtime-bundle/primitive-rigs/candidates/$CANDIDATE.schem" \
+            > "cannons/$CANDIDATE.schem.b64"
+          cat > "scenarios/fp-$CANDIDATE.yml" <<YAML
+          name: fp-$CANDIDATE
+          cannon:
+            file: $CANDIDATE.schem
+            origin: {x: 0, y: 0, z: 0}
+            fire-mode: redstone
+            fire-input: {x: 0, y: 1, z: 1}
+            fire-pulse-ticks: 4
+            settle-before-fill-ticks: 20
+            fill-to-fire-ticks: 20
+          limits:
+            enforce-dispenser-limit: true
+          target:
+            type: dry
+            material: cobblestone
+            direction: east
+            distance: 5
+            width: 7
+            height: 6
+            layers: 1
+            spacing: 3
+          acceptance:
+            require-payload: true
+            min-target-destroyed: 0
+            min-falling-blocks: 0
+            min-forward-distance: 0
+            min-remaining-dispenser-ratio: 1.0
+            max-cannon-missing-blocks: 0
+            max-cannon-replaced-type-blocks: 0
+            max-cannon-unexpected-blocks: 0
+            max-self-damage-blocks: 0
+          run:
+            shots: 5
+            rebuild-cannon-between-shots: false
+            warmup-ticks: 20
+            max-shot-ticks: 160
+            quiet-ticks: 10
+            shutdown-when-finished: true
+          YAML
+
+      - name: Run natural TNT trajectory experiment
+        env:
+          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/downloaded-runtime/first-principles-runtime-bundle/sakura-26.1.2.jar
+          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 first-principles ${{ matrix.candidate }}
+          CANNONLAB_SCENARIO: fp-${{ matrix.candidate }}.yml
+          CANNONLAB_EXPECTED_SHOTS: '5'
+          CANNONLAB_REQUIRE_CUMULATIVE_CANNON: 'true'
+          CANNONLAB_STRICT_SINGLE_TNT: 'true'
+          CANNONLAB_MIN_TNT_PER_SHOT: '1'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '1'
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_MAX_SELF_DAMAGE_BLOCKS: '0'
+          CANNONLAB_MAX_CANNON_UNEXPECTED_BLOCKS: '0'
+          CANNONLAB_TIMEOUT_SECONDS: '600'
+          CANNONLAB_ARENA_RADIUS_X: '32'
+          CANNONLAB_ARENA_RADIUS_Y: '16'
+          CANNONLAB_ARENA_RADIUS_Z: '16'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Upload trajectory evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fp-trajectory-${{ matrix.candidate }}-${{ github.run_number }}
+          path: lab-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30
+
+  trajectory-report:
+    needs: trajectory-sweep
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download trajectory evidence
+        uses: actions/download-artifact@v4
+        with:
+          pattern: fp-trajectory-*-${{ github.run_number }}
+          path: downloaded-trajectories
+
+      - name: Build evidence index without promoting roles
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('downloaded-trajectories')
+          rows = []
+          for fingerprint in sorted(root.rglob('physics-fingerprint.json')):
+              artifact = fingerprint.parts[1] if len(fingerprint.parts) > 1 else fingerprint.parent.name
+              candidate = artifact.removeprefix('fp-trajectory-').rsplit('-', 1)[0]
+              payload = json.loads(fingerprint.read_text(encoding='utf-8'))
+              rows.append({
+                  'candidate': candidate,
+                  'artifact': artifact,
+                  'status': payload.get('status'),
+                  'physics_fingerprint': payload,
+              })
+          report = {
+              'schema_version': 1,
+              'status': 'LOCAL_RUNTIME_OBSERVATIONS_ONLY',
+              'candidate_count': len(rows),
+              'candidates': rows,
+              'truth_boundary': {
+                  'payload_role_promoted': False,
+                  'guider_role_promoted': False,
+                  'private_extremecraft_parity': False,
+              },
+          }
+          Path('trajectory-report.json').write_text(
+              json.dumps(report, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          assert len(rows) == 8, rows
+          print(json.dumps(report, indent=2, sort_keys=True))
+          PY
+
+      - name: Upload trajectory comparison
+        uses: actions/upload-artifact@v4
+        with:
+          name: fp-trajectory-report-${{ github.run_number }}
+          path: trajectory-report.json
+          if-no-files-found: error
+          retention-days: 30
