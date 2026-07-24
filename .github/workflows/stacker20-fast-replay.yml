@@ -4,7 +4,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/stacker20-fast-replay.yml'
-      - 'scripts/generate-stacker20-candidates.py'
+      - 'scripts/generate-stacker20-compact.py'
       - 'scripts/cloud-smoke.sh'
       - 'scripts/assert-results.py'
       - 'scripts/scenario-integrity-audit.py'
@@ -47,17 +47,18 @@ jobs:
           repository: redzicdenis08-afk/cannonlab
           run-id: 30130075781
 
-      - name: Generate exact canonical candidates
+      - name: Generate exact compact candidate
         run: |
-          python3 scripts/generate-stacker20-candidates.py \
+          python3 scripts/generate-stacker20-compact.py \
             --output-directory generated/cannons \
             --manifest generated/manifest.json
           python3 scripts/schem-audit.py \
-            generated/cannons/EC160-STACKER20-C52-P4-S2-v2.schem \
+            generated/cannons/EC160-STACKER20-C32-COMPACT-P4-S2-v3.schem \
             --chunk-limit 160 \
             --expect-format sponge-v2 \
             --require-all-alignments-safe \
-            --json-out generated/c52-audit.json
+            --expect-dispensers 36 \
+            --json-out generated/compact-audit.json
 
       - name: Restore runtime and render scenario
         env:
@@ -71,26 +72,29 @@ jobs:
           from pathlib import Path
 
           delay = int(os.environ['DELAY'])
-          primary = [
-              {'x': x, 'y': 3, 'z': z}
-              for x in range(1, 9)
-              for z in range(2, 6)
-          ]
-          primary += [
-              {'x': x, 'y': 1, 'z': z}
-              for x in range(1, 9)
-              for z in (0, 7)
-          ]
-          primary += [
-              {'x': -1, 'y': 1, 'z': z}
-              for z in range(2, 6)
-          ]
+          primary = []
+          for x in (6, 7):
+              for z in range(2, 6):
+                  primary.extend((
+                      {'x': x, 'y': 4, 'z': z},
+                      {'x': x, 'y': -1, 'z': z},
+                  ))
+          for x in (6, 7):
+              for y in (1, 2):
+                  primary.extend((
+                      {'x': x, 'y': y, 'z': 0},
+                      {'x': x, 'y': y, 'z': 7},
+                  ))
+          for y in (1, 2):
+              for z in range(2, 6):
+                  primary.append({'x': 4, 'y': y, 'z': z})
+
           delayed = [
-              {'x': 9, 'y': 2, 'z': z}
+              {'x': 8, 'y': 0, 'z': z}
               for z in range(2, 6)
           ] + [
-              {'x': 11, 'y': 3, 'z': 3},
-              {'x': 11, 'y': 3, 'z': 4},
+              {'x': 9, 'y': 4, 'z': 3},
+              {'x': 9, 'y': 4, 'z': 4},
           ]
 
           def points(rows):
@@ -99,9 +103,9 @@ jobs:
                   for row in rows
               )
 
-          scenario = f'''name: stacker20-fast-c52-d{delay}
+          scenario = f'''name: stacker20-compact-c32-d{delay}
           cannon:
-            file: EC160-STACKER20-C52-P4-S2-v2.schem
+            file: EC160-STACKER20-C32-COMPACT-P4-S2-v3.schem
             origin: {{x: 0, y: 0, z: 0}}
             fire-mode: redstone
             fire-inputs:
@@ -157,7 +161,7 @@ jobs:
               line[10:] if line.startswith('          ') else line
               for line in scenario.splitlines()
           ) + '\n'
-          Path(f'scenarios/stacker20-fast-c52-d{delay}.yml').write_text(
+          Path(f'scenarios/stacker20-compact-c32-d{delay}.yml').write_text(
               scenario,
               encoding='utf-8',
           )
@@ -167,13 +171,13 @@ jobs:
       - name: Fire through the 20-block clear corridor
         env:
           CANNONLAB_SERVER_JAR: ${{ github.workspace }}/reused-runtime/sakura-26.1.2.jar
-          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 pinned runtime stacker20 c52 d${{ matrix.delay }}
-          CANNONLAB_SCENARIO: stacker20-fast-c52-d${{ matrix.delay }}.yml
+          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 pinned compact stacker20 d${{ matrix.delay }}
+          CANNONLAB_SCENARIO: stacker20-compact-c32-d${{ matrix.delay }}.yml
           CANNONLAB_EXPECTED_SHOTS: '1'
           CANNONLAB_REQUIRE_CUMULATIVE_CANNON: 'true'
           CANNONLAB_STRICT_SINGLE_TNT: 'false'
-          CANNONLAB_MIN_TNT_PER_SHOT: '56'
-          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '56'
+          CANNONLAB_MIN_TNT_PER_SHOT: '36'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '36'
           CANNONLAB_EXPECTED_LIFETIME: '79'
           CANNONLAB_LIFETIME_TOLERANCE: '0'
           CANNONLAB_MIN_FORWARD_TRAVEL: '20'
@@ -193,7 +197,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: stacker20-fast-c52-d${{ matrix.delay }}-${{ github.run_number }}
+          name: stacker20-compact-c32-d${{ matrix.delay }}-${{ github.run_number }}
           path: |
             lab-artifacts/**
             generated/**
