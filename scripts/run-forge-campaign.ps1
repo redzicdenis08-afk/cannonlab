@@ -135,6 +135,57 @@ function Test-PassJson([string]$Path) {
     }
 }
 
+function Get-FailureEvidence([string]$Destination) {
+    $Evidence = [ordered]@{}
+    foreach ($Entry in @(
+        @{ name = 'assertion'; file = 'assertion.json' },
+        @{ name = 'output_corridor'; file = 'output-corridor.json' },
+        @{ name = 'wall_breach'; file = 'wall-breach.json' }
+    )) {
+        $Path = Join-Path $Destination $Entry.file
+        if (-not (Test-Path $Path -PathType Leaf)) { continue }
+        try {
+            $Payload = Get-Content $Path -Raw | ConvertFrom-Json
+            $Evidence[$Entry.name] = [ordered]@{
+                path = $Path
+                status = $Payload.status
+                errors = @($Payload.errors)
+                failures = @($Payload.failures)
+                diagnoses = @($Payload.diagnoses)
+            }
+        } catch {
+            $Evidence[$Entry.name] = [ordered]@{ path = $Path; parse_error = $_.Exception.Message }
+        }
+    }
+    $RunSummary = Get-ChildItem (Join-Path $Destination 'results') -Recurse -Filter 'run-summary.json' -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    if ($RunSummary) {
+        try {
+            $Payload = Get-Content $RunSummary.FullName -Raw | ConvertFrom-Json
+            $LastShot = @($Payload.shots) | Select-Object -Last 1
+            $Evidence.run = [ordered]@{
+                path = $RunSummary.FullName
+                finish_reason = $Payload.finish_reason
+                shots_completed = $Payload.shots_completed
+                last_shot = if ($LastShot) {
+                    [ordered]@{
+                        shot = $LastShot.shot
+                        finish_reason = $LastShot.finish_reason
+                        contract_pass = $LastShot.contract_pass
+                        contract_failures = @($LastShot.contract_failures)
+                        maximum_forward_distance = $LastShot.maximum_forward_distance
+                        target_peak_destroyed = $LastShot.target_peak_destroyed
+                        self_damage_blocks = $LastShot.self_damage_blocks
+                    }
+                } else { $null }
+            }
+        } catch {
+            $Evidence.run = [ordered]@{ path = $RunSummary.FullName; parse_error = $_.Exception.Message }
+        }
+    }
+    return $Evidence
+}
+
 foreach ($Scenario in $SelectedScenarios) {
     if ($Scenario.integrity.status -ne 'PASS') {
         throw "Scenario integrity is not PASS: $($Scenario.name) status=$($Scenario.integrity.status)"
@@ -289,6 +340,7 @@ foreach ($Scenario in $SelectedScenarios) {
             fingerprint = $Fingerprint
             elapsed_seconds = [Math]::Round(([DateTime]::UtcNow - $ScenarioStarted).TotalSeconds, 3)
             error = $_.Exception.Message
+            evidence = Get-FailureEvidence -Destination $Destination
         }
         $Failures += $Failure
         if ($Failure.error -like '*budget exhausted*') {

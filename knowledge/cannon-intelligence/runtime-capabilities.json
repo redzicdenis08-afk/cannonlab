@@ -184,6 +184,16 @@
         {"type": "file", "path": "scripts/test-forge-campaign-performance.py"},
         {"type": "all-token", "path": "scripts/run-forge-campaign.ps1", "tokens": ["WallClockBudgetSeconds", "PlanOnly", "cannonlab-forge-stage-fingerprint-v2", "runtime_hashes", "CANNONLAB_*", "cannonlab-forge-campaign-v3"]}
       ]
+    },
+    {
+      "id": "immutable-tiered-runtime-isolation",
+      "required_for": ["local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "all-token", "path": "scripts/cannon-forge.py", "tokens": ["arena_radii", "owner / \"inputs\"", "job_dir / \"scenarios\"", "radius_x", "radius_z"]},
+        {"type": "all-token", "path": "scripts/run-lab.ps1", "tokens": ["ScenarioPath", "CannonSnapshot", "CannonRuntimeName", "ArenaRadiusX", "ServerScenarioDirectory", "ServerCannonDirectory"]},
+        {"type": "all-token", "path": "scripts/prepare-server.ps1", "tokens": ["TcpListener", "CANNONLAB_SERVER_PORT", "LocalEndpoint.Port"]},
+        {"type": "all-token", "path": "scripts/run-forge-campaign.ps1", "tokens": ["Get-FailureEvidence", "contract_failures", "CannonSnapshot", "ArenaRadiusX"]}
+      ]
     }
   ],
   "operator_capabilities": [

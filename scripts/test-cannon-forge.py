@@ -257,6 +257,8 @@ def test_campaign_runner_contract() -> None:
     assert "-ScenarioPath" in runner
     assert "-CannonSnapshot" in runner
     assert "-CannonRuntimeName" in runner
+    assert "Get-FailureEvidence" in runner
+    assert "contract_failures" in runner
     assert "state/$($Scenario.name).json" in runner
     assert "cannonlab-forge-campaign-v3" in runner
 
