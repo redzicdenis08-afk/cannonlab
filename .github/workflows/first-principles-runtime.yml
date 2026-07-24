@@ -65,6 +65,7 @@ jobs:
           cp .sakura-26.1.2.jar first-principles-runtime-bundle/sakura-26.1.2.jar
           cp build/libs/CannonLab-*.jar first-principles-runtime-bundle/build/libs/
           cp -R primitive-rigs first-principles-runtime-bundle/primitive-rigs
+          rm -f first-principles-runtime-bundle/primitive-rigs/.gitkeep
           (
             cd first-principles-runtime-bundle
             find . -type f ! -name runtime-bundle.sha256 -print0 \
