@@ -148,7 +148,7 @@ def test_synthesis_tool_allows_only_root_scoped_output() -> None:
 def test_component_promotion_builds_exact_guarded_command() -> None:
     mcp, calls, _ = make_registry()
     mcp.tools["promote_cannon_component"](
-        "audit-fixtures/four-dispenser.schem",
+        "profiles/synthesis/component-registry-template-v1.json",
         "profiles/components/promotion-manifest-template-v1.json",
         "lab-artifacts/mcp/promoted.schem",
         "lab-artifacts/mcp/promoted.registry.json",
@@ -167,7 +167,7 @@ def test_component_promotion_builds_exact_guarded_command() -> None:
 
     try:
         mcp.tools["promote_cannon_component"](
-            "audit-fixtures/four-dispenser.schem",
+            "profiles/synthesis/component-registry-template-v1.json",
             "profiles/components/promotion-manifest-template-v1.json",
             "../promoted.schem",
             "lab-artifacts/mcp/promoted.registry.json",
@@ -181,8 +181,8 @@ def test_component_promotion_builds_exact_guarded_command() -> None:
 def test_repair_family_builds_exact_guarded_command() -> None:
     mcp, calls, _ = make_registry()
     mcp.tools["generate_causal_repair_family"](
-        "audit-fixtures/four-dispenser.schem",
-        "audit-fixtures/impulse-comparison.json",
+        "profiles/synthesis/component-registry-template-v1.json",
+        "profiles/parity/extremecraft-private-parity-required-v1.json",
         "profiles/repairs/causal-repair-policy-template-v1.json",
         "lab-artifacts/mcp/repair-family",
         report_output_path="lab-artifacts/mcp/repair-family.json",
@@ -197,8 +197,8 @@ def test_repair_family_builds_exact_guarded_command() -> None:
 
     try:
         mcp.tools["generate_causal_repair_family"](
-            "audit-fixtures/four-dispenser.schem",
-            "audit-fixtures/impulse-comparison.json",
+            "profiles/synthesis/component-registry-template-v1.json",
+            "profiles/parity/extremecraft-private-parity-required-v1.json",
             "profiles/repairs/causal-repair-policy-template-v1.json",
             "../../outside-repairs",
         )
