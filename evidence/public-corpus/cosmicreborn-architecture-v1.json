@@ -1,0 +1,274 @@
+{
+  "schema_version": 1,
+  "evidence_id": "cosmicreborn-architecture-v1",
+  "captured_on": "2026-07-24",
+  "source_registry": "profiles/corpus/public-cannon-sources-v1.json",
+  "workflow": {
+    "name": "Public Cannon Corpus",
+    "run_id": 30112692715,
+    "head_sha": "570b486f75a10a3f22598b5604bca5e22f4ef6b2",
+    "audit_artifact_id": 8604177025,
+    "audit_artifact_digest": "sha256:215475d40528c3e3fa1c8219bfb877ef759f0135295bc2c85a15e44d2594421c",
+    "contract_job": "success",
+    "controlled_fetch_job": "success"
+  },
+  "strict_translation_comparison": {
+    "classification": "LEGACY_STATIC_ARCHITECTURE_ONLY",
+    "source_count": 6,
+    "pair_count": 15,
+    "shared_motif_count": 165,
+    "motifs_present_in_all_sources": 0,
+    "strongest_pairs": [
+      {
+        "first": "cosmicreborn-shakisha",
+        "second": "cosmicreborn-l-stacker",
+        "motif_weighted_jaccard": 0.278609,
+        "shared_motif_signature_count": 74,
+        "shared_exact_bank_context_count": 0
+      },
+      {
+        "first": "cosmicreborn-pred",
+        "second": "cosmicreborn-shakisha",
+        "motif_weighted_jaccard": 0.2606,
+        "shared_motif_signature_count": 106,
+        "shared_exact_bank_context_count": 0
+      },
+      {
+        "first": "cosmicreborn-pred",
+        "second": "cosmicreborn-l-stacker",
+        "motif_weighted_jaccard": 0.227372,
+        "shared_motif_signature_count": 80,
+        "shared_exact_bank_context_count": 0
+      }
+    ],
+    "formal_pred": {
+      "motif_weighted_jaccard": 0.0,
+      "shared_motif_signature_count": 0,
+      "shared_exact_bank_context_count": 0,
+      "interpretation": "Translation-only matching misses their rotated structural relationship."
+    }
+  },
+  "y_rotation_structural_comparison": {
+    "classification": "LEGACY_STATIC_Y_ROTATION_STRUCTURE_ONLY",
+    "comparison_model": "four Y-axis quarter-turns; functional token kinds only; directional metadata discarded; no reflection",
+    "source_count": 6,
+    "pair_count": 15,
+    "shared_structural_motif_count": 860,
+    "motifs_present_in_all_sources": 0,
+    "pairwise_similarity": [
+      {
+        "first": "cosmicreborn-formal",
+        "second": "cosmicreborn-pred",
+        "jaccard": 0.911054,
+        "shared_structural_motif_count": 777,
+        "shared_bank_context_count": 3
+      },
+      {
+        "first": "cosmicreborn-shakisha",
+        "second": "cosmicreborn-l-stacker",
+        "jaccard": 0.316758,
+        "shared_structural_motif_count": 72,
+        "shared_bank_context_count": 0
+      },
+      {
+        "first": "cosmicreborn-pred",
+        "second": "cosmicreborn-shakisha",
+        "jaccard": 0.281359,
+        "shared_structural_motif_count": 92,
+        "shared_bank_context_count": 0
+      },
+      {
+        "first": "cosmicreborn-formal",
+        "second": "cosmicreborn-shakisha",
+        "jaccard": 0.277893,
+        "shared_structural_motif_count": 95,
+        "shared_bank_context_count": 0
+      },
+      {
+        "first": "cosmicreborn-pred",
+        "second": "cosmicreborn-l-stacker",
+        "jaccard": 0.23232,
+        "shared_structural_motif_count": 58,
+        "shared_bank_context_count": 0
+      },
+      {
+        "first": "cosmicreborn-formal",
+        "second": "cosmicreborn-l-stacker",
+        "jaccard": 0.227812,
+        "shared_structural_motif_count": 58,
+        "shared_bank_context_count": 0
+      },
+      {
+        "first": "cosmicreborn-mboze",
+        "second": "cosmicreborn-l-stacker",
+        "jaccard": 0.224798,
+        "shared_structural_motif_count": 64,
+        "shared_bank_context_count": 0
+      },
+      {
+        "first": "cosmicreborn-mboze",
+        "second": "cosmicreborn-shakisha",
+        "jaccard": 0.212093,
+        "shared_structural_motif_count": 67,
+        "shared_bank_context_count": 0
+      },
+      {
+        "first": "cosmicreborn-pred",
+        "second": "cosmicreborn-mboze",
+        "jaccard": 0.164301,
+        "shared_structural_motif_count": 70,
+        "shared_bank_context_count": 0
+      },
+      {
+        "first": "cosmicreborn-formal",
+        "second": "cosmicreborn-mboze",
+        "jaccard": 0.161212,
+        "shared_structural_motif_count": 70,
+        "shared_bank_context_count": 0
+      },
+      {
+        "first": "cosmicreborn-mboze",
+        "second": "cosmicreborn-raid-outpost-qp",
+        "jaccard": 0.036665,
+        "shared_structural_motif_count": 30,
+        "shared_bank_context_count": 0
+      },
+      {
+        "first": "cosmicreborn-shakisha",
+        "second": "cosmicreborn-raid-outpost-qp",
+        "jaccard": 0.007572,
+        "shared_structural_motif_count": 11,
+        "shared_bank_context_count": 0
+      },
+      {
+        "first": "cosmicreborn-pred",
+        "second": "cosmicreborn-raid-outpost-qp",
+        "jaccard": 0.005658,
+        "shared_structural_motif_count": 11,
+        "shared_bank_context_count": 0
+      },
+      {
+        "first": "cosmicreborn-formal",
+        "second": "cosmicreborn-raid-outpost-qp",
+        "jaccard": 0.005552,
+        "shared_structural_motif_count": 11,
+        "shared_bank_context_count": 0
+      },
+      {
+        "first": "cosmicreborn-raid-outpost-qp",
+        "second": "cosmicreborn-l-stacker",
+        "jaccard": 0.000545,
+        "shared_structural_motif_count": 1,
+        "shared_bank_context_count": 0
+      }
+    ]
+  },
+  "sources": [
+    {
+      "id": "cosmicreborn-formal",
+      "sha256": "510abf89ca04e7219aa3fd3f002b28c31b9462c37b9eac82843019391df5c8ae",
+      "functional_component_count": 3843,
+      "dispenser_bank_count": 43,
+      "largest_bank_dispenser_count": 252,
+      "largest_bank_dimensions": {"x": 15, "y": 17, "z": 1},
+      "regular_slice_family_count": 1,
+      "top_bank_counts": [252, 252, 150, 149, 74, 44, 44, 32, 19, 19]
+    },
+    {
+      "id": "cosmicreborn-pred",
+      "sha256": "9e13c77fbab9c1037d314bb6d96cf363244f257f17ef5e161137d34366324763",
+      "functional_component_count": 3687,
+      "dispenser_bank_count": 35,
+      "largest_bank_dispenser_count": 252,
+      "largest_bank_dimensions": {"x": 1, "y": 17, "z": 15},
+      "regular_slice_family_count": 1,
+      "top_bank_counts": [252, 252, 150, 149, 74, 44, 44, 32, 19, 19]
+    },
+    {
+      "id": "cosmicreborn-mboze",
+      "sha256": "c4ea5cfceb034db39f1f985a06e59b615b322ee4b3a3e82e2045b3d458257f72",
+      "functional_component_count": 1812,
+      "dispenser_bank_count": 31,
+      "largest_bank_dispenser_count": 150,
+      "largest_bank_dimensions": {"x": 1, "y": 10, "z": 15},
+      "regular_slice_family_count": 3,
+      "repeated_exact_bank_context_count": 1,
+      "top_bank_counts": [150, 150, 90, 38, 13, 11, 10, 8, 7, 7]
+    },
+    {
+      "id": "cosmicreborn-shakisha",
+      "sha256": "fb164b8fbfbd2b9299f1a9bdaf6e03060af04d75bc91e8d71205e7c6e0c26e09",
+      "functional_component_count": 2294,
+      "dispenser_bank_count": 33,
+      "largest_bank_dispenser_count": 158,
+      "largest_bank_dimensions": {"x": 1, "y": 12, "z": 14},
+      "regular_slice_family_count": 0,
+      "top_bank_counts": [158, 158, 118, 118, 55, 24, 16, 16, 15, 15]
+    },
+    {
+      "id": "cosmicreborn-raid-outpost-qp",
+      "sha256": "301b759ab764e81d678ad6ffcae488ffb25fe6e48d61906767da350ec43a8d4a",
+      "functional_component_count": 1346,
+      "dispenser_bank_count": 17,
+      "largest_bank_dispenser_count": 136,
+      "largest_bank_dimensions": {"x": 2, "y": 11, "z": 20},
+      "regular_slice_family_count": 0,
+      "top_bank_counts": [136, 134, 93, 90, 13, 11, 6, 6, 6, 5]
+    },
+    {
+      "id": "cosmicreborn-l-stacker",
+      "sha256": "d34f37e879031a75693f528986633bb43d48f6f989c63ca6df1b8c0b71a538b5",
+      "functional_component_count": 1986,
+      "dispenser_bank_count": 18,
+      "largest_bank_dispenser_count": 264,
+      "largest_bank_dimensions": {"x": 1, "y": 24, "z": 17},
+      "regular_slice_family_count": 2,
+      "top_bank_counts": [264, 264, 27, 27, 15, 15, 15, 15, 12, 10]
+    }
+  ],
+  "shared_structural_motif_examples": [
+    {
+      "signature": "bedb1486ac226331cc1332dbea71373ea4c5362dcbe0de905ea29bee707b4ee2",
+      "anchor_kind": "repeater",
+      "component_count": 31,
+      "source_count": 5,
+      "total_occurrences": 706
+    },
+    {
+      "signature": "8c96ab2ed510d5ce6f1d185dd3da40d8bf6b16ac57827885b4b60634cf07252e",
+      "anchor_kind": "dispenser",
+      "component_count": 34,
+      "source_count": 5,
+      "total_occurrences": 704
+    },
+    {
+      "signature": "86e2505d2eb35d5581ff5b0b786f8ebe5f4bd76743f032df9512f5825c8be287",
+      "anchor_kind": "dispenser",
+      "component_count": 36,
+      "source_count": 5,
+      "total_occurrences": 694
+    }
+  ],
+  "inferences": [
+    {
+      "claim": "Formal and Pred are strong members of the same static architecture family under Y-axis rotation.",
+      "basis": "0.911054 structural motif Jaccard, 777 shared local structural motifs, three shared bank-context signatures, and identical top-ten dispenser-bank count fingerprints.",
+      "confidence": "static-high"
+    },
+    {
+      "claim": "Raid Outpost QP is structurally distinct from the other five corpus members under this comparison model.",
+      "basis": "Its strongest pairwise structural Jaccard is only 0.036665 and it is absent from the high-frequency motifs shared by the other five sources.",
+      "confidence": "static-medium"
+    }
+  ],
+  "truth_boundary": {
+    "legacy_numeric_ids_are_modern_block_states": false,
+    "directional_metadata_preserved_in_y_rotation_similarity": false,
+    "reflection_matching_performed": false,
+    "static_similarity_proves_shared_runtime_semantics": false,
+    "source_claims_prove_module_roles": false,
+    "runtime_evidence_present": false,
+    "private_extremecraft_parity_confirmed": false,
+    "ec_ready": false
+  }
+}
