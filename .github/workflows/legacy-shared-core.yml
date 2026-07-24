@@ -1,0 +1,233 @@
+name: Legacy Shared Core Audit
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/legacy-shared-core-audit.py'
+      - 'scripts/legacy-shared-core-envelope.py'
+      - 'scripts/legacy-shared-assembly-audit.py'
+      - 'scripts/infer-legacy-shared-ports.py'
+      - 'scripts/test-legacy-shared-core-audit.py'
+      - 'scripts/test-legacy-shared-core-envelope.py'
+      - 'scripts/test-legacy-shared-assembly-audit.py'
+      - 'scripts/test-legacy-shared-assembly-review.py'
+      - 'scripts/test-infer-legacy-shared-ports.py'
+      - 'profiles/corpus/**'
+      - 'evidence/public-corpus/**'
+      - 'docs/LEGACY_SHARED_CORE_AUDIT.md'
+      - '.github/workflows/legacy-shared-core.yml'
+  workflow_dispatch:
+    inputs:
+      fetch_public_sources:
+        description: 'Fetch pinned Formal and Pred, derive shared static evidence, and delete raw files'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  shared-core-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONHASHSEED: '0'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile shared static tools
+        run: |
+          python -m py_compile \
+            scripts/legacy-shared-core-audit.py \
+            scripts/legacy-shared-core-envelope.py \
+            scripts/legacy-shared-assembly-audit.py \
+            scripts/infer-legacy-shared-ports.py \
+            scripts/test-legacy-shared-core-audit.py \
+            scripts/test-legacy-shared-core-envelope.py \
+            scripts/test-legacy-shared-assembly-audit.py \
+            scripts/test-legacy-shared-assembly-review.py \
+            scripts/test-infer-legacy-shared-ports.py
+
+      - name: Run shared static and port-hypothesis regressions
+        run: |
+          mkdir -p lab-artifacts/shared-core-contract
+          set -o pipefail
+          {
+            python scripts/test-legacy-shared-core-audit.py
+            python scripts/test-legacy-shared-core-envelope.py
+            python scripts/test-legacy-shared-assembly-audit.py
+            python scripts/test-legacy-shared-assembly-review.py
+            python scripts/test-infer-legacy-shared-ports.py
+          } 2>&1 | tee lab-artifacts/shared-core-contract/regressions.log
+
+      - name: Verify pinned global transform contract
+        run: |
+          python - <<'PY' | tee lab-artifacts/shared-core-contract/transform-contract.log
+          import json
+          from pathlib import Path
+
+          evidence = json.loads(
+              Path('evidence/public-corpus/cosmicreborn-global-alignment-v1.json').read_text(encoding='utf-8')
+          )
+          correction = evidence['formal_pred_correction']
+          assert correction['degrees'] == 270, correction
+          assert correction['translation'] == [-649, 0, 357], correction
+          assert correction['exact_kind_overlap_count'] == 2731, correction
+          assert evidence['truth_boundary']['ec_ready'] is False, evidence
+          print('Formal/Pred shared-core input transform remains pinned to exact evidence.')
+          PY
+
+      - name: Cross-check pinned shared static evidence
+        run: |
+          python - <<'PY' | tee lab-artifacts/shared-core-contract/evidence-contract.log
+          import json
+          from pathlib import Path
+
+          registry = json.loads(
+              Path('profiles/corpus/public-cannon-sources-v1.json').read_text(encoding='utf-8')
+          )
+          evidence = json.loads(
+              Path('evidence/public-corpus/cosmicreborn-formal-pred-shared-static-v1.json').read_text(encoding='utf-8')
+          )
+          source_hashes = {row['id']: row['expected_sha256'] for row in registry['sources']}
+          for row in evidence['sources']:
+              assert source_hashes[row['id']] == row['sha256'], row
+          assert evidence['transform']['degrees_y'] == 270, evidence
+          assert evidence['transform']['translation'] == [-649, 0, 357], evidence
+          overlap = evidence['metadata_aware_overlap']
+          assert overlap['same_kind_position_count'] == 2731, overlap
+          assert overlap['proven_metadata_equivalent_position_count'] == 2693, overlap
+          assert overlap['metadata_conflict_count'] == 9, overlap
+          assert overlap['unresolved_directional_metadata_count'] == 29, overlap
+          inventory = evidence['shared_assembly_inventory']
+          assert inventory['near_closed_static_review_candidate_count'] == 2, inventory
+          assert inventory['promotion_eligible_assembly_count'] == 0, inventory
+          ports = evidence['variant_boundary_port_hypotheses']
+          assert ports['paired_hypothesis_count'] == 3, ports
+          assert ports['unpaired_boundary_group_count'] == 0, ports
+          assert ports['promotion_eligible_port_count'] == 0, ports
+          assert evidence['truth_boundary']['boundary_shape_proves_port_semantics'] is False, evidence
+          assert evidence['truth_boundary']['runtime_semantics_confirmed'] is False, evidence
+          assert evidence['truth_boundary']['ec_ready'] is False, evidence
+          print('Pinned Formal/Pred shared static evidence is internally consistent.')
+          PY
+
+      - name: Upload contract diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shared-core-contract-diagnostics
+          path: lab-artifacts/shared-core-contract
+          if-no-files-found: warn
+
+  controlled-shared-core:
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.fetch_public_sources }}
+    needs: shared-core-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONHASHSEED: '0'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Strictly fetch and audit pinned public sources
+        run: |
+          mkdir -p lab-artifacts/shared-core-run
+          python scripts/strict-fetch-public-cannon-corpus.py \
+            profiles/corpus/public-cannon-sources-v1.json \
+            --output-directory lab-artifacts/public-cannon-cache \
+            --mode fetch \
+            --write-lock lab-artifacts/shared-core-run/public-cannon-lock-v1.json \
+            --json-out lab-artifacts/shared-core-run/fetch-report.json \
+            > /dev/null
+
+      - name: Audit Formal and Pred shared regions, assemblies, and boundary ports
+        run: |
+          root=lab-artifacts/public-cannon-cache/public-cannon-sources-v1/files
+          common="--first-id cosmicreborn-formal \
+            --first $root/cosmicreborn-formal/FORMAL.schematic \
+            --second-id cosmicreborn-pred \
+            --second $root/cosmicreborn-pred/PRED.schematic \
+            --turns 3 \
+            --translation=-649,0,357"
+          python scripts/legacy-shared-core-audit.py \
+            $common \
+            --chunk-limit 160 \
+            --minimum-component-size 8 \
+            --json-out lab-artifacts/shared-core-run/formal-pred-shared-core.json \
+            > /dev/null
+          python scripts/legacy-shared-core-envelope.py \
+            $common \
+            --minimum-component-size 8 \
+            --max-support-layers 8 \
+            --max-added-support 4096 \
+            --json-out lab-artifacts/shared-core-run/formal-pred-support-envelope.json \
+            > /dev/null
+          python scripts/legacy-shared-assembly-audit.py \
+            $common \
+            --minimum-functional-count 8 \
+            --chunk-limit 160 \
+            --max-shared-support-nodes 100000 \
+            --near-closed-boundary-limit 16 \
+            --max-boundary-examples 64 \
+            --json-out lab-artifacts/shared-core-run/formal-pred-shared-assemblies.json \
+            > /dev/null
+          python scripts/infer-legacy-shared-ports.py \
+            lab-artifacts/shared-core-run/formal-pred-shared-assemblies.json \
+            --json-out lab-artifacts/shared-core-run/formal-pred-variant-port-hypotheses.json \
+            > /dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('lab-artifacts/shared-core-run')
+          core = json.loads((root / 'formal-pred-shared-core.json').read_text(encoding='utf-8'))
+          assemblies = json.loads((root / 'formal-pred-shared-assemblies.json').read_text(encoding='utf-8'))
+          ports = json.loads((root / 'formal-pred-variant-port-hypotheses.json').read_text(encoding='utf-8'))
+          assert core['overlap']['proven_metadata_equivalent_position_count'] == 2693, core
+          assert assemblies['summary']['review_classification_counts']['NEAR_CLOSED_STATIC_REVIEW_CANDIDATE'] == 2, assemblies
+          assert ports['summary']['paired_port_hypothesis_count'] == 3, ports
+          assert core['summary']['promotion_eligible_component_count'] == 0, core
+          assert assemblies['summary']['promotion_eligible_assembly_count'] == 0, assemblies
+          assert ports['summary']['promotion_eligible_port_count'] == 0, ports
+          print('Manual Formal/Pred shared static replay matched pinned evidence.')
+          PY
+
+      - name: Copy audit reports and remove raw third-party files
+        if: always()
+        run: |
+          if [ -d lab-artifacts/public-cannon-cache/public-cannon-sources-v1/audits ]; then
+            cp -R \
+              lab-artifacts/public-cannon-cache/public-cannon-sources-v1/audits \
+              lab-artifacts/shared-core-run/audits
+          fi
+          rm -rf lab-artifacts/public-cannon-cache/public-cannon-sources-v1/files
+
+      - name: Prove raw files are absent
+        if: always()
+        run: test ! -d lab-artifacts/public-cannon-cache/public-cannon-sources-v1/files
+
+      - name: Upload derived evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: formal-pred-shared-core-audit
+          path: lab-artifacts/shared-core-run
+          if-no-files-found: warn
