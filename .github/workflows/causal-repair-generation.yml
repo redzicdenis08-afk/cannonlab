@@ -5,6 +5,7 @@ on:
     paths:
       - 'scripts/generate-causal-repair-family.py'
       - 'scripts/test-generate-causal-repair-family.py'
+      - 'scripts/debug-causal-repair-ci.py'
       - 'profiles/repairs/**'
       - 'docs/CAUSAL_REPAIR_GENERATION.md'
       - '.github/workflows/causal-repair-generation.yml'
@@ -34,7 +35,14 @@ jobs:
         run: |
           python -m py_compile \
             scripts/generate-causal-repair-family.py \
-            scripts/test-generate-causal-repair-family.py
+            scripts/test-generate-causal-repair-family.py \
+            scripts/debug-causal-repair-ci.py
+
+      - name: Capture preservation diagnostics
+        run: |
+          mkdir -p lab-artifacts/causal-repair-generation
+          python scripts/debug-causal-repair-ci.py 2>&1 \
+            | tee lab-artifacts/causal-repair-generation/diagnostic.txt
 
       - name: Run fail-closed repair regressions
         run: |
