@@ -134,6 +134,78 @@ def audit_scenario(
         value = values.get(name)
         return name in sequences or isinstance(value, list) and bool(value)
 
+    control_states_raw = values.get("cannon.control-states", [])
+    control_states: list[dict[str, Any]] = []
+    if control_states_raw:
+        if not isinstance(control_states_raw, list):
+            blockers.append({
+                "code": "invalid-control-states",
+                "reason": "cannon.control-states must be a YAML list.",
+            })
+        else:
+            seen_control_names: set[str] = set()
+            for index, raw_state in enumerate(control_states_raw):
+                prefix = f"cannon.control-states[{index}]"
+                if not isinstance(raw_state, dict):
+                    blockers.append({
+                        "code": "invalid-control-state-entry",
+                        "reason": f"{prefix} must be a mapping.",
+                    })
+                    continue
+                name = str(raw_state.get("name") or f"control-state-{index + 1}").strip()
+                phase = str(raw_state.get("phase") or "before-fill").lower().replace("_", "-")
+                block_data = str(raw_state.get("block-data") or "").strip()
+                expected_before = str(raw_state.get("expected-before") or "").strip()
+                apply_tick = int(raw_state.get("apply-tick") or 0)
+                settle_ticks = int(raw_state.get("settle-ticks") if raw_state.get("settle-ticks") is not None else 1)
+                apply_physics = bool(raw_state.get("apply-physics", True))
+
+                if not name or name in seen_control_names:
+                    blockers.append({
+                        "code": "duplicate-control-state-name",
+                        "reason": f"{prefix} has a blank or duplicate name: {name!r}.",
+                    })
+                seen_control_names.add(name)
+                if phase not in {"before-fill", "after-fill"}:
+                    blockers.append({
+                        "code": "invalid-control-state-phase",
+                        "reason": f"{prefix}.phase must be before-fill or after-fill, got {phase!r}.",
+                    })
+                if not block_data:
+                    blockers.append({
+                        "code": "missing-control-state-block-data",
+                        "reason": f"{prefix}.block-data is required.",
+                    })
+                if apply_tick < 0 or settle_ticks < 0:
+                    blockers.append({
+                        "code": "negative-control-state-timing",
+                        "reason": f"{prefix} apply-tick and settle-ticks must be non-negative.",
+                    })
+                if not expected_before:
+                    warnings.append({
+                        "code": "control-state-without-before-guard",
+                        "reason": (
+                            f"{prefix} changes a live cannon state without proving the exact prior block state."
+                        ),
+                    })
+                if not apply_physics:
+                    assists.append({
+                        "code": "control-state-physics-suppressed",
+                        "reason": (
+                            f"{prefix} applies block data without physics; useful for diagnostics, "
+                            "but not proof of a live operator action."
+                        ),
+                    })
+                control_states.append({
+                    "name": name,
+                    "phase": phase,
+                    "apply_tick": apply_tick,
+                    "settle_ticks": settle_ticks,
+                    "apply_physics": apply_physics,
+                    "expected_before": expected_before or None,
+                    "block_data": block_data or None,
+                })
+
     if sequence_present("tracking.collision-guides"):
         assists.append({
             "code": "external-collision-guides",
@@ -391,6 +463,8 @@ def audit_scenario(
         "name": values.get("name"),
         "cannon_file": values.get("cannon.file"),
         "fire_mode": fire_mode,
+        "control_state_count": len(control_states),
+        "control_states": control_states,
         "evidence_class": evidence_class,
         "field_candidate_eligible": field_candidate_eligible,
         "readiness_eligible": readiness_eligible,

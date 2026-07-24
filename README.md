@@ -239,6 +239,18 @@ cannon:
     - {x: 8, y: 1, z: 1}
   direct-dispenser: {x: 1, y: 1, z: 1}
   fire-pulse-ticks: 4
+  settle-before-fill-ticks: 4
+  fill-to-fire-ticks: 4
+  control-states:
+    - name: select-nuke-mode
+      at: {x: 4, y: 2, z: 1}
+      phase: before-fill
+      apply-tick: 1
+      settle-ticks: 2
+      apply-physics: true
+      expected-material: lever
+      expected-before: minecraft:lever[face=wall,facing=west,powered=false]
+      block-data: minecraft:lever[face=wall,facing=west,powered=true]
 limits:
   enforce-dispenser-limit: true
 acceptance:
@@ -284,6 +296,8 @@ run:
 Supported target types are `dry`, `watered`, `cobble-regen`, `filter`, `slab-filter`, `hotdog`, and `pillars`. Supported directions are `north`, `south`, `east`, and `west`. Supported fire modes are `redstone`, `button`, `direct-dispense`, and diagnostic-only `tnt-probe`; `direct` is accepted as an alias. `tnt-probe` isolates defense physics and is never evidence that a cannon schematic works. Optional `cannon.probe-falling-material` and `cannon.probe-falling-origin` fields add a stationary diagnostic falling payload so the overlap sensor can be calibrated independently.
 
 `cannon.fire-input` preserves the simple one-input format. `cannon.fire-inputs` powers every listed coordinate on the same tick and is intended for segmented or distributed cannon circuits.
+
+`cannon.control-states` configures required mode blocks before a shot instead of assuming the pasted schematic already has the correct lever, repeater, comparator, trapdoor, piston, or dispenser state. Each entry is relative to the pasted cannon origin, validates the optional expected material and complete `expected-before` block state, applies the requested `block-data`, waits its declared settle time, and verifies the exact resulting state before fill or fire can continue. Supported phases are `before-fill` and `after-fill`. Every application, verification, and failure is written to `causal-events.csv`; a mismatch fails closed and cancels delayed fill or volley work.
 
 The configured arena radius must include the cannon, complete flight path, every target layer, and one extra block for water, lava, or slab frontage. CannonLab fails loudly instead of silently building targets outside the loaded arena.
 

@@ -1,0 +1,46 @@
+name: probe-prefire-control-state
+cannon:
+  file: probe-button-field.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: button
+  fire-input: {x: 0, y: 1, z: 1}
+  fire-pulse-ticks: 20
+  suppress-paste-side-effects: true
+  settle-before-fill-ticks: 4
+  fill-to-fire-ticks: 4
+  control-states:
+    - name: arm-known-dispenser-state
+      at: {x: 2, y: 1, z: 1}
+      phase: before-fill
+      apply-tick: 1
+      settle-ticks: 2
+      apply-physics: false
+      expected-material: dispenser
+      expected-before: minecraft:dispenser[facing=east,triggered=false]
+      block-data: minecraft:dispenser[facing=east,triggered=true]
+    - name: release-known-dispenser-state
+      at: {x: 2, y: 1, z: 1}
+      phase: after-fill
+      apply-tick: 1
+      settle-ticks: 2
+      apply-physics: false
+      expected-material: dispenser
+      expected-before: minecraft:dispenser[facing=east,triggered=true]
+      block-data: minecraft:dispenser[facing=east,triggered=false]
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: dry
+  material: cobblestone
+  direction: east
+  distance: 5
+  width: 5
+  height: 5
+  y-offset: 0
+  layers: 1
+run:
+  shots: 1
+  warmup-ticks: 12
+  max-shot-ticks: 120
+  quiet-ticks: 40
+  shutdown-when-finished: true

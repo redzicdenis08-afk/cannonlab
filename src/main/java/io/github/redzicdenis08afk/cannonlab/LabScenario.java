@@ -6,10 +6,12 @@ import org.bukkit.configuration.file.YamlConfiguration;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 record LabScenario(
         String name,
@@ -27,6 +29,7 @@ record LabScenario(
         boolean suppressPasteSideEffects,
         int settleBeforeFillTicks,
         int fillToFireTicks,
+        List<ControlState> controlStates,
         boolean enforceDispenserLimit,
         TargetType targetType,
         TargetDirection targetDirection,
@@ -57,6 +60,7 @@ record LabScenario(
 ) {
     LabScenario {
         fireInputs = List.copyOf(fireInputs);
+        controlStates = List.copyOf(controlStates);
         targetStages = List.copyOf(targetStages);
     }
 
@@ -111,6 +115,7 @@ record LabScenario(
         boolean suppressPasteSideEffects = yaml.getBoolean("cannon.suppress-paste-side-effects", false);
         int settleBeforeFillTicks = Math.max(0, yaml.getInt("cannon.settle-before-fill-ticks", 0));
         int fillToFireTicks = Math.max(0, yaml.getInt("cannon.fill-to-fire-ticks", 0));
+        List<ControlState> controlStates = controlStates(yaml);
 
         TargetType targetType = targetType(yaml.getString("target.type", "watered"), "target.type");
         TargetDirection targetDirection = targetDirection(
@@ -219,6 +224,7 @@ record LabScenario(
                 suppressPasteSideEffects,
                 settleBeforeFillTicks,
                 fillToFireTicks,
+                controlStates,
                 yaml.getBoolean("limits.enforce-dispenser-limit", true),
                 targetType,
                 targetDirection,
@@ -363,6 +369,62 @@ record LabScenario(
         return result;
     }
 
+    private static List<ControlState> controlStates(YamlConfiguration yaml) {
+        List<Map<?, ?>> configured = yaml.getMapList("cannon.control-states");
+        if (configured.isEmpty()) {
+            return List.of();
+        }
+
+        List<ControlState> result = new ArrayList<>();
+        Set<String> names = new HashSet<>();
+        for (int index = 0; index < configured.size(); index++) {
+            Map<?, ?> entry = configured.get(index);
+            String prefix = "cannon.control-states[" + index + "]";
+            String name = string(entry.get("name"), "control-state-" + (index + 1));
+            if (!names.add(name)) {
+                throw new IllegalArgumentException("Duplicate control-state name: " + name);
+            }
+
+            Map<?, ?> at = entry.get("at") instanceof Map<?, ?> map ? map : Map.of();
+            BlockPoint point = new BlockPoint(
+                    integer(at.get("x"), integer(entry.get("x"), 0)),
+                    integer(at.get("y"), integer(entry.get("y"), 0)),
+                    integer(at.get("z"), integer(entry.get("z"), 0))
+            );
+            String blockData = require(
+                    string(entry.get("block-data"), ""),
+                    prefix + ".block-data"
+            );
+            String expectedBefore = string(entry.get("expected-before"), "");
+            Material expectedMaterial = material(
+                    entry.get("expected-material"),
+                    null,
+                    prefix + ".expected-material"
+            );
+            result.add(new ControlState(
+                    name,
+                    point,
+                    controlPhase(entry.get("phase"), prefix + ".phase"),
+                    Math.max(0, integer(entry.get("apply-tick"), 0)),
+                    Math.max(0, integer(entry.get("settle-ticks"), 1)),
+                    bool(entry.get("apply-physics"), true),
+                    expectedMaterial,
+                    expectedBefore,
+                    blockData
+            ));
+        }
+        return result;
+    }
+
+    private static ControlPhase controlPhase(Object value, String path) {
+        String raw = string(value, "before-fill");
+        try {
+            return ControlPhase.valueOf(normalize(raw));
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Unsupported " + path + ": " + raw, exception);
+        }
+    }
+
     private static int positive(Object value, int fallback) {
         return Math.max(1, integer(value, fallback));
     }
@@ -440,6 +502,19 @@ record LabScenario(
     record BlockPoint(int x, int y, int z) {
     }
 
+    record ControlState(
+            String name,
+            BlockPoint point,
+            ControlPhase phase,
+            int applyTick,
+            int settleTicks,
+            boolean applyPhysics,
+            Material expectedMaterial,
+            String expectedBefore,
+            String blockData
+    ) {
+    }
+
     record RegenConfig(
             boolean enabled,
             int delayTicks,
@@ -507,6 +582,11 @@ record LabScenario(
         BUTTON,
         DIRECT_DISPENSE,
         TNT_PROBE
+    }
+
+    enum ControlPhase {
+        BEFORE_FILL,
+        AFTER_FILL
     }
 
     enum TargetType {
