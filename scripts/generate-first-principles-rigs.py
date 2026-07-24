@@ -35,12 +35,12 @@ def load_json(path: Path) -> dict[str, Any]:
     return payload
 
 
-def require_integer(value: Any, label: str, minimum: int, maximum: int) -> int:
+def integer(value: Any, label: str, minimum: int, maximum: int) -> int:
     try:
         result = int(value)
     except (TypeError, ValueError) as exc:
         raise RigGenerationError(f"{label} must be an integer") from exc
-    if result < minimum or result > maximum:
+    if not minimum <= result <= maximum:
         raise RigGenerationError(f"{label} must be between {minimum} and {maximum}")
     return result
 
@@ -52,8 +52,8 @@ def validate_profile(profile: dict[str, Any]) -> None:
         raise RigGenerationError("mode must equal 'from-scratch'")
     if profile.get("source_schematic") not in (None, ""):
         raise RigGenerationError("source_schematic is forbidden")
-    require_integer(profile.get("data_version"), "data_version", 1, 10_000_000)
-    require_integer(profile.get("chunk_limit"), "chunk_limit", 1, 10_000)
+    integer(profile.get("data_version"), "data_version", 1, 10_000_000)
+    integer(profile.get("chunk_limit"), "chunk_limit", 1, 10_000)
     families = profile.get("families")
     if not isinstance(families, list) or not families:
         raise RigGenerationError("families must be a non-empty list")
@@ -67,60 +67,45 @@ def validate_profile(profile: dict[str, Any]) -> None:
         if family_id in seen:
             raise RigGenerationError(f"duplicate family {family_id}")
         seen.add(family_id)
-        if family_id == "protected-charge-cell":
-            values = raw.get("cell_counts")
-            if not isinstance(values, list) or not values:
-                raise RigGenerationError("protected-charge-cell.cell_counts must be non-empty")
-            for index, value in enumerate(values):
-                require_integer(value, f"cell_counts[{index}]", 1, 16)
-        elif family_id == "payload-injector":
-            values = raw.get("repeater_delays")
-            if not isinstance(values, list) or not values:
-                raise RigGenerationError("payload-injector.repeater_delays must be non-empty")
-            for index, value in enumerate(values):
-                require_integer(value, f"repeater_delays[{index}]", 1, 4)
-        elif family_id == "guider":
-            values = raw.get("lengths")
-            if not isinstance(values, list) or not values:
-                raise RigGenerationError("guider.lengths must be non-empty")
-            for index, value in enumerate(values):
-                require_integer(value, f"lengths[{index}]", 1, 128)
-            require_integer(raw.get("repeater_delay", 1), "guider.repeater_delay", 1, 4)
+        key = {
+            "protected-charge-cell": "cell_counts",
+            "payload-injector": "repeater_delays",
+            "guider": "lengths",
+        }[family_id]
+        values = raw.get(key)
+        if not isinstance(values, list) or not values:
+            raise RigGenerationError(f"{family_id}.{key} must be non-empty")
+        limits = {
+            "protected-charge-cell": (1, 16),
+            "payload-injector": (1, 4),
+            "guider": (1, 128),
+        }[family_id]
+        for index, value in enumerate(values):
+            integer(value, f"{family_id}.{key}[{index}]", *limits)
+        if family_id == "guider":
+            integer(raw.get("repeater_delay", 1), "guider.repeater_delay", 1, 4)
 
 
 def base_state(state: str) -> str:
     return state.split("[", 1)[0]
 
 
+def occupied(blocks: dict[tuple[int, int, int], str]) -> dict[tuple[int, int, int], str]:
+    return {pos: state for pos, state in blocks.items() if base_state(state) not in AIR}
+
+
 def bounds_for(blocks: dict[tuple[int, int, int], str]) -> dict[str, Any]:
-    occupied = [pos for pos, state in blocks.items() if base_state(state) not in AIR]
-    if not occupied:
+    positions = list(occupied(blocks))
+    if not positions:
         raise RigGenerationError("generated rig is empty")
-    minimum = [min(pos[index] for pos in occupied) for index in range(3)]
-    maximum = [max(pos[index] for pos in occupied) for index in range(3)]
+    minimum = [min(pos[index] for pos in positions) for index in range(3)]
+    maximum = [max(pos[index] for pos in positions) for index in range(3)]
     if minimum != [0, 0, 0]:
         raise RigGenerationError(f"rig must be normalized to origin, observed minimum {minimum}")
-    dimensions = [maximum[index] + 1 for index in range(3)]
-    return {"min": minimum, "max": maximum, "dimensions": dimensions}
-
-
-def make_model(
-    blocks: dict[tuple[int, int, int], str],
-    dispenser_positions: Iterable[tuple[int, int, int]],
-) -> dict[str, Any]:
-    bounds = bounds_for(blocks)
-    entities = [
-        {"pos": tuple(pos), "id": "minecraft:dispenser", "raw": {}}
-        for pos in sorted(set(dispenser_positions))
-    ]
     return {
-        "blocks": blocks,
-        "block_entities": entities,
-        "source_dimensions": {
-            "width": bounds["dimensions"][0],
-            "height": bounds["dimensions"][1],
-            "length": bounds["dimensions"][2],
-        },
+        "min": minimum,
+        "max": maximum,
+        "dimensions": [maximum[index] + 1 for index in range(3)],
     }
 
 
@@ -129,6 +114,25 @@ def set_block(blocks: dict[tuple[int, int, int], str], pos: tuple[int, int, int]
     if previous is not None and previous != state:
         raise RigGenerationError(f"conflicting generated blocks at {pos}: {previous!r} vs {state!r}")
     blocks[pos] = state
+
+
+def make_model(
+    blocks: dict[tuple[int, int, int], str],
+    dispenser_positions: Iterable[tuple[int, int, int]],
+) -> dict[str, Any]:
+    bounds = bounds_for(blocks)
+    return {
+        "blocks": blocks,
+        "block_entities": [
+            {"pos": tuple(pos), "id": "minecraft:dispenser", "raw": {}}
+            for pos in sorted(set(dispenser_positions))
+        ],
+        "source_dimensions": {
+            "width": bounds["dimensions"][0],
+            "height": bounds["dimensions"][1],
+            "length": bounds["dimensions"][2],
+        },
+    }
 
 
 def build_protected_charge_cells(cell_count: int) -> tuple[dict[str, Any], dict[str, Any]]:
@@ -140,8 +144,7 @@ def build_protected_charge_cells(cell_count: int) -> tuple[dict[str, Any], dict[
     for cell_index in range(cell_count):
         base_z = 1 + cell_index * 6
         center_z = base_z + 1
-        center = (1, 2, center_z)
-        fire_inputs.append(list(center))
+        fire_inputs.append([1, 2, center_z])
         cell_dispensers = [
             (1, 1, center_z),
             (1, 3, center_z),
@@ -164,11 +167,9 @@ def build_protected_charge_cells(cell_count: int) -> tuple[dict[str, Any], dict[
                 (water[0], water[1], water[2] + 1),
             ):
                 set_block(blocks, shell, "minecraft:obsidian")
-        # Keep the shared power cell air while providing a stable shell behind it.
         set_block(blocks, (0, 2, center_z), "minecraft:obsidian")
 
-    model = make_model(blocks, dispensers)
-    metadata = {
+    return make_model(blocks, dispensers), {
         "family": "protected-charge-cell",
         "variant": {"cell_count": cell_count},
         "fire_inputs": fire_inputs,
@@ -182,15 +183,12 @@ def build_protected_charge_cells(cell_count: int) -> tuple[dict[str, Any], dict[
             "maximum_self_damage_blocks": 0,
         },
     }
-    return model, metadata
 
 
 def build_payload_or_guider(delay: int, guider_length: int, family: str) -> tuple[dict[str, Any], dict[str, Any]]:
     blocks: dict[tuple[int, int, int], str] = {}
     dispenser = (2, 1, 1)
-    fire_input = (0, 1, 1)
     final_x = 2 + guider_length
-
     for x in range(final_x + 1):
         for z in range(3):
             set_block(blocks, (x, 0, z), "minecraft:obsidian")
@@ -204,11 +202,10 @@ def build_payload_or_guider(delay: int, guider_length: int, family: str) -> tupl
         set_block(blocks, (x, 1, 0), "minecraft:obsidian")
         set_block(blocks, (x, 1, 2), "minecraft:obsidian")
 
-    model = make_model(blocks, [dispenser])
-    metadata = {
+    return make_model(blocks, [dispenser]), {
         "family": family,
         "variant": {"repeater_delay": delay, "guider_length": guider_length},
-        "fire_inputs": [list(fire_input)],
+        "fire_inputs": [[0, 1, 1]],
         "dispenser_count": 1,
         "experiment_contract": {
             "purpose": (
@@ -216,23 +213,41 @@ def build_payload_or_guider(delay: int, guider_length: int, family: str) -> tupl
                 if guider_length
                 else "single delayed payload source and muzzle-clearance trace"
             ),
-            "minimum_forward_range_blocks": None if not guider_length else guider_length,
+            "minimum_forward_range_blocks": guider_length or None,
             "payload_role_proven": False,
             "guider_role_proven": False,
         },
     }
-    return model, metadata
 
 
-def scan_chunk_pressure(audit: Any, model: dict[str, Any], chunk_limit: int) -> dict[str, Any]:
+def family_candidates(profile: dict[str, Any]) -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
+    result: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
+    for family in profile["families"]:
+        family_id = str(family["id"])
+        if family_id == "protected-charge-cell":
+            for count in sorted({int(value) for value in family["cell_counts"]}):
+                model, metadata = build_protected_charge_cells(count)
+                result.append((f"charge-c{count:02d}", model, metadata))
+        elif family_id == "payload-injector":
+            for delay in sorted({int(value) for value in family["repeater_delays"]}):
+                model, metadata = build_payload_or_guider(delay, 0, family_id)
+                result.append((f"payload-d{delay}", model, metadata))
+        elif family_id == "guider":
+            delay = int(family.get("repeater_delay", 1))
+            for length in sorted({int(value) for value in family["lengths"]}):
+                model, metadata = build_payload_or_guider(delay, length, family_id)
+                result.append((f"guider-l{length:03d}-d{delay}", model, metadata))
+    return result
+
+
+def chunk_pressure(audit: Any, model: dict[str, Any], chunk_limit: int) -> dict[str, Any]:
     coords = [
         (x, z)
         for (x, _y, z), state in model["blocks"].items()
         if base_state(state) == "minecraft:dispenser"
     ]
     scans = audit.scan_alignments(coords)
-    best = min(scans)
-    worst = max(scans)
+    best, worst = min(scans), max(scans)
     safe = [row for row in scans if row[0] <= chunk_limit]
     return {
         "chunk_limit": chunk_limit,
@@ -254,9 +269,8 @@ def sha256_file(path: Path) -> str:
 def round_trip_verify(audit: Any, path: Path, expected: dict[str, Any]) -> dict[str, Any]:
     root_name, root, trailing, _decoded_size, diagnostics = audit.load(path)
     decoded = audit.decode_any(root_name, root)
-    observed_blocks = decoded.get("blocks") or {}
-    if observed_blocks != expected["blocks"]:
-        raise RigGenerationError(f"round-trip block geometry mismatch for {path.name}")
+    if occupied(decoded.get("blocks") or {}) != occupied(expected["blocks"]):
+        raise RigGenerationError(f"round-trip occupied geometry mismatch for {path.name}")
     expected_entities = sorted(tuple(map(int, row["pos"])) for row in expected["block_entities"])
     observed_entities = sorted(tuple(map(int, row["pos"])) for row in decoded.get("block_entities") or [])
     if observed_entities != expected_entities:
@@ -268,26 +282,6 @@ def round_trip_verify(audit: Any, path: Path, expected: dict[str, Any]) -> dict[
     return decoded
 
 
-def family_candidates(profile: dict[str, Any]) -> list[tuple[str, dict[str, Any], dict[str, Any]]]:
-    candidates: list[tuple[str, dict[str, Any], dict[str, Any]]] = []
-    for family in profile["families"]:
-        family_id = str(family["id"])
-        if family_id == "protected-charge-cell":
-            for count in sorted({int(value) for value in family["cell_counts"]}):
-                model, metadata = build_protected_charge_cells(count)
-                candidates.append((f"charge-c{count:02d}", model, metadata))
-        elif family_id == "payload-injector":
-            for delay in sorted({int(value) for value in family["repeater_delays"]}):
-                model, metadata = build_payload_or_guider(delay, 0, family_id)
-                candidates.append((f"payload-d{delay}", model, metadata))
-        elif family_id == "guider":
-            delay = int(family.get("repeater_delay", 1))
-            for length in sorted({int(value) for value in family["lengths"]}):
-                model, metadata = build_payload_or_guider(delay, length, family_id)
-                candidates.append((f"guider-l{length:03d}-d{delay}", model, metadata))
-    return candidates
-
-
 def generate(profile: dict[str, Any], output_directory: Path) -> dict[str, Any]:
     validate_profile(profile)
     audit = load_audit()
@@ -295,29 +289,26 @@ def generate(profile: dict[str, Any], output_directory: Path) -> dict[str, Any]:
     data_version = int(profile["data_version"])
     chunk_limit = int(profile["chunk_limit"])
     reports: list[dict[str, Any]] = []
-    identifiers: set[str] = set()
+    seen: set[str] = set()
 
     for candidate_id, model, metadata in family_candidates(profile):
-        if candidate_id in identifiers:
+        if candidate_id in seen:
             raise RigGenerationError(f"duplicate candidate id {candidate_id}")
-        identifiers.add(candidate_id)
+        seen.add(candidate_id)
         path = output_directory / f"{candidate_id}.schem"
         audit.write_sponge_v2(path, model, data_version, canonical_gzip=True)
         decoded = round_trip_verify(audit, path, model)
-        pressure = scan_chunk_pressure(audit, model, chunk_limit)
+        pressure = chunk_pressure(audit, model, chunk_limit)
         if not pressure["all_alignments_safe"]:
-            raise RigGenerationError(f"{candidate_id} is not safe across all EC160 offsets")
-        bounds = bounds_for(model["blocks"])
+            raise RigGenerationError(f"{candidate_id} is not safe across all chunk offsets")
         reports.append({
             "id": candidate_id,
             "status": "STATIC_EXPERIMENT_RIG_ONLY",
             "file": path.name,
             "sha256": sha256_file(path),
             "data_version": data_version,
-            "dimensions": bounds["dimensions"],
-            "occupied_block_count": sum(
-                base_state(state) not in AIR for state in model["blocks"].values()
-            ),
+            "dimensions": bounds_for(model["blocks"])["dimensions"],
+            "occupied_block_count": len(occupied(model["blocks"])),
             "palette_entry_count": int(decoded.get("palette_entries", 0)),
             "chunk_pressure": pressure,
             **metadata,
@@ -339,8 +330,10 @@ def generate(profile: dict[str, Any], output_directory: Path) -> dict[str, Any]:
             "required_next_gate": "identical local runtime scenarios with causal source accounting",
         },
     }
-    manifest_path = output_directory / "manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    (output_directory / "manifest.json").write_text(
+        json.dumps(manifest, indent=2, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
     return manifest
 
 
