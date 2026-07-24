@@ -192,6 +192,24 @@ def audit_scenario(
 
     require_payload = bool(get(values, "acceptance.require-payload", False))
     min_target = int(get(values, "acceptance.min-target-destroyed", 0) or 0)
+    min_embedded = int(
+        get(values, "acceptance.min-embedded-payload-explosions", 0) or 0
+    )
+    max_unembedded_water = int(
+        get(values, "acceptance.max-unembedded-water-explosions", 2**31 - 1)
+        or 0
+    )
+    min_layers_before_regen = int(
+        get(
+            values,
+            "acceptance.min-contiguous-layers-before-first-regen",
+            0,
+        )
+        or 0
+    )
+    require_all_layers_before_regen = bool(
+        get(values, "acceptance.require-all-layers-before-first-regen", False)
+    )
     min_forward = float(get(values, "acceptance.min-forward-distance", 0.0) or 0.0)
     min_remaining = float(
         get(values, "acceptance.min-remaining-dispenser-ratio", 0.0) or 0.0
@@ -213,6 +231,36 @@ def audit_scenario(
         "acceptance.max-cannon-replaced-type-blocks",
         "acceptance.max-self-damage-blocks",
     }
+    target_type = str(get(values, "target.type", "watered")).lower().replace("_", "-")
+    stage_types = {
+        str(value).lower().replace("_", "-")
+        for path, value in values.items()
+        if path.startswith("target.stages.") and path.endswith(".type")
+    }
+    water_exposed_types = {"watered", "hotdog", "cobble-regen"}
+    watered_target = target_type in water_exposed_types or bool(
+        stage_types & water_exposed_types
+    )
+    regen_enabled = bool(get(values, "target.regeneration.enabled", False)) or any(
+        bool(value)
+        for path, value in values.items()
+        if path.startswith("target.stages.")
+        and path.endswith(".regeneration.enabled")
+    )
+    if watered_target:
+        required_acceptance_paths.update(
+            {
+                "acceptance.min-embedded-payload-explosions",
+                "acceptance.max-unembedded-water-explosions",
+            }
+        )
+    if regen_enabled:
+        required_acceptance_paths.update(
+            {
+                "acceptance.min-contiguous-layers-before-first-regen",
+                "acceptance.require-all-layers-before-first-regen",
+            }
+        )
     missing_acceptance_paths = sorted(required_acceptance_paths - values.keys())
     if missing_acceptance_paths:
         warnings.append({
@@ -232,6 +280,30 @@ def audit_scenario(
         warnings.append({
             "code": "target-damage-not-required",
             "reason": "The run can pass without damaging the target.",
+        })
+    if watered_target and min_embedded <= 0:
+        warnings.append({
+            "code": "hybrid-embed-not-required",
+            "reason": (
+                "The target is water-facing, but acceptance does not require any TNT "
+                "explosion with measured falling-payload overlap."
+            ),
+        })
+    if watered_target and max_unembedded_water > 0:
+        warnings.append({
+            "code": "unembedded-water-explosions-allowed",
+            "reason": (
+                "The scenario permits TNT explosions centered in water without measured "
+                "falling-payload overlap."
+            ),
+        })
+    if regen_enabled and min_layers_before_regen <= 0 and not require_all_layers_before_regen:
+        warnings.append({
+            "code": "regen-race-not-required",
+            "reason": (
+                "Regeneration is enabled, but acceptance does not require contiguous layer "
+                "progress before the first actual restore."
+            ),
         })
     if min_forward <= 0:
         warnings.append({

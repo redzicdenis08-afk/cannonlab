@@ -1,0 +1,42 @@
+name: breach-telemetry-probe
+cannon:
+  file: probe-one-dispenser.schem
+  origin: {x: -16, y: 0, z: 0}
+  fire-mode: tnt-probe
+  probe-tnt-origin: {x: 2, y: 1, z: 0}
+  probe-tnt-fuse-ticks: 20
+  probe-falling-origin: {x: 2, y: 1, z: 0}
+  probe-falling-material: sand
+limits:
+  enforce-dispenser-limit: true
+acceptance:
+  require-payload: true
+  min-target-destroyed: 0
+  min-falling-blocks: 1
+  min-embedded-payload-explosions: 1
+  max-unembedded-water-explosions: 0
+  min-contiguous-layers-before-first-regen: 0
+  require-all-layers-before-first-regen: false
+  min-forward-distance: 0
+  min-remaining-dispenser-ratio: 1.0
+  max-cannon-missing-blocks: 0
+  max-cannon-replaced-type-blocks: 0
+  max-self-damage-blocks: 0
+target:
+  type: watered
+  material: obsidian
+  direction: east
+  distance: 3
+  width: 1
+  height: 1
+  y-offset: 1
+  layers: 1
+  spacing: 3
+  regeneration:
+    enabled: false
+run:
+  shots: 1
+  warmup-ticks: 20
+  max-shot-ticks: 100
+  quiet-ticks: 30
+  shutdown-when-finished: true

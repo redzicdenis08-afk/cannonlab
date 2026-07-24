@@ -138,7 +138,7 @@ final class LabRunController implements Listener {
             boolean disposableFreshWorld = shotNumber == 1
                     && Boolean.parseBoolean(System.getProperty("cannonlab.fresh-world", "false"));
             if (!disposableFreshWorld) {
-                clearArena(world, arenaOrigin);
+                clearArena(world, arenaOrigin, scenario);
             }
 
             File schematic = plugin.resolveCannonFile(scenario.cannonFile());
@@ -218,6 +218,14 @@ final class LabRunController implements Listener {
                             pasteResult.maximum().y(),
                             pasteResult.maximum().z()
                     ),
+                    new ShotRecorder.BlockBounds(
+                            targetBounds.minX(),
+                            targetBounds.minY(),
+                            targetBounds.minZ(),
+                            targetBounds.maxX(),
+                            targetBounds.maxY(),
+                            targetBounds.maxZ()
+                    ),
                     effectiveMaxShotTicks,
                     scenario.quietTicks(),
                     minimumTicksBeforeQuiet,
@@ -228,7 +236,8 @@ final class LabRunController implements Listener {
             regenMonitor = new RegenMonitor(
                     world,
                     targetCells,
-                    targetCompanions
+                    targetCompanions,
+                    scenario.targetDirection()
             );
             regenMonitor.start();
 
@@ -296,10 +305,30 @@ final class LabRunController implements Listener {
 
     private void spawnTntProbe(World world, Location arenaOrigin) {
         Location spawn = relative(arenaOrigin, scenario.probeTntOrigin()).add(0.5, 0.1, 0.5);
+        if (!scenario.probeFallingMaterial().isAir()) {
+            Location fallingSpawn = relative(
+                    arenaOrigin,
+                    scenario.probeFallingOrigin()
+            ).add(0.5, 0.0, 0.5);
+            FallingBlock falling = world.spawnFallingBlock(
+                    fallingSpawn,
+                    scenario.probeFallingMaterial().createBlockData()
+            );
+            falling.setGravity(false);
+            falling.setVelocity(new Vector(0.0, 0.0, 0.0));
+            falling.setDropItem(false);
+            falling.setCancelDrop(true);
+            recorder.recordControlEvent(
+                    "PROBE_FALLING_PAYLOAD",
+                    fallingSpawn,
+                    "diagnostic=true;material=" + scenario.probeFallingMaterial()
+            );
+        }
         recorder.recordControlEvent(
                 "FIRE_INPUT",
                 spawn,
                 "mode=tnt-probe;diagnostic=true;fuse=" + scenario.probeTntFuseTicks()
+                        + ";falling_material=" + scenario.probeFallingMaterial()
         );
         TNTPrimed tnt = world.spawn(spawn, TNTPrimed.class);
         tnt.setGravity(false);
@@ -493,7 +522,7 @@ final class LabRunController implements Listener {
             plugin.getLogger().warning("Unable to write cannon integrity diff: "
                     + exception.getMessage());
         }
-        List<String> contractFailures = contractFailures(result, integrity, finalDestroyed);
+        List<String> contractFailures = contractFailures(result, integrity, finalDestroyed, regenStats);
         completedShots.add(new CompletedShot(
                 shotNumber,
                 result.finishReason(),
@@ -508,6 +537,15 @@ final class LabRunController implements Listener {
                 regenStats.restored(),
                 regenStats.maxLayerBreached(),
                 regenStats.cycles(),
+                regenStats.firstTargetDamageTick(),
+                regenStats.firstRegenRestoreTick(),
+                regenStats.layersBreachedBeforeFirstRegen(),
+                regenStats.contiguousLayersBreachedBeforeFirstRegen(),
+                regenStats.maxLayerBreachedBeforeFirstRegen(),
+                regenStats.totalLayers(),
+                regenStats.allLayersBreachedBeforeFirstRegen(),
+                regenStats.allLayersBreachedTick(),
+                regenStats.regenRaceMarginTicks(),
                 regenStats.finalCompanionMissing(),
                 regenStats.companionPeakMissing(),
                 regenStats.everCompanionMissing(),
@@ -516,6 +554,9 @@ final class LabRunController implements Listener {
                 durabilityBreaks,
                 result.maximumTnt(),
                 result.maximumFallingBlocks(),
+                result.embeddedPayloadExplosions(),
+                result.waterContactExplosions(),
+                result.unembeddedWaterExplosions(),
                 result.maximumForwardDistance(),
                 result.minimumForwardDistance(),
                 integrity,
@@ -539,6 +580,10 @@ final class LabRunController implements Listener {
                 + " | targetFinal=" + finalDestroyed + "/" + targetCells.size()
                 + " | targetPeak=" + regenStats.peakDestroyed()
                 + " | regenRestored=" + regenStats.restored()
+                + " | embeddedExplosions=" + result.embeddedPayloadExplosions()
+                + " | unembeddedWaterExplosions=" + result.unembeddedWaterExplosions()
+                + " | layersBeforeRegen=" + regenStats.contiguousLayersBreachedBeforeFirstRegen()
+                + "/" + regenStats.totalLayers()
                 + " | companionMissing=" + regenStats.finalCompanionMissing()
                 + " | companionRestored=" + regenStats.companionRestored()
                 + " | maxLayer=" + regenStats.maxLayerBreached()
@@ -558,7 +603,8 @@ final class LabRunController implements Listener {
     private List<String> contractFailures(
             ShotRecorder.ShotResult result,
             CannonIntegrity integrity,
-            int targetDestroyed
+            int targetDestroyed,
+            RegenStats regenStats
     ) {
         LabScenario.AcceptanceConfig acceptance = scenario.acceptance();
         List<String> failures = new ArrayList<>();
@@ -572,6 +618,26 @@ final class LabRunController implements Listener {
         if (result.maximumFallingBlocks() < acceptance.minFallingBlocks()) {
             failures.add("falling_blocks=" + result.maximumFallingBlocks()
                     + "<" + acceptance.minFallingBlocks());
+        }
+        if (result.embeddedPayloadExplosions() < acceptance.minEmbeddedPayloadExplosions()) {
+            failures.add("embedded_payload_explosions=" + result.embeddedPayloadExplosions()
+                    + "<" + acceptance.minEmbeddedPayloadExplosions());
+        }
+        if (result.unembeddedWaterExplosions() > acceptance.maxUnembeddedWaterExplosions()) {
+            failures.add("unembedded_water_explosions=" + result.unembeddedWaterExplosions()
+                    + ">" + acceptance.maxUnembeddedWaterExplosions());
+        }
+        if (regenStats.contiguousLayersBreachedBeforeFirstRegen()
+                < acceptance.minContiguousLayersBeforeFirstRegen()) {
+            failures.add("contiguous_layers_before_first_regen="
+                    + regenStats.contiguousLayersBreachedBeforeFirstRegen()
+                    + "<" + acceptance.minContiguousLayersBeforeFirstRegen());
+        }
+        if (acceptance.requireAllLayersBeforeFirstRegen()
+                && !regenStats.allLayersBreachedBeforeFirstRegen()) {
+            failures.add("all_layers_not_breached_before_first_regen="
+                    + regenStats.contiguousLayersBreachedBeforeFirstRegen()
+                    + "/" + regenStats.totalLayers());
         }
         if (result.maximumForwardDistance() + 1.0e-12 < acceptance.minForwardDistance()) {
             failures.add("forward_distance="
@@ -736,30 +802,121 @@ final class LabRunController implements Listener {
         }
     }
 
-    private void clearArena(World world, Location origin) throws WorldEditException {
+    private void clearArena(
+            World world,
+            Location origin,
+            LabScenario selected
+    ) throws IOException, WorldEditException {
         int radiusX = plugin.getConfig().getInt("arena.radius-x", 256);
         int radiusY = plugin.getConfig().getInt("arena.radius-y", 128);
         int radiusZ = plugin.getConfig().getInt("arena.radius-z", 96);
+        int padding = Math.max(0, plugin.getConfig().getInt("arena.clear-padding", 16));
+
+        TargetBounds planned = plannedClearBounds(world, origin, selected);
+        int arenaMinX = origin.getBlockX() - radiusX;
+        int arenaMaxX = origin.getBlockX() + radiusX;
+        int arenaMinY = Math.max(world.getMinHeight(), origin.getBlockY() - radiusY);
+        int arenaMaxY = Math.min(world.getMaxHeight() - 1, origin.getBlockY() + radiusY);
+        int arenaMinZ = origin.getBlockZ() - radiusZ;
+        int arenaMaxZ = origin.getBlockZ() + radiusZ;
 
         Location minimum = new Location(
                 world,
-                origin.getBlockX() - radiusX,
-                Math.max(world.getMinHeight(), origin.getBlockY() - radiusY),
-                origin.getBlockZ() - radiusZ
+                Math.max(arenaMinX, planned.minX() - padding),
+                Math.max(arenaMinY, planned.minY() - padding),
+                Math.max(arenaMinZ, planned.minZ() - padding)
         );
         Location maximum = new Location(
                 world,
-                origin.getBlockX() + radiusX,
-                Math.min(world.getMaxHeight() - 1, origin.getBlockY() + radiusY),
-                origin.getBlockZ() + radiusZ
+                Math.min(arenaMaxX, planned.maxX() + padding),
+                Math.min(arenaMaxY, planned.maxY() + padding),
+                Math.min(arenaMaxZ, planned.maxZ() + padding)
         );
+
+        if (minimum.getBlockX() > maximum.getBlockX()
+                || minimum.getBlockY() > maximum.getBlockY()
+                || minimum.getBlockZ() > maximum.getBlockZ()) {
+            throw new IllegalStateException("Planned clear region falls outside configured arena bounds.");
+        }
 
         for (Entity entity : world.getNearbyEntities(origin, radiusX, radiusY, radiusZ)) {
             if (entity instanceof TNTPrimed || entity instanceof FallingBlock || entity instanceof Item) {
                 entity.remove();
             }
         }
+        long clearVolume = (long) (maximum.getBlockX() - minimum.getBlockX() + 1)
+                * (maximum.getBlockY() - minimum.getBlockY() + 1)
+                * (maximum.getBlockZ() - minimum.getBlockZ() + 1);
+        plugin.getLogger().info("Clearing planned arena region "
+                + coordinates(minimum) + " -> " + coordinates(maximum)
+                + " | padding=" + padding
+                + " | volume=" + clearVolume);
         worldEdit.clear(world, minimum, maximum);
+    }
+
+    private TargetBounds plannedClearBounds(
+            World world,
+            Location arenaOrigin,
+            LabScenario selected
+    ) throws IOException {
+        BoundsBuilder bounds = new BoundsBuilder();
+        File cannonFile = plugin.resolveCannonFile(selected.cannonFile());
+        Location cannonOrigin = relative(arenaOrigin, selected.cannonOrigin());
+        bounds.include(worldEdit.inspectPaste(cannonFile, cannonOrigin));
+
+        if (!selected.targetFile().isBlank()) {
+            File targetFile = plugin.resolveTargetFile(selected.targetFile());
+            Location targetOrigin = relative(arenaOrigin, selected.targetOrigin());
+            bounds.include(worldEdit.inspectPaste(targetFile, targetOrigin));
+            return bounds.build();
+        }
+
+        int stageDistance = selected.targetDistance();
+        for (LabScenario.TargetStage stage : selected.targetStages()) {
+            int halfWidth = stage.width() / 2;
+            int minY = arenaOrigin.getBlockY() + stage.yOffset();
+            int maxY = minY + stage.height() - 1;
+            if (minY < world.getMinHeight() || maxY >= world.getMaxHeight()) {
+                throw new IllegalStateException(
+                        "Planned target Y outside world bounds: " + minY + ".." + maxY);
+            }
+            for (int layer = 0; layer < stage.layers(); layer++) {
+                int distance = stageDistance + layer * stage.spacing();
+                for (int across = 0; across < stage.width(); across++) {
+                    int lateral = stage.lateralOffset() - halfWidth + across;
+                    includeTargetPlacement(
+                            bounds,
+                            targetPlacement(
+                                    arenaOrigin,
+                                    selected.targetDirection(),
+                                    distance,
+                                    lateral,
+                                    minY
+                            )
+                    );
+                    if (maxY != minY) {
+                        includeTargetPlacement(
+                                bounds,
+                                targetPlacement(
+                                        arenaOrigin,
+                                        selected.targetDirection(),
+                                        distance,
+                                        lateral,
+                                        maxY
+                                )
+                        );
+                    }
+                }
+            }
+            stageDistance += (stage.layers() - 1) * stage.spacing() + stage.gapAfter();
+        }
+        return bounds.build();
+    }
+
+    private void includeTargetPlacement(BoundsBuilder bounds, TargetPlacement placement) {
+        bounds.include(placement.targetX(), placement.y(), placement.targetZ());
+        bounds.include(placement.frontX(), placement.y(), placement.frontZ());
+        bounds.include(placement.backX(), placement.y(), placement.backZ());
     }
 
     private TargetBuild buildTargetFromSchematic(
@@ -1415,6 +1572,9 @@ final class LabRunController implements Listener {
                       "self_damage_blocks": %d,
                       "maximum_tnt_entities": %d,
                       "maximum_falling_blocks": %d,
+                      "embedded_payload_explosions": %d,
+                      "water_contact_explosions": %d,
+                      "unembedded_water_explosions": %d,
                       "maximum_forward_distance": %.6f,
                       "minimum_forward_distance": %.6f,
                       "cannon_initial_blocks": %d,
@@ -1431,6 +1591,15 @@ final class LabRunController implements Listener {
                       "regen_blocks_restored": %d,
                       "regen_cycles": %d,
                       "max_layer_breached": %d,
+                      "first_target_damage_tick": %d,
+                      "first_regen_restore_tick": %d,
+                      "layers_breached_before_first_regen": %d,
+                      "contiguous_layers_breached_before_first_regen": %d,
+                      "max_layer_breached_before_first_regen": %d,
+                      "target_layer_count": %d,
+                      "all_layers_breached_before_first_regen": %s,
+                      "all_layers_breached_tick": %d,
+                      "regen_race_margin_ticks": %d,
                       "companion_cells_missing": %d,
                       "companion_peak_missing": %d,
                       "companion_ever_missing": %d,
@@ -1450,6 +1619,9 @@ final class LabRunController implements Listener {
                     shot.selfDamageBlocks(),
                     shot.maximumTnt(),
                     shot.maximumFallingBlocks(),
+                    shot.embeddedPayloadExplosions(),
+                    shot.waterContactExplosions(),
+                    shot.unembeddedWaterExplosions(),
                     shot.maximumForwardDistance(),
                     shot.minimumForwardDistance(),
                     shot.integrity().initial(),
@@ -1466,6 +1638,15 @@ final class LabRunController implements Listener {
                     shot.regenRestored(),
                     shot.regenCycles(),
                     shot.maxLayerBreached(),
+                    shot.firstTargetDamageTick(),
+                    shot.firstRegenRestoreTick(),
+                    shot.layersBreachedBeforeFirstRegen(),
+                    shot.contiguousLayersBreachedBeforeFirstRegen(),
+                    shot.maxLayerBreachedBeforeFirstRegen(),
+                    shot.targetLayerCount(),
+                    shot.allLayersBreachedBeforeFirstRegen(),
+                    shot.allLayersBreachedTick(),
+                    shot.regenRaceMarginTicks(),
                     shot.companionMissing(),
                     shot.companionPeakMissing(),
                     shot.companionEverMissing(),
@@ -1511,6 +1692,10 @@ final class LabRunController implements Listener {
                     "require_payload": %s,
                     "min_target_destroyed": %d,
                     "min_falling_blocks": %d,
+                    "min_embedded_payload_explosions": %d,
+                    "max_unembedded_water_explosions": %d,
+                    "min_contiguous_layers_before_first_regen": %d,
+                    "require_all_layers_before_first_regen": %s,
                     "min_forward_distance": %.6f,
                     "min_remaining_dispenser_ratio": %.6f,
                     "max_cannon_missing_blocks": %d,
@@ -1555,6 +1740,10 @@ final class LabRunController implements Listener {
                 scenario != null && scenario.acceptance().requirePayload(),
                 scenario == null ? 0 : scenario.acceptance().minTargetDestroyed(),
                 scenario == null ? 0 : scenario.acceptance().minFallingBlocks(),
+                scenario == null ? 0 : scenario.acceptance().minEmbeddedPayloadExplosions(),
+                scenario == null ? Integer.MAX_VALUE : scenario.acceptance().maxUnembeddedWaterExplosions(),
+                scenario == null ? 0 : scenario.acceptance().minContiguousLayersBeforeFirstRegen(),
+                scenario != null && scenario.acceptance().requireAllLayersBeforeFirstRegen(),
                 scenario == null ? 0.0 : scenario.acceptance().minForwardDistance(),
                 scenario == null ? 0.0 : scenario.acceptance().minRemainingDispenserRatio(),
                 scenario == null ? Integer.MAX_VALUE : scenario.acceptance().maxCannonMissingBlocks(),
@@ -1609,8 +1798,15 @@ final class LabRunController implements Listener {
         private final Map<CompanionCell, Long> companionMissingSince = new HashMap<>();
         private final Set<TargetCell> everDestroyed = new HashSet<>();
         private final Set<CompanionCell> everCompanionMissing = new HashSet<>();
+        private final Set<Integer> layersBreachedBeforeFirstRegen = new HashSet<>();
+        private final Map<BreachLane, Set<Integer>> laneLayersBeforeFirstRegen = new HashMap<>();
+        private final LabScenario.TargetDirection targetDirection;
+        private final int totalLayers;
         private BukkitTask task;
         private long tick;
+        private long firstTargetDamageTick = -1;
+        private long firstRegenRestoreTick = -1;
+        private long allLayersBreachedTick = -1;
         private int peakDestroyed;
         private int restored;
         private int companionPeakMissing;
@@ -1621,11 +1817,17 @@ final class LabRunController implements Listener {
         private RegenMonitor(
                 World world,
                 List<TargetCell> cells,
-                List<CompanionCell> companions
+                List<CompanionCell> companions,
+                LabScenario.TargetDirection targetDirection
         ) {
             this.world = world;
             this.cells = cells;
             this.companions = companions;
+            this.targetDirection = targetDirection;
+            this.totalLayers = cells.stream()
+                    .mapToInt(TargetCell::layer)
+                    .max()
+                    .orElse(-1) + 1;
         }
 
         private void start() {
@@ -1651,6 +1853,20 @@ final class LabRunController implements Listener {
                     if (missingSince.putIfAbsent(cell, tick) == null) {
                         everDestroyed.add(cell);
                         maxLayerBreached = Math.max(maxLayerBreached, cell.layer() + 1);
+                        if (firstTargetDamageTick < 0) {
+                            firstTargetDamageTick = tick;
+                        }
+                        if (firstRegenRestoreTick < 0) {
+                            layersBreachedBeforeFirstRegen.add(cell.layer());
+                            laneLayersBeforeFirstRegen
+                                    .computeIfAbsent(breachLane(cell), ignored -> new HashSet<>())
+                                    .add(cell.layer());
+                            if (allLayersBreachedTick < 0
+                                    && contiguousLayersBreachedBeforeFirstRegen() >= totalLayers
+                                    && totalLayers > 0) {
+                                allLayersBreachedTick = tick;
+                            }
+                        }
                         recorder.recordCustomEvent(
                                 "TARGET_DESTROYED",
                                 cell.stageName() + ":" + cell.material().name(),
@@ -1725,6 +1941,9 @@ final class LabRunController implements Listener {
                     continue;
                 }
                 restore(world, cell);
+                if (firstRegenRestoreTick < 0) {
+                    firstRegenRestoreTick = tick;
+                }
                 missingSince.remove(cell);
                 restored++;
                 restoredByStage.put(cell.stageIndex(), restoredForStage + 1);
@@ -1786,6 +2005,15 @@ final class LabRunController implements Listener {
                 }
             }
             cancel();
+            int contiguousLayers = contiguousLayersBreachedBeforeFirstRegen();
+            int maxLayerBeforeRegen = layersBreachedBeforeFirstRegen.stream()
+                    .mapToInt(Integer::intValue)
+                    .max()
+                    .orElse(-1) + 1;
+            boolean allLayersBeforeRegen = totalLayers > 0 && contiguousLayers >= totalLayers;
+            long raceMargin = allLayersBreachedTick < 0 || firstRegenRestoreTick < 0
+                    ? -1
+                    : firstRegenRestoreTick - allLayersBreachedTick;
             return new RegenStats(
                     finalDestroyed,
                     peakDestroyed,
@@ -1793,11 +2021,39 @@ final class LabRunController implements Listener {
                     restored,
                     maxLayerBreached,
                     cycles,
+                    firstTargetDamageTick,
+                    firstRegenRestoreTick,
+                    layersBreachedBeforeFirstRegen.size(),
+                    contiguousLayers,
+                    maxLayerBeforeRegen,
+                    totalLayers,
+                    allLayersBeforeRegen,
+                    allLayersBreachedTick,
+                    raceMargin,
                     finalCompanionMissing,
                     companionPeakMissing,
                     everCompanionMissing.size(),
                     companionRestored
             );
+        }
+
+        private int contiguousLayersBreachedBeforeFirstRegen() {
+            int strongestLane = 0;
+            for (Set<Integer> laneLayers : laneLayersBeforeFirstRegen.values()) {
+                int contiguous = 0;
+                while (laneLayers.contains(contiguous)) {
+                    contiguous++;
+                }
+                strongestLane = Math.max(strongestLane, contiguous);
+            }
+            return strongestLane;
+        }
+
+        private BreachLane breachLane(TargetCell cell) {
+            return switch (targetDirection) {
+                case EAST, WEST -> new BreachLane(cell.y(), cell.z());
+                case NORTH, SOUTH -> new BreachLane(cell.x(), cell.y());
+            };
         }
 
         private void cancel() {
@@ -1825,6 +2081,19 @@ final class LabRunController implements Listener {
             maxZ = Math.max(maxZ, z);
         }
 
+        private void include(WorldEditService.PasteResult result) {
+            include(
+                    result.minimum().x(),
+                    result.minimum().y(),
+                    result.minimum().z()
+            );
+            include(
+                    result.maximum().x(),
+                    result.maximum().y(),
+                    result.maximum().z()
+            );
+        }
+
         private TargetBounds build() {
             return new TargetBounds(minX, minY, minZ, maxX, maxY, maxZ);
         }
@@ -1834,6 +2103,9 @@ final class LabRunController implements Listener {
     }
 
     private record BlockKey(int x, int y, int z) {
+    }
+
+    private record BreachLane(int crossA, int crossB) {
     }
 
     private record DurabilityState(int remaining, long lastHitTick) {
@@ -1926,13 +2198,27 @@ final class LabRunController implements Listener {
             int restored,
             int maxLayerBreached,
             int cycles,
+            long firstTargetDamageTick,
+            long firstRegenRestoreTick,
+            int layersBreachedBeforeFirstRegen,
+            int contiguousLayersBreachedBeforeFirstRegen,
+            int maxLayerBreachedBeforeFirstRegen,
+            int totalLayers,
+            boolean allLayersBreachedBeforeFirstRegen,
+            long allLayersBreachedTick,
+            long regenRaceMarginTicks,
             int finalCompanionMissing,
             int companionPeakMissing,
             int everCompanionMissing,
             int companionRestored
     ) {
         private static RegenStats empty() {
-            return new RegenStats(0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+            return new RegenStats(
+                    0, 0, 0, 0, 0, 0,
+                    -1, -1,
+                    0, 0, 0, 0, false, -1, -1,
+                    0, 0, 0, 0
+            );
         }
     }
 
@@ -1979,6 +2265,15 @@ final class LabRunController implements Listener {
             int regenRestored,
             int maxLayerBreached,
             int regenCycles,
+            long firstTargetDamageTick,
+            long firstRegenRestoreTick,
+            int layersBreachedBeforeFirstRegen,
+            int contiguousLayersBreachedBeforeFirstRegen,
+            int maxLayerBreachedBeforeFirstRegen,
+            int targetLayerCount,
+            boolean allLayersBreachedBeforeFirstRegen,
+            long allLayersBreachedTick,
+            long regenRaceMarginTicks,
             int companionMissing,
             int companionPeakMissing,
             int companionEverMissing,
@@ -1987,6 +2282,9 @@ final class LabRunController implements Listener {
             int durabilityBreaks,
             int maximumTnt,
             int maximumFallingBlocks,
+            int embeddedPayloadExplosions,
+            int waterContactExplosions,
+            int unembeddedWaterExplosions,
             double maximumForwardDistance,
             double minimumForwardDistance,
             CannonIntegrity integrity,
@@ -2020,6 +2318,15 @@ final class LabRunController implements Listener {
                     0, // regen restored
                     0, // max layer breached
                     0, // regen cycles
+                    -1, // first target damage tick
+                    -1, // first regen restore tick
+                    0, // layers breached before first regen
+                    0, // contiguous layers breached before first regen
+                    0, // max layer breached before first regen
+                    0, // target layer count
+                    false, // all layers breached before first regen
+                    -1, // all layers breached tick
+                    -1, // regen race margin ticks
                     0, // companion missing
                     0, // companion peak missing
                     0, // companion ever missing
@@ -2028,6 +2335,9 @@ final class LabRunController implements Listener {
                     0, // durability breaks
                     0, // maximum TNT
                     0, // maximum falling blocks
+                    0, // embedded payload explosions
+                    0, // water-contact explosions
+                    0, // unembedded water explosions
                     0.0, // maximum forward distance
                     0.0, // minimum forward distance
                     CannonIntegrity.empty(),

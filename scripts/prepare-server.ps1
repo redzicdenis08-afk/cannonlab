@@ -1,6 +1,9 @@
 param(
     [string]$LabHome = $(if ($env:CANNONLAB_HOME) { $env:CANNONLAB_HOME } else { 'C:\CannonLab' }),
-    [string]$MinecraftVersion = '26.1.2'
+    [string]$MinecraftVersion = '26.1.2',
+    [int]$ArenaRadiusX = $(if ($env:CANNONLAB_ARENA_RADIUS_X) { [int]$env:CANNONLAB_ARENA_RADIUS_X } else { 256 }),
+    [int]$ArenaRadiusY = $(if ($env:CANNONLAB_ARENA_RADIUS_Y) { [int]$env:CANNONLAB_ARENA_RADIUS_Y } else { 96 }),
+    [int]$ArenaRadiusZ = $(if ($env:CANNONLAB_ARENA_RADIUS_Z) { [int]$env:CANNONLAB_ARENA_RADIUS_Z } else { 96 })
 )
 
 $ErrorActionPreference = 'Stop'
@@ -8,6 +11,9 @@ $ProgressPreference = 'SilentlyContinue'
 
 if ($env:CANNONLAB_ACCEPT_EULA -ne 'TRUE') {
     throw 'Set CANNONLAB_ACCEPT_EULA=TRUE only after accepting the Minecraft EULA.'
+}
+if ($ArenaRadiusX -lt 1 -or $ArenaRadiusY -lt 1 -or $ArenaRadiusZ -lt 1) {
+    throw 'Arena radii must all be positive integers.'
 }
 
 $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -125,18 +131,18 @@ max-tick-time=-1
 motd=CannonLab isolated test server
 '@ | Set-Content (Join-Path $ServerRoot 'server.properties') -Encoding ascii
 
-@'
+@"
 arena:
   world: world
   origin:
     x: 0
     y: 100
     z: 0
-  radius-x: 256
-  radius-y: 96
-  radius-z: 96
+  radius-x: $ArenaRadiusX
+  radius-y: $ArenaRadiusY
+  radius-z: $ArenaRadiusZ
 telemetry:
   output-directory: results
-'@ | Set-Content (Join-Path $PluginData 'config.yml') -Encoding utf8
+"@ | Set-Content (Join-Path $PluginData 'config.yml') -Encoding utf8
 
 Write-Host "CannonLab server prepared at $ServerRoot"

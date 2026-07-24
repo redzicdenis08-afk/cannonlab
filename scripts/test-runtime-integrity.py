@@ -172,6 +172,8 @@ target:
 acceptance:
   require-payload: true
   min-target-destroyed: 1
+  min-embedded-payload-explosions: 1
+  max-unembedded-water-explosions: 0
   min-forward-distance: 32
   min-remaining-dispenser-ratio: 0.99
   max-cannon-missing-blocks: 20
@@ -190,6 +192,23 @@ acceptance:
     assert strict["readiness_eligible"] is True, strict
     assert strict["warnings"] == [], strict
 
+    filter_text = strict_text.replace("type: watered", "type: filter").replace(
+        "  min-embedded-payload-explosions: 1\n"
+        "  max-unembedded-water-explosions: 0\n",
+        "",
+    )
+    values, sequences = scenario.minimal_yaml_paths(filter_text)
+    filter_target = scenario.audit_scenario(
+        values,
+        sequences,
+        filter_text.encode(),
+        Path("filter.yml"),
+    )
+    assert filter_target["status"] == "PASS", filter_target
+    filter_warnings = {item["code"] for item in filter_target["warnings"]}
+    assert "hybrid-embed-not-required" not in filter_warnings, filter_target
+    assert "unembedded-water-explosions-allowed" not in filter_warnings, filter_target
+
     with tempfile.TemporaryDirectory() as directory:
         path = Path(directory) / "strict.yml"
         path.write_text(strict_text, encoding="utf-8")
@@ -202,9 +221,23 @@ acceptance:
         )
         assert round_trip["readiness_eligible"] is True, json.dumps(round_trip, indent=2)
 
+    probe_path = SCRIPTS.parent / "scenarios" / "breach-telemetry-probe.yml"
+    probe_values, probe_sequences, probe_raw = scenario.load_scenario(probe_path)
+    probe = scenario.audit_scenario(
+        probe_values,
+        probe_sequences,
+        probe_raw,
+        probe_path,
+    )
+    assert probe["status"] == "DIAGNOSTIC", probe
+    warning_codes = {item["code"] for item in probe["warnings"]}
+    assert "hybrid-embed-not-required" not in warning_codes, probe
+    assert "unembedded-water-explosions-allowed" not in warning_codes, probe
+
 
 def prove_local_runner_fails_closed() -> None:
     runner = (SCRIPTS / "run-lab.ps1").read_text(encoding="utf-8")
+    prepare = (SCRIPTS / "prepare-server.ps1").read_text(encoding="utf-8")
     assert "Remove-Item $ResultsRoot -Recurse -Force" in runner, runner
     assert "'server.jar'" in runner, runner
     assert "Run summary scenario mismatch" in runner, runner
@@ -212,10 +245,17 @@ def prove_local_runner_fails_closed() -> None:
     assert "$Process.WaitForExit()" in runner, runner
     assert "$ServerExitCode -ne 0" in runner, runner
     assert "-Dcannonlab.fresh-world=" in runner, runner
+    assert "CANNONLAB_ARENA_RADIUS_X" in prepare, prepare
+    assert "radius-x: $ArenaRadiusX" in prepare, prepare
+    assert "Arena radii must all be positive integers" in prepare, prepare
 
     cloud = (SCRIPTS / "cloud-smoke.sh").read_text(encoding="utf-8")
     assert "scenario-integrity-audit.py" in cloud, cloud
     assert "-Dcannonlab.fresh-world=true" in cloud, cloud
+    assert "CANNONLAB_MIN_EMBEDDED_PAYLOAD_EXPLOSIONS" in cloud, cloud
+    assert "--max-unembedded-water-explosions" in cloud, cloud
+    assert "CANNONLAB_MIN_CONTIGUOUS_LAYERS_BEFORE_FIRST_REGEN" in cloud, cloud
+    assert "--require-all-layers-before-first-regen" in cloud, cloud
 
 
 def prove_java_runtime_contract_is_wired() -> None:
@@ -224,10 +264,15 @@ def prove_java_runtime_contract_is_wired() -> None:
     scenario_source = (java_root / "LabScenario.java").read_text(encoding="utf-8")
     controller_source = (java_root / "LabRunController.java").read_text(encoding="utf-8")
     recorder_source = (java_root / "ShotRecorder.java").read_text(encoding="utf-8")
+    worldedit_source = (java_root / "WorldEditService.java").read_text(encoding="utf-8")
 
     for path in (
         "acceptance.require-payload",
         "acceptance.min-target-destroyed",
+        "acceptance.min-embedded-payload-explosions",
+        "acceptance.max-unembedded-water-explosions",
+        "acceptance.min-contiguous-layers-before-first-regen",
+        "acceptance.require-all-layers-before-first-regen",
         "acceptance.min-forward-distance",
         "acceptance.min-remaining-dispenser-ratio",
         "acceptance.max-cannon-missing-blocks",
@@ -236,11 +281,29 @@ def prove_java_runtime_contract_is_wired() -> None:
     ):
         assert path in scenario_source, path
     assert "record AcceptanceConfig" in scenario_source, scenario_source
+    assert "Material.matchMaterial(String.valueOf(value), false)" in scenario_source
+    assert "Material.matchMaterial(String.valueOf(value), true)" not in scenario_source
     assert 'finishRun(contractPass ? "complete" : "contract_failed")' in controller_source
     assert "writeIntegrityDiff" in controller_source
     assert '"contract_failures"' in controller_source
     assert "maximumForwardDistance" in recorder_source
     assert "minimumForwardDistance" in recorder_source
+    assert "breach-events.csv" in recorder_source
+    assert "embeddedPayloadExplosions" in recorder_source
+    assert "unembeddedWaterExplosions" in recorder_source
+    assert "target_contact" in recorder_source
+    assert "recordingTargetBounds" in recorder_source
+    assert "probe-falling-material" in scenario_source
+    assert "PROBE_FALLING_PAYLOAD" in controller_source
+    assert "contiguousLayersBreachedBeforeFirstRegen" in controller_source
+    assert "allLayersBreachedBeforeFirstRegen" in controller_source
+    assert "laneLayersBeforeFirstRegen" in controller_source
+    assert "record BreachLane" in controller_source
+    assert "case EAST, WEST -> new BreachLane(cell.y(), cell.z())" in controller_source
+    assert "case NORTH, SOUTH -> new BreachLane(cell.x(), cell.y())" in controller_source
+    assert "plannedClearBounds" in controller_source
+    assert "Clearing planned arena region" in controller_source
+    assert "inspectPaste" in worldedit_source
 
 
 def main() -> None:
