@@ -442,6 +442,7 @@ scripts/schem-audit.py
 scripts/assert-results.py
 scripts/analyze-breach-evidence.py
 scripts/compare-entity-trajectories.py
+scripts/analyze-output-corridor.py
 scripts/rank-runs.py
 scripts/compare-fingerprints.py
 scripts/build-sakura-26.1.2.sh
@@ -470,6 +471,22 @@ python scripts/compare-entity-trajectories.py `
   --candidate-uuid <candidate-tnt-uuid> `
   --json-out trajectory-diff.json
 ```
+
+Require at least five shots to leave through one measured output corridor:
+
+```powershell
+python scripts/analyze-output-corridor.py lab-artifacts/results `
+  --min-shots 5 `
+  --min-forward 120 `
+  --half-width 2 `
+  --vertical-tolerance 6 `
+  --max-abs-angle 3 `
+  --max-angular-spread 2 `
+  --max-forward-relative-spread 0.08 `
+  --json-out output-corridor.json
+```
+
+The output-corridor analyzer reads every per-shot `events.csv`, projects TNT and falling-block trajectories onto the scenario target direction, rejects reverse or missing output, measures lateral and vertical corridor violations, and fails when shot direction, angle, lateral center, or forward distance drifts beyond the declared repeatability budget. Charge TNT that never crosses `--min-forward` is excluded from the output cohort. This is local trajectory evidence, not private ExtremeCraft parity.
 
 ## Cannon-development loop
 
