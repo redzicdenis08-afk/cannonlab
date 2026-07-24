@@ -6,10 +6,12 @@ on:
       - 'scripts/legacy-shared-core-audit.py'
       - 'scripts/legacy-shared-core-envelope.py'
       - 'scripts/legacy-shared-assembly-audit.py'
+      - 'scripts/infer-legacy-shared-ports.py'
       - 'scripts/test-legacy-shared-core-audit.py'
       - 'scripts/test-legacy-shared-core-envelope.py'
       - 'scripts/test-legacy-shared-assembly-audit.py'
       - 'scripts/test-legacy-shared-assembly-review.py'
+      - 'scripts/test-infer-legacy-shared-ports.py'
       - 'profiles/corpus/**'
       - 'evidence/public-corpus/**'
       - 'docs/LEGACY_SHARED_CORE_AUDIT.md'
@@ -50,12 +52,14 @@ jobs:
             scripts/legacy-shared-core-audit.py \
             scripts/legacy-shared-core-envelope.py \
             scripts/legacy-shared-assembly-audit.py \
+            scripts/infer-legacy-shared-ports.py \
             scripts/test-legacy-shared-core-audit.py \
             scripts/test-legacy-shared-core-envelope.py \
             scripts/test-legacy-shared-assembly-audit.py \
-            scripts/test-legacy-shared-assembly-review.py
+            scripts/test-legacy-shared-assembly-review.py \
+            scripts/test-infer-legacy-shared-ports.py
 
-      - name: Run metadata, boundary, envelope, assembly, and review regressions
+      - name: Run shared static and port-hypothesis regressions
         run: |
           mkdir -p lab-artifacts/shared-core-contract
           set -o pipefail
@@ -64,6 +68,7 @@ jobs:
             python scripts/test-legacy-shared-core-envelope.py
             python scripts/test-legacy-shared-assembly-audit.py
             python scripts/test-legacy-shared-assembly-review.py
+            python scripts/test-infer-legacy-shared-ports.py
           } 2>&1 | tee lab-artifacts/shared-core-contract/regressions.log
 
       - name: Verify pinned global transform contract
@@ -118,7 +123,7 @@ jobs:
             --json-out lab-artifacts/shared-core-run/fetch-report.json \
             > /dev/null
 
-      - name: Audit Formal and Pred shared regions and assemblies
+      - name: Audit Formal and Pred shared regions, assemblies, and boundary ports
         run: |
           root=lab-artifacts/public-cannon-cache/public-cannon-sources-v1/files
           common="--first-id cosmicreborn-formal \
@@ -149,6 +154,10 @@ jobs:
             --max-boundary-examples 64 \
             --json-out lab-artifacts/shared-core-run/formal-pred-shared-assemblies.json \
             > /dev/null
+          python scripts/infer-legacy-shared-ports.py \
+            lab-artifacts/shared-core-run/formal-pred-shared-assemblies.json \
+            --json-out lab-artifacts/shared-core-run/formal-pred-variant-port-hypotheses.json \
+            > /dev/null
           python - <<'PY'
           import json
           from pathlib import Path
@@ -157,6 +166,7 @@ jobs:
           core = json.loads((root / 'formal-pred-shared-core.json').read_text(encoding='utf-8'))
           envelope = json.loads((root / 'formal-pred-support-envelope.json').read_text(encoding='utf-8'))
           assemblies = json.loads((root / 'formal-pred-shared-assemblies.json').read_text(encoding='utf-8'))
+          ports = json.loads((root / 'formal-pred-variant-port-hypotheses.json').read_text(encoding='utf-8'))
           assert core['status'] == 'PASS', core
           assert core['overlap']['same_kind_position_count'] == 2731, core
           assert core['overlap']['proven_metadata_equivalent_position_count'] == 2693, core
@@ -168,22 +178,17 @@ jobs:
           assert envelope['summary']['promotion_eligible_component_count'] == 0, envelope
           assert assemblies['status'] == 'PASS', assemblies
           assert assemblies['node_inventory']['proven_equivalent_functional_count'] == 2693, assemblies
+          assert assemblies['summary']['review_classification_counts']['NEAR_CLOSED_STATIC_REVIEW_CANDIDATE'] == 2, assemblies
           assert assemblies['summary']['promotion_eligible_assembly_count'] == 0, assemblies
-          review_count = assemblies['summary']['review_classification_counts'].get(
-              'NEAR_CLOSED_STATIC_REVIEW_CANDIDATE', 0
-          )
-          assert review_count >= 1, assemblies
-          near = [
-              row for row in assemblies['assemblies']
-              if row['review_classification'] == 'NEAR_CLOSED_STATIC_REVIEW_CANDIDATE'
-          ]
-          assert all(row['status'] == 'OPEN_SHARED_ASSEMBLY' for row in near), near
-          assert all(row['promotion_eligible'] is False for row in near), near
-          assert all(row['boundary_examples'] for row in near), near
-          assert assemblies['truth_boundary']['near_closed_review_candidate_is_a_proven_module'] is False, assemblies
-          assert assemblies['truth_boundary']['runtime_semantics_confirmed'] is False, assemblies
-          assert assemblies['truth_boundary']['ec_ready'] is False, assemblies
-          print('Formal/Pred static component, envelope, assembly, and near-closed review audits completed without promotion.')
+          assert ports['status'] == 'PASS', ports
+          assert ports['summary']['reviewed_assembly_count'] == 2, ports
+          assert ports['summary']['paired_port_hypothesis_count'] == 3, ports
+          assert ports['summary']['unpaired_boundary_group_count'] == 0, ports
+          assert ports['summary']['promotion_eligible_port_count'] == 0, ports
+          assert ports['truth_boundary']['boundary_shape_proves_port_semantics'] is False, ports
+          assert ports['truth_boundary']['runtime_semantics_confirmed'] is False, ports
+          assert ports['truth_boundary']['ec_ready'] is False, ports
+          print('Formal/Pred shared static and variant boundary-port evidence completed without promotion.')
           PY
 
       - name: Copy audit reports and remove raw third-party files
