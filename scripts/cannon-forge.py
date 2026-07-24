@@ -1010,11 +1010,13 @@ def render_scenarios(
     return scenarios
 
 
-def stage_candidate(candidate: Path, slug: str) -> tuple[Path, str]:
+def stage_candidate(candidate: Path, slug: str, job_dir: Path | None = None) -> tuple[Path, str]:
     if candidate.suffix.lower() != ".schem":
         raise ValueError("runtime staging requires a Sponge .schem; convert Litematica first")
     staged_name = f"forge-{slug}.schem"
-    staged_path = ROOT / "cannons" / f"{staged_name}.b64"
+    owner = job_dir if job_dir is not None else ROOT / "forge-jobs" / slug
+    staged_path = owner / "inputs" / f"{staged_name}.b64"
+    staged_path.parent.mkdir(parents=True, exist_ok=True)
     encoded = base64.b64encode(candidate.read_bytes()).decode("ascii") + "\n"
     staged_path.write_text(encoded, encoding="ascii")
     return staged_path, staged_name
@@ -1053,6 +1055,50 @@ def build_execution_plan(scenarios: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
+def arena_radii(
+    tier: str,
+    direction: str,
+    distance: int,
+    target_width: int,
+    target_height: int,
+    candidate_dimensions: dict[str, Any],
+    origin: Vec3 | None = None,
+) -> dict[str, Any]:
+    if tier not in TIER_RANK:
+        raise ValueError(f"unsupported arena tier: {tier}")
+    candidate_x = max(1, int(candidate_dimensions.get("width", 1)))
+    candidate_y = max(1, int(candidate_dimensions.get("height", 1)))
+    candidate_z = max(1, int(candidate_dimensions.get("length", 1)))
+    forward_candidate = candidate_x if direction in {"east", "west"} else candidate_z
+    cross_candidate = candidate_z if direction in {"east", "west"} else candidate_x
+
+    if tier == "smoke":
+        forward = max(48, distance + forward_candidate + 32)
+        cross = max(32, (target_width + 1) // 2 + cross_candidate + 24)
+        vertical = max(32, target_height + candidate_y + 20)
+    elif tier == "qualify":
+        forward = max(96, distance + forward_candidate + 64)
+        cross = max(48, (target_width + 1) // 2 + cross_candidate + 36)
+        vertical = max(48, target_height + candidate_y + 32)
+    else:
+        forward = max(256, distance + forward_candidate + 192)
+        cross = max(96, (target_width + 1) // 2 + cross_candidate + 64)
+        vertical = max(96, target_height + candidate_y + 48)
+
+    origin = origin or Vec3(0, 0, 0)
+    radius_x = forward if direction in {"east", "west"} else cross
+    radius_z = cross if direction in {"east", "west"} else forward
+    return {
+        "radius_x": radius_x + abs(origin.x),
+        "radius_y": vertical + abs(origin.y),
+        "radius_z": radius_z + abs(origin.z),
+        "truth_boundary": (
+            "Tier-sized forced-chunk envelope only. The full tier remains conservative; "
+            "a smaller smoke arena cannot promote long-range or off-axis behavior."
+        ),
+    }
+
+
 def stage_job(args: argparse.Namespace) -> dict[str, Any]:
     candidate = allowed_input(args.candidate)
     references = [allowed_input(path) for path in args.reference]
@@ -1082,7 +1128,7 @@ def stage_job(args: argparse.Namespace) -> dict[str, Any]:
             use_cache=not args.no_static_cache,
         )
     )
-    staged_path, staged_name = stage_candidate(candidate, slug)
+    staged_path, staged_name = stage_candidate(candidate, slug, job_dir)
     scenarios = render_scenarios(
         slug=slug,
         staged_name=staged_name,
@@ -1099,8 +1145,15 @@ def stage_job(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     scenario_records: list[dict[str, Any]] = []
+    scenario_snapshot_dir = job_dir / "scenarios"
+    scenario_snapshot_dir.mkdir(parents=True, exist_ok=True)
+    candidate_dimensions = (
+        intake.get("results", {}).get("audit", {}).get("dimensions", {})
+        if isinstance(intake, dict)
+        else {}
+    )
     for scenario in scenarios:
-        path = ROOT / "scenarios" / scenario["filename"]
+        path = scenario_snapshot_dir / scenario["filename"]
         path.write_text(scenario["text"], encoding="utf-8", newline="\n")
         integrity = run_json(
             [
@@ -1118,6 +1171,15 @@ def stage_job(args: argparse.Namespace) -> dict[str, Any]:
                 "expected_shots": scenario["expected_shots"],
                 "tier": scenario["tier"],
                 "tier_rank": scenario["tier_rank"],
+                "arena": arena_radii(
+                    scenario["tier"],
+                    args.direction,
+                    args.distance,
+                    args.width,
+                    args.height,
+                    candidate_dimensions,
+                    args.origin,
+                ),
                 "assert_args": scenario["assert_args"],
                 "corridor_args": scenario["corridor_args"],
                 "wall_breach_args": scenario["wall_breach_args"],

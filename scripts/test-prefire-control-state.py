@@ -28,7 +28,7 @@ def report_for(module, text: str):
 
 def main() -> int:
     module = load_audit_module()
-    valid = report_for(module, """
+    valid_text = """
 name: valid-control-state
 cannon:
   file: probe-button-field.schem
@@ -48,12 +48,23 @@ target:
   type: dry
   distance: 5
   layers: 1
-""")
+"""
+    valid = report_for(module, valid_text)
     assert valid["control_state_count"] == 1, valid
     state = valid["control_states"][0]
     assert state["name"] == "mode" and state["phase"] == "after-fill", state
     assert state["apply_tick"] == 2 and state["settle_ticks"] == 3, state
     assert any(item["code"] == "control-state-physics-suppressed" for item in valid["assists"]), valid
+
+    fallback_values, fallback_sequences = module.minimal_yaml_paths(valid_text)
+    fallback = module.audit_scenario(
+        fallback_values,
+        fallback_sequences,
+        valid_text.encode("utf-8"),
+        Path("fallback-control-state.yml"),
+    )
+    assert fallback["control_state_count"] == 1, fallback
+    assert fallback["control_states"][0]["name"] == "mode", fallback
 
     invalid = report_for(module, """
 name: invalid-control-state

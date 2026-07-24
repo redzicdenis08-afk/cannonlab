@@ -177,6 +177,7 @@ def test_stage_round_trip() -> None:
         staged, runtime_name = forge.stage_candidate(source, "round-trip")
         try:
             assert runtime_name == "forge-round-trip.schem"
+            assert staged.is_relative_to(forge.ROOT / "forge-jobs" / "round-trip"), staged
             import base64
 
             assert base64.b64decode(staged.read_text(encoding="ascii")) == source.read_bytes()
@@ -253,8 +254,44 @@ def test_campaign_runner_contract() -> None:
     assert "cannonlab-forge-stage-fingerprint-v2" in runner
     assert "[SKIP exact cached PASS]" in runner
     assert "runtime_fingerprint_complete" in runner
+    assert "-ScenarioPath" in runner
+    assert "-CannonSnapshot" in runner
+    assert "-CannonRuntimeName" in runner
     assert "state/$($Scenario.name).json" in runner
     assert "cannonlab-forge-campaign-v3" in runner
+
+    run_lab = (forge.SCRIPTS / "run-lab.ps1").read_text(encoding="utf-8")
+    assert "[string]$ScenarioPath = ''" in run_lab
+    assert "[string]$CannonSnapshot = ''" in run_lab
+    assert "ServerScenarioDirectory" in run_lab
+    assert "ServerCannonDirectory" in run_lab
+    assert "CannonRuntimeName must be one .schem filename" in run_lab
+    assert "scripts/prepare-server.ps1" in runner
+
+    prepare_server = (forge.SCRIPTS / "prepare-server.ps1").read_text(encoding="utf-8")
+    assert "TcpListener" in prepare_server
+    assert "Invalid CannonLab server port" in prepare_server
+
+
+def test_tier_sized_arenas_are_directional() -> None:
+    dimensions = {"width": 20, "height": 12, "length": 20}
+    smoke_east = forge.arena_radii("smoke", "east", 160, 17, 32, dimensions)
+    qualify_east = forge.arena_radii("qualify", "east", 160, 17, 32, dimensions)
+    full_east = forge.arena_radii("full", "east", 160, 17, 32, dimensions)
+    smoke_north = forge.arena_radii("smoke", "north", 160, 17, 32, dimensions)
+    shifted = forge.arena_radii(
+        "smoke", "east", 160, 17, 32, dimensions, forge.Vec3(24, 180, -12)
+    )
+
+    assert smoke_east["radius_x"] < qualify_east["radius_x"] <= full_east["radius_x"]
+    assert smoke_east["radius_z"] < qualify_east["radius_z"] <= full_east["radius_z"]
+    assert smoke_east["radius_y"] < qualify_east["radius_y"] <= full_east["radius_y"]
+    assert smoke_east["radius_x"] == smoke_north["radius_z"], (smoke_east, smoke_north)
+    assert smoke_east["radius_z"] == smoke_north["radius_x"]
+    assert full_east["radius_x"] >= 256 and full_east["radius_z"] >= 96
+    assert shifted["radius_x"] == smoke_east["radius_x"] + 24
+    assert shifted["radius_y"] == smoke_east["radius_y"] + 180
+    assert shifted["radius_z"] == smoke_east["radius_z"] + 12
 
 
 def test_scenario_integrity() -> None:
@@ -313,8 +350,9 @@ def main() -> None:
     test_static_intake_parallelism()
     test_run_json_content_cache()
     test_campaign_runner_contract()
+    test_tier_sized_arenas_are_directional()
     test_scenario_integrity()
-    print(json.dumps({"status": "PASS", "tests": 11}))
+    print(json.dumps({"status": "PASS", "tests": 12}))
 
 
 if __name__ == "__main__":

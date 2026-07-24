@@ -1,7 +1,15 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$Manifest,
-    [string]$LabHome = $(if ($env:CANNONLAB_HOME) { $env:CANNONLAB_HOME } else { 'C:\CannonLab' }),
+    [string]$LabHome = $(
+        if ($env:CANNONLAB_HOME) {
+            $env:CANNONLAB_HOME
+        } elseif ([IO.Path]::DirectorySeparatorChar -eq '\') {
+            'C:\CannonLab'
+        } else {
+            Join-Path $HOME 'CannonLab'
+        }
+    ),
     [int]$TimeoutSeconds = 900,
     [ValidateSet('smoke', 'qualify', 'full')]
     [string]$MaxTier = 'smoke',
@@ -71,6 +79,7 @@ $ToolHashes = [ordered]@{}
 foreach ($RelativePath in @(
     'scripts/run-forge-campaign.ps1',
     'scripts/run-lab.ps1',
+    'scripts/prepare-server.ps1',
     'scripts/assert-results.py',
     'scripts/analyze-output-corridor.py',
     'scripts/wall-breach-intelligence.py'
@@ -139,6 +148,7 @@ foreach ($Scenario in $SelectedScenarios) {
         scenario_sha256 = [string]$Scenario.sha256
         expected_shots = [int]$Scenario.expected_shots
         tier = $Tier
+        arena = $Scenario.arena
         assert_args = @($Scenario.assert_args)
         corridor_args = @($Scenario.corridor_args)
         wall_breach_args = @($Scenario.wall_breach_args)
@@ -211,7 +221,13 @@ foreach ($Scenario in $SelectedScenarios) {
         Write-Host "===== Forge scenario: $($Scenario.name) [tier=$Tier shots=$($Scenario.expected_shots) timeout=${EffectiveTimeout}s] ====="
         & (Join-Path $PSScriptRoot 'run-lab.ps1') `
             -Scenario ([IO.Path]::GetFileName($Scenario.path)) `
+            -ScenarioPath (Join-Path $RepoRoot $Scenario.path) `
+            -CannonSnapshot (Join-Path $RepoRoot $Job.candidate.staged) `
+            -CannonRuntimeName ([string]$Job.candidate.runtime_name) `
             -LabHome $LabHome `
+            -ArenaRadiusX ([int]$Scenario.arena.radius_x) `
+            -ArenaRadiusY ([int]$Scenario.arena.radius_y) `
+            -ArenaRadiusZ ([int]$Scenario.arena.radius_z) `
             -TimeoutSeconds $EffectiveTimeout
         if ($LASTEXITCODE -ne 0) {
             throw "CannonLab run failed with exit code $LASTEXITCODE"

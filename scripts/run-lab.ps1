@@ -1,7 +1,21 @@
 param(
     [string]$Scenario = 'probe-smoke.yml',
-    [string]$LabHome = $(if ($env:CANNONLAB_HOME) { $env:CANNONLAB_HOME } else { 'C:\CannonLab' }),
+    [string]$ScenarioPath = '',
+    [string]$CannonSnapshot = '',
+    [string]$CannonRuntimeName = '',
+    [string]$LabHome = $(
+        if ($env:CANNONLAB_HOME) {
+            $env:CANNONLAB_HOME
+        } elseif ([IO.Path]::DirectorySeparatorChar -eq '\') {
+            'C:\CannonLab'
+        } else {
+            Join-Path $HOME 'CannonLab'
+        }
+    ),
     [string]$Profile = $(if ($env:CANNONLAB_PROFILE) { $env:CANNONLAB_PROFILE } else { '' }),
+    [int]$ArenaRadiusX = 0,
+    [int]$ArenaRadiusY = 0,
+    [int]$ArenaRadiusZ = 0,
     [int]$TimeoutSeconds = 600
 )
 
@@ -16,7 +30,49 @@ if ($env:CANNONLAB_FRESH_WORLD -and
     throw "Invalid CANNONLAB_FRESH_WORLD=$($env:CANNONLAB_FRESH_WORLD)"
 }
 
-& (Join-Path $PSScriptRoot 'prepare-server.ps1') -LabHome $LabHome
+$PrepareArguments = @{ LabHome = $LabHome }
+if ($ArenaRadiusX -gt 0) { $PrepareArguments.ArenaRadiusX = $ArenaRadiusX }
+if ($ArenaRadiusY -gt 0) { $PrepareArguments.ArenaRadiusY = $ArenaRadiusY }
+if ($ArenaRadiusZ -gt 0) { $PrepareArguments.ArenaRadiusZ = $ArenaRadiusZ }
+& (Join-Path $PSScriptRoot 'prepare-server.ps1') @PrepareArguments
+
+$ResolvedScenarioPath = if ($ScenarioPath) {
+    (Resolve-Path $ScenarioPath).Path
+} else {
+    (Resolve-Path (Join-Path (Join-Path $RepoRoot 'scenarios') $Scenario)).Path
+}
+if (-not $ResolvedScenarioPath.StartsWith($RepoRoot, [System.StringComparison]::OrdinalIgnoreCase) -and
+        -not $ResolvedScenarioPath.StartsWith((Split-Path $RepoRoot -Parent), [System.StringComparison]::OrdinalIgnoreCase)) {
+    throw "Scenario snapshot escapes CannonLab roots: $ResolvedScenarioPath"
+}
+$Scenario = [IO.Path]::GetFileName($ResolvedScenarioPath)
+$ServerScenarioDirectory = Join-Path $ServerRoot 'plugins\CannonLab\scenarios'
+New-Item -ItemType Directory -Force -Path $ServerScenarioDirectory | Out-Null
+Copy-Item $ResolvedScenarioPath (Join-Path $ServerScenarioDirectory $Scenario) -Force
+
+if ($CannonSnapshot) {
+    if (-not $CannonRuntimeName) {
+        throw 'CannonRuntimeName is required with CannonSnapshot.'
+    }
+    if ([IO.Path]::GetFileName($CannonRuntimeName) -ne $CannonRuntimeName -or
+            -not $CannonRuntimeName.EndsWith('.schem', [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "CannonRuntimeName must be one .schem filename: $CannonRuntimeName"
+    }
+    $ResolvedCannonSnapshot = (Resolve-Path $CannonSnapshot).Path
+    if (-not $ResolvedCannonSnapshot.StartsWith($RepoRoot, [System.StringComparison]::OrdinalIgnoreCase) -and
+            -not $ResolvedCannonSnapshot.StartsWith((Split-Path $RepoRoot -Parent), [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "Cannon snapshot escapes CannonLab roots: $ResolvedCannonSnapshot"
+    }
+    $ServerCannonDirectory = Join-Path $ServerRoot 'plugins\CannonLab\cannons'
+    New-Item -ItemType Directory -Force -Path $ServerCannonDirectory | Out-Null
+    $ServerCannonPath = Join-Path $ServerCannonDirectory $CannonRuntimeName
+    if ($ResolvedCannonSnapshot.EndsWith('.b64', [System.StringComparison]::OrdinalIgnoreCase)) {
+        $Bytes = [Convert]::FromBase64String((Get-Content $ResolvedCannonSnapshot -Raw).Trim())
+        [IO.File]::WriteAllBytes($ServerCannonPath, $Bytes)
+    } else {
+        Copy-Item $ResolvedCannonSnapshot $ServerCannonPath -Force
+    }
+}
 
 if (Test-Path $ArtifactRoot) {
     Remove-Item $ArtifactRoot -Recurse -Force
@@ -53,10 +109,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 $PluginStack = Get-Content $PluginStackPath -Raw | ConvertFrom-Json
 
-$ScenarioPath = Join-Path (Join-Path $RepoRoot 'scenarios') $Scenario
-if (-not (Test-Path $ScenarioPath)) {
-    throw "Scenario does not exist: $ScenarioPath"
-}
+$ScenarioPath = $ResolvedScenarioPath
 $ScenarioAudit = Join-Path $PSScriptRoot 'scenario-integrity-audit.py'
 $ScenarioAuditOut = Join-Path $ArtifactRoot 'scenario-integrity.json'
 $ScenarioAuditArgs = @($ScenarioAudit, $ScenarioPath, '--json-out', $ScenarioAuditOut)
