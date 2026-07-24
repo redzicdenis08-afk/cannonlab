@@ -5,8 +5,10 @@ on:
     paths:
       - 'scripts/legacy-shared-core-audit.py'
       - 'scripts/legacy-shared-core-envelope.py'
+      - 'scripts/legacy-shared-assembly-audit.py'
       - 'scripts/test-legacy-shared-core-audit.py'
       - 'scripts/test-legacy-shared-core-envelope.py'
+      - 'scripts/test-legacy-shared-assembly-audit.py'
       - 'profiles/corpus/**'
       - 'evidence/public-corpus/**'
       - 'docs/LEGACY_SHARED_CORE_AUDIT.md'
@@ -14,7 +16,7 @@ on:
   workflow_dispatch:
     inputs:
       fetch_public_sources:
-        description: 'Fetch the pinned Formal and Pred sources, derive shared-core evidence, and delete raw files'
+        description: 'Fetch pinned Formal and Pred, derive shared static evidence, and delete raw files'
         required: false
         default: false
         type: boolean
@@ -41,21 +43,24 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Compile shared-core tools
+      - name: Compile shared static tools
         run: |
           python -m py_compile \
             scripts/legacy-shared-core-audit.py \
             scripts/legacy-shared-core-envelope.py \
+            scripts/legacy-shared-assembly-audit.py \
             scripts/test-legacy-shared-core-audit.py \
-            scripts/test-legacy-shared-core-envelope.py
+            scripts/test-legacy-shared-core-envelope.py \
+            scripts/test-legacy-shared-assembly-audit.py
 
-      - name: Run metadata, boundary, and support-envelope regressions
+      - name: Run metadata, boundary, envelope, and assembly regressions
         run: |
           mkdir -p lab-artifacts/shared-core-contract
           set -o pipefail
           {
             python scripts/test-legacy-shared-core-audit.py
             python scripts/test-legacy-shared-core-envelope.py
+            python scripts/test-legacy-shared-assembly-audit.py
           } 2>&1 | tee lab-artifacts/shared-core-contract/regressions.log
 
       - name: Verify pinned global transform contract
@@ -110,42 +115,43 @@ jobs:
             --json-out lab-artifacts/shared-core-run/fetch-report.json \
             > /dev/null
 
-      - name: Audit Formal and Pred shared regions
+      - name: Audit Formal and Pred shared regions and assemblies
         run: |
           root=lab-artifacts/public-cannon-cache/public-cannon-sources-v1/files
-          python scripts/legacy-shared-core-audit.py \
-            --first-id cosmicreborn-formal \
+          common="--first-id cosmicreborn-formal \
             --first $root/cosmicreborn-formal/FORMAL.schematic \
             --second-id cosmicreborn-pred \
             --second $root/cosmicreborn-pred/PRED.schematic \
             --turns 3 \
-            --translation=-649,0,357 \
+            --translation=-649,0,357"
+          python scripts/legacy-shared-core-audit.py \
+            $common \
             --chunk-limit 160 \
             --minimum-component-size 8 \
             --json-out lab-artifacts/shared-core-run/formal-pred-shared-core.json \
             > /dev/null
           python scripts/legacy-shared-core-envelope.py \
-            --first-id cosmicreborn-formal \
-            --first $root/cosmicreborn-formal/FORMAL.schematic \
-            --second-id cosmicreborn-pred \
-            --second $root/cosmicreborn-pred/PRED.schematic \
-            --turns 3 \
-            --translation=-649,0,357 \
+            $common \
             --minimum-component-size 8 \
             --max-support-layers 8 \
             --max-added-support 4096 \
             --json-out lab-artifacts/shared-core-run/formal-pred-support-envelope.json \
             > /dev/null
+          python scripts/legacy-shared-assembly-audit.py \
+            $common \
+            --minimum-functional-count 8 \
+            --chunk-limit 160 \
+            --max-shared-support-nodes 100000 \
+            --json-out lab-artifacts/shared-core-run/formal-pred-shared-assemblies.json \
+            > /dev/null
           python - <<'PY'
           import json
           from pathlib import Path
 
-          core = json.loads(
-              Path('lab-artifacts/shared-core-run/formal-pred-shared-core.json').read_text(encoding='utf-8')
-          )
-          envelope = json.loads(
-              Path('lab-artifacts/shared-core-run/formal-pred-support-envelope.json').read_text(encoding='utf-8')
-          )
+          root = Path('lab-artifacts/shared-core-run')
+          core = json.loads((root / 'formal-pred-shared-core.json').read_text(encoding='utf-8'))
+          envelope = json.loads((root / 'formal-pred-support-envelope.json').read_text(encoding='utf-8'))
+          assemblies = json.loads((root / 'formal-pred-shared-assemblies.json').read_text(encoding='utf-8'))
           assert core['status'] == 'PASS', core
           assert core['overlap']['same_kind_position_count'] == 2731, core
           assert core['overlap']['proven_metadata_equivalent_position_count'] == 2693, core
@@ -155,9 +161,12 @@ jobs:
           assert envelope['status'] == 'PASS', envelope
           assert envelope['summary']['reported_component_count'] == core['summary']['reported_component_count'], envelope
           assert envelope['summary']['promotion_eligible_component_count'] == 0, envelope
-          assert envelope['truth_boundary']['runtime_semantics_confirmed'] is False, envelope
-          assert envelope['truth_boundary']['ec_ready'] is False, envelope
-          print('Formal/Pred metadata and bounded support-envelope audits completed without promotion.')
+          assert assemblies['status'] == 'PASS', assemblies
+          assert assemblies['node_inventory']['proven_equivalent_functional_count'] == 2693, assemblies
+          assert assemblies['summary']['promotion_eligible_assembly_count'] == 0, assemblies
+          assert assemblies['truth_boundary']['runtime_semantics_confirmed'] is False, assemblies
+          assert assemblies['truth_boundary']['ec_ready'] is False, assemblies
+          print('Formal/Pred shared static component, support-envelope, and assembly audits completed without promotion.')
           PY
 
       - name: Copy audit reports and remove raw third-party files
