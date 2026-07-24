@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -145,6 +146,15 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
+def remove_untrusted_lock(path: Path | None) -> None:
+    if path is None:
+        return
+    try:
+        path.resolve().unlink()
+    except FileNotFoundError:
+        pass
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -180,22 +190,26 @@ def main() -> int:
             mode=args.mode,
             skip_audit=args.skip_audit,
         )
-        if report.get("status") == "FAIL" and args.write_lock:
-            try:
-                args.write_lock.resolve().unlink()
-            except FileNotFoundError:
-                pass
+        if report.get("status") == "FAIL":
+            remove_untrusted_lock(args.write_lock)
         corpus_id = report.get("corpus_id")
         if isinstance(corpus_id, str) and corpus_id:
             write_json(
                 args.output_directory.resolve() / corpus_id / "corpus-report.json",
                 report,
             )
-    except (OSError, json.JSONDecodeError, StrictFetchError, ValueError) as exc:
+    except (
+        OSError,
+        json.JSONDecodeError,
+        subprocess.SubprocessError,
+        StrictFetchError,
+        ValueError,
+    ) as exc:
         report = {
             "schema_version": 1,
             "status": "FAIL",
             "error": str(exc),
+            "exception_type": type(exc).__name__,
             "strict_validation": {
                 "status": "FAIL",
                 "failure_count": 1,
@@ -207,11 +221,7 @@ def main() -> int:
                 "ec_ready": False,
             },
         }
-        if args.write_lock:
-            try:
-                args.write_lock.resolve().unlink()
-            except FileNotFoundError:
-                pass
+        remove_untrusted_lock(args.write_lock)
 
     if args.json_out:
         write_json(args.json_out.resolve(), report)
