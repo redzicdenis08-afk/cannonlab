@@ -7,12 +7,13 @@ on:
       - 'scripts/fetch-public-cannon-corpus.py'
       - 'scripts/test-public-cannon-corpus.py'
       - 'profiles/corpus/**'
+      - 'evidence/public-corpus/**'
       - 'docs/PUBLIC_CANNON_CORPUS.md'
       - '.github/workflows/public-cannon-corpus.yml'
   workflow_dispatch:
     inputs:
       fetch_public_sources:
-        description: 'Fetch and audit public sources, then upload reports without raw third-party files'
+        description: 'Fetch and audit pinned public sources, then upload reports without raw third-party files'
         required: false
         default: false
         type: boolean
@@ -66,8 +67,35 @@ jobs:
           assert report['status'] == 'PLAN', report
           assert report['summary']['source_count'] == 6, report
           assert all(row['redistribution'] == 'fetch-only' for row in report['sources']), report
+          assert all(len(row['expected_sha256']) == 64 for row in report['sources']), report
           assert report['truth_boundary']['ec_ready'] is False, report
-          print('Public corpus source registry validated without network access.')
+          print('Pinned public corpus source registry validated without network access.')
+          PY
+
+      - name: Cross-check pinned hashes and static evidence
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          registry = json.loads(
+              Path('profiles/corpus/public-cannon-sources-v1.json').read_text(encoding='utf-8')
+          )
+          evidence = json.loads(
+              Path('evidence/public-corpus/cosmicreborn-static-v1.json').read_text(encoding='utf-8')
+          )
+          registry_rows = {row['id']: row for row in registry['sources']}
+          evidence_rows = {row['id']: row for row in evidence['sources']}
+          assert registry_rows.keys() == evidence_rows.keys()
+          assert len(registry_rows) == 6
+          for source_id, source in registry_rows.items():
+              observed = evidence_rows[source_id]
+              assert source['expected_sha256'] == observed['sha256'], source_id
+              assert observed['legal_offset_count'] == 0, source_id
+              assert observed['best_max_dispensers_per_chunk'] > registry['policy']['chunk_limit'], source_id
+          assert evidence['summary']['ec_legal_source_count'] == 0
+          assert evidence['truth_boundary']['ec_ready'] is False
+          print('Pinned hashes and first static evidence agree exactly.')
           PY
 
       - name: Upload plan evidence
@@ -78,7 +106,7 @@ jobs:
           if-no-files-found: error
 
   controlled-fetch:
-    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.fetch_public_sources) }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.fetch_public_sources }}
     needs: corpus-contract
     runs-on: ubuntu-latest
     timeout-minutes: 15
@@ -91,14 +119,13 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Fetch, hash, and statically audit public sources
+      - name: Fetch, verify pins, and statically audit public sources
         run: |
           mkdir -p lab-artifacts/public-corpus-run
           python scripts/fetch-public-cannon-corpus.py \
             profiles/corpus/public-cannon-sources-v1.json \
             --output-directory lab-artifacts/public-cannon-cache \
             --mode fetch \
-            --accept-new-hashes \
             --write-lock lab-artifacts/public-corpus-run/public-cannon-lock-v1.json \
             --json-out lab-artifacts/public-corpus-run/fetch-report.json
 
