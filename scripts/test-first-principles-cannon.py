@@ -33,7 +33,7 @@ def request(**overrides):
             "range_blocks": 256,
             "watered_obsidian_hits": 4,
             "stack_height": 255,
-            "regen_layers": 15,
+            "raid_depth_chunks": 15,
             "shot_cadence_ticks": 40,
             "features": ["hybrid", "stacker", "slab-bust", "regen-bust", "nuke", "osrb", "campaign"],
         },
@@ -69,6 +69,14 @@ class FirstPrinciplesPlannerTests(unittest.TestCase):
         payload["objective"]["features"].append("magic-wall-delete")
         with self.assertRaisesRegex(planner.PlanError, "unknown features"):
             planner.build_report(payload)
+
+    def test_primitive_contracts_use_stage_specific_metrics(self):
+        report = planner.build_report(request())
+        contracts = {row["primitive"]: row["acceptance_contract"] for row in report["experiment_program"]}
+        self.assertNotIn("minimum_forward_range_blocks", contracts["protected-charge-cell"])
+        self.assertEqual(256, contracts["guider"]["minimum_forward_range_blocks"])
+        self.assertEqual(15, contracts["regen-bust"]["target_raid_depth_chunks"])
+        self.assertTrue(contracts["campaign-cycle"]["require_multi_stage_defense_campaign"])
 
     def test_ec160_margin_is_enforced(self):
         report = planner.build_report(request())
