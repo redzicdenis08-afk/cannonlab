@@ -109,6 +109,36 @@ jobs:
           print('Pinned hashes and first static evidence agree exactly.')
           PY
 
+      - name: Cross-check architecture-family evidence
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          registry = json.loads(
+              Path('profiles/corpus/public-cannon-sources-v1.json').read_text(encoding='utf-8')
+          )
+          evidence = json.loads(
+              Path('evidence/public-corpus/cosmicreborn-architecture-v1.json').read_text(encoding='utf-8')
+          )
+          registry_rows = {row['id']: row for row in registry['sources']}
+          evidence_rows = {row['id']: row for row in evidence['sources']}
+          assert registry_rows.keys() == evidence_rows.keys()
+          for source_id, source in registry_rows.items():
+              assert source['expected_sha256'] == evidence_rows[source_id]['sha256'], source_id
+          pairs = evidence['y_rotation_structural_comparison']['pairwise_similarity']
+          strongest = pairs[0]
+          assert strongest['first'] == 'cosmicreborn-formal', strongest
+          assert strongest['second'] == 'cosmicreborn-pred', strongest
+          assert strongest['jaccard'] == 0.911054, strongest
+          assert strongest['shared_structural_motif_count'] == 777, strongest
+          assert strongest['shared_bank_context_count'] == 3, strongest
+          assert evidence_rows['cosmicreborn-formal']['top_bank_counts'] == evidence_rows['cosmicreborn-pred']['top_bank_counts']
+          assert evidence['truth_boundary']['directional_metadata_preserved_in_y_rotation_similarity'] is False
+          assert evidence['truth_boundary']['ec_ready'] is False
+          print('Architecture-family evidence agrees with pinned source identities and truth boundaries.')
+          PY
+
       - name: Upload plan evidence
         uses: actions/upload-artifact@v4
         with:
@@ -117,7 +147,7 @@ jobs:
           if-no-files-found: error
 
   controlled-fetch:
-    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.fetch_public_sources) }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.fetch_public_sources }}
     needs: corpus-contract
     runs-on: ubuntu-latest
     timeout-minutes: 15
