@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        payload_delay: [13, 15, 17]
+        payload_delay: [2, 3, 4]
     steps:
       - uses: actions/checkout@v4
 
@@ -59,23 +59,23 @@ jobs:
           python3 scripts/patch-staged-redstone.py
           gradle clean build --stacktrace
 
-      - name: Generate exact three-clock candidate
+      - name: Generate exact held-sand candidate
         run: |
           python3 scripts/generate-stacker20-compact.py \
             --output-directory generated/cannons \
             --manifest generated/manifest.json
           python3 scripts/schem-audit.py \
-            generated/cannons/EC160-STACKER20-C28-3CLOCK-P4-S2-v6.schem \
+            generated/cannons/EC160-STACKER20-C28-HELD-SAND-P4-S2-v7.schem \
             --chunk-limit 160 \
             --expect-format sponge-v2 \
             --require-all-alignments-safe \
             --expect-dispensers 32 \
-            --json-out generated/three-clock-audit.json
+            --json-out generated/held-sand-audit.json
 
       - name: Restore candidate and render scenario
         env:
           PAYLOAD_DELAY: ${{ matrix.payload_delay }}
-          SAND_DELAY: '72'
+          SAND_DELAY: '76'
         run: |
           mkdir -p cannons scenarios
           cp generated/cannons/*.schem.b64 cannons/
@@ -115,9 +115,9 @@ jobs:
                   for row in rows
               )
 
-          scenario = f'''name: stacker20-three-clock-p{payload_delay}-s{sand_delay}
+          scenario = f'''name: stacker20-held-sand-p{payload_delay}-s{sand_delay}
           cannon:
-            file: EC160-STACKER20-C28-3CLOCK-P4-S2-v6.schem
+            file: EC160-STACKER20-C28-HELD-SAND-P4-S2-v7.schem
             origin: {{x: 0, y: 0, z: 0}}
             fire-mode: redstone
             fire-inputs:
@@ -177,7 +177,7 @@ jobs:
               for line in scenario.splitlines()
           ) + '\n'
           Path(
-              f'scenarios/stacker20-three-clock-p{payload_delay}-s{sand_delay}.yml'
+              f'scenarios/stacker20-held-sand-p{payload_delay}-s{sand_delay}.yml'
           ).write_text(scenario, encoding='utf-8')
           print(scenario)
           PY
@@ -185,8 +185,8 @@ jobs:
       - name: Fire through the 20-block clear corridor
         env:
           CANNONLAB_SERVER_JAR: ${{ github.workspace }}/reused-runtime/sakura-26.1.2.jar
-          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 three-clock stacker20 p${{ matrix.payload_delay }} s72
-          CANNONLAB_SCENARIO: stacker20-three-clock-p${{ matrix.payload_delay }}-s72.yml
+          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 held-sand stacker20 p${{ matrix.payload_delay }} s76
+          CANNONLAB_SCENARIO: stacker20-held-sand-p${{ matrix.payload_delay }}-s76.yml
           CANNONLAB_EXPECTED_SHOTS: '1'
           CANNONLAB_REQUIRE_CUMULATIVE_CANNON: 'true'
           CANNONLAB_STRICT_SINGLE_TNT: 'false'
@@ -211,7 +211,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: stacker20-three-clock-p${{ matrix.payload_delay }}-s72-${{ github.run_number }}
+          name: stacker20-held-sand-p${{ matrix.payload_delay }}-s76-${{ github.run_number }}
           path: |
             lab-artifacts/**
             generated/**
