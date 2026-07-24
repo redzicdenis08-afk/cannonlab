@@ -72,6 +72,27 @@ jobs:
           print(f'FastMCP registered {len(names)} total tools including all six advanced tools.')
           PY
 
+      - name: Execute a real advanced tool through production adapter
+        run: |
+          python - <<'PY'
+          import advanced_server
+
+          script = advanced_server.base.SCRIPTS / 'cannon-ratio-audit.py'
+          profile = (
+              advanced_server.base.ROOT
+              / 'profiles/ratios/public-0.7-384-osrb-1-above-barrel.json'
+          )
+          report = advanced_server._advanced_run_json(
+              script,
+              [str(profile)],
+              allowed_exit_codes=(0, 2),
+          )
+          assert report['_exit_code'] in (0, 2), report
+          assert report['truth_boundary']['runtime_physics_confirmed'] is False, report
+          assert report['truth_boundary']['private_server_parity_confirmed'] is False, report
+          print('Production adapter executed the real ratio auditor and preserved its exit contract.')
+          PY
+
       - name: Capture advanced tool inventory
         run: |
           mkdir -p lab-artifacts/advanced-cannon-mcp
@@ -87,6 +108,7 @@ jobs:
               'tool_count': len(tools),
               'tools': sorted(tool.name for tool in tools),
               'advanced_tools': sorted(advanced_server.REGISTERED_ADVANCED_TOOLS),
+              'production_runner_adapter': True,
           }
           Path('lab-artifacts/advanced-cannon-mcp/tools.json').write_text(
               json.dumps(payload, indent=2, sort_keys=True) + '\n',
