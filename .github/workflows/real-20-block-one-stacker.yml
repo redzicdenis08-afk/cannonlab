@@ -5,7 +5,7 @@ on:
     paths:
       - '.github/workflows/real-20-block-one-stacker.yml'
       - 'scripts/patch-staged-redstone.py'
-      - 'cannons/EC160-STACKER20-*.schem.b64'
+      - 'scripts/generate-stacker20-candidates.py'
       - 'scripts/build-sakura-26.1.2.sh'
       - 'scripts/cloud-smoke.sh'
       - 'scripts/assert-results.py'
@@ -41,6 +41,19 @@ jobs:
       - name: Add bounded delayed redstone cohort
         run: python3 scripts/patch-staged-redstone.py
 
+      - name: Generate and audit canonical candidates
+        run: |
+          python3 scripts/generate-stacker20-candidates.py \
+            --output-directory stacker20-generated/cannons \
+            --manifest stacker20-generated/manifest.json
+          for file in stacker20-generated/cannons/*.schem; do
+            python3 scripts/schem-audit.py "$file" \
+              --chunk-limit 160 \
+              --expect-format sponge-v2 \
+              --require-all-alignments-safe \
+              --json-out "$file.audit.json"
+          done
+
       - name: Build CannonLab
         run: gradle clean build --stacktrace
 
@@ -52,6 +65,7 @@ jobs:
           mkdir -p stacker20-runtime/build/libs
           cp build/libs/CannonLab-*.jar stacker20-runtime/build/libs/
           cp .sakura-26.1.2.jar stacker20-runtime/sakura-26.1.2.jar
+          cp -R stacker20-generated stacker20-runtime/generated
 
       - uses: actions/upload-artifact@v4
         with:
@@ -68,15 +82,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - {id: c16-d68, charge: 16, delay: 68, total_tnt: 20}
-          - {id: c16-d72, charge: 16, delay: 72, total_tnt: 20}
-          - {id: c16-d76, charge: 16, delay: 76, total_tnt: 20}
-          - {id: c24-d68, charge: 24, delay: 68, total_tnt: 28}
-          - {id: c24-d72, charge: 24, delay: 72, total_tnt: 28}
-          - {id: c24-d76, charge: 24, delay: 76, total_tnt: 28}
-          - {id: c32-d68, charge: 32, delay: 68, total_tnt: 36}
-          - {id: c32-d72, charge: 32, delay: 72, total_tnt: 36}
-          - {id: c32-d76, charge: 32, delay: 76, total_tnt: 36}
+          - {id: c40-d68, charge: 40, delay: 68, total_tnt: 44}
+          - {id: c40-d72, charge: 40, delay: 72, total_tnt: 44}
+          - {id: c40-d76, charge: 40, delay: 76, total_tnt: 44}
+          - {id: c48-d68, charge: 48, delay: 68, total_tnt: 52}
+          - {id: c48-d72, charge: 48, delay: 72, total_tnt: 52}
+          - {id: c48-d76, charge: 48, delay: 76, total_tnt: 52}
+          - {id: c52-d68, charge: 52, delay: 68, total_tnt: 56}
+          - {id: c52-d72, charge: 52, delay: 72, total_tnt: 56}
+          - {id: c52-d76, charge: 52, delay: 76, total_tnt: 56}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -98,8 +112,9 @@ jobs:
           CHARGE: ${{ matrix.charge }}
           DELAY: ${{ matrix.delay }}
         run: |
-          mkdir -p build/libs scenarios
+          mkdir -p build/libs scenarios cannons
           cp stacker20-runtime/build/libs/CannonLab-*.jar build/libs/
+          cp stacker20-runtime/generated/cannons/*.schem.b64 cannons/
           python3 - <<'PY'
           import os
           from pathlib import Path
@@ -107,12 +122,22 @@ jobs:
           case = os.environ["CASE_ID"]
           charge = int(os.environ["CHARGE"])
           delay = int(os.environ["DELAY"])
-          columns = charge // 4
+          top_x = range(3, 9) if charge == 40 else range(1, 9)
           primary = [
               {"x": x, "y": 3, "z": z}
-              for x in range(1, columns + 1)
+              for x in top_x
               for z in range(2, 6)
           ]
+          primary += [
+              {"x": x, "y": 1, "z": z}
+              for x in range(1, 9)
+              for z in (0, 7)
+          ]
+          if charge == 52:
+              primary += [
+                  {"x": -1, "y": 1, "z": z}
+                  for z in range(2, 6)
+              ]
           delayed = [
               {"x": 9, "y": 2, "z": z}
               for z in range(2, 6)
@@ -129,7 +154,7 @@ jobs:
 
           scenario = f"""name: stacker20-{case}
           cannon:
-            file: EC160-STACKER20-C{charge}-P4-S2-v1.schem
+            file: EC160-STACKER20-C{charge}-P4-S2-v2.schem
             origin: {{x: 0, y: 0, z: 0}}
             fire-mode: redstone
             fire-inputs:
