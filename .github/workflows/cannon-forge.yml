@@ -1,0 +1,39 @@
+name: Cannon Forge
+
+on:
+  pull_request:
+    paths:
+      - 'knowledge/**'
+      - 'skills/cannon-forge/**'
+      - 'scripts/cannon-forge.py'
+      - 'scripts/analyze-output-corridor.py'
+      - 'scripts/run-forge-campaign.ps1'
+      - 'scripts/test-cannon-forge.py'
+      - 'scripts/test-output-corridor.py'
+      - '.github/workflows/cannon-forge.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'knowledge/**'
+      - 'skills/cannon-forge/**'
+      - 'scripts/cannon-forge.py'
+      - 'scripts/analyze-output-corridor.py'
+      - 'scripts/run-forge-campaign.ps1'
+      - 'scripts/test-cannon-forge.py'
+      - 'scripts/test-output-corridor.py'
+      - '.github/workflows/cannon-forge.yml'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Compile forge tools
+        run: python -m py_compile scripts/cannon-forge.py scripts/analyze-output-corridor.py scripts/test-cannon-forge.py scripts/test-output-corridor.py
+      - name: Verify source registry and scenario contracts
+        run: python scripts/test-cannon-forge.py
+      - name: Verify measured output corridor contracts
+        run: python scripts/test-output-corridor.py

@@ -36,6 +36,16 @@ Use one of these before spending time on runtime tests:
 - `analyze_breach_evidence`: fail closed unless runtime evidence meets configured falling-payload overlap, unembedded-water, and pre-regen contiguous-layer gates
 - `analyze_repair_family`: screen every repair by run metrics, spend exact geometry on the strongest metric candidates, then spend full causal replay only on the strongest bounded candidates; candidates skipped by either evidence budget remain non-promotable
 - `extend_repair_family_runtime`: add causal replay to a requested runtime-rank window from an existing tournament without paying the metric and geometry cost again
+- `list_cannon_sources`: read the durable source registry and its evidence levels instead of relying on chat memory
+- `stage_cannon_forge`: run static intake and create a native-redstone dry, watered, regen, mixed-course, and endurance campaign with assertion gates
+- `audit_general_cannon_readiness`: inspect family knowledge, runtime gates, operator wiring, and the exact missing readiness capabilities
+- `plan_general_cannon`: build a fail-closed base-plus-specializations experiment plan
+- `mutate_cannon_bounded`: apply one reviewed non-destructive mutation with preservation, EC160, diff, and rollback evidence
+- `generate_cannon_variants`: enumerate the full declared bounded search without random sampling
+- `extract_cannon_variant_scorecard`: conservatively aggregate repeated local run summaries into per-variant metrics
+- `rank_cannon_variants`: rank only variants with complete metrics and passing predeclared hard limits
+- `prepare_cannon_operator`: bind planning, optional mutation, exact candidate-bound architecture policy, and Forge staging into one manifest
+- `audit_private_cannon_corpus`: hash and regression-check a private corpus without publishing binaries
 
 For modern raid work, pass the strongest real reference cannons available and use `intent=modern-raid`. Small field-calibration cannons must use `intent=calibration` so the morphology gate does not pretend every valid diagnostic build needs full raid-cannon complexity.
 
@@ -65,6 +75,18 @@ For modern raid work, pass the strongest real reference cannons available and us
 - `query_timeline`: filters exact events by tick and event type
 - `list_shot_traces`: lists local runtime evidence
 - `compare_shots`: compares two traces without pretending a subsystem role is proven
+- `list_cannon_sources`: durable guides, transcript research, local contracts, and their explicit truth boundaries
+- `stage_cannon_forge`: stages a complete fail-closed forge manifest, base64 runtime cannon, scenario pack, and integrity reports
+- `audit_general_cannon_readiness`: honest diagnostic, local-candidate, EC-ready infrastructure, and operator readiness audit
+- `plan_general_cannon`: evidence-first architecture and specialization composition planner
+- `diagnose_general_cannon`: symptom-driven ranking of the next modules and measurements to inspect
+- `mutate_cannon_bounded`: exact repeater, block-state, or translated-region mutation under a reviewed budget
+- `generate_cannon_variants`: deterministic Cartesian candidate generation with static ranking kept separate from performance
+- `extract_cannon_variant_scorecard`: worst-shot benefit, worst self-damage, minimum dispenser survival, and direction consistency extraction
+- `rank_cannon_variants`: weighted runtime ranking after missing evidence and hard-limit failures are rejected
+- `prepare_cannon_operator`: unified source-hashed operator job creation
+- `run_cannon_operator`: dry-run by default, explicit local campaign execution only when requested
+- `audit_private_cannon_corpus`: private hash inventory, structural audit, and drift detection
 
 ## Exact target schematics
 

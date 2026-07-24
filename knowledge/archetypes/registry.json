@@ -1,0 +1,283 @@
+{
+  "schema": "cannonlab-archetype-registry-v1",
+  "truth_boundary": "Archetypes are evidence-backed machine contracts and experiment plans. They are not schematic generators and do not prove live ExtremeCraft behavior.",
+  "evidence_levels": [
+    "field-verified",
+    "field-reported",
+    "local-runtime",
+    "static-reference",
+    "community-hypothesis",
+    "unknown"
+  ],
+  "archetypes": [
+    {
+      "id": "rev-worm-383-v4",
+      "family": "rev-worm",
+      "title": "383 reverse-worm V4 reference grammar",
+      "status": "reference-observed-output-unproven",
+      "reference_hashes": [
+        "6e23d2868c309b203d74003573a4707105a39f6822a3a5e715d0bb9ab71d7eda"
+      ],
+      "reference_privacy": "private-binary-never-publish-without-owner-approval",
+      "promotion_ceiling": "diagnostic-prototype",
+      "promotion_ceiling_reason": "The three-cohort activation grammar is reproduced locally, but a clean and directionally stable reverse/worm output has not been reproduced under public Sakura.",
+      "static_contract": {
+        "dimensions": [37, 51, 15],
+        "non_air_blocks": 3976,
+        "dispensers": 1122,
+        "block_entities": 1150,
+        "repeaters": 76,
+        "observers": 414,
+        "pistons_and_sticky_pistons": 158,
+        "slime_blocks": 30,
+        "water_blocks": 118,
+        "sand_blocks": 0,
+        "bank_axis": "north-south",
+        "observer_heavy": true,
+        "slime_motion_required": true,
+        "best_ec160_chunk_count": 304,
+        "safe_ec160_offsets": 0
+      },
+      "control_contract": {
+        "activation_order": [
+          "master-lever-enabled",
+          "rev-nuke-mode-lever-a-enabled",
+          "rev-nuke-mode-lever-b-enabled",
+          "native-button-pressed"
+        ],
+        "known_controls": [
+          {"kind": "stone_button", "position": [4, 11, 13]},
+          {"kind": "lever", "position": [5, 12, 13]},
+          {"kind": "lever", "position": [30, 32, 5]},
+          {"kind": "lever", "position": [34, 34, 9]}
+        ],
+        "saved_state_is_not_operating_proof": true
+      },
+      "stage_contract": [
+        {
+          "id": "mode-and-trigger",
+          "role": "mode gate and native control",
+          "role_evidence": "local-runtime",
+          "required": true
+        },
+        {
+          "id": "early-helper-cohorts",
+          "role": "pre-main helper activation",
+          "role_evidence": "local-runtime",
+          "required": true
+        },
+        {
+          "id": "major-cohort-a",
+          "role": "first major north/south TNT cohort",
+          "role_evidence": "local-runtime",
+          "required": true
+        },
+        {
+          "id": "major-cohort-b",
+          "role": "second major cohort two ticks after cohort A",
+          "role_evidence": "local-runtime",
+          "required": true
+        },
+        {
+          "id": "major-cohort-c",
+          "role": "third north-facing cohort one tick after cohort B",
+          "role_evidence": "local-runtime",
+          "required": true
+        },
+        {
+          "id": "slime-motion-and-output-corridor",
+          "role": "moving alignment and reverse/worm output corridor",
+          "role_evidence": "static-reference",
+          "required": true,
+          "runtime_role_status": "unproven"
+        }
+      ],
+      "cohort_contract": {
+        "anchor": "major-cohort-a",
+        "tick_tolerance": 0,
+        "count_tolerance": 0,
+        "cohorts": [
+          {
+            "id": "major-cohort-a",
+            "tick_offset": 0,
+            "count": 537,
+            "facing_counts": {"north": 229, "south": 308}
+          },
+          {
+            "id": "major-cohort-b",
+            "tick_offset": 2,
+            "count": 336,
+            "facing_counts": {"south": 216, "north": 108, "east": 12}
+          },
+          {
+            "id": "major-cohort-c",
+            "tick_offset": 3,
+            "count": 144,
+            "facing_counts": {"north": 144}
+          }
+        ],
+        "interpretation": "The 537 to 336 to 144 sequence is an activation fingerprint, not proof that the output is a functioning worm."
+      },
+      "payload_contract": {
+        "falling_payload_required": false,
+        "observed_max_falling_blocks": 0,
+        "tnt_trajectory_required": true,
+        "reverse_or_worm_output_required_for_promotion": true
+      },
+      "required_runtime_metrics": [
+        "native-control-event",
+        "exact-mode-state-application",
+        "dispenser-cohort-counts-and-facings",
+        "tnt-position-velocity-and-fuse-per-tick",
+        "piston-and-slime-motion-order",
+        "output-corridor-entry-count",
+        "dominant-output-direction",
+        "lateral-and-vertical-displacement",
+        "direction-repeatability-across-shots",
+        "target-contact-or-explicit-no-target-diagnostic",
+        "cannon-self-damage",
+        "remaining-dispenser-ratio"
+      ],
+      "forbidden_shortcuts": [
+        "requiring-falling-block-payload-for-this-tested-mode",
+        "calling-three-cohort-activation-a-working-worm",
+        "mixing-asser-east-west-modules-without-interface-proof",
+        "deleting-dispensers-to-meet-ec160",
+        "stretching-one-panel-without-preserving-opposing-bank-symmetry",
+        "using-random-redstone-pulses-instead-of-the-mode-levers-and-native-button",
+        "promoting-from-public-sakura-to-ec-ready"
+      ],
+      "ec160_redesign_contract": {
+        "requires_architectural_redistribution": true,
+        "preserve": [
+          "north-south-facing-distribution",
+          "opposing-panel-symmetry",
+          "compression-corridor-width",
+          "observer-cohort-order",
+          "repeater-timing",
+          "piston-and-slime-order",
+          "water-containment",
+          "control-mode-order",
+          "output-corridor-interface"
+        ],
+        "minimum_validation_order": [
+          "reproduce-original-cohort-fingerprint",
+          "reproduce-one-directionally-stable-output",
+          "split-one-bank-pair-across-additional-chunk-columns",
+          "revalidate-cohort-fingerprint",
+          "revalidate-output-trajectory",
+          "repeat-until-every-chunk-column-is-at-or-below-160",
+          "run-reduced-live-extremecraft-canary"
+        ]
+      }
+    },
+    {
+      "id": "asser-core",
+      "family": "asser",
+      "title": "Shared Nuke Force and Leftshot lower-machine grammar",
+      "status": "partial-shared-core-observed",
+      "reference_hashes": [
+        "47e56782c269703128ecb3b67b4c2fd40afb2dd1baa860cf4705709fc0a5d913",
+        "6db0b0a5d1c4346dccae64fffbee9cc000990ee7086ab6d35a30f2da191b7989"
+      ],
+      "promotion_ceiling": "diagnostic-prototype",
+      "required_features": [
+        "east-west-opposing-panels",
+        "shared-lower-control-spine",
+        "mode-ladder",
+        "multi-wave-firing",
+        "falling-block-payload",
+        "separate-upper-output-specialization"
+      ],
+      "forbidden_shortcuts": [
+        "treating-a-shared-dispenser-panel-as-the-whole-shared-core",
+        "adding-worm-modules-without-interface-proof",
+        "calling-static-overlap-runtime-equivalence"
+      ]
+    },
+    {
+      "id": "osrb-specialization",
+      "family": "specialization",
+      "title": "One-shot regen-bust specialization",
+      "status": "community-and-reference-hypothesis",
+      "promotion_ceiling": "diagnostic-prototype",
+      "parent_families": ["asser", "rev-worm"],
+      "required_features": [
+        "overstack-or-restack-package",
+        "entity-order-contract",
+        "regen-race-contract",
+        "wall-embedded-explosion-evidence"
+      ],
+      "unknowns": [
+        "exact-modern-ec-ratio",
+        "exact-private-regen-window",
+        "family-specific-interface"
+      ]
+    },
+    {
+      "id": "leftshoot-specialization",
+      "family": "specialization",
+      "title": "Lateral redirection and split alignment specialization",
+      "status": "reference-and-community-hypothesis",
+      "promotion_ceiling": "diagnostic-prototype",
+      "parent_families": ["asser"],
+      "required_features": [
+        "lateral-alignment-stage",
+        "splitter-or-equivalent-angle-correction",
+        "stable-left-or-right-output-vector",
+        "backboard-and-reverse-safety-contract"
+      ],
+      "required_runtime_metrics": [
+        "lateral-displacement",
+        "angular-spread",
+        "direction-repeatability",
+        "minimum-return-distance-from-cannon"
+      ]
+    },
+    {
+      "id": "force-specialization",
+      "family": "specialization",
+      "title": "Force/anti-patch late-package specialization",
+      "status": "community-and-reference-hypothesis",
+      "promotion_ceiling": "diagnostic-prototype",
+      "required_features": [
+        "separate-late-power-stage",
+        "late-package-tick-contract",
+        "main-package-interface",
+        "anti-self-hit-distance-contract"
+      ]
+    },
+    {
+      "id": "efficient-nuke-specialization",
+      "family": "specialization",
+      "title": "Efficient nuke vertical breach specialization",
+      "status": "community-and-reference-hypothesis",
+      "promotion_ceiling": "diagnostic-prototype",
+      "required_features": [
+        "multi-game-tick-nuke-package",
+        "entity-order-contract",
+        "vertical-breach-profile",
+        "payload-to-wall-overlap"
+      ]
+    },
+    {
+      "id": "hammerless-payload-module",
+      "family": "module",
+      "title": "Hammerless payload/stacker module interface",
+      "status": "partial-module-observed",
+      "reference_hashes": [
+        "d51db1eac18e3faa9a4b3b79f3508c58f6128f270773fe4a2fec0daeca574a02"
+      ],
+      "promotion_ceiling": "module-diagnostic",
+      "required_features": [
+        "parent-input-waveform",
+        "stack-or-payload-output-measurement",
+        "reset-repeatability"
+      ],
+      "forbidden_shortcuts": [
+        "calling-the-partial-module-a-complete-cannon",
+        "testing-it-with-an-arbitrary-pulse-and-generalizing-the-result"
+      ]
+    }
+  ]
+}

@@ -969,6 +969,352 @@ def compare_shots(first_trace: str, second_trace: str) -> dict[str, Any]:
     }
 
 
+@mcp.tool()
+def list_cannon_sources(compact: bool = True) -> dict[str, Any]:
+    """List the durable cannon source registry with evidence levels and truth boundaries."""
+    args = [
+        sys.executable,
+        str(SCRIPTS / "cannon-forge.py"),
+        "sources",
+    ]
+    if compact:
+        args.append("--compact")
+    return _run_json(args)
+
+
+@mcp.tool()
+def stage_cannon_forge(
+    candidate_path: str,
+    fire_input_x: int,
+    fire_input_y: int,
+    fire_input_z: int,
+    base: str,
+    specializations: list[str] | None = None,
+    payload_mode: str = "auto",
+    control_states_json: list[str] | None = None,
+    reference_paths: list[str] | None = None,
+    job: str = "",
+    intent: str = "modern-raid",
+    chunk_limit: int = 160,
+    origin_x: int = 0,
+    origin_y: int = 0,
+    origin_z: int = 0,
+    fire_mode: str = "button",
+    direction: str = "north",
+    distance: int = 160,
+    width: int = 17,
+    height: int = 32,
+    shots: int = 10,
+) -> dict[str, Any]:
+    """Run static intake and stage a fail-closed dry/watered/regen/mixed/endurance campaign."""
+    if intent not in {"calibration", "modern-raid"}:
+        raise ValueError("intent must be calibration or modern-raid")
+    if fire_mode not in {"button", "redstone"}:
+        raise ValueError("fire_mode must be button or redstone")
+    if direction not in {"north", "south", "east", "west"}:
+        raise ValueError("direction must be north, south, east, or west")
+    if payload_mode not in {"auto", "falling-block-required", "tnt-only"}:
+        raise ValueError("invalid payload_mode")
+    candidate = _inside_runtime(candidate_path)
+    references = [_inside_runtime(path) for path in reference_paths or []]
+    args = [
+        sys.executable,
+        str(SCRIPTS / "cannon-forge.py"),
+        "stage",
+        str(candidate),
+        "--intent",
+        intent,
+        "--base",
+        base,
+        "--payload-mode",
+        payload_mode,
+        "--chunk-limit",
+        str(chunk_limit),
+        "--origin",
+        f"{origin_x},{origin_y},{origin_z}",
+        "--fire-input",
+        f"{fire_input_x},{fire_input_y},{fire_input_z}",
+        "--fire-mode",
+        fire_mode,
+        "--direction",
+        direction,
+        "--distance",
+        str(distance),
+        "--width",
+        str(width),
+        "--height",
+        str(height),
+        "--shots",
+        str(shots),
+    ]
+    if job:
+        args += ["--job", job]
+    for specialization in specializations or []:
+        args += ["--specialization", specialization]
+    for control_state in control_states_json or []:
+        args += ["--control-state-json", control_state]
+    for reference in references:
+        args += ["--reference", str(reference)]
+    return _run_json(args, timeout=900)
+
+
+@mcp.tool()
+def audit_general_cannon_readiness(requirement: str = "") -> dict[str, Any]:
+    """Audit CannonLab's general modern-cannon knowledge, runtime gates, and operator integration."""
+    allowed = {"", "diagnostic-prototype", "local-candidate", "ec-ready", "operator-ready"}
+    if requirement not in allowed:
+        raise ValueError(
+            "requirement must be empty, diagnostic-prototype, local-candidate, ec-ready, or operator-ready"
+        )
+    args = [
+        sys.executable,
+        str(SCRIPTS / "general-cannon-intelligence.py"),
+        "audit",
+    ]
+    if requirement:
+        args += ["--require", requirement]
+    return _run_json(args, timeout=300)
+
+
+@mcp.tool()
+def plan_general_cannon(
+    base: str,
+    specializations: list[str] | None = None,
+    lifecycle: str = "diagnostic-prototype",
+) -> dict[str, Any]:
+    """Build a fail-closed experiment plan for one modern cannon base plus selected specializations."""
+    if lifecycle not in {"diagnostic-prototype", "local-candidate", "ec-ready"}:
+        raise ValueError("invalid lifecycle")
+    args = [
+        sys.executable,
+        str(SCRIPTS / "general-cannon-intelligence.py"),
+        "plan",
+        "--base",
+        base,
+        "--lifecycle",
+        lifecycle,
+    ]
+    for specialization in specializations or []:
+        args += ["--specialization", specialization]
+    return _run_json(args, timeout=300)
+
+
+@mcp.tool()
+def diagnose_general_cannon(symptoms: list[str]) -> dict[str, Any]:
+    """Rank the next cannon modules and measurements to inspect from observed failure symptoms."""
+    cleaned = [symptom.strip() for symptom in symptoms if symptom.strip()]
+    if not cleaned:
+        raise ValueError("at least one non-empty symptom is required")
+    args = [
+        sys.executable,
+        str(SCRIPTS / "general-cannon-intelligence.py"),
+        "diagnose",
+    ]
+    for symptom in cleaned:
+        args += ["--symptom", symptom]
+    return _run_json(args, timeout=300)
+
+
+@mcp.tool()
+def mutate_cannon_bounded(plan_path: str) -> dict[str, Any]:
+    """Apply one reviewed, deterministic, reference-preserving schematic mutation plan."""
+    plan = _inside_runtime(plan_path)
+    return _run_json(
+        [sys.executable, str(SCRIPTS / "cannon-mutator.py"), str(plan)],
+        timeout=1200,
+    )
+
+
+@mcp.tool()
+def generate_cannon_variants(spec_path: str, apply: bool = True) -> dict[str, Any]:
+    """Enumerate every declared bounded variant without random sampling, then apply static gates."""
+    spec = _inside_runtime(spec_path)
+    args = [
+        sys.executable,
+        str(SCRIPTS / "cannon-variant-search.py"),
+        "generate",
+        str(spec),
+    ]
+    if not apply:
+        args.append("--no-apply")
+    return _run_json(args, timeout=3600)
+
+
+@mcp.tool()
+def rank_cannon_variants(manifest_path: str, runtime_scorecard_path: str) -> dict[str, Any]:
+    """Rank statically safe variants using predeclared runtime metrics, weights, and hard limits."""
+    manifest = _inside_runtime(manifest_path)
+    scorecard = _inside_runtime(runtime_scorecard_path)
+    return _run_json(
+        [
+            sys.executable,
+            str(SCRIPTS / "cannon-variant-search.py"),
+            "rank",
+            str(manifest),
+            str(scorecard),
+        ],
+        timeout=1200,
+    )
+
+
+@mcp.tool()
+def extract_cannon_variant_scorecard(
+    manifest_path: str,
+    result_map_path: str,
+) -> dict[str, Any]:
+    """Extract conservative per-variant runtime metrics from supplied CannonLab run summaries."""
+    manifest = _inside_runtime(manifest_path)
+    result_map = _inside_runtime(result_map_path)
+    return _run_json(
+        [
+            sys.executable,
+            str(SCRIPTS / "cannon-variant-scorecard.py"),
+            str(manifest),
+            str(result_map),
+        ],
+        timeout=1200,
+    )
+
+
+@mcp.tool()
+def prepare_cannon_operator(
+    candidate_path: str,
+    architecture_manifest_path: str,
+    fire_input_x: int,
+    fire_input_y: int,
+    fire_input_z: int,
+    base: str,
+    specializations: list[str] | None = None,
+    lifecycle: str = "diagnostic-prototype",
+    payload_mode: str = "auto",
+    control_states_json: list[str] | None = None,
+    reference_paths: list[str] | None = None,
+    mutation_plan_path: str = "",
+    job: str = "",
+    intent: str = "modern-raid",
+    chunk_limit: int = 160,
+    origin_x: int = 0,
+    origin_y: int = 0,
+    origin_z: int = 0,
+    fire_mode: str = "button",
+    direction: str = "north",
+    distance: int = 160,
+    width: int = 17,
+    height: int = 32,
+    shots: int = 10,
+) -> dict[str, Any]:
+    """Bind general planning, optional bounded mutation, architecture policy, and Cannon Forge into one job."""
+    if lifecycle not in {"diagnostic-prototype", "local-candidate", "ec-ready"}:
+        raise ValueError("invalid lifecycle")
+    if intent not in {"calibration", "modern-raid"}:
+        raise ValueError("intent must be calibration or modern-raid")
+    if fire_mode not in {"button", "redstone"}:
+        raise ValueError("fire_mode must be button or redstone")
+    if direction not in {"north", "south", "east", "west"}:
+        raise ValueError("direction must be north, south, east, or west")
+    if payload_mode not in {"auto", "falling-block-required", "tnt-only"}:
+        raise ValueError("invalid payload_mode")
+    if min(chunk_limit, distance, width, height, shots) < 1:
+        raise ValueError("chunk limit, dimensions, distance, and shots must be positive")
+
+    candidate = _inside_runtime(candidate_path)
+    architecture_manifest = _inside_runtime(architecture_manifest_path)
+    references = [_inside_runtime(path) for path in reference_paths or []]
+    mutation_plan = _inside_runtime(mutation_plan_path) if mutation_plan_path else None
+    args = [
+        sys.executable,
+        str(SCRIPTS / "cannon-operator.py"),
+        "prepare",
+        str(candidate),
+        "--architecture-manifest",
+        str(architecture_manifest),
+        "--base",
+        base,
+        "--lifecycle",
+        lifecycle,
+        "--payload-mode",
+        payload_mode,
+        "--intent",
+        intent,
+        "--chunk-limit",
+        str(chunk_limit),
+        "--origin",
+        f"{origin_x},{origin_y},{origin_z}",
+        "--fire-input",
+        f"{fire_input_x},{fire_input_y},{fire_input_z}",
+        "--fire-mode",
+        fire_mode,
+        "--direction",
+        direction,
+        "--distance",
+        str(distance),
+        "--width",
+        str(width),
+        "--height",
+        str(height),
+        "--shots",
+        str(shots),
+    ]
+    if job:
+        args += ["--job", job]
+    if mutation_plan is not None:
+        args += ["--mutation-plan", str(mutation_plan)]
+    for specialization in specializations or []:
+        args += ["--specialization", specialization]
+    for control_state in control_states_json or []:
+        args += ["--control-state-json", control_state]
+    for reference in references:
+        args += ["--reference", str(reference)]
+    return _run_json(args, timeout=1800)
+
+
+@mcp.tool()
+def run_cannon_operator(manifest_path: str, execute: bool = False) -> dict[str, Any]:
+    """Show the exact staged local campaign command, or execute it when explicitly requested."""
+    manifest = _inside_runtime(manifest_path)
+    args = [
+        sys.executable,
+        str(SCRIPTS / "cannon-operator.py"),
+        "run",
+        str(manifest),
+    ]
+    if execute:
+        args.append("--execute")
+    return _run_json(args, timeout=3600)
+
+
+@mcp.tool()
+def audit_private_cannon_corpus(
+    directory_path: str,
+    job: str = "",
+    chunk_limit: int = 160,
+    baseline_manifest_path: str = "",
+    require_unchanged_sources: bool = False,
+) -> dict[str, Any]:
+    """Hash and structurally regression-check a private schematic corpus without publishing its binaries."""
+    if chunk_limit < 1:
+        raise ValueError("chunk_limit must be positive")
+    directory = _inside_runtime(directory_path)
+    if not directory.is_dir():
+        raise ValueError("directory_path must identify a directory")
+    baseline = _inside_runtime(baseline_manifest_path) if baseline_manifest_path else None
+    args = [
+        sys.executable,
+        str(SCRIPTS / "private-corpus-regression.py"),
+        str(directory),
+        "--chunk-limit",
+        str(chunk_limit),
+    ]
+    if job:
+        args += ["--job", job]
+    if baseline is not None:
+        args += ["--baseline-manifest", str(baseline)]
+    if require_unchanged_sources:
+        args.append("--require-unchanged-sources")
+    return _run_json(args, timeout=1800)
+
+
+
 def main() -> None:
     mcp.run()
 

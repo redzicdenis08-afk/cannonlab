@@ -286,6 +286,37 @@ python scripts/extend-repair-family-runtime.py repair-family.json `
   --json-out repair-family-ranks-9-12.json
 ```
 
+## General cannon operator
+
+The general operator binds family planning, exact reference hashes, optional bounded mutation, architecture policy, archetype-specific payload contracts, verified control states, Forge staging, runtime assertions, and measured output-corridor repeatability into one fail-closed job.
+
+```powershell
+python scripts/cannon-operator.py prepare candidate.schem `
+  --architecture-manifest architecture.json `
+  --base hammered-stacker `
+  --specialization hybrid `
+  --specialization osrb `
+  --payload-mode auto `
+  --reference proven-reference.litematic `
+  --fire-input 4,11,13 `
+  --fire-mode button `
+  --direction north `
+  --distance 160 `
+  --job repaired-osrb
+```
+
+For a mode lever or other exact pre-fire state, repeat `--control-state-json` with a JSON object containing `name`, `at`, `phase`, `block_data`, and preferably `expected_material` plus the complete `expected_before` state. Unknown payload interfaces, conflicting TNT-only and falling-block requirements, stale architecture manifests, broad mutations, missing runtime metrics, and unstable output direction all block the job.
+
+`hammered-stacker`, `hammerless-stacker`, `asser-multiwave`, anti-gravity, hybrid, OSRB, overstack, reverse-hybrid, and slab-bust contracts require falling-block evidence. A source-bounded `rev-worm` can use the TNT-only campaign. Selectable or unknown families require an explicit mode or remain blocked. TNT-only success never counts as watered-defense proof.
+
+Run the staged campaign only after the operator manifest is `PASS`:
+
+```powershell
+python scripts/cannon-operator.py run operator-jobs/repaired-osrb/manifest.json --execute
+```
+
+The general infrastructure audit can prove that the tooling surface is complete. It cannot promote a particular schematic. A candidate still needs its own repeated local runtime evidence and a recorded live ExtremeCraft canary before any EC-ready claim.
+
 ## Scenario structure
 
 ```yaml

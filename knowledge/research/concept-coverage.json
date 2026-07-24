@@ -1,0 +1,1092 @@
+{
+  "osrb": {
+    "source_count": 22,
+    "mention_count": 90,
+    "top_sources": [
+      {
+        "mentions": 15,
+        "title": "255 OSRB Cannon Release [ Webbust Nuke | Efficient Nuke | Pseudo Nuke ]",
+        "url": "https://www.youtube.com/watch?v=-w3XTxawAsc",
+        "video_id": "-w3XTxawAsc"
+      },
+      {
+        "mentions": 13,
+        "title": "255 3 Second AP OSRB Cannon Showcase w/ Schematic",
+        "url": "https://www.youtube.com/watch?v=j8XFn-zpThc",
+        "video_id": "j8XFn-zpThc"
+      },
+      {
+        "mentions": 10,
+        "title": "Building A 255 4OS OSRB AP Cannon - Finishing Nuke",
+        "url": "https://www.youtube.com/watch?v=lQKlk5dcTNQ",
+        "video_id": "lQKlk5dcTNQ"
+      },
+      {
+        "mentions": 8,
+        "title": "CANNON RELEASE - PWM 384 1s OSRB + NUKE",
+        "url": "https://www.youtube.com/watch?v=-Nn9ZN9g0v0",
+        "video_id": "-Nn9ZN9g0v0"
+      },
+      {
+        "mentions": 7,
+        "title": "255 Full Nuke OSRB (Release)",
+        "url": "https://www.youtube.com/watch?v=GZoa0Y_I2I4",
+        "video_id": "GZoa0Y_I2I4"
+      },
+      {
+        "mentions": 6,
+        "title": "255 Hammerless OSRB [PvpWars] [Cannon Showcase]",
+        "url": "https://www.youtube.com/watch?v=JChb4qwu-RI",
+        "video_id": "JChb4qwu-RI"
+      },
+      {
+        "mentions": 4,
+        "title": "[Cannon Showcase] Roar's 3s OSRB 384 stacker Efficient Nuke with SB DT and FB",
+        "url": "https://www.youtube.com/watch?v=UG-tqPsX4oA",
+        "video_id": "UG-tqPsX4oA"
+      },
+      {
+        "mentions": 4,
+        "title": "How To Use Cannons in Minecraft Factions.. (FULL GUIDE)",
+        "url": "https://www.youtube.com/watch?v=_v6nRG2tGVI",
+        "video_id": "_v6nRG2tGVI"
+      },
+      {
+        "mentions": 3,
+        "title": "THE BASICS OF TNT CANNONS IN MINECRAFT FACTIONS!!! | Complex",
+        "url": "https://www.youtube.com/watch?v=B7yOJSnfHu4",
+        "video_id": "B7yOJSnfHu4"
+      },
+      {
+        "mentions": 3,
+        "title": "Infinite Left Shot 255 Cannon Release /w Schematic",
+        "url": "https://www.youtube.com/watch?v=QvJuCcG9unM",
+        "video_id": "QvJuCcG9unM"
+      }
+    ]
+  },
+  "ooe": {
+    "source_count": 13,
+    "mention_count": 29,
+    "top_sources": [
+      {
+        "mentions": 4,
+        "title": "How to Cannon - OS [9]",
+        "url": "https://www.youtube.com/watch?v=O7k3dX0Ecuw",
+        "video_id": "O7k3dX0Ecuw"
+      },
+      {
+        "mentions": 3,
+        "title": "How to Cannon - WEBBUST NUKE [5]",
+        "url": "https://www.youtube.com/watch?v=_F6YxSN7Gc4",
+        "video_id": "_F6YxSN7Gc4"
+      },
+      {
+        "mentions": 3,
+        "title": "Minecraft | How To Nuke With Any Cannon | Full Tutorial!!!",
+        "url": "https://www.youtube.com/watch?v=jJm12oTgmw4",
+        "video_id": "jJm12oTgmw4"
+      },
+      {
+        "mentions": 3,
+        "title": "How to Cannon - 1 REV + BARREL STACK [8]",
+        "url": "https://www.youtube.com/watch?v=Bhildy0Onf8",
+        "video_id": "Bhildy0Onf8"
+      },
+      {
+        "mentions": 3,
+        "title": "60 Stacker Order Of Entity Nuke [EXPLANATION] [FULL NUKE] [ONE SHOT]",
+        "url": "https://www.youtube.com/watch?v=vdWT3LHsano",
+        "video_id": "vdWT3LHsano"
+      },
+      {
+        "mentions": 3,
+        "title": "200 Stacker, AUTO NUKE - Dual Comp, 1 Push. \"Order Of Entities\"",
+        "url": "https://www.youtube.com/watch?v=1mgE53qUkeA",
+        "video_id": "1mgE53qUkeA"
+      },
+      {
+        "mentions": 3,
+        "title": "60 Stacker, AUTO NUKE - Dual Comp, 1 Push. \"Order Of Entities\"",
+        "url": "https://www.youtube.com/watch?v=77hhu87nAlc",
+        "video_id": "77hhu87nAlc"
+      },
+      {
+        "mentions": 2,
+        "title": "255 Stacker Efficient Nuke - WHAT IS NEXT???",
+        "url": "https://www.youtube.com/watch?v=ZR0_9xidOUc",
+        "video_id": "ZR0_9xidOUc"
+      },
+      {
+        "mentions": 1,
+        "title": "1.5 Second 255 Efficient Nuke Anti-Patch [Release]",
+        "url": "https://www.youtube.com/watch?v=U_WRl60xnuY",
+        "video_id": "U_WRl60xnuY"
+      },
+      {
+        "mentions": 1,
+        "title": "1.18 Cannoning Ep 35: Explaining OOE Stacking, OSRB and Overstacking",
+        "url": "https://www.youtube.com/watch?v=j0FSs6kvhug",
+        "video_id": "j0FSs6kvhug"
+      }
+    ]
+  },
+  "overstack": {
+    "source_count": 6,
+    "mention_count": 62,
+    "top_sources": [
+      {
+        "mentions": 40,
+        "title": "1.18 Cannoning Ep 35: Explaining OOE Stacking, OSRB and Overstacking",
+        "url": "https://www.youtube.com/watch?v=j0FSs6kvhug",
+        "video_id": "j0FSs6kvhug"
+      },
+      {
+        "mentions": 8,
+        "title": "How to Cannon - OS [9]",
+        "url": "https://www.youtube.com/watch?v=O7k3dX0Ecuw",
+        "video_id": "O7k3dX0Ecuw"
+      },
+      {
+        "mentions": 7,
+        "title": "Building A 255 4OS OSRB AP Cannon - Finishing Nuke",
+        "url": "https://www.youtube.com/watch?v=lQKlk5dcTNQ",
+        "video_id": "lQKlk5dcTNQ"
+      },
+      {
+        "mentions": 3,
+        "title": "13 HIGH PATCHCRUMBS BYPASS OVERSTACKER (CANNON RELEASE!)",
+        "url": "https://www.youtube.com/watch?v=dj7mg2cWevQ",
+        "video_id": "dj7mg2cWevQ"
+      },
+      {
+        "mentions": 3,
+        "title": "New Overstacker Tech | Auto Overstack Changer | Cannon Showcase",
+        "url": "https://www.youtube.com/watch?v=LXbfntBA7Y8",
+        "video_id": "LXbfntBA7Y8"
+      },
+      {
+        "mentions": 1,
+        "title": "UFusion OSRB Overstacker Counter Cannon [ Release ]",
+        "url": "https://www.youtube.com/watch?v=UNO_FRJeczI",
+        "video_id": "UNO_FRJeczI"
+      }
+    ]
+  },
+  "hammer": {
+    "source_count": 33,
+    "mention_count": 425,
+    "top_sources": [
+      {
+        "mentions": 66,
+        "title": "1.18 Cannoning Ep 35: Explaining OOE Stacking, OSRB and Overstacking",
+        "url": "https://www.youtube.com/watch?v=j0FSs6kvhug",
+        "video_id": "j0FSs6kvhug"
+      },
+      {
+        "mentions": 48,
+        "title": "How to Cannon - OS [9]",
+        "url": "https://www.youtube.com/watch?v=O7k3dX0Ecuw",
+        "video_id": "O7k3dX0Ecuw"
+      },
+      {
+        "mentions": 44,
+        "title": "How to Cannon - 1 REV + BARREL STACK [8]",
+        "url": "https://www.youtube.com/watch?v=Bhildy0Onf8",
+        "video_id": "Bhildy0Onf8"
+      },
+      {
+        "mentions": 27,
+        "title": "Minecraft Hammers, Sand Stacking, and Slabbusts ( How to cannon #2 )",
+        "url": "https://www.youtube.com/watch?v=XmMgXvILjxQ",
+        "video_id": "XmMgXvILjxQ"
+      },
+      {
+        "mentions": 27,
+        "title": "Minecraft Factions TnT Cannon tutorial - Two versions; standard and one shot",
+        "url": "https://www.youtube.com/watch?v=5iCa7X_UgUw",
+        "video_id": "5iCa7X_UgUw"
+      },
+      {
+        "mentions": 25,
+        "title": "[1.19.2] 70+ Chunk AG 384 Stacker [Showcase]",
+        "url": "https://www.youtube.com/watch?v=fuU-Ingk0kI",
+        "video_id": "fuU-Ingk0kI"
+      },
+      {
+        "mentions": 22,
+        "title": "255 Stacker Efficient Nuke - WHAT IS NEXT???",
+        "url": "https://www.youtube.com/watch?v=ZR0_9xidOUc",
+        "video_id": "ZR0_9xidOUc"
+      },
+      {
+        "mentions": 21,
+        "title": "Minecraft | How To Nuke With Any Cannon | Full Tutorial!!!",
+        "url": "https://www.youtube.com/watch?v=jJm12oTgmw4",
+        "video_id": "jJm12oTgmw4"
+      },
+      {
+        "mentions": 18,
+        "title": "How to build a 255 Cannon: Hammer",
+        "url": "https://www.youtube.com/watch?v=_waXRP3FE70",
+        "video_id": "_waXRP3FE70"
+      },
+      {
+        "mentions": 17,
+        "title": "How to Cannon - WEBBUST NUKE [5]",
+        "url": "https://www.youtube.com/watch?v=_F6YxSN7Gc4",
+        "video_id": "_F6YxSN7Gc4"
+      }
+    ]
+  },
+  "sand_comp": {
+    "source_count": 18,
+    "mention_count": 51,
+    "top_sources": [
+      {
+        "mentions": 19,
+        "title": "100 Stacker Leftshooter Oneshot & Slab Bust- TNT Cannon Tutorial",
+        "url": "https://www.youtube.com/watch?v=oyDZmhqvkoY",
+        "video_id": "oyDZmhqvkoY"
+      },
+      {
+        "mentions": 6,
+        "title": "Minecraft | How To Nuke With Any Cannon | Full Tutorial!!!",
+        "url": "https://www.youtube.com/watch?v=jJm12oTgmw4",
+        "video_id": "jJm12oTgmw4"
+      },
+      {
+        "mentions": 4,
+        "title": "255 1 Water Bucket Minecraft Cannon w/ Schematic",
+        "url": "https://www.youtube.com/watch?v=8zuuf3HUiL8",
+        "video_id": "8zuuf3HUiL8"
+      },
+      {
+        "mentions": 3,
+        "title": "255 Hammerless OSRB [PvpWars] [Cannon Showcase]",
+        "url": "https://www.youtube.com/watch?v=JChb4qwu-RI",
+        "video_id": "JChb4qwu-RI"
+      },
+      {
+        "mentions": 2,
+        "title": "THE BASICS OF TNT CANNONS IN MINECRAFT FACTIONS!!! | Complex",
+        "url": "https://www.youtube.com/watch?v=B7yOJSnfHu4",
+        "video_id": "B7yOJSnfHu4"
+      },
+      {
+        "mentions": 2,
+        "title": "How to Cannon - OS [9]",
+        "url": "https://www.youtube.com/watch?v=O7k3dX0Ecuw",
+        "video_id": "O7k3dX0Ecuw"
+      },
+      {
+        "mentions": 2,
+        "title": "Building A 255 4OS OSRB AP Cannon - Finishing Nuke",
+        "url": "https://www.youtube.com/watch?v=lQKlk5dcTNQ",
+        "video_id": "lQKlk5dcTNQ"
+      },
+      {
+        "mentions": 2,
+        "title": "60 Stacker, AUTO NUKE - Dual Comp, 1 Push. \"Order Of Entities\"",
+        "url": "https://www.youtube.com/watch?v=77hhu87nAlc",
+        "video_id": "77hhu87nAlc"
+      },
+      {
+        "mentions": 2,
+        "title": "Infinite Left Shot 255 Cannon Release /w Schematic",
+        "url": "https://www.youtube.com/watch?v=QvJuCcG9unM",
+        "video_id": "QvJuCcG9unM"
+      },
+      {
+        "mentions": 1,
+        "title": "The Ultimate Factions Cannons | Minecadia Factions",
+        "url": "https://www.youtube.com/watch?v=XnZpaL7AGAk",
+        "video_id": "XnZpaL7AGAk"
+      }
+    ]
+  },
+  "hybrid": {
+    "source_count": 20,
+    "mention_count": 80,
+    "top_sources": [
+      {
+        "mentions": 14,
+        "title": "Minecraft Factions TnT Cannon tutorial - Two versions; standard and one shot",
+        "url": "https://www.youtube.com/watch?v=5iCa7X_UgUw",
+        "video_id": "5iCa7X_UgUw"
+      },
+      {
+        "mentions": 9,
+        "title": "120 Stacker, AUTO NUKE - Dual Comp, 1 Push. \"Order Of Entities\"",
+        "url": "https://www.youtube.com/watch?v=Rs3frlS3iso",
+        "video_id": "Rs3frlS3iso"
+      },
+      {
+        "mentions": 9,
+        "title": "255 1 Water Bucket Minecraft Cannon w/ Schematic",
+        "url": "https://www.youtube.com/watch?v=8zuuf3HUiL8",
+        "video_id": "8zuuf3HUiL8"
+      },
+      {
+        "mentions": 7,
+        "title": "How to Make a Good Minecraft Hybrid/Sand Stacker Cannon",
+        "url": "https://www.youtube.com/watch?v=Ppz2CAQXbTg",
+        "video_id": "Ppz2CAQXbTg"
+      },
+      {
+        "mentions": 6,
+        "title": "THE BASICS OF TNT CANNONS IN MINECRAFT FACTIONS!!! | Complex",
+        "url": "https://www.youtube.com/watch?v=B7yOJSnfHu4",
+        "video_id": "B7yOJSnfHu4"
+      },
+      {
+        "mentions": 6,
+        "title": "255 3 Second AP OSRB Cannon Showcase w/ Schematic",
+        "url": "https://www.youtube.com/watch?v=j8XFn-zpThc",
+        "video_id": "j8XFn-zpThc"
+      },
+      {
+        "mentions": 6,
+        "title": "1.18 Cannoning Ep 35: Explaining OOE Stacking, OSRB and Overstacking",
+        "url": "https://www.youtube.com/watch?v=j0FSs6kvhug",
+        "video_id": "j0FSs6kvhug"
+      },
+      {
+        "mentions": 5,
+        "title": "[1.19.2] 70+ Chunk AG 384 Stacker [Showcase]",
+        "url": "https://www.youtube.com/watch?v=fuU-Ingk0kI",
+        "video_id": "fuU-Ingk0kI"
+      },
+      {
+        "mentions": 3,
+        "title": "60 Stacker Order Of Entity Nuke [EXPLANATION] [FULL NUKE] [ONE SHOT]",
+        "url": "https://www.youtube.com/watch?v=vdWT3LHsano",
+        "video_id": "vdWT3LHsano"
+      },
+      {
+        "mentions": 2,
+        "title": "255 Stacker Efficient Nuke - WHAT IS NEXT???",
+        "url": "https://www.youtube.com/watch?v=ZR0_9xidOUc",
+        "video_id": "ZR0_9xidOUc"
+      }
+    ]
+  },
+  "efficient_nuke": {
+    "source_count": 16,
+    "mention_count": 46,
+    "top_sources": [
+      {
+        "mentions": 11,
+        "title": "Force Raid Cannon | 3.2/4 Seconds | Anti-Patch | Efficient Nuke | RELEASE",
+        "url": "https://www.youtube.com/watch?v=MEZuKSqzcI0",
+        "video_id": "MEZuKSqzcI0"
+      },
+      {
+        "mentions": 7,
+        "title": "255 OSRB Cannon Release [ Webbust Nuke | Efficient Nuke | Pseudo Nuke ]",
+        "url": "https://www.youtube.com/watch?v=-w3XTxawAsc",
+        "video_id": "-w3XTxawAsc"
+      },
+      {
+        "mentions": 7,
+        "title": "255 3 Second AP OSRB Cannon Showcase w/ Schematic",
+        "url": "https://www.youtube.com/watch?v=j8XFn-zpThc",
+        "video_id": "j8XFn-zpThc"
+      },
+      {
+        "mentions": 4,
+        "title": "How to Cannon - WEBBUST NUKE [5]",
+        "url": "https://www.youtube.com/watch?v=_F6YxSN7Gc4",
+        "video_id": "_F6YxSN7Gc4"
+      },
+      {
+        "mentions": 2,
+        "title": "[Cannon Showcase] Roar's 2.4s 384 stacker Efficient Nuke",
+        "url": "https://www.youtube.com/watch?v=Ob6cC7uCa2I",
+        "video_id": "Ob6cC7uCa2I"
+      },
+      {
+        "mentions": 2,
+        "title": "[Cannon Showcase] Roar's 3s OSRB 384 stacker Efficient Nuke with SB DT and FB",
+        "url": "https://www.youtube.com/watch?v=UG-tqPsX4oA",
+        "video_id": "UG-tqPsX4oA"
+      },
+      {
+        "mentions": 2,
+        "title": "[Cannon Showcase] Roar's 2s 384 stacker Hammerless Efficient Nuke",
+        "url": "https://www.youtube.com/watch?v=f55x7f42mAw",
+        "video_id": "f55x7f42mAw"
+      },
+      {
+        "mentions": 2,
+        "title": "1.5 Second 255 Efficient Nuke Anti-Patch [Release]",
+        "url": "https://www.youtube.com/watch?v=U_WRl60xnuY",
+        "video_id": "U_WRl60xnuY"
+      },
+      {
+        "mentions": 2,
+        "title": "255 Hammerless OSRB [PvpWars] [Cannon Showcase]",
+        "url": "https://www.youtube.com/watch?v=JChb4qwu-RI",
+        "video_id": "JChb4qwu-RI"
+      },
+      {
+        "mentions": 1,
+        "title": "[Cannon Showcase] Roar's 0.5s 1 stacker 384 reverse efficient nuke",
+        "url": "https://www.youtube.com/watch?v=pmbL5b16paA",
+        "video_id": "pmbL5b16paA"
+      }
+    ]
+  },
+  "pseudo_nuke": {
+    "source_count": 3,
+    "mention_count": 4,
+    "top_sources": [
+      {
+        "mentions": 2,
+        "title": "255 OSRB Cannon Release [ Webbust Nuke | Efficient Nuke | Pseudo Nuke ]",
+        "url": "https://www.youtube.com/watch?v=-w3XTxawAsc",
+        "video_id": "-w3XTxawAsc"
+      },
+      {
+        "mentions": 1,
+        "title": "Minecraft | How To Nuke With Any Cannon | Full Tutorial!!!",
+        "url": "https://www.youtube.com/watch?v=jJm12oTgmw4",
+        "video_id": "jJm12oTgmw4"
+      },
+      {
+        "mentions": 1,
+        "title": "\"Order of Entities\" and Goofygoobers Pseudo-Nuke concept explained",
+        "url": "https://www.youtube.com/watch?v=XW2jDY3Qu1E",
+        "video_id": "XW2jDY3Qu1E"
+      }
+    ]
+  },
+  "webbust": {
+    "source_count": 8,
+    "mention_count": 38,
+    "top_sources": [
+      {
+        "mentions": 19,
+        "title": "How to Cannon - WEBBUST NUKE [5]",
+        "url": "https://www.youtube.com/watch?v=_F6YxSN7Gc4",
+        "video_id": "_F6YxSN7Gc4"
+      },
+      {
+        "mentions": 6,
+        "title": "1.18 Cannoning Ep 42: 2s 384 OSRB Part 4",
+        "url": "https://www.youtube.com/watch?v=0krR3P2FkLc",
+        "video_id": "0krR3P2FkLc"
+      },
+      {
+        "mentions": 4,
+        "title": "255 OSRB Cannon Release [ Webbust Nuke | Efficient Nuke | Pseudo Nuke ]",
+        "url": "https://www.youtube.com/watch?v=-w3XTxawAsc",
+        "video_id": "-w3XTxawAsc"
+      },
+      {
+        "mentions": 4,
+        "title": "(1.18 RELEASE) GlassCarpark's 2s 384 OSRB Webbust",
+        "url": "https://www.youtube.com/watch?v=zRR-kBSMDEQ",
+        "video_id": "zRR-kBSMDEQ"
+      },
+      {
+        "mentions": 2,
+        "title": "Panda 3sec Webbust OSRB AP [Showcase+Release]",
+        "url": "https://www.youtube.com/watch?v=ShUDEj0g62w",
+        "video_id": "ShUDEj0g62w"
+      },
+      {
+        "mentions": 1,
+        "title": "Building A 255 4OS OSRB AP Cannon - Finishing Nuke",
+        "url": "https://www.youtube.com/watch?v=lQKlk5dcTNQ",
+        "video_id": "lQKlk5dcTNQ"
+      },
+      {
+        "mentions": 1,
+        "title": "60 Stacker Order Of Entity Nuke [EXPLANATION] [FULL NUKE] [ONE SHOT]",
+        "url": "https://www.youtube.com/watch?v=vdWT3LHsano",
+        "video_id": "vdWT3LHsano"
+      },
+      {
+        "mentions": 1,
+        "title": "Showcase: 3s OSRB webbust AP",
+        "url": "https://www.youtube.com/watch?v=5FlH0E5Tmgs",
+        "video_id": "5FlH0E5Tmgs"
+      }
+    ]
+  },
+  "anti_patch": {
+    "source_count": 4,
+    "mention_count": 27,
+    "top_sources": [
+      {
+        "mentions": 17,
+        "title": "Force Raid Cannon | 3.2/4 Seconds | Anti-Patch | Efficient Nuke | RELEASE",
+        "url": "https://www.youtube.com/watch?v=MEZuKSqzcI0",
+        "video_id": "MEZuKSqzcI0"
+      },
+      {
+        "mentions": 8,
+        "title": "255 3 Second AP OSRB Cannon Showcase w/ Schematic",
+        "url": "https://www.youtube.com/watch?v=j8XFn-zpThc",
+        "video_id": "j8XFn-zpThc"
+      },
+      {
+        "mentions": 1,
+        "title": "1.5 Second 255 Efficient Nuke Anti-Patch [Release]",
+        "url": "https://www.youtube.com/watch?v=U_WRl60xnuY",
+        "video_id": "U_WRl60xnuY"
+      },
+      {
+        "mentions": 1,
+        "title": "Panda 3sec Webbust OSRB AP [Showcase+Release]",
+        "url": "https://www.youtube.com/watch?v=ShUDEj0g62w",
+        "video_id": "ShUDEj0g62w"
+      }
+    ]
+  },
+  "leftshoot": {
+    "source_count": 5,
+    "mention_count": 45,
+    "top_sources": [
+      {
+        "mentions": 33,
+        "title": "100 Stacker Leftshooter Oneshot & Slab Bust- TNT Cannon Tutorial",
+        "url": "https://www.youtube.com/watch?v=oyDZmhqvkoY",
+        "video_id": "oyDZmhqvkoY"
+      },
+      {
+        "mentions": 8,
+        "title": "Infinite Left Shot 255 Cannon Release /w Schematic",
+        "url": "https://www.youtube.com/watch?v=QvJuCcG9unM",
+        "video_id": "QvJuCcG9unM"
+      },
+      {
+        "mentions": 2,
+        "title": "Building A 255 4OS OSRB AP Cannon - Finishing Nuke",
+        "url": "https://www.youtube.com/watch?v=lQKlk5dcTNQ",
+        "video_id": "lQKlk5dcTNQ"
+      },
+      {
+        "mentions": 1,
+        "title": "Minecraft Hammers, Sand Stacking, and Slabbusts ( How to cannon #2 )",
+        "url": "https://www.youtube.com/watch?v=XmMgXvILjxQ",
+        "video_id": "XmMgXvILjxQ"
+      },
+      {
+        "mentions": 1,
+        "title": "How to left shoot minecraft 2020 (factions) (cannoning)",
+        "url": "https://www.youtube.com/watch?v=EMujUfi4Nfg",
+        "video_id": "EMujUfi4Nfg"
+      }
+    ]
+  },
+  "reverse": {
+    "source_count": 7,
+    "mention_count": 35,
+    "top_sources": [
+      {
+        "mentions": 13,
+        "title": "100 Stacker Leftshooter Oneshot & Slab Bust- TNT Cannon Tutorial",
+        "url": "https://www.youtube.com/watch?v=oyDZmhqvkoY",
+        "video_id": "oyDZmhqvkoY"
+      },
+      {
+        "mentions": 10,
+        "title": "120 Stacker, AUTO NUKE - Dual Comp, 1 Push. \"Order Of Entities\"",
+        "url": "https://www.youtube.com/watch?v=Rs3frlS3iso",
+        "video_id": "Rs3frlS3iso"
+      },
+      {
+        "mentions": 8,
+        "title": "60 Stacker, AUTO NUKE - Dual Comp, 1 Push. \"Order Of Entities\"",
+        "url": "https://www.youtube.com/watch?v=77hhu87nAlc",
+        "video_id": "77hhu87nAlc"
+      },
+      {
+        "mentions": 1,
+        "title": "[Cannon Showcase] Roar's 0.5s 1 stacker 384 reverse efficient nuke",
+        "url": "https://www.youtube.com/watch?v=pmbL5b16paA",
+        "video_id": "pmbL5b16paA"
+      },
+      {
+        "mentions": 1,
+        "title": "1.5 Second 255 Efficient Nuke Anti-Patch [Release]",
+        "url": "https://www.youtube.com/watch?v=U_WRl60xnuY",
+        "video_id": "U_WRl60xnuY"
+      },
+      {
+        "mentions": 1,
+        "title": "200 Stacker, AUTO NUKE - Dual Comp, 1 Push. \"Order Of Entities\"",
+        "url": "https://www.youtube.com/watch?v=1mgE53qUkeA",
+        "video_id": "1mgE53qUkeA"
+      },
+      {
+        "mentions": 1,
+        "title": "Auto Reverse Hybrid [Release] \"Alien Probe\"",
+        "url": "https://www.youtube.com/watch?v=uAx5beByc0E",
+        "video_id": "uAx5beByc0E"
+      }
+    ]
+  },
+  "rev_hybrid": {
+    "source_count": 3,
+    "mention_count": 8,
+    "top_sources": [
+      {
+        "mentions": 6,
+        "title": "1.18 Cannoning Ep 35: Explaining OOE Stacking, OSRB and Overstacking",
+        "url": "https://www.youtube.com/watch?v=j0FSs6kvhug",
+        "video_id": "j0FSs6kvhug"
+      },
+      {
+        "mentions": 1,
+        "title": "120 Stacker, AUTO NUKE - Dual Comp, 1 Push. \"Order Of Entities\"",
+        "url": "https://www.youtube.com/watch?v=Rs3frlS3iso",
+        "video_id": "Rs3frlS3iso"
+      },
+      {
+        "mentions": 1,
+        "title": "Auto Reverse Hybrid [Release] \"Alien Probe\"",
+        "url": "https://www.youtube.com/watch?v=uAx5beByc0E",
+        "video_id": "uAx5beByc0E"
+      }
+    ]
+  },
+  "push_nuke": {
+    "source_count": 0,
+    "mention_count": 0,
+    "top_sources": []
+  },
+  "up_down": {
+    "source_count": 2,
+    "mention_count": 2,
+    "top_sources": [
+      {
+        "mentions": 1,
+        "title": "1.18 Cannoning Ep 35: Explaining OOE Stacking, OSRB and Overstacking",
+        "url": "https://www.youtube.com/watch?v=j0FSs6kvhug",
+        "video_id": "j0FSs6kvhug"
+      },
+      {
+        "mentions": 1,
+        "title": "120 Stacker, AUTO NUKE - Dual Comp, 1 Push. \"Order Of Entities\"",
+        "url": "https://www.youtube.com/watch?v=Rs3frlS3iso",
+        "video_id": "Rs3frlS3iso"
+      }
+    ]
+  },
+  "alien_probe": {
+    "source_count": 1,
+    "mention_count": 1,
+    "top_sources": [
+      {
+        "mentions": 1,
+        "title": "Auto Reverse Hybrid [Release] \"Alien Probe\"",
+        "url": "https://www.youtube.com/watch?v=uAx5beByc0E",
+        "video_id": "uAx5beByc0E"
+      }
+    ]
+  },
+  "worm": {
+    "source_count": 1,
+    "mention_count": 3,
+    "top_sources": [
+      {
+        "mentions": 3,
+        "title": "1.18 Cannoning Ep 35: Explaining OOE Stacking, OSRB and Overstacking",
+        "url": "https://www.youtube.com/watch?v=j0FSs6kvhug",
+        "video_id": "j0FSs6kvhug"
+      }
+    ]
+  },
+  "midair": {
+    "source_count": 2,
+    "mention_count": 2,
+    "top_sources": [
+      {
+        "mentions": 1,
+        "title": "How to Cannon - WEBBUST NUKE [5]",
+        "url": "https://www.youtube.com/watch?v=_F6YxSN7Gc4",
+        "video_id": "_F6YxSN7Gc4"
+      },
+      {
+        "mentions": 1,
+        "title": "Minecraft: Factions Tips & Tricks  - Basic TNT Cannons - 1",
+        "url": "https://www.youtube.com/watch?v=Y6kfMA9_X0U",
+        "video_id": "Y6kfMA9_X0U"
+      }
+    ]
+  },
+  "splitter_fusion": {
+    "source_count": 5,
+    "mention_count": 19,
+    "top_sources": [
+      {
+        "mentions": 9,
+        "title": "[1.18.2+] .7 second 200 nuke release & showcase | Special sandcomp!",
+        "url": "https://www.youtube.com/watch?v=lVzW-8DlAxo",
+        "video_id": "lVzW-8DlAxo"
+      },
+      {
+        "mentions": 4,
+        "title": "100 Stacker Leftshooter Oneshot & Slab Bust- TNT Cannon Tutorial",
+        "url": "https://www.youtube.com/watch?v=oyDZmhqvkoY",
+        "video_id": "oyDZmhqvkoY"
+      },
+      {
+        "mentions": 3,
+        "title": "255 Hammerless OSRB [PvpWars] [Cannon Showcase]",
+        "url": "https://www.youtube.com/watch?v=JChb4qwu-RI",
+        "video_id": "JChb4qwu-RI"
+      },
+      {
+        "mentions": 2,
+        "title": "Building A 255 4OS OSRB AP Cannon - Finishing Nuke",
+        "url": "https://www.youtube.com/watch?v=lQKlk5dcTNQ",
+        "video_id": "lQKlk5dcTNQ"
+      },
+      {
+        "mentions": 1,
+        "title": "1.18 Cannoning Ep 35: Explaining OOE Stacking, OSRB and Overstacking",
+        "url": "https://www.youtube.com/watch?v=j0FSs6kvhug",
+        "video_id": "j0FSs6kvhug"
+      }
+    ]
+  },
+  "slab_bust": {
+    "source_count": 18,
+    "mention_count": 58,
+    "top_sources": [
+      {
+        "mentions": 11,
+        "title": "1.18 Cannoning Ep 35: Explaining OOE Stacking, OSRB and Overstacking",
+        "url": "https://www.youtube.com/watch?v=j0FSs6kvhug",
+        "video_id": "j0FSs6kvhug"
+      },
+      {
+        "mentions": 11,
+        "title": "Minecraft Hammers, Sand Stacking, and Slabbusts ( How to cannon #2 )",
+        "url": "https://www.youtube.com/watch?v=XmMgXvILjxQ",
+        "video_id": "XmMgXvILjxQ"
+      },
+      {
+        "mentions": 8,
+        "title": "100 Stacker Leftshooter Oneshot & Slab Bust- TNT Cannon Tutorial",
+        "url": "https://www.youtube.com/watch?v=oyDZmhqvkoY",
+        "video_id": "oyDZmhqvkoY"
+      },
+      {
+        "mentions": 7,
+        "title": "Minecraft Factions TnT Cannon tutorial - Two versions; standard and one shot",
+        "url": "https://www.youtube.com/watch?v=5iCa7X_UgUw",
+        "video_id": "5iCa7X_UgUw"
+      },
+      {
+        "mentions": 4,
+        "title": "255 3 Second AP OSRB Cannon Showcase w/ Schematic",
+        "url": "https://www.youtube.com/watch?v=j8XFn-zpThc",
+        "video_id": "j8XFn-zpThc"
+      },
+      {
+        "mentions": 3,
+        "title": "255 1 Water Bucket Minecraft Cannon w/ Schematic",
+        "url": "https://www.youtube.com/watch?v=8zuuf3HUiL8",
+        "video_id": "8zuuf3HUiL8"
+      },
+      {
+        "mentions": 2,
+        "title": "255 OSRB Cannon Release [ Webbust Nuke | Efficient Nuke | Pseudo Nuke ]",
+        "url": "https://www.youtube.com/watch?v=-w3XTxawAsc",
+        "video_id": "-w3XTxawAsc"
+      },
+      {
+        "mentions": 2,
+        "title": "[1.18.2+] .7 second 200 nuke release & showcase | Special sandcomp!",
+        "url": "https://www.youtube.com/watch?v=lVzW-8DlAxo",
+        "video_id": "lVzW-8DlAxo"
+      },
+      {
+        "mentions": 1,
+        "title": "The Ultimate Factions Cannons | Minecadia Factions",
+        "url": "https://www.youtube.com/watch?v=XnZpaL7AGAk",
+        "video_id": "XnZpaL7AGAk"
+      },
+      {
+        "mentions": 1,
+        "title": "[Cannon Showcase] Roar's 2.4s 384 stacker Efficient Nuke",
+        "url": "https://www.youtube.com/watch?v=Ob6cC7uCa2I",
+        "video_id": "Ob6cC7uCa2I"
+      }
+    ]
+  },
+  "tunnel": {
+    "source_count": 2,
+    "mention_count": 5,
+    "top_sources": [
+      {
+        "mentions": 3,
+        "title": "Building A 255 4OS OSRB AP Cannon - Finishing Nuke",
+        "url": "https://www.youtube.com/watch?v=lQKlk5dcTNQ",
+        "video_id": "lQKlk5dcTNQ"
+      },
+      {
+        "mentions": 2,
+        "title": "Minecraft Hammers, Sand Stacking, and Slabbusts ( How to cannon #2 )",
+        "url": "https://www.youtube.com/watch?v=XmMgXvILjxQ",
+        "video_id": "XmMgXvILjxQ"
+      }
+    ]
+  },
+  "double_tap": {
+    "source_count": 8,
+    "mention_count": 58,
+    "top_sources": [
+      {
+        "mentions": 32,
+        "title": "255 3 Second AP OSRB Cannon Showcase w/ Schematic",
+        "url": "https://www.youtube.com/watch?v=j8XFn-zpThc",
+        "video_id": "j8XFn-zpThc"
+      },
+      {
+        "mentions": 10,
+        "title": "255 1 Water Bucket Minecraft Cannon w/ Schematic",
+        "url": "https://www.youtube.com/watch?v=8zuuf3HUiL8",
+        "video_id": "8zuuf3HUiL8"
+      },
+      {
+        "mentions": 8,
+        "title": "255 OSRB Cannon Release [ Webbust Nuke | Efficient Nuke | Pseudo Nuke ]",
+        "url": "https://www.youtube.com/watch?v=-w3XTxawAsc",
+        "video_id": "-w3XTxawAsc"
+      },
+      {
+        "mentions": 4,
+        "title": "Infinite Left Shot 255 Cannon Release /w Schematic",
+        "url": "https://www.youtube.com/watch?v=QvJuCcG9unM",
+        "video_id": "QvJuCcG9unM"
+      },
+      {
+        "mentions": 1,
+        "title": "[Cannon Showcase] Roar's 3s OSRB 384 stacker Efficient Nuke with SB DT and FB",
+        "url": "https://www.youtube.com/watch?v=UG-tqPsX4oA",
+        "video_id": "UG-tqPsX4oA"
+      },
+      {
+        "mentions": 1,
+        "title": "[1.19.2] 70+ Chunk AG 384 Stacker [Showcase]",
+        "url": "https://www.youtube.com/watch?v=fuU-Ingk0kI",
+        "video_id": "fuU-Ingk0kI"
+      },
+      {
+        "mentions": 1,
+        "title": "255 Hammerless OSRB [PvpWars] [Cannon Showcase]",
+        "url": "https://www.youtube.com/watch?v=JChb4qwu-RI",
+        "video_id": "JChb4qwu-RI"
+      },
+      {
+        "mentions": 1,
+        "title": "(1.18 RELEASE) GlassCarpark's 1.6s 256 Hammerless Sidecounter",
+        "url": "https://www.youtube.com/watch?v=0ez3ng89XQI",
+        "video_id": "0ez3ng89XQI"
+      }
+    ]
+  },
+  "384": {
+    "source_count": 13,
+    "mention_count": 33,
+    "top_sources": [
+      {
+        "mentions": 7,
+        "title": "How To Use Cannons in Minecraft Factions.. (FULL GUIDE)",
+        "url": "https://www.youtube.com/watch?v=_v6nRG2tGVI",
+        "video_id": "_v6nRG2tGVI"
+      },
+      {
+        "mentions": 5,
+        "title": "(1.18 RELEASE) GlassCarpark's 1.6s 384 Hammerless OSRB (old)",
+        "url": "https://www.youtube.com/watch?v=g4oRrTllFfw",
+        "video_id": "g4oRrTllFfw"
+      },
+      {
+        "mentions": 4,
+        "title": "(1.18 RELEASE) GlassCarpark's 2s 384 OSRB Webbust",
+        "url": "https://www.youtube.com/watch?v=zRR-kBSMDEQ",
+        "video_id": "zRR-kBSMDEQ"
+      },
+      {
+        "mentions": 3,
+        "title": "[1.19.2] 70+ Chunk AG 384 Stacker [Showcase]",
+        "url": "https://www.youtube.com/watch?v=fuU-Ingk0kI",
+        "video_id": "fuU-Ingk0kI"
+      },
+      {
+        "mentions": 3,
+        "title": "1.18 Cannoning Ep 42: 2s 384 OSRB Part 4",
+        "url": "https://www.youtube.com/watch?v=0krR3P2FkLc",
+        "video_id": "0krR3P2FkLc"
+      },
+      {
+        "mentions": 2,
+        "title": "[1.19.2] AG 384 Stacker Proof of Concept",
+        "url": "https://www.youtube.com/watch?v=j6iClipfENM",
+        "video_id": "j6iClipfENM"
+      },
+      {
+        "mentions": 2,
+        "title": "CANNON RELEASE - PWM 384 1s OSRB + NUKE",
+        "url": "https://www.youtube.com/watch?v=-Nn9ZN9g0v0",
+        "video_id": "-Nn9ZN9g0v0"
+      },
+      {
+        "mentions": 2,
+        "title": "384 TNT SHOT CANNON (MINECRAFT)",
+        "url": "https://www.youtube.com/watch?v=Yu5znDe0oYg",
+        "video_id": "Yu5znDe0oYg"
+      },
+      {
+        "mentions": 1,
+        "title": "[Cannon Showcase] Roar's 0.5s 1 stacker 384 reverse efficient nuke",
+        "url": "https://www.youtube.com/watch?v=pmbL5b16paA",
+        "video_id": "pmbL5b16paA"
+      },
+      {
+        "mentions": 1,
+        "title": "[Cannon Showcase] Roar's 2.4s 384 stacker Efficient Nuke",
+        "url": "https://www.youtube.com/watch?v=Ob6cC7uCa2I",
+        "video_id": "Ob6cC7uCa2I"
+      }
+    ]
+  },
+  "255": {
+    "source_count": 22,
+    "mention_count": 77,
+    "top_sources": [
+      {
+        "mentions": 11,
+        "title": "255 3 Second AP OSRB Cannon Showcase w/ Schematic",
+        "url": "https://www.youtube.com/watch?v=j8XFn-zpThc",
+        "video_id": "j8XFn-zpThc"
+      },
+      {
+        "mentions": 8,
+        "title": "255 Hammerless OSRB [PvpWars] [Cannon Showcase]",
+        "url": "https://www.youtube.com/watch?v=JChb4qwu-RI",
+        "video_id": "JChb4qwu-RI"
+      },
+      {
+        "mentions": 8,
+        "title": "255 1 Water Bucket Minecraft Cannon w/ Schematic",
+        "url": "https://www.youtube.com/watch?v=8zuuf3HUiL8",
+        "video_id": "8zuuf3HUiL8"
+      },
+      {
+        "mentions": 6,
+        "title": "255 OSRB Cannon Release [ Webbust Nuke | Efficient Nuke | Pseudo Nuke ]",
+        "url": "https://www.youtube.com/watch?v=-w3XTxawAsc",
+        "video_id": "-w3XTxawAsc"
+      },
+      {
+        "mentions": 6,
+        "title": "THE BASICS OF TNT CANNONS IN MINECRAFT FACTIONS!!! | Complex",
+        "url": "https://www.youtube.com/watch?v=B7yOJSnfHu4",
+        "video_id": "B7yOJSnfHu4"
+      },
+      {
+        "mentions": 6,
+        "title": "255 Stacker Efficient Nuke - WHAT IS NEXT???",
+        "url": "https://www.youtube.com/watch?v=ZR0_9xidOUc",
+        "video_id": "ZR0_9xidOUc"
+      },
+      {
+        "mentions": 5,
+        "title": "HOW TO FACTIONS... TNT CANNONING 101 (Countering & Raiding) *Schematica/Printer Tutorial*",
+        "url": "https://www.youtube.com/watch?v=Fs0Xkauuid4",
+        "video_id": "Fs0Xkauuid4"
+      },
+      {
+        "mentions": 4,
+        "title": "255 Full Nuke OSRB (Release)",
+        "url": "https://www.youtube.com/watch?v=GZoa0Y_I2I4",
+        "video_id": "GZoa0Y_I2I4"
+      },
+      {
+        "mentions": 3,
+        "title": "13 HIGH PATCHCRUMBS BYPASS OVERSTACKER (CANNON RELEASE!)",
+        "url": "https://www.youtube.com/watch?v=dj7mg2cWevQ",
+        "video_id": "dj7mg2cWevQ"
+      },
+      {
+        "mentions": 3,
+        "title": "Infinite Left Shot 255 Cannon Release /w Schematic",
+        "url": "https://www.youtube.com/watch?v=QvJuCcG9unM",
+        "video_id": "QvJuCcG9unM"
+      }
+    ]
+  },
+  "hammerless": {
+    "source_count": 6,
+    "mention_count": 13,
+    "top_sources": [
+      {
+        "mentions": 5,
+        "title": "255 Hammerless OSRB [PvpWars] [Cannon Showcase]",
+        "url": "https://www.youtube.com/watch?v=JChb4qwu-RI",
+        "video_id": "JChb4qwu-RI"
+      },
+      {
+        "mentions": 3,
+        "title": "(1.18 RELEASE) GlassCarpark's 1.6s 256 Hammerless Sidecounter",
+        "url": "https://www.youtube.com/watch?v=0ez3ng89XQI",
+        "video_id": "0ez3ng89XQI"
+      },
+      {
+        "mentions": 2,
+        "title": "[Cannon Showcase] Roar's 2s 384 stacker Hammerless Efficient Nuke",
+        "url": "https://www.youtube.com/watch?v=f55x7f42mAw",
+        "video_id": "f55x7f42mAw"
+      },
+      {
+        "mentions": 1,
+        "title": "How to Cannon - 1 REV + BARREL STACK [8]",
+        "url": "https://www.youtube.com/watch?v=Bhildy0Onf8",
+        "video_id": "Bhildy0Onf8"
+      },
+      {
+        "mentions": 1,
+        "title": "(1.18 RELEASE) GlassCarpark's 1.6s 384 Hammerless OSRB (old)",
+        "url": "https://www.youtube.com/watch?v=g4oRrTllFfw",
+        "video_id": "g4oRrTllFfw"
+      },
+      {
+        "mentions": 1,
+        "title": "Minecraft Hammers, Sand Stacking, and Slabbusts ( How to cannon #2 )",
+        "url": "https://www.youtube.com/watch?v=XmMgXvILjxQ",
+        "video_id": "XmMgXvILjxQ"
+      }
+    ]
+  },
+  "force": {
+    "source_count": 2,
+    "mention_count": 4,
+    "top_sources": [
+      {
+        "mentions": 3,
+        "title": "Force Raid Cannon | 3.2/4 Seconds | Anti-Patch | Efficient Nuke | RELEASE",
+        "url": "https://www.youtube.com/watch?v=MEZuKSqzcI0",
+        "video_id": "MEZuKSqzcI0"
+      },
+      {
+        "mentions": 1,
+        "title": "Agarz 360 Cannon Release | Complex",
+        "url": "https://www.youtube.com/watch?v=Sdy9UwFdre4",
+        "video_id": "Sdy9UwFdre4"
+      }
+    ]
+  },
+  "asser": {
+    "source_count": 0,
+    "mention_count": 0,
+    "top_sources": []
+  }
+}

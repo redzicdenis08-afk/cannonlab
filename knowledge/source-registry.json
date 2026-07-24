@@ -1,0 +1,118 @@
+{
+  "schema": "cannonlab-source-registry-v1",
+  "rules": {
+    "geometry": "A schematic proves only decoded block geometry and block states.",
+    "historical": "Old guides and videos generate hypotheses; they do not prove current Sakura or ExtremeCraft behavior.",
+    "local_runtime": "Paper/Sakura telemetry proves only the exact local build, scenario, and configuration used.",
+    "field": "ExtremeCraft claims require a recorded live canary or full field run."
+  },
+  "sources": [
+    {
+      "id": "historical-2019-1.12.2-cannon-guide",
+      "title": "1.12.2 factions cannoning guide",
+      "date": "2019-05-05",
+      "path": "knowledge/sources/2019-05-05-factions-cannon-guide.md",
+      "evidence_level": "historical-hypothesis",
+      "use_for": [
+        "vocabulary",
+        "booster/main-power/hybrid/compressor/hammer/guider decomposition",
+        "repeater-path timing experiments",
+        "entity-order experiments",
+        "slab-bust and tunnel-effect test design"
+      ],
+      "never_promote_directly": [
+        "exact timing",
+        "hammer-to-sand ratios",
+        "Y-before-X/Z as a universal law",
+        "slab count per TNT",
+        "ExtremeCraft readiness"
+      ]
+    },
+    {
+      "id": "cannonlab-defense-models",
+      "title": "CannonLab deterministic defense models",
+      "path": "docs/DEFENSE_MODELS.md",
+      "evidence_level": "local-model-definition",
+      "use_for": [
+        "dry walls",
+        "watered walls",
+        "regen walls",
+        "filters",
+        "slab filters",
+        "hotdog lanes",
+        "pillars",
+        "mixed courses"
+      ],
+      "never_promote_directly": [
+        "private ExtremeCraft wall order",
+        "private regeneration algorithm"
+      ]
+    },
+    {
+      "id": "cannonlab-field-workflow",
+      "title": "Field-faithful empty-paste, settle, fill and fire workflow",
+      "path": "docs/FIELD_WORKFLOW.md",
+      "evidence_level": "local-workflow-contract",
+      "use_for": [
+        "button and redstone input testing",
+        "paste-order tests",
+        "repeatable field-style scenarios"
+      ],
+      "never_promote_directly": [
+        "FAWE parity without a live canary"
+      ]
+    },
+    {
+      "id": "cannonlab-module-intelligence",
+      "title": "Reference-first module intelligence",
+      "path": "docs/MODULE_INTELLIGENCE.md",
+      "evidence_level": "repository-contract",
+      "use_for": [
+        "reference preservation",
+        "bounded edits",
+        "module mapping",
+        "runtime trace comparison"
+      ],
+      "never_promote_directly": [
+        "invented subsystem labels from shape alone"
+      ]
+    },
+    {
+      "id": "extremecraft-calibration-contract",
+      "title": "ExtremeCraft black-box calibration contract",
+      "path": "docs/EXTREMECRAFT_CALIBRATION.md",
+      "evidence_level": "field-protocol",
+      "use_for": [
+        "live canary design",
+        "physics fingerprint comparison",
+        "EC promotion gates"
+      ],
+      "never_promote_directly": [
+        "local Sakura results as live EC proof"
+      ]
+    },
+    {
+      "id": "cannoning-video-concept-corpus",
+      "title": "Transcript-derived cannoning concept corpus",
+      "paths": [
+        "knowledge/research/concept-coverage.json",
+        "knowledge/research/concept-contexts.md"
+      ],
+      "evidence_level": "transcript-derived-hypothesis",
+      "coverage": {
+        "concepts": 27,
+        "unique_top_source_urls": 51
+      },
+      "use_for": [
+        "locating explanations and demonstrations for OSRB, OOE, overstack, hammer, nuke, leftshoot, slab-bust, web-bust and related vocabulary",
+        "building targeted experiments",
+        "finding candidate reference designs and operator procedures"
+      ],
+      "never_promote_directly": [
+        "transcript wording as engine truth",
+        "video demonstration as current Sakura parity",
+        "showcase claims as live ExtremeCraft proof"
+      ]
+    }
+  ]
+}

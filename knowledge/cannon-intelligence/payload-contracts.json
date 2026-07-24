@@ -1,0 +1,45 @@
+{
+  "schema": "cannonlab-archetype-payload-contracts-v1",
+  "truth_boundary": "Payload mode is an archetype contract, not a guess from geometry. Unknown or conflicting combinations fail closed. TNT-only does not imply watered-defense capability; falling-block-required still needs measured runtime overlap and impact evidence.",
+  "modes": {
+    "falling-block-required": {
+      "require_any_payload": true,
+      "require_falling_block": true,
+      "watered_promotion_allowed": true
+    },
+    "tnt-only": {
+      "require_any_payload": true,
+      "require_falling_block": false,
+      "watered_promotion_allowed": false
+    }
+  },
+  "base_architectures": {
+    "hammered-stacker": "falling-block-required",
+    "hammerless-stacker": "falling-block-required",
+    "asser-multiwave": "falling-block-required",
+    "rev-worm": "tnt-only",
+    "anti-gravity-stacker": "falling-block-required",
+    "force-or-counter": "explicit-selection-required",
+    "compact-calibration-stacker": "explicit-selection-required"
+  },
+  "specializations": {
+    "hybrid": "falling-block-required",
+    "overstack": "falling-block-required",
+    "osrb": "falling-block-required",
+    "efficient-nuke": "payload-interface-compatible",
+    "webbust-nuke": "payload-interface-compatible",
+    "pseudo-nuke": "payload-interface-compatible",
+    "push-nuke": "unknown-blocked",
+    "up-down-nuke": "payload-interface-compatible",
+    "left-right-shoot": "payload-interface-compatible",
+    "reverse-hybrid": "falling-block-required",
+    "worm-route": "payload-interface-compatible",
+    "midair-or-l-stack": "payload-interface-compatible",
+    "slab-bust": "falling-block-required",
+    "tunnel-effect": "payload-interface-compatible",
+    "anti-patch": "payload-interface-compatible",
+    "bypass": "payload-interface-compatible",
+    "double-tap": "payload-interface-compatible",
+    "alien-probe": "unknown-blocked"
+  }
+}

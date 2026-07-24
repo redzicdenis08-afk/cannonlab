@@ -1,0 +1,172 @@
+name: General Cannon Engineering
+
+on:
+  pull_request:
+    paths:
+      - 'knowledge/cannon-concepts.jsonl'
+      - 'knowledge/archetypes/**'
+      - 'knowledge/cannon-intelligence/**'
+      - 'policy/**'
+      - 'scripts/cannon-archetype-engine.py'
+      - 'scripts/cannon-forge.py'
+      - 'scripts/cannon-mutator.py'
+      - 'scripts/cannon-operator.py'
+      - 'scripts/analyze-output-corridor.py'
+      - 'scripts/run-forge-campaign.ps1'
+      - 'scripts/cannon-variant-search.py'
+      - 'scripts/cannon-variant-scorecard.py'
+      - 'scripts/general-cannon-intelligence.py'
+      - 'scripts/private-corpus-regression.py'
+      - 'scripts/validate-cannon-architecture.py'
+      - 'scripts/test-cannon-archetype-engine.py'
+      - 'scripts/test-cannon-forge.py'
+      - 'scripts/test-cannon-mutator.py'
+      - 'scripts/test-cannon-operator.py'
+      - 'scripts/test-cannon-variant-search.py'
+      - 'scripts/test-cannon-variant-scorecard.py'
+      - 'scripts/test-general-cannon-mcp.py'
+      - 'scripts/test-general-cannon-intelligence.py'
+      - 'scripts/test-output-corridor.py'
+      - 'scripts/test-prefire-control-state.py'
+      - 'scripts/test-private-corpus-regression.py'
+      - 'scripts/test-cannon-architecture-policy.py'
+      - 'skills/cannon-archetype-engine/**'
+      - 'skills/cannon-architecture-guardrails/**'
+      - 'skills/general-cannon-intelligence/**'
+      - '.github/workflows/general-cannon-intelligence.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'knowledge/cannon-concepts.jsonl'
+      - 'knowledge/archetypes/**'
+      - 'knowledge/cannon-intelligence/**'
+      - 'policy/**'
+      - 'scripts/cannon-archetype-engine.py'
+      - 'scripts/cannon-forge.py'
+      - 'scripts/cannon-mutator.py'
+      - 'scripts/cannon-operator.py'
+      - 'scripts/analyze-output-corridor.py'
+      - 'scripts/run-forge-campaign.ps1'
+      - 'scripts/cannon-variant-search.py'
+      - 'scripts/cannon-variant-scorecard.py'
+      - 'scripts/general-cannon-intelligence.py'
+      - 'scripts/private-corpus-regression.py'
+      - 'scripts/validate-cannon-architecture.py'
+      - 'scripts/test-cannon-archetype-engine.py'
+      - 'scripts/test-cannon-forge.py'
+      - 'scripts/test-cannon-mutator.py'
+      - 'scripts/test-cannon-operator.py'
+      - 'scripts/test-cannon-variant-search.py'
+      - 'scripts/test-cannon-variant-scorecard.py'
+      - 'scripts/test-general-cannon-mcp.py'
+      - 'scripts/test-general-cannon-intelligence.py'
+      - 'scripts/test-output-corridor.py'
+      - 'scripts/test-prefire-control-state.py'
+      - 'scripts/test-private-corpus-regression.py'
+      - 'scripts/test-cannon-architecture-policy.py'
+      - 'skills/cannon-archetype-engine/**'
+      - 'skills/cannon-architecture-guardrails/**'
+      - 'skills/general-cannon-intelligence/**'
+      - '.github/workflows/general-cannon-intelligence.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify-general-cannon-engineering:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pinned NBT dependency
+        run: python -m pip install nbtlib==2.0.4
+
+      - name: Compile general cannon tools
+        run: |
+          python -m py_compile \
+            scripts/cannon-archetype-engine.py \
+            scripts/cannon-forge.py \
+            scripts/cannon-mutator.py \
+            scripts/cannon-operator.py \
+            scripts/analyze-output-corridor.py \
+            scripts/cannon-variant-search.py \
+            scripts/cannon-variant-scorecard.py \
+            scripts/general-cannon-intelligence.py \
+            scripts/private-corpus-regression.py \
+            scripts/validate-cannon-architecture.py \
+            scripts/test-cannon-archetype-engine.py \
+            scripts/test-cannon-forge.py \
+            scripts/test-cannon-mutator.py \
+            scripts/test-cannon-operator.py \
+            scripts/test-cannon-variant-search.py \
+            scripts/test-cannon-variant-scorecard.py \
+            scripts/test-general-cannon-mcp.py \
+            scripts/test-general-cannon-intelligence.py \
+            scripts/test-output-corridor.py \
+            scripts/test-prefire-control-state.py \
+            scripts/test-private-corpus-regression.py \
+            scripts/test-cannon-architecture-policy.py
+
+      - name: Prove archetype contracts
+        run: python scripts/test-cannon-archetype-engine.py
+
+      - name: Prove architecture guardrails
+        run: python scripts/test-cannon-architecture-policy.py
+
+      - name: Prove bounded NBT-preserving schematic mutation
+        run: python scripts/test-cannon-mutator.py
+
+      - name: Prove archetype payload, control-state and campaign contracts
+        run: python scripts/test-cannon-forge.py
+
+      - name: Prove measured output-corridor repeatability
+        run: python scripts/test-output-corridor.py
+
+      - name: Prove pre-fire control-state scenario auditing
+        run: python scripts/test-prefire-control-state.py
+
+      - name: Prove general family planning and fail-closed composition
+        run: python scripts/test-general-cannon-intelligence.py
+
+      - name: Prove one-command operator orchestration
+        run: python scripts/test-cannon-operator.py
+
+      - name: Prove deterministic bounded variant search
+        run: python scripts/test-cannon-variant-search.py
+
+      - name: Prove conservative runtime scorecard extraction
+        run: python scripts/test-cannon-variant-scorecard.py
+
+      - name: Prove general cannon MCP exposure
+        run: python scripts/test-general-cannon-mcp.py
+
+      - name: Prove private corpus hash and drift regression
+        run: python scripts/test-private-corpus-regression.py
+
+      - name: Require every local intelligence infrastructure level
+        run: |
+          python scripts/general-cannon-intelligence.py audit --require diagnostic-prototype
+          python scripts/general-cannon-intelligence.py audit --require local-candidate
+          python scripts/general-cannon-intelligence.py audit --require ec-ready
+          python scripts/general-cannon-intelligence.py audit --require operator-ready
+
+      - name: Record infrastructure readiness without promoting a specific cannon
+        run: python scripts/general-cannon-intelligence.py --json-out general-cannon-readiness.json audit
+
+      - name: Upload readiness evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: general-cannon-readiness-${{ github.run_number }}
+          path: general-cannon-readiness.json
+          if-no-files-found: error
+          retention-days: 30

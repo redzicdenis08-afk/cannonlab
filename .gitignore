@@ -7,3 +7,8 @@ lab-artifacts/
 server/
 __pycache__/
 *.pyc
+forge-jobs/
+operator-jobs/
+mutation-jobs/
+variant-jobs/
+corpus-regressions/

@@ -1,0 +1,92 @@
+{
+  "schema": "cannonlab-modern-architecture-policy-v1",
+  "description": "Fail-closed guardrails for modern factions cannon generation, repair, promotion, and claim language.",
+  "allowed_intents": [
+    "calibration",
+    "diagnostic-prototype",
+    "modern-raid"
+  ],
+  "allowed_source_modes": [
+    "reference-repair",
+    "bounded-variant",
+    "from-scratch"
+  ],
+  "allowed_lifecycles": [
+    "diagnostic-prototype",
+    "reference-repair",
+    "local-candidate",
+    "ec-candidate",
+    "ec-ready"
+  ],
+  "allowed_role_evidence": [
+    "unknown",
+    "community",
+    "static",
+    "runtime",
+    "field"
+  ],
+  "allowed_role_status": [
+    "unknown",
+    "candidate",
+    "confirmed"
+  ],
+  "allowed_edge_mechanisms": [
+    "explosion-push",
+    "collision-redirect",
+    "piston-alignment",
+    "gravity-transfer",
+    "fluid-guidance",
+    "unknown"
+  ],
+  "allowed_edge_status": [
+    "planned",
+    "observed",
+    "verified",
+    "unknown"
+  ],
+  "allowed_claims": [
+    "diagnostic",
+    "local-runtime",
+    "working",
+    "fixed",
+    "one-shot",
+    "ec-ready"
+  ],
+  "promotion_claims": [
+    "working",
+    "fixed",
+    "one-shot"
+  ],
+  "rules": {
+    "modern_raid_requires_reference": true,
+    "modern_raid_forbids_from_scratch": true,
+    "modern_raid_requires_geometry_profile_pass": true,
+    "modern_raid_requires_morphology_pass": true,
+    "modern_raid_requires_preservation_pass": true,
+    "minimum_stages": 2,
+    "minimum_impulse_edges": 1,
+    "require_explosion_push_edge": true,
+    "confirmed_role_requires_runtime_or_field": true,
+    "local_candidate_requires_verified_edges": true,
+    "local_candidate_requires_native_redstone": true,
+    "local_candidate_forbids_direct_dispense": true,
+    "local_candidate_forbids_forced_velocity": true,
+    "local_candidate_forbids_tnt_probe": true,
+    "local_candidate_forbids_simulated_durability": true,
+    "local_candidate_forbids_suppressed_paste_side_effects": true,
+    "local_candidate_requires_acceptance_pass": true,
+    "one_shot_claim_requires_explicit_contract": true,
+    "default_max_modules_touched": 1,
+    "multi_module_change_requires_override": true,
+    "ec_ready_requires_field_verified": true,
+    "ec_ready_requires_live_canary_pass": true
+  },
+  "truth_boundaries": [
+    "Static geometry can identify candidates, not confirmed cannon roles.",
+    "A structural morphology pass is an anti-pancake gate, not proof of functionality.",
+    "Public Paper or Sakura runtime is local evidence only and cannot prove ExtremeCraft parity.",
+    "Direct dispense, forced velocity, TNT probes, simulated durability, or suppressed paste side effects are diagnostic assists and cannot promote a modern raid candidate.",
+    "Filenames and community labels do not prove subsystem identity.",
+    "No evidence pack means no working, fixed, one-shot, or EC-ready claim."
+  ]
+}

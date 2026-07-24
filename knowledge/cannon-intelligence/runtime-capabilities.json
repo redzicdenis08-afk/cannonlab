@@ -1,0 +1,230 @@
+{
+  "schema": "cannonlab-general-runtime-capabilities-v1",
+  "truth_boundary": "Source and token checks show that an implementation surface exists. They do not prove correctness until behavioral tests and runtime artifacts pass.",
+  "capabilities": [
+    {
+      "id": "exact-source-hash-and-private-reference",
+      "required_for": ["diagnostic-prototype", "local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "file", "path": "knowledge/source-registry.json"},
+        {"type": "any-token", "path": "scripts/cannon-forge.py", "tokens": ["sha256", "references"]}
+      ]
+    },
+    {
+      "id": "negative-region-litematica-safety",
+      "required_for": ["diagnostic-prototype", "local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "file", "path": "scripts/schem-audit.py"},
+        {"type": "file", "path": "scripts/test-negative-litematic.py"},
+        {"type": "all-token", "path": "scripts/schem-audit.py", "tokens": ["decode_litematic", "region_min", "block_entities"]}
+      ]
+    },
+    {
+      "id": "all-offset-ec160-audit",
+      "required_for": ["diagnostic-prototype", "local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "file", "path": "scripts/paste-alignment-audit.py"},
+        {"type": "all-token", "path": "scripts/paste-alignment-audit.py", "tokens": ["range(16)", "chunk"]}
+      ]
+    },
+    {
+      "id": "empty-settle-fill-fire-workflow",
+      "required_for": ["local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "all-token", "path": "src/main/java/io/github/redzicdenis08afk/cannonlab/LabScenario.java", "tokens": ["settleBeforeFillTicks", "fillToFireTicks"]},
+        {"type": "all-token", "path": "src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java", "tokens": ["settleBeforeFillTicks", "fillToFireTicks"]}
+      ]
+    },
+    {
+      "id": "native-control-path",
+      "required_for": ["local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "any-token", "path": "src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java", "tokens": ["BUTTON", "button", "FireMode.BUTTON"]}
+      ]
+    },
+    {
+      "id": "explicit-prefire-control-states",
+      "required_for": ["local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "any-token", "path": "src/main/java/io/github/redzicdenis08afk/cannonlab/LabScenario.java", "tokens": ["preFireActions", "modeStates", "controlStates", "pre-fire-actions", "mode-states"]},
+        {"type": "any-token", "path": "src/main/java/io/github/redzicdenis08afk/cannonlab/LabRunController.java", "tokens": ["preFireActions", "applyMode", "controlStates", "modeStates"]}
+      ]
+    },
+    {
+      "id": "causal-event-sequence",
+      "required_for": ["diagnostic-prototype", "local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "all-token", "path": "src/main/java/io/github/redzicdenis08afk/cannonlab/ShotRecorder.java", "tokens": ["causal-events.csv", "sequence", "DISPENSE", "PISTON_EXTEND"]}
+      ]
+    },
+    {
+      "id": "entity-trajectory-and-fuse",
+      "required_for": ["diagnostic-prototype", "local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "all-token", "path": "src/main/java/io/github/redzicdenis08afk/cannonlab/ShotRecorder.java", "tokens": ["entity_uuid", "vx", "vy", "vz", "fuse"]},
+        {"type": "file", "path": "scripts/compare-entity-trajectories.py"}
+      ]
+    },
+    {
+      "id": "module-runtime-attribution",
+      "required_for": ["diagnostic-prototype", "local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "file", "path": "scripts/analyze-module-trace.py"},
+        {"type": "all-token", "path": "scripts/analyze-module-trace.py", "tokens": ["runtime_role_candidates", "DISPENSE", "entity"]}
+      ]
+    },
+    {
+      "id": "physical-impulse-edge-proof",
+      "required_for": ["local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "file", "path": "scripts/validate-cannon-architecture.py"},
+        {"type": "all-token", "path": "scripts/validate-cannon-architecture.py", "tokens": ["impulse_edges", "runtime_evidence", "explosion-push"]}
+      ]
+    },
+    {
+      "id": "archetype-specific-payload-mode",
+      "required_for": ["local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "any-token", "path": "scripts/cannon-forge.py", "tokens": ["payload-mode", "payload_mode", "require_payload_by_archetype", "archetype_payload"]},
+        {"type": "none-token", "path": "scripts/cannon-forge.py", "tokens": ["acceptance_block(require_payload=True"]}
+      ]
+    },
+    {
+      "id": "output-corridor-and-direction-repeatability",
+      "required_for": ["local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "any-token-anywhere", "paths": ["scripts", "src"], "tokens": ["output-corridor", "outputCorridor", "direction-repeatability", "dominant-output-direction", "angular-spread"]}
+      ]
+    },
+    {
+      "id": "same-tick-order-of-entities-analysis",
+      "required_for": ["local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "any-token-anywhere", "paths": ["scripts"], "tokens": ["same_tick", "same-tick", "spawn_order", "entity_order", "sequence"]}
+      ]
+    },
+    {
+      "id": "target-scoped-breach-and-regen-evidence",
+      "required_for": ["local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "file", "path": "scripts/analyze-breach-evidence.py"},
+        {"type": "any-token-anywhere", "paths": ["scripts", "src"], "tokens": ["embedded-payload", "first-regen", "contiguous-layers", "target_destroyed"]}
+      ]
+    },
+    {
+      "id": "cannon-integrity-and-reset-repeatability",
+      "required_for": ["local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "any-token-anywhere", "paths": ["scripts", "src"], "tokens": ["remaining-dispenser-ratio", "cannon-missing-blocks", "self-damage"]},
+        {"type": "any-token-anywhere", "paths": ["scripts", "src"], "tokens": ["reset-state", "piston-home", "repeat-shot-equivalence", "repeatability"]}
+      ]
+    },
+    {
+      "id": "defense-family-campaigns",
+      "required_for": ["local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "all-token", "path": "scripts/cannon-forge.py", "tokens": ["watered", "regen", "slab-filter", "hotdog", "pillars", "endurance"]}
+      ]
+    },
+    {
+      "id": "bounded-reference-preserving-edits",
+      "required_for": ["diagnostic-prototype", "local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "file", "path": "scripts/cannon-preservation-check.py"},
+        {"type": "any-token-anywhere", "paths": ["scripts", "policy"], "tokens": ["declared_variable", "modules_touched", "preservation"]}
+      ]
+    },
+    {
+      "id": "automated-bounded-variant-search",
+      "required_for": ["ec-ready"],
+      "checks": [
+        {"type": "file", "path": "scripts/cannon-variant-search.py"},
+        {"type": "file", "path": "scripts/test-cannon-variant-search.py"},
+        {"type": "file", "path": "scripts/cannon-variant-scorecard.py"},
+        {"type": "file", "path": "scripts/test-cannon-variant-scorecard.py"},
+        {"type": "all-token", "path": "scripts/cannon-variant-search.py", "tokens": ["cannonlab-variant-search-v1", "max_candidates", "Cartesian search", "runtime-hard-limit-failed", "runtime_score", "cannon-mutator.py"]},
+        {"type": "all-token", "path": "scripts/cannon-variant-scorecard.py", "tokens": ["cannonlab-variant-result-map-v1", "remaining_dispenser_ratio", "direction_repeatability", "metric_shot_coverage"]}
+      ]
+    },
+    {
+      "id": "server-physics-fingerprint-comparison",
+      "required_for": ["ec-ready"],
+      "checks": [
+        {"type": "any-token-anywhere", "paths": ["scripts", "docs"], "tokens": ["physics fingerprint", "fingerprint comparison", "Sakura fingerprint", "field calibration"]}
+      ]
+    },
+    {
+      "id": "live-extremecraft-canary-ingest",
+      "required_for": ["ec-ready"],
+      "checks": [
+        {"type": "any-token-anywhere", "paths": ["scripts", "src"], "tokens": ["live-canary", "field_verified", "field-verified", "extremecraft-canary"]}
+      ]
+    }
+  ],
+  "operator_capabilities": [
+    {
+      "id": "general-plan-architecture-forge-orchestrator",
+      "required_for": ["operator-ready"],
+      "checks": [
+        {"type": "file", "path": "scripts/cannon-operator.py"},
+        {"type": "all-token", "path": "scripts/cannon-operator.py", "tokens": ["general-cannon-intelligence.py", "validate-cannon-architecture.py", "cannon-forge.py", "prepare_job"]}
+      ]
+    },
+    {
+      "id": "one-command-stage-and-local-run",
+      "required_for": ["operator-ready"],
+      "checks": [
+        {"type": "all-token", "path": "scripts/cannon-operator.py", "tokens": ["prepare", "run", "run-forge-campaign.ps1", "--execute"]}
+      ]
+    },
+    {
+      "id": "operator-candidate-manifest-binding",
+      "required_for": ["operator-ready"],
+      "checks": [
+        {"type": "all-token", "path": "scripts/cannon-operator.py", "tokens": ["architecture-candidate-mismatch", "architecture-derived.json", "candidate_sha256", "bounded-variant", "derived-geometry-profile.json"]},
+        {"type": "all-token", "path": "scripts/test-cannon-operator.py", "tokens": ["test_architecture_candidate_mismatch_fails_before_policy", "test_optional_mutation_runs_before_architecture_and_forge"]}
+      ]
+    },
+    {
+      "id": "general-intelligence-ci-protection",
+      "required_for": ["operator-ready"],
+      "checks": [
+        {"type": "file", "path": ".github/workflows/general-cannon-intelligence.yml"},
+        {"type": "all-token", "path": ".github/workflows/general-cannon-intelligence.yml", "tokens": ["test-general-cannon-intelligence.py", "test-cannon-archetype-engine.py", "test-cannon-architecture-policy.py", "test-cannon-operator.py"]}
+      ]
+    },
+    {
+      "id": "general-intelligence-mcp-exposure",
+      "required_for": ["operator-ready"],
+      "checks": [
+        {"type": "any-token", "path": "mcp-server/server.py", "tokens": ["general-cannon-intelligence.py", "cannon-operator.py", "plan_general_cannon", "prepare_cannon_operator"]}
+      ]
+    },
+    {
+      "id": "bounded-schematic-mutator",
+      "required_for": ["operator-ready"],
+      "checks": [
+        {"type": "file", "path": "scripts/cannon-mutator.py"},
+        {"type": "file", "path": "scripts/test-cannon-mutator.py"},
+        {"type": "all-token", "path": "scripts/cannon-mutator.py", "tokens": ["set-repeater-delay", "translate-region", "max_changed_blocks", "cannon-preservation-check.py", "rollback.json"]}
+      ]
+    },
+    {
+      "id": "private-corpus-regression-harness",
+      "required_for": ["operator-ready"],
+      "checks": [
+        {"type": "file", "path": "scripts/private-corpus-regression.py"},
+        {"type": "all-token", "path": "scripts/private-corpus-regression.py", "tokens": ["sha256", "audit-cannon-corpus.py", "baseline_manifest", "require_unchanged_sources"]}
+      ]
+    },
+    {
+      "id": "variant-runtime-scorecard-extraction",
+      "required_for": ["operator-ready"],
+      "checks": [
+        {"type": "file", "path": "scripts/cannon-variant-scorecard.py"},
+        {"type": "file", "path": "scripts/test-cannon-variant-scorecard.py"},
+        {"type": "all-token", "path": "mcp-server/server.py", "tokens": ["extract_cannon_variant_scorecard", "cannon-variant-scorecard.py"]}
+      ]
+    }
+  ]
+}

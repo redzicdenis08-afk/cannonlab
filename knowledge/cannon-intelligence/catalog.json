@@ -1,0 +1,373 @@
+{
+  "schema": "cannonlab-general-cannon-catalog-v1",
+  "truth_boundary": "This catalog is a planning and evidence contract. It does not generate a trustworthy cannon from names alone, does not promote community terminology into engine truth, and does not prove live ExtremeCraft behavior.",
+  "evidence_order": [
+    "field-verified",
+    "field-reported",
+    "local-runtime",
+    "static-reference",
+    "multi-source-community",
+    "single-source-community",
+    "unknown"
+  ],
+  "universal_physics_contract": {
+    "required_layers": [
+      "control-and-reset",
+      "tnt-or-payload-creation",
+      "three-dimensional-chamber-geometry",
+      "physical-impulse-transfer",
+      "trajectory-or-stacking-transition",
+      "target-effect",
+      "survival-and-repeatability"
+    ],
+    "required_edge_fields": [
+      "source-stage",
+      "recipient-stage-or-entity-cohort",
+      "mechanism",
+      "relative-tick",
+      "source-position-region",
+      "recipient-position-region",
+      "expected-velocity-delta",
+      "runtime-evidence",
+      "failure-signature"
+    ],
+    "forbidden_generalizations": [
+      "flat-dispenser-rows-are-a-modern-cannon",
+      "filename-proves-function",
+      "explosion-count-proves-output",
+      "same-total-repeater-delay-proves-same-behavior",
+      "public-sakura-proves-extremecraft",
+      "dispenser-deletion-is-a-faithful-ec160-conversion",
+      "one-family-module-can-be-transplanted-without-interface-proof"
+    ]
+  },
+  "module_interfaces": {
+    "control-signal": {
+      "inputs": ["native-button", "lever-state", "clock-edge", "counter-output"],
+      "outputs": ["ordered-redstone-waveform"],
+      "proof": ["control-event", "mode-state-snapshot", "first-redstone-tick", "reset-state"]
+    },
+    "tnt-cohort": {
+      "inputs": ["ordered-redstone-waveform"],
+      "outputs": ["primed-tnt-cohort"],
+      "proof": ["dispense-count", "facing-counts", "spawn-order", "fuse", "position", "velocity"]
+    },
+    "falling-payload": {
+      "inputs": ["sand-or-concrete-source", "release-waveform"],
+      "outputs": ["falling-block-cohort"],
+      "proof": ["spawn-count", "density", "release-tick", "barrel-entry-order", "surviving-stack-count"]
+    },
+    "impulse-transfer": {
+      "inputs": ["primed-tnt-cohort", "recipient-entity-cohort"],
+      "outputs": ["recipient-velocity-change"],
+      "proof": ["attributed-explosion", "pre-velocity", "post-velocity", "distance", "direction", "repeatability"]
+    },
+    "alignment-corridor": {
+      "inputs": ["moving-tnt-or-payload"],
+      "outputs": ["bounded-waypoint-or-output-vector"],
+      "proof": ["entry-count", "exit-count", "angular-spread", "waypoint-error", "collision-count"]
+    },
+    "target-effect": {
+      "inputs": ["final-package"],
+      "outputs": ["measured-defense-change"],
+      "proof": ["contact-position", "embedded-explosion", "destroyed-cells", "regen-timing", "continuation-opening"]
+    },
+    "reset-contract": {
+      "inputs": ["completed-shot"],
+      "outputs": ["next-shot-ready-state"],
+      "proof": ["piston-home-state", "observer-stability", "water-containment", "remaining-dispensers", "repeat-shot-equivalence"]
+    }
+  },
+  "families": [
+    {
+      "id": "hammered-stacker",
+      "kind": "base-architecture",
+      "title": "Conventional hammered falling-block stacker",
+      "evidence": "multi-source-community",
+      "promotion_ceiling": "local-candidate-after-runtime-proof",
+      "required_modules": ["control-signal", "main-power", "sand-compression", "hammer", "alignment-corridor", "reset-contract"],
+      "payload_mode": "falling-block-required",
+      "runtime_contract": ["power-to-payload-impulse", "hammer-to-sand-impulse", "measured-stack-count", "stable-impact-height", "repeat-fire"],
+      "failure_signatures": ["undershoot", "overshoot", "sand-scatter", "sand-fails-to-stack", "hammer-early", "hammer-late"]
+    },
+    {
+      "id": "hammerless-stacker",
+      "kind": "base-architecture",
+      "title": "Hammerless or shared-power stacker",
+      "evidence": "multi-source-community",
+      "promotion_ceiling": "local-candidate-after-runtime-proof",
+      "required_modules": ["control-signal", "shared-power-or-splitter", "falling-payload", "alignment-corridor", "reset-contract"],
+      "payload_mode": "falling-block-required",
+      "runtime_contract": ["no-separate-hammer-cohort", "splitter-or-shared-power-attribution", "measured-stack-count", "splitter-sand-safety", "repeat-fire"],
+      "failure_signatures": ["missing-splitter-blowup", "shared-power-collision", "payload-separation-failure"]
+    },
+    {
+      "id": "asser-multiwave",
+      "kind": "base-architecture",
+      "title": "Asser-family east/west multi-wave machine",
+      "evidence": "static-reference",
+      "reference_hashes": ["47e56782c269703128ecb3b67b4c2fd40afb2dd1baa860cf4705709fc0a5d913", "6db0b0a5d1c4346dccae64fffbee9cc000990ee7086ab6d35a30f2da191b7989"],
+      "promotion_ceiling": "diagnostic-prototype",
+      "required_modules": ["shared-lower-control-spine", "east-west-opposing-banks", "multi-wave-cohorts", "falling-payload", "replaceable-upper-specialization"],
+      "payload_mode": "falling-block-required-in-tested-configurations",
+      "runtime_contract": ["shared-core-runtime-equivalence", "wave-order", "payload-creation", "specialization-interface", "survival"],
+      "forbidden_compositions": ["rev-worm-module-without-interface-proof"]
+    },
+    {
+      "id": "rev-worm",
+      "kind": "base-architecture",
+      "title": "Reverse/worm north-south observer/slime architecture",
+      "evidence": "local-runtime",
+      "reference_hashes": ["6e23d2868c309b203d74003573a4707105a39f6822a3a5e715d0bb9ab71d7eda"],
+      "promotion_ceiling": "diagnostic-prototype",
+      "required_modules": ["multi-control-mode-gate", "north-south-opposing-banks", "observer-cohort-sequence", "piston-slime-motion", "output-corridor"],
+      "payload_mode": "tnt-only-allowed-by-archetype",
+      "runtime_contract": ["537-336-144-relative-cohort-fingerprint", "piston-slime-order", "stable-surface-route", "terminal-transition", "direction-repeatability"],
+      "failure_signatures": ["route-stall", "skipped-stage", "early-transition", "variable-external-blast-direction"]
+    },
+    {
+      "id": "anti-gravity-stacker",
+      "kind": "base-architecture",
+      "title": "Anti-gravity staged-motion stacker",
+      "evidence": "single-source-community",
+      "promotion_ceiling": "diagnostic-prototype",
+      "required_modules": ["staged-vertical-impulses", "long-range-alignment", "payload-count-contract", "hybrid-interface"],
+      "payload_mode": "falling-block-required",
+      "runtime_contract": ["vertical-velocity-profile", "stage-attribution", "range-vs-spread", "final-stack-count"],
+      "unknowns": ["modern-ec-timing", "family-specific-hybrid-interface"]
+    },
+    {
+      "id": "force-or-counter",
+      "kind": "base-architecture",
+      "title": "Force, sidecounter or buffer-counter staged propulsion",
+      "evidence": "single-source-community",
+      "promotion_ceiling": "diagnostic-prototype",
+      "required_modules": ["separate-directional-bank", "late-or-side-force-stage", "counter-trajectory-contract", "anti-self-hit-distance"],
+      "payload_mode": "archetype-selectable",
+      "runtime_contract": ["distinct-force-cohort", "recipient-velocity-delta", "counter-direction", "safe-return-distance"],
+      "unknowns": ["builder-specific-force-definition"]
+    },
+    {
+      "id": "compact-calibration-stacker",
+      "kind": "base-architecture",
+      "title": "Reduced one-stack or low-count field calibration cannon",
+      "evidence": "field-verified",
+      "promotion_ceiling": "field-calibration-only",
+      "required_modules": ["native-control", "small-power", "small-payload", "straight-output", "survival"],
+      "payload_mode": "falling-block-or-tnt-by-scenario",
+      "runtime_contract": ["clean-shot", "target-contact", "repeat-fire", "ec160-safe"],
+      "forbidden_claims": ["regen-ready", "fifteen-chunk-ready", "modern-all-mode"]
+    }
+  ],
+  "specializations": [
+    {
+      "id": "hybrid",
+      "kind": "payload-specialization",
+      "evidence": "multi-source-community",
+      "requires": ["tnt-cohort", "falling-payload", "trajectory-convergence"],
+      "output": "water-protected-cell-breach-package",
+      "acceptance": ["embedded-payload-explosion", "falling-payload-overlap", "watered-cell-destruction", "low-unembedded-explosion-count"]
+    },
+    {
+      "id": "overstack",
+      "kind": "stacking-specialization",
+      "evidence": "multi-source-community",
+      "requires": ["extra-sand-cohort", "overstack-hammer-or-equivalent", "stopper-or-restack-transition"],
+      "output": "above-baseline-stack-height",
+      "acceptance": ["separate-extra-sand-cohort", "restack-motion", "measured-height-gain"]
+    },
+    {
+      "id": "osrb",
+      "kind": "regen-specialization",
+      "evidence": "multi-source-community",
+      "requires": ["opening-package", "one-shot-sand-placement", "follow-up-package", "entity-order-contract", "regen-race-contract"],
+      "output": "continuing-opening-before-regeneration",
+      "acceptance": ["correct-osrb-sand-coordinate", "embedded-explosion", "opening-survives-regen-window", "next-shot-continuation"]
+    },
+    {
+      "id": "efficient-nuke",
+      "kind": "nuke-specialization",
+      "evidence": "multi-source-community",
+      "requires": ["multi-game-tick-tnt-package", "vertical-route", "entity-order-contract"],
+      "output": "ordered-vertical-breach-path",
+      "acceptance": ["consecutive-cohorts", "ordered-explosion-centers", "vertical-contiguity", "bounded-width"]
+    },
+    {
+      "id": "webbust-nuke",
+      "kind": "nuke-specialization",
+      "evidence": "multi-source-community",
+      "requires": ["paired-or-split-tnt-package", "midair-separation", "web-course-target"],
+      "output": "midair-or-web-defense-breach",
+      "acceptance": ["cohort-separation", "web-course-destruction", "no-sand-tunnel-collapse"]
+    },
+    {
+      "id": "pseudo-nuke",
+      "kind": "nuke-specialization",
+      "evidence": "single-source-community",
+      "requires": ["small-nuke-source", "sand-stack-entry", "precise-entity-order"],
+      "output": "nuke-like-path-through-stack",
+      "acceptance": ["intended-entry-height", "repeatable-vertical-path", "no-half-stack-stall"]
+    },
+    {
+      "id": "push-nuke",
+      "kind": "nuke-specialization",
+      "evidence": "unknown",
+      "requires": ["builder-definition", "working-reference", "distinct-causal-trace"],
+      "output": "unknown-until-proven",
+      "acceptance": ["do-not-invent"]
+    },
+    {
+      "id": "up-down-nuke",
+      "kind": "nuke-specialization",
+      "evidence": "single-source-community",
+      "requires": ["upward-package", "terminal-redirection", "downward-or-return-path"],
+      "output": "bidirectional-vertical-breach",
+      "acceptance": ["trajectory-sign-change", "ordered-up-and-down-contact", "anti-return-to-cannon"]
+    },
+    {
+      "id": "left-right-shoot",
+      "kind": "trajectory-specialization",
+      "evidence": "multi-source-community",
+      "requires": ["lateral-alignment", "splitter-or-equivalent", "side-impulse", "backboard-safety"],
+      "output": "stable-lateral-shot-vector",
+      "acceptance": ["lateral-displacement", "angular-spread", "correct-side-repeatability", "minimum-return-distance"]
+    },
+    {
+      "id": "reverse-hybrid",
+      "kind": "trajectory-specialization",
+      "evidence": "multi-source-community",
+      "requires": ["backboard", "reverse-tnt", "payload-sign-change", "final-stack-or-hybrid"],
+      "output": "reverse-stack-or-hybrid",
+      "acceptance": ["sign-change-at-waypoint", "final-stack-coordinate", "no-cannon-return"]
+    },
+    {
+      "id": "worm-route",
+      "kind": "trajectory-specialization",
+      "evidence": "static-reference",
+      "requires": ["surface-waypoints", "ordered-propulsion-stages", "terminal-transition"],
+      "output": "surface-advancing-package",
+      "acceptance": ["waypoint-order", "route-progress", "no-skipped-stage", "repeatable-terminal-transition"]
+    },
+    {
+      "id": "midair-or-l-stack",
+      "kind": "trajectory-specialization",
+      "evidence": "single-source-community",
+      "requires": ["airborne-waypoint", "second-impulse", "fuse-budget"],
+      "output": "airborne-aligned-or-redirected-package",
+      "acceptance": ["waypoint-error", "second-impulse-attribution", "fuse-margin", "bounded-spread"]
+    },
+    {
+      "id": "slab-bust",
+      "kind": "breach-specialization",
+      "evidence": "multi-source-community",
+      "requires": ["slab-height-package", "entity-order-contract", "stack-preservation"],
+      "output": "slab-cleared-with-primary-stack-preserved",
+      "acceptance": ["slab-destroyed", "correct-height", "remaining-stack-correct"]
+    },
+    {
+      "id": "tunnel-effect",
+      "kind": "breach-specialization",
+      "evidence": "multi-source-community",
+      "requires": ["ordered-delayed-cohorts", "common-route"],
+      "output": "contiguous-progressive-breach-path",
+      "acceptance": ["ordered-centers", "contiguous-destruction", "forward-progression"]
+    },
+    {
+      "id": "anti-patch",
+      "kind": "countermeasure-specialization",
+      "evidence": "multi-source-community",
+      "requires": ["late-secondary-package", "patch-course", "timing-separation"],
+      "output": "patch-destroyed-after-primary-opening",
+      "acceptance": ["late-cohort-attribution", "patch-destruction", "main-opening-preserved"]
+    },
+    {
+      "id": "bypass",
+      "kind": "countermeasure-specialization",
+      "evidence": "multi-source-community",
+      "requires": ["named-obstruction", "alternate-route-or-height", "continuation-contract"],
+      "output": "specific-obstruction-bypassed",
+      "acceptance": ["obstruction-destroyed", "continuation-intact", "unused-mode-does-not-corrupt-shot"]
+    },
+    {
+      "id": "double-tap",
+      "kind": "multi-impact-specialization",
+      "evidence": "multi-source-community",
+      "requires": ["second-controlled-package", "inter-impact-delay", "reset-window"],
+      "output": "two-distinct-target-impacts-per-cycle",
+      "acceptance": ["two-attributed-impacts", "measured-delay", "second-effect", "no-package-merge"]
+    },
+    {
+      "id": "alien-probe",
+      "kind": "unresolved-community-specialization",
+      "evidence": "single-source-community",
+      "requires": ["builder-definition", "working-reference", "distinguishing-output-trace"],
+      "output": "unknown-until-proven",
+      "acceptance": ["do-not-invent"]
+    }
+  ],
+  "capability_labels": [
+    {
+      "id": "stacker-class",
+      "examples": ["1-stacker", "10-stacker", "60-stacker", "100-stacker", "120-stacker", "200-stacker", "255-stacker", "279-stacker", "383-stacker", "384-stacker"],
+      "truth": "A class label is a measured payload or stack claim, not automatically a dispenser count.",
+      "proof": ["created-falling-blocks", "barrel-entry-count", "target-arrival-count", "final-stack-count", "repeatability"]
+    },
+    {
+      "id": "fire-rate-class",
+      "examples": ["0.5s", "0.6s", "0.7s", "1s", "1.6s", "2s", "2.4s", "3s", "4.05s"],
+      "truth": "A displayed interval is not proof that every internal stage resets or that the server sustains it.",
+      "proof": ["control-interval", "full-reset-before-next-shot", "repeat-shot-equivalence", "tps-profile"]
+    },
+    {
+      "id": "range-class",
+      "examples": ["15-chunk", "70-plus-chunk", "long-range"],
+      "truth": "Range must be measured from the actual output package and target contact, not from stray TNT.",
+      "proof": ["dominant-package-distance", "target-contact-distance", "spread-at-distance", "repeatability"]
+    }
+  ],
+  "defense_contracts": [
+    {
+      "id": "dry-wall",
+      "required_effects": ["target-contact", "destroyed-cells"],
+      "not_sufficient_for": ["watered", "regen", "filter", "hotdog", "pillar"]
+    },
+    {
+      "id": "watered-wall",
+      "required_effects": ["embedded-payload-explosion", "watered-cell-destruction", "low-unembedded-explosions"]
+    },
+    {
+      "id": "regen-wall",
+      "required_effects": ["opening-before-first-restore", "continuation-after-restore-window", "repeated-race-win"]
+    },
+    {
+      "id": "slab-filter",
+      "required_effects": ["correct-height-contact", "slab-cleared", "payload-continuation"]
+    },
+    {
+      "id": "filter-or-bypass-course",
+      "required_effects": ["named-obstruction-removed", "route-continuation", "mode-specific-benefit"]
+    },
+    {
+      "id": "hotdog-regen",
+      "required_effects": ["band-specific-contact", "watered-overlap", "regen-race-win", "continued-alignment"]
+    },
+    {
+      "id": "pillars",
+      "required_effects": ["lateral-or-height-coverage", "repeated-pillar-contact", "no-route-drift"]
+    },
+    {
+      "id": "patch-course",
+      "required_effects": ["primary-opening", "late-patch-destruction", "opening-preserved"]
+    }
+  ],
+  "composition_rules": [
+    "A composition must declare one base architecture and zero or more specializations.",
+    "Every specialization must bind each required input to a concrete parent output or remain blocked.",
+    "Timing compatibility requires relative ticks and entity order, not only total repeater delay.",
+    "Geometry compatibility requires chamber coordinates, direction axes, water corridors and collision envelopes.",
+    "Payload compatibility must distinguish TNT-only, falling-block-required and archetype-selectable modes.",
+    "A module cannot be promoted from static shape; runtime traces must establish its causal role.",
+    "EC160 redistribution must preserve cohort sizes, facing ratios, symmetry, timing and output trajectory after every bank split.",
+    "Live ExtremeCraft claims require a reduced canary before full-charge field use."
+  ]
+}
