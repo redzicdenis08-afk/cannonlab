@@ -4,7 +4,9 @@ on:
   pull_request:
     paths:
       - 'scripts/legacy-shared-core-audit.py'
+      - 'scripts/legacy-shared-core-envelope.py'
       - 'scripts/test-legacy-shared-core-audit.py'
+      - 'scripts/test-legacy-shared-core-envelope.py'
       - 'profiles/corpus/**'
       - 'evidence/public-corpus/**'
       - 'docs/LEGACY_SHARED_CORE_AUDIT.md'
@@ -43,14 +45,18 @@ jobs:
         run: |
           python -m py_compile \
             scripts/legacy-shared-core-audit.py \
-            scripts/test-legacy-shared-core-audit.py
+            scripts/legacy-shared-core-envelope.py \
+            scripts/test-legacy-shared-core-audit.py \
+            scripts/test-legacy-shared-core-envelope.py
 
-      - name: Run metadata and boundary regressions
+      - name: Run metadata, boundary, and support-envelope regressions
         run: |
           mkdir -p lab-artifacts/shared-core-contract
           set -o pipefail
-          python scripts/test-legacy-shared-core-audit.py \
-            2>&1 | tee lab-artifacts/shared-core-contract/regressions.log
+          {
+            python scripts/test-legacy-shared-core-audit.py
+            python scripts/test-legacy-shared-core-envelope.py
+          } 2>&1 | tee lab-artifacts/shared-core-contract/regressions.log
 
       - name: Verify pinned global transform contract
         run: |
@@ -118,20 +124,40 @@ jobs:
             --minimum-component-size 8 \
             --json-out lab-artifacts/shared-core-run/formal-pred-shared-core.json \
             > /dev/null
+          python scripts/legacy-shared-core-envelope.py \
+            --first-id cosmicreborn-formal \
+            --first $root/cosmicreborn-formal/FORMAL.schematic \
+            --second-id cosmicreborn-pred \
+            --second $root/cosmicreborn-pred/PRED.schematic \
+            --turns 3 \
+            --translation=-649,0,357 \
+            --minimum-component-size 8 \
+            --max-support-layers 8 \
+            --max-added-support 4096 \
+            --json-out lab-artifacts/shared-core-run/formal-pred-support-envelope.json \
+            > /dev/null
           python - <<'PY'
           import json
           from pathlib import Path
 
-          report = json.loads(
+          core = json.loads(
               Path('lab-artifacts/shared-core-run/formal-pred-shared-core.json').read_text(encoding='utf-8')
           )
-          assert report['status'] == 'PASS', report
-          assert report['overlap']['same_kind_position_count'] == 2731, report
-          assert report['overlap']['proven_metadata_equivalent_position_count'] <= 2731, report
-          assert report['summary']['promotion_eligible_component_count'] == 0, report
-          assert report['truth_boundary']['runtime_semantics_confirmed'] is False, report
-          assert report['truth_boundary']['ec_ready'] is False, report
-          print('Formal/Pred metadata-aware shared-core audit completed without promotion.')
+          envelope = json.loads(
+              Path('lab-artifacts/shared-core-run/formal-pred-support-envelope.json').read_text(encoding='utf-8')
+          )
+          assert core['status'] == 'PASS', core
+          assert core['overlap']['same_kind_position_count'] == 2731, core
+          assert core['overlap']['proven_metadata_equivalent_position_count'] == 2693, core
+          assert core['overlap']['classification_counts']['metadata_conflict'] == 9, core
+          assert core['overlap']['classification_counts']['same_kind_unresolved_metadata'] == 29, core
+          assert core['summary']['promotion_eligible_component_count'] == 0, core
+          assert envelope['status'] == 'PASS', envelope
+          assert envelope['summary']['reported_component_count'] == core['summary']['reported_component_count'], envelope
+          assert envelope['summary']['promotion_eligible_component_count'] == 0, envelope
+          assert envelope['truth_boundary']['runtime_semantics_confirmed'] is False, envelope
+          assert envelope['truth_boundary']['ec_ready'] is False, envelope
+          print('Formal/Pred metadata and bounded support-envelope audits completed without promotion.')
           PY
 
       - name: Copy audit reports and remove raw third-party files
