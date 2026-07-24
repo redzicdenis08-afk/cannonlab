@@ -24,8 +24,10 @@ Use one of these before spending time on runtime tests:
 - `prepare_reference_cannon`: convert a proven Litematica or Sponge source into deterministic Sponge v2, then audit and profile the exact output
 - `audit_cannon_ratio`: parse authored 384/OSRB ratios, preserve uncertain timing tokens, account base versus attachment payload, and compare profiles
 - `analyze_impulse_graph`: identify the first motion-level divergence between real reference and candidate traces without inventing one source for ambiguous stacked explosions
+- `promote_cannon_component`: crop one exact reviewed module, enforce boundary and evidence gates, and emit a deterministic synthesis component plus registry
 - `plan_cannon_synthesis`: select hash-verified modules, join declared ports, scan EC160 alignments, and optionally compile the strongest assembly candidate
-- `list_advanced_cannon_profiles`: inventory ratio, parity, archetype and synthesis profiles with explicit truth boundaries
+- `generate_causal_repair_family`: route the first measured divergence into finite predeclared edits, then reject candidates that fail EC160 or preservation gates
+- `list_advanced_cannon_profiles`: inventory ratio, parity, archetype, synthesis, component and repair profiles with explicit truth boundaries
 - `audit_paste_alignment`: translate schematic-minimum chunk scans into the actual WorldEdit player paste-point frame, including `WEOffsetX/Z`
 - `audit_scenario_integrity`: expose lab assists and weak evidence gates before a result is promoted
 - `map_cannon_modules`: map bank-centered modules, exact repeated lanes, controls, timing parts, directional links, and conservative role candidates
@@ -54,7 +56,9 @@ For modern raid work, pass the strongest real reference cannons available and us
 - `analyze_repair_family`: transparent repair scoring, Pareto-front ranking, promotion blockers, and deterministic collateral-drift summaries
 - `audit_cannon_ratio`: authored timing/order evidence, base-stack accounting and profile comparison
 - `analyze_impulse_graph`: source-to-motion graphing and first-divergence comparison
+- `promote_cannon_component`: evidence-backed source module extraction and synthesis registry creation
 - `plan_cannon_synthesis`: evidence-gated module assembly and deterministic candidate compilation
+- `generate_causal_repair_family`: first-divergence-driven bounded repair candidate generation
 - `list_advanced_cannon_profiles`: machine-readable advanced profile inventory
 - `profile_cannon`: structural morphology and real-reference comparison without inventing subsystem roles
 - `prepare_reference_cannon`: deterministic Sponge v2 conversion plus output audit and geometry profile

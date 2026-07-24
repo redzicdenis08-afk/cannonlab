@@ -59,16 +59,21 @@ def make_registry():
     return mcp, calls, registered
 
 
-def test_registers_exact_advanced_tools() -> None:
-    mcp, _, registered = make_registry()
-    expected = {
+def expected_tools() -> set[str]:
+    return {
         "audit_cannon_ratio",
         "analyze_impulse_graph",
         "plan_cannon_synthesis",
+        "promote_cannon_component",
+        "generate_causal_repair_family",
         "list_advanced_cannon_profiles",
     }
-    assert set(registered) == expected, registered
-    assert set(mcp.tools) == expected, mcp.tools
+
+
+def test_registers_exact_advanced_tools() -> None:
+    mcp, _, registered = make_registry()
+    assert set(registered) == expected_tools(), registered
+    assert set(mcp.tools) == expected_tools(), mcp.tools
 
 
 def test_ratio_tool_preserves_comparison_contract() -> None:
@@ -140,15 +145,80 @@ def test_synthesis_tool_allows_only_root_scoped_output() -> None:
         raise AssertionError("path escape unexpectedly passed")
 
 
+def test_component_promotion_builds_exact_guarded_command() -> None:
+    mcp, calls, _ = make_registry()
+    mcp.tools["promote_cannon_component"](
+        "profiles/synthesis/component-registry-template-v1.json",
+        "profiles/components/promotion-manifest-template-v1.json",
+        "lab-artifacts/mcp/promoted.schem",
+        "lab-artifacts/mcp/promoted.registry.json",
+        trace_path="audit-fixtures/impulse-causal-events.csv",
+        report_output_path="lab-artifacts/mcp/promoted.report.json",
+        output_data_version=3465,
+    )
+    call = calls[-1]
+    assert call["script"].name == "promote-cannon-component.py", call
+    assert call["allowed_exit_codes"] == (0, 2), call
+    assert "--trace" in call["args"], call
+    assert "--schem-out" in call["args"], call
+    assert "--registry-out" in call["args"], call
+    assert "--json-out" in call["args"], call
+    assert call["args"][call["args"].index("--output-data-version") + 1] == "3465"
+
+    try:
+        mcp.tools["promote_cannon_component"](
+            "profiles/synthesis/component-registry-template-v1.json",
+            "profiles/components/promotion-manifest-template-v1.json",
+            "../promoted.schem",
+            "lab-artifacts/mcp/promoted.registry.json",
+        )
+    except ValueError as exc:
+        assert "escapes CannonLab root" in str(exc), exc
+    else:
+        raise AssertionError("promotion output path escape unexpectedly passed")
+
+
+def test_repair_family_builds_exact_guarded_command() -> None:
+    mcp, calls, _ = make_registry()
+    mcp.tools["generate_causal_repair_family"](
+        "profiles/synthesis/component-registry-template-v1.json",
+        "profiles/parity/extremecraft-private-parity-required-v1.json",
+        "profiles/repairs/causal-repair-policy-template-v1.json",
+        "lab-artifacts/mcp/repair-family",
+        report_output_path="lab-artifacts/mcp/repair-family.json",
+    )
+    call = calls[-1]
+    assert call["script"].name == "generate-causal-repair-family.py", call
+    assert call["allowed_exit_codes"] == (0, 2), call
+    assert "--output-directory" in call["args"], call
+    assert "--json-out" in call["args"], call
+    output = Path(call["args"][call["args"].index("--output-directory") + 1])
+    assert output == (ROOT / "lab-artifacts/mcp/repair-family").resolve(), output
+
+    try:
+        mcp.tools["generate_causal_repair_family"](
+            "profiles/synthesis/component-registry-template-v1.json",
+            "profiles/parity/extremecraft-private-parity-required-v1.json",
+            "profiles/repairs/causal-repair-policy-template-v1.json",
+            "../../outside-repairs",
+        )
+    except ValueError as exc:
+        assert "escapes CannonLab root" in str(exc), exc
+    else:
+        raise AssertionError("repair output path escape unexpectedly passed")
+
+
 def test_profile_listing_is_machine_readable_and_truth_bounded() -> None:
     mcp, _, _ = make_registry()
     report = mcp.tools["list_advanced_cannon_profiles"]()
     assert report["schema_version"] == 1, report
-    assert report["profile_count"] >= 6, report
+    assert report["profile_count"] >= 8, report
     assert report["categories"]["ratios"], report
     assert report["categories"]["parity"], report
     assert report["categories"]["archetypes"], report
     assert report["categories"]["synthesis"], report
+    assert report["categories"]["components"], report
+    assert report["categories"]["repairs"], report
     assert report["truth_boundary"]["profile_presence_proves_runtime_function"] is False
     json.dumps(report)
 
@@ -160,6 +230,8 @@ def main() -> None:
         test_impulse_tool_requires_paired_comparison_paths,
         test_impulse_tool_builds_bounded_compare_command,
         test_synthesis_tool_allows_only_root_scoped_output,
+        test_component_promotion_builds_exact_guarded_command,
+        test_repair_family_builds_exact_guarded_command,
         test_profile_listing_is_machine_readable_and_truth_bounded,
     ]
     for test in tests:
