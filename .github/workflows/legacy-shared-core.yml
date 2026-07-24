@@ -1,0 +1,145 @@
+name: Legacy Shared Core Audit
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/legacy-shared-core-audit.py'
+      - 'scripts/test-legacy-shared-core-audit.py'
+      - 'profiles/corpus/**'
+      - 'evidence/public-corpus/**'
+      - 'docs/LEGACY_SHARED_CORE_AUDIT.md'
+      - '.github/workflows/legacy-shared-core.yml'
+  workflow_dispatch:
+    inputs:
+      fetch_public_sources:
+        description: 'Fetch the pinned Formal and Pred sources, derive shared-core evidence, and delete raw files'
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  shared-core-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONHASHSEED: '0'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile shared-core tools
+        run: |
+          python -m py_compile \
+            scripts/legacy-shared-core-audit.py \
+            scripts/test-legacy-shared-core-audit.py
+
+      - name: Run metadata and boundary regressions
+        run: python scripts/test-legacy-shared-core-audit.py
+
+      - name: Verify pinned global transform contract
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          evidence = json.loads(
+              Path('evidence/public-corpus/cosmicreborn-global-alignment-v1.json').read_text(encoding='utf-8')
+          )
+          correction = evidence['formal_pred_correction']
+          assert correction['degrees'] == 270, correction
+          assert correction['translation'] == [-649, 0, 357], correction
+          assert correction['exact_kind_overlap_count'] == 2731, correction
+          assert evidence['truth_boundary']['ec_ready'] is False, evidence
+          print('Formal/Pred shared-core input transform remains pinned to exact evidence.')
+          PY
+
+  controlled-shared-core:
+    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.fetch_public_sources) }}
+    needs: shared-core-contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONHASHSEED: '0'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Strictly fetch and audit pinned public sources
+        run: |
+          mkdir -p lab-artifacts/shared-core-run
+          python scripts/strict-fetch-public-cannon-corpus.py \
+            profiles/corpus/public-cannon-sources-v1.json \
+            --output-directory lab-artifacts/public-cannon-cache \
+            --mode fetch \
+            --write-lock lab-artifacts/shared-core-run/public-cannon-lock-v1.json \
+            --json-out lab-artifacts/shared-core-run/fetch-report.json \
+            > /dev/null
+
+      - name: Audit Formal and Pred shared regions
+        run: |
+          root=lab-artifacts/public-cannon-cache/public-cannon-sources-v1/files
+          python scripts/legacy-shared-core-audit.py \
+            --first-id cosmicreborn-formal \
+            --first $root/cosmicreborn-formal/FORMAL.schematic \
+            --second-id cosmicreborn-pred \
+            --second $root/cosmicreborn-pred/PRED.schematic \
+            --turns 3 \
+            --translation=-649,0,357 \
+            --chunk-limit 160 \
+            --minimum-component-size 8 \
+            --json-out lab-artifacts/shared-core-run/formal-pred-shared-core.json \
+            > /dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path('lab-artifacts/shared-core-run/formal-pred-shared-core.json').read_text(encoding='utf-8')
+          )
+          assert report['status'] == 'PASS', report
+          assert report['overlap']['same_kind_position_count'] == 2731, report
+          assert report['overlap']['proven_metadata_equivalent_position_count'] <= 2731, report
+          assert report['summary']['promotion_eligible_component_count'] == 0, report
+          assert report['truth_boundary']['runtime_semantics_confirmed'] is False, report
+          assert report['truth_boundary']['ec_ready'] is False, report
+          print('Formal/Pred metadata-aware shared-core audit completed without promotion.')
+          PY
+
+      - name: Copy audit reports and remove raw third-party files
+        if: always()
+        run: |
+          if [ -d lab-artifacts/public-cannon-cache/public-cannon-sources-v1/audits ]; then
+            cp -R \
+              lab-artifacts/public-cannon-cache/public-cannon-sources-v1/audits \
+              lab-artifacts/shared-core-run/audits
+          fi
+          rm -rf lab-artifacts/public-cannon-cache/public-cannon-sources-v1/files
+
+      - name: Prove raw files are absent
+        if: always()
+        run: test ! -d lab-artifacts/public-cannon-cache/public-cannon-sources-v1/files
+
+      - name: Upload derived evidence only
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: formal-pred-shared-core-audit
+          path: lab-artifacts/shared-core-run
+          if-no-files-found: warn
