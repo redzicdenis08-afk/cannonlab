@@ -13,7 +13,7 @@ def register_advanced_tools(
     inside_root: Callable[..., Path],
     run_json: Callable[..., dict[str, Any]],
 ) -> tuple[str, ...]:
-    """Register the research, impulse, parity and synthesis tools on one FastMCP instance."""
+    """Register the research, impulse, synthesis, promotion and repair tools."""
 
     @mcp.tool()
     def audit_cannon_ratio(
@@ -107,10 +107,78 @@ def register_advanced_tools(
         return run_json(scripts / "cannon-synthesis-planner.py", args, allowed_exit_codes=(0, 2))
 
     @mcp.tool()
+    def promote_cannon_component(
+        source_path: str,
+        manifest_path: str,
+        schematic_output_path: str,
+        registry_output_path: str,
+        trace_path: str | None = None,
+        report_output_path: str | None = None,
+        output_data_version: int | None = None,
+    ) -> dict[str, Any]:
+        """Promote one exact reviewed source module into a deterministic synthesis component."""
+        source = inside_root(source_path)
+        manifest = inside_root(manifest_path)
+        schematic_output = inside_root(schematic_output_path, must_exist=False)
+        registry_output = inside_root(registry_output_path, must_exist=False)
+        args = [
+            str(source),
+            str(manifest),
+            "--schem-out",
+            str(schematic_output),
+            "--registry-out",
+            str(registry_output),
+            "--repo-root",
+            str(root),
+        ]
+        if trace_path:
+            trace = inside_root(trace_path)
+            args.extend(["--trace", str(trace)])
+        if report_output_path:
+            report_output = inside_root(report_output_path, must_exist=False)
+            args.extend(["--json-out", str(report_output)])
+        if output_data_version is not None:
+            if output_data_version <= 0:
+                raise ValueError("output_data_version must be positive")
+            args.extend(["--output-data-version", str(output_data_version)])
+        return run_json(scripts / "promote-cannon-component.py", args, allowed_exit_codes=(0, 2))
+
+    @mcp.tool()
+    def generate_causal_repair_family(
+        reference_path: str,
+        divergence_path: str,
+        policy_path: str,
+        output_directory_path: str,
+        report_output_path: str | None = None,
+    ) -> dict[str, Any]:
+        """Generate EC160 and preservation-gated repairs from the first measured divergence."""
+        reference = inside_root(reference_path)
+        divergence = inside_root(divergence_path)
+        policy = inside_root(policy_path)
+        output_directory = inside_root(output_directory_path, must_exist=False)
+        args = [
+            str(reference),
+            str(divergence),
+            str(policy),
+            "--output-directory",
+            str(output_directory),
+            "--repo-root",
+            str(root),
+        ]
+        if report_output_path:
+            report_output = inside_root(report_output_path, must_exist=False)
+            args.extend(["--json-out", str(report_output)])
+        return run_json(
+            scripts / "generate-causal-repair-family.py",
+            args,
+            allowed_exit_codes=(0, 2),
+        )
+
+    @mcp.tool()
     def list_advanced_cannon_profiles() -> dict[str, Any]:
-        """List ratio, parity, archetype and synthesis profiles available to CannonLab."""
+        """List ratio, parity, archetype, synthesis, component and repair profiles."""
         profile_root = root / "profiles"
-        categories = ("ratios", "parity", "archetypes", "synthesis")
+        categories = ("ratios", "parity", "archetypes", "synthesis", "components", "repairs")
         result: dict[str, list[dict[str, Any]]] = {}
         for category in categories:
             rows: list[dict[str, Any]] = []
@@ -152,5 +220,7 @@ def register_advanced_tools(
         "audit_cannon_ratio",
         "analyze_impulse_graph",
         "plan_cannon_synthesis",
+        "promote_cannon_component",
+        "generate_causal_repair_family",
         "list_advanced_cannon_profiles",
     )
