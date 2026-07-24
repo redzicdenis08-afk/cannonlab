@@ -178,6 +178,7 @@ acceptance:
   min-remaining-dispenser-ratio: 0.99
   max-cannon-missing-blocks: 20
   max-cannon-replaced-type-blocks: 10
+  max-cannon-unexpected-blocks: 0
   max-self-damage-blocks: 20
 """.strip()
     values, sequences = scenario.minimal_yaml_paths(strict_text)
@@ -256,6 +257,10 @@ def prove_local_runner_fails_closed() -> None:
     assert "--max-unembedded-water-explosions" in cloud, cloud
     assert "CANNONLAB_MIN_CONTIGUOUS_LAYERS_BEFORE_FIRST_REGEN" in cloud, cloud
     assert "--require-all-layers-before-first-regen" in cloud, cloud
+    assert "CANNONLAB_REQUIRE_CUMULATIVE_CANNON" in cloud, cloud
+    assert "--require-cumulative-cannon" in cloud, cloud
+    assert "CANNONLAB_MAX_CANNON_UNEXPECTED_BLOCKS" in cloud, cloud
+    assert "--max-cannon-unexpected-blocks" in cloud, cloud
 
 
 def prove_java_runtime_contract_is_wired() -> None:
@@ -277,10 +282,12 @@ def prove_java_runtime_contract_is_wired() -> None:
         "acceptance.min-remaining-dispenser-ratio",
         "acceptance.max-cannon-missing-blocks",
         "acceptance.max-cannon-replaced-type-blocks",
+        "acceptance.max-cannon-unexpected-blocks",
         "acceptance.max-self-damage-blocks",
     ):
         assert path in scenario_source, path
     assert "record AcceptanceConfig" in scenario_source, scenario_source
+    assert "run.rebuild-cannon-between-shots" in scenario_source, scenario_source
     assert "Material.matchMaterial(String.valueOf(value), false)" in scenario_source
     assert "Material.matchMaterial(String.valueOf(value), true)" not in scenario_source
     assert 'finishRun(contractPass ? "complete" : "contract_failed")' in controller_source
@@ -303,6 +310,10 @@ def prove_java_runtime_contract_is_wired() -> None:
     assert "case NORTH, SOUTH -> new BreachLane(cell.x(), cell.y())" in controller_source
     assert "plannedClearBounds" in controller_source
     assert "Clearing planned arena region" in controller_source
+    assert "PRESERVE_ACROSS_SHOTS" in controller_source
+    assert "cannonPastesPerformed" in controller_source
+    assert '"cannon_rebuilt_before_shot"' in controller_source
+    assert '"cannon_unexpected_blocks"' in controller_source
     assert "inspectPaste" in worldedit_source
 
 

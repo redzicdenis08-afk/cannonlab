@@ -88,12 +88,14 @@ def main() -> None:
     parser.add_argument("--min-contiguous-layers-before-first-regen", type=int)
     parser.add_argument("--require-all-layers-before-first-regen", action="store_true")
     parser.add_argument("--max-self-damage-blocks", type=int)
+    parser.add_argument("--max-cannon-unexpected-blocks", type=int)
     parser.add_argument("--require-regen", action="store_true")
     parser.add_argument("--min-regen-restored", type=int, default=1)
     parser.add_argument("--min-durability-hits", type=int)
     parser.add_argument("--min-durability-breaks", type=int)
     parser.add_argument("--max-companion-missing", type=int)
     parser.add_argument("--min-companion-restored", type=int)
+    parser.add_argument("--require-cumulative-cannon", action="store_true")
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args()
 
@@ -109,6 +111,11 @@ def main() -> None:
         fail("--min-target-peak-mean cannot be negative")
     if args.max_self_damage_blocks is not None and args.max_self_damage_blocks < 0:
         fail("--max-self-damage-blocks cannot be negative")
+    if (
+        args.max_cannon_unexpected_blocks is not None
+        and args.max_cannon_unexpected_blocks < 0
+    ):
+        fail("--max-cannon-unexpected-blocks cannot be negative")
     for name in (
         "min_embedded_payload_explosions",
         "max_unembedded_water_explosions",
@@ -141,6 +148,43 @@ def main() -> None:
         fail("shot list is missing or has the wrong length")
 
     failures: list[str] = []
+    lifecycle = summary.get("cannon_lifecycle")
+    rebuild_between_shots = summary.get("rebuild_cannon_between_shots")
+    pastes_performed = summary.get("cannon_pastes_performed")
+    if args.require_cumulative_cannon and lifecycle != "PRESERVE_ACROSS_SHOTS":
+        failures.append(
+            f"cannon_lifecycle={lifecycle!r} expected='PRESERVE_ACROSS_SHOTS'"
+        )
+    if args.require_cumulative_cannon and rebuild_between_shots is not False:
+        failures.append(
+            "rebuild_cannon_between_shots must be false for cumulative endurance"
+        )
+    if args.require_cumulative_cannon and pastes_performed != 1:
+        failures.append(
+            f"cannon_pastes_performed={pastes_performed!r} expected=1"
+        )
+    if lifecycle == "PRESERVE_ACROSS_SHOTS":
+        if rebuild_between_shots is not False:
+            failures.append(
+                "PRESERVE_ACROSS_SHOTS conflicts with rebuild_cannon_between_shots"
+            )
+        if pastes_performed != 1:
+            failures.append(
+                f"PRESERVE_ACROSS_SHOTS reported {pastes_performed!r} cannon pastes"
+            )
+    elif lifecycle == "REBUILD_EACH_SHOT":
+        if rebuild_between_shots is not True:
+            failures.append(
+                "REBUILD_EACH_SHOT conflicts with rebuild_cannon_between_shots"
+            )
+        if pastes_performed != args.expected_shots:
+            failures.append(
+                f"REBUILD_EACH_SHOT reported {pastes_performed!r} cannon pastes, "
+                f"expected {args.expected_shots}"
+            )
+    elif lifecycle is not None:
+        failures.append(f"unsupported cannon_lifecycle={lifecycle!r}")
+
     peak_destroyed_values: list[float] = []
     regen_restored_values: list[float] = []
     layer_breached_values: list[float] = []
@@ -149,12 +193,26 @@ def main() -> None:
     layers_before_regen_values: list[float] = []
     regen_race_margin_values: list[float] = []
     self_damage_values: list[float] = []
+    unexpected_block_values: list[float] = []
 
     if args.require_regen and not bool((summary.get("regeneration") or {}).get("enabled")):
         failures.append("run summary does not report regeneration enabled")
 
-    for shot in shots:
+    for shot_index, shot in enumerate(shots):
         number = shot.get("shot")
+        rebuilt_before_shot = shot.get("cannon_rebuilt_before_shot")
+        if lifecycle == "PRESERVE_ACROSS_SHOTS":
+            expected_rebuilt = shot_index == 0
+            if rebuilt_before_shot is not expected_rebuilt:
+                failures.append(
+                    f"shot {number}: cannon_rebuilt_before_shot={rebuilt_before_shot!r} "
+                    f"expected={expected_rebuilt}"
+                )
+        elif lifecycle == "REBUILD_EACH_SHOT" and rebuilt_before_shot is not True:
+            failures.append(
+                f"shot {number}: cannon_rebuilt_before_shot={rebuilt_before_shot!r} "
+                "expected=True"
+            )
         if shot.get("error") is not None:
             failures.append(f"shot {number}: error={shot.get('error')}")
         if not shot.get("saw_payload"):
@@ -187,6 +245,7 @@ def main() -> None:
         )
         regen_race_margin = int(shot.get("regen_race_margin_ticks", -1))
         self_damage = int(shot.get("self_damage_blocks", 0))
+        unexpected_blocks = int(shot.get("cannon_unexpected_blocks", 0))
         durability_hits = int(shot.get("durability_hits", 0))
         durability_breaks = int(shot.get("durability_breaks", 0))
         companion_missing = int(shot.get("companion_cells_missing", 0))
@@ -200,6 +259,7 @@ def main() -> None:
         if regen_race_margin >= 0:
             regen_race_margin_values.append(float(regen_race_margin))
         self_damage_values.append(float(self_damage))
+        unexpected_block_values.append(float(unexpected_blocks))
 
         if (
             args.min_target_peak_destroyed is not None
@@ -253,6 +313,14 @@ def main() -> None:
             failures.append(
                 f"shot {number}: self_damage_blocks={self_damage} "
                 f"above {args.max_self_damage_blocks}"
+            )
+        if (
+            args.max_cannon_unexpected_blocks is not None
+            and unexpected_blocks > args.max_cannon_unexpected_blocks
+        ):
+            failures.append(
+                f"shot {number}: cannon_unexpected_blocks={unexpected_blocks} "
+                f"above {args.max_cannon_unexpected_blocks}"
             )
         if args.min_durability_hits is not None and durability_hits < args.min_durability_hits:
             failures.append(
@@ -481,6 +549,9 @@ def main() -> None:
         "summary": str(summary_path),
         "scenario": summary.get("scenario"),
         "cannon_file": summary.get("cannon_file"),
+        "cannon_lifecycle": lifecycle,
+        "rebuild_cannon_between_shots": rebuild_between_shots,
+        "cannon_pastes_performed": pastes_performed,
         "target_type": summary.get("target_type"),
         "target_direction": direction,
         "target_bounds": target_bounds,
@@ -502,6 +573,7 @@ def main() -> None:
         ),
         "regen_race_margin_ticks": numeric_stats(regen_race_margin_values),
         "self_damage_blocks": numeric_stats(self_damage_values),
+        "cannon_unexpected_blocks": numeric_stats(unexpected_block_values),
         "custom_event_counts": dict(custom_events),
         "spawn_position": {
             "x": numeric_stats(spawn_x),

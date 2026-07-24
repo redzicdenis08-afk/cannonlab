@@ -47,6 +47,7 @@ record LabScenario(
         RegenConfig regeneration,
         DurabilityConfig durability,
         AcceptanceConfig acceptance,
+        boolean rebuildCannonBetweenShots,
         int shots,
         int volleysPerShot,
         int volleyIntervalTicks,
@@ -198,6 +199,10 @@ record LabScenario(
                         Integer.MAX_VALUE
                 )),
                 Math.max(0, yaml.getInt(
+                        "acceptance.max-cannon-unexpected-blocks",
+                        Integer.MAX_VALUE
+                )),
+                Math.max(0, yaml.getInt(
                         "acceptance.max-self-damage-blocks",
                         Integer.MAX_VALUE
                 ))
@@ -239,6 +244,7 @@ record LabScenario(
                 regeneration,
                 durability,
                 acceptance,
+                yaml.getBoolean("run.rebuild-cannon-between-shots", true),
                 Math.max(1, yaml.getInt("run.shots", 1)),
                 Math.max(1, yaml.getInt("run.volleys-per-shot", 1)),
                 Math.max(1, yaml.getInt("run.volley-interval-ticks", 20)),
@@ -480,6 +486,7 @@ record LabScenario(
             double minRemainingDispenserRatio,
             int maxCannonMissingBlocks,
             int maxCannonReplacedTypeBlocks,
+            int maxCannonUnexpectedBlocks,
             int maxSelfDamageBlocks
     ) {
     }

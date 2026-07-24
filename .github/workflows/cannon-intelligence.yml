@@ -16,6 +16,10 @@ on:
       - 'scripts/test-assert-breach-contract.py'
       - 'scripts/compare-entity-trajectories.py'
       - 'scripts/test-entity-trajectory-compare.py'
+      - 'scripts/test-cumulative-endurance-contract.py'
+      - 'scripts/test-endurance-scenario-integrity.py'
+      - 'scripts/build-water-protected-endurance-probe.py'
+      - 'scripts/test-water-protected-endurance-probe.py'
       - 'scripts/cannon-static-map.py'
       - 'scripts/cannon-module-map.py'
       - 'scripts/test-static-analysis-cache.py'
@@ -37,6 +41,7 @@ on:
       - 'mcp-server/**'
       - 'src/main/java/**'
       - 'scenarios/breach-telemetry-probe.yml'
+      - 'scenarios/probe-redstone-endurance.yml'
       - 'audit-fixtures/**'
   workflow_dispatch:
 
@@ -73,6 +78,10 @@ jobs:
             scripts/test-assert-breach-contract.py \
             scripts/compare-entity-trajectories.py \
             scripts/test-entity-trajectory-compare.py \
+            scripts/test-cumulative-endurance-contract.py \
+            scripts/test-endurance-scenario-integrity.py \
+            scripts/build-water-protected-endurance-probe.py \
+            scripts/test-water-protected-endurance-probe.py \
             scripts/cannon-static-map.py \
             scripts/cannon-module-map.py \
             scripts/test-static-analysis-cache.py \
@@ -133,6 +142,12 @@ jobs:
           python scripts/test-breach-evidence.py
           python scripts/test-assert-breach-contract.py
           python scripts/test-entity-trajectory-compare.py
+
+      - name: Prove cumulative endurance lifecycle
+        run: |
+          python scripts/test-cumulative-endurance-contract.py
+          python scripts/test-endurance-scenario-integrity.py
+          python scripts/test-water-protected-endurance-probe.py
 
       - name: Prove module-preservation gate
         run: |

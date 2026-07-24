@@ -99,6 +99,8 @@ jobs:
           CANNONLAB_SERVER_LABEL: Sakura 26.1.2 pinned redstone endurance
           CANNONLAB_SCENARIO: probe-redstone-endurance.yml
           CANNONLAB_EXPECTED_SHOTS: '100'
+          CANNONLAB_REQUIRE_CUMULATIVE_CANNON: 'true'
+          CANNONLAB_MAX_CANNON_UNEXPECTED_BLOCKS: '0'
           CANNONLAB_STRICT_SINGLE_TNT: 'true'
           CANNONLAB_MIN_TNT_PER_SHOT: '1'
           CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '1'

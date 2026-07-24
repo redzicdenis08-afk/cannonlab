@@ -11,6 +11,7 @@ on:
       - 'gradlew.bat'
       - 'scripts/cloud-smoke.sh'
       - 'scripts/assert-results.py'
+      - 'scripts/build-water-protected-endurance-probe.py'
       - 'scenarios/probe-redstone-endurance.yml'
       - 'cannons/**'
       - 'targets/**'
@@ -51,6 +52,8 @@ jobs:
           CANNONLAB_SERVER_LABEL: Paper 26.1.2 redstone endurance
           CANNONLAB_TIMEOUT_SECONDS: '900'
           CANNONLAB_EXPECTED_SHOTS: '100'
+          CANNONLAB_REQUIRE_CUMULATIVE_CANNON: 'true'
+          CANNONLAB_MAX_CANNON_UNEXPECTED_BLOCKS: '0'
         run: bash scripts/cloud-smoke.sh
 
       - name: Upload endurance evidence

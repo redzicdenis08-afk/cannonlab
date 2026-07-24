@@ -13,7 +13,7 @@ The laboratory can:
 - convert compatible Litematica designs to Sponge v2 before runtime testing
 - paste Sponge `.schem` files at exact origins
 - clear only the planned cannon/flight/target corridor between shots instead of scanning the entire configured arena cube
-- rebuild the cannon and target between every shot
+- choose explicitly between fresh-paste reliability and preserving one physical cannon across every shot
 - audit and fill every dispenser with TNT
 - enforce the current user-reported ExtremeCraft limit of 160 dispensers per chunk
 - test conservative or historical limits such as 128 through an explicit CLI override
@@ -41,9 +41,9 @@ The CI suite contains:
 - clean Java 25 compilation and plugin packaging
 - one-dispenser direct and redstone plumbing tests
 - a real four-dispenser cannon fixture
-- one hundred consecutive redstone-triggered endurance shots
+- one hundred consecutive redstone-triggered shots on one preserved cannon paste
 - a five-scenario professional-defense matrix
-- one hundred redstone endurance shots on pinned public Sakura 26.1.2
+- one hundred one-paste redstone endurance shots on pinned public Sakura 26.1.2
 - ten four-TNT shots on pinned public Sakura 26.1.2
 - exact TNT fuse continuity and lifetime checks
 - unique-entity and no-leak validation between resets
@@ -253,6 +253,7 @@ acceptance:
   min-remaining-dispenser-ratio: 0.99
   max-cannon-missing-blocks: 20
   max-cannon-replaced-type-blocks: 10
+  max-cannon-unexpected-blocks: 0
   max-self-damage-blocks: 20
 target:
   type: hotdog
@@ -275,6 +276,7 @@ target:
     max-blocks-per-cycle: 32
 run:
   shots: 100
+  rebuild-cannon-between-shots: false
   warmup-ticks: 20
   max-shot-ticks: 240
   quiet-ticks: 20
@@ -295,9 +297,11 @@ python scripts/scenario-integrity-audit.py scenarios/candidate.yml `
   --json-out scenario-integrity.json
 ```
 
-The integrity audit exposes collision guides, forced TNT velocities, diagnostic magazine cutoffs, direct-dispenser fire, disabled dispenser limits, and weak survival/range/target gates. For water-facing targets it also requires explicit falling-payload overlap and unembedded-water limits. For regenerating targets it requires one aligned penetration lane through successive layers before the first actual restoration. Assisted scenarios remain useful diagnostics, but their results cannot be promoted as standalone cannon or EC-readiness evidence.
+The integrity audit exposes collision guides, forced TNT velocities, diagnostic magazine cutoffs, direct-dispenser fire, disabled dispenser limits, ambiguous multi-shot lifecycles, and weak survival/range/target gates. An endurance-labelled scenario is rejected if it rebuilds the cannon between shots. For water-facing targets the audit also requires explicit falling-payload overlap and unembedded-water limits. For regenerating targets it requires one aligned penetration lane through successive layers before the first actual restoration. Assisted scenarios remain useful diagnostics, but their results cannot be promoted as standalone cannon or EC-readiness evidence.
 
 Acceptance is enforced inside the Java runtime. A failed shot writes `contract_pass: false`, the exact failure list, cannon survival counts, and `cannon-integrity.csv`; the run ends with `finish_reason: contract_failed`. Each shot also writes `breach-events.csv`. `falling_overlap_evidence=true` means a recorded falling-block trajectory overlapped the TNT explosion envelope at that tick. Runtime breach counters only use TNT explosions whose center is inside the recorded target envelope, so water inside the cannon cannot satisfy or poison the wall-impact gate. It is direct local runtime evidence, but it is not by itself proof of private ExtremeCraft water-bypass behavior. The regen race stops at the first target block that CannonLab actually restores, not merely at the first configured cycle. Scattered damage at different heights or lateral positions cannot be combined into a fake full-depth breach. Existing scenarios without explicit acceptance remain runnable for diagnosis, but the scenario audit classifies them as `INCOMPLETE`. Set `CANNONLAB_REQUIRE_FIELD_CANDIDATE=true` or `CANNONLAB_REQUIRE_READINESS=true` in either launcher to fail before server startup when the requested evidence level is not met.
+
+`run.rebuild-cannon-between-shots` defaults to `true` for backward compatibility. That mode measures repeatability across fresh schematic pastes. Set it to `false` for cumulative endurance: CannonLab pastes the cannon once, preserves every block and redstone-state change, removes only transient TNT/falling/item entities, rebuilds only the target, refills surviving dispensers, and compares every later shot against the original cannon snapshot. It also counts blocks or fluids that appear inside originally-air cells as `cannon_unexpected_blocks`; use `acceptance.max-cannon-unexpected-blocks: 0` for strict endurance. `run-summary.json` records `cannon_lifecycle`, `cannon_pastes_performed`, and `cannon_rebuilt_before_shot` for every shot. Use `assert-results.py --require-cumulative-cannon` or `CANNONLAB_REQUIRE_CUMULATIVE_CANNON=true` so a fresh-paste run cannot masquerade as endurance evidence.
 
 ## Included defense scenarios
 
