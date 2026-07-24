@@ -26,7 +26,7 @@
       "publication_basis": "Official CosmicReborn schematic page exposes a direct download and credits the authors.",
       "redistribution": "fetch-only",
       "license_status": "not-stated",
-      "expected_sha256": null
+      "expected_sha256": "510abf89ca04e7219aa3fd3f002b28c31b9462c37b9eac82843019391df5c8ae"
     },
     {
       "id": "cosmicreborn-pred",
@@ -43,7 +43,7 @@
       "publication_basis": "Official CosmicReborn schematic page exposes a direct download and credits the authors.",
       "redistribution": "fetch-only",
       "license_status": "not-stated",
-      "expected_sha256": null
+      "expected_sha256": "9e13c77fbab9c1037d314bb6d96cf363244f257f17ef5e161137d34366324763"
     },
     {
       "id": "cosmicreborn-mboze",
@@ -60,7 +60,7 @@
       "publication_basis": "Official CosmicReborn schematic page exposes a direct download and credits the authors.",
       "redistribution": "fetch-only",
       "license_status": "not-stated",
-      "expected_sha256": null
+      "expected_sha256": "c4ea5cfceb034db39f1f985a06e59b615b322ee4b3a3e82e2045b3d458257f72"
     },
     {
       "id": "cosmicreborn-shakisha",
@@ -77,7 +77,7 @@
       "publication_basis": "Official CosmicReborn schematic page exposes a direct download and credits the authors.",
       "redistribution": "fetch-only",
       "license_status": "not-stated",
-      "expected_sha256": null
+      "expected_sha256": "fb164b8fbfbd2b9299f1a9bdaf6e03060af04d75bc91e8d71205e7c6e0c26e09"
     },
     {
       "id": "cosmicreborn-raid-outpost-qp",
@@ -94,7 +94,7 @@
       "publication_basis": "Official CosmicReborn schematic page exposes a direct download and credits the authors.",
       "redistribution": "fetch-only",
       "license_status": "not-stated",
-      "expected_sha256": null
+      "expected_sha256": "301b759ab764e81d678ad6ffcae488ffb25fe6e48d61906767da350ec43a8d4a"
     },
     {
       "id": "cosmicreborn-l-stacker",
@@ -111,7 +111,7 @@
       "publication_basis": "Official CosmicReborn schematic page exposes a direct download and credits the authors.",
       "redistribution": "fetch-only",
       "license_status": "not-stated",
-      "expected_sha256": null
+      "expected_sha256": "d34f37e879031a75693f528986633bb43d48f6f989c63ca6df1b8c0b71a538b5"
     }
   ]
 }
