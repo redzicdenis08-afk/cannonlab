@@ -1,0 +1,104 @@
+name: ExtremeCraft Parity Contract
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'profiles/**'
+      - 'calibration/**'
+      - 'scripts/apply-runtime-profile.py'
+      - 'scripts/audit-ec-parity.py'
+      - 'scripts/test-runtime-profile.py'
+      - 'scripts/inventory-plugin-stack.py'
+      - 'scripts/make-ec-scenario-pack.py'
+      - 'scripts/prepare-server.ps1'
+      - 'scripts/run-lab.ps1'
+      - 'scripts/run-ec-lab.ps1'
+      - 'scripts/run-native-calibrations.ps1'
+      - 'src/**'
+      - 'scenarios/ec-native-*.yml'
+      - '.github/workflows/extremecraft-parity.yml'
+  pull_request:
+    paths:
+      - 'profiles/**'
+      - 'calibration/**'
+      - 'scripts/apply-runtime-profile.py'
+      - 'scripts/audit-ec-parity.py'
+      - 'scripts/test-runtime-profile.py'
+      - 'scripts/inventory-plugin-stack.py'
+      - 'scripts/make-ec-scenario-pack.py'
+      - 'scripts/prepare-server.ps1'
+      - 'scripts/run-lab.ps1'
+      - 'scripts/run-ec-lab.ps1'
+      - 'scripts/run-native-calibrations.ps1'
+      - 'src/**'
+      - 'scenarios/ec-native-*.yml'
+      - '.github/workflows/extremecraft-parity.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  parity-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install profile dependencies
+        run: python -m pip install --disable-pip-version-check PyYAML==6.0.3
+
+      - name: Verify profile application and fail-closed mismatch detection
+        run: python scripts/test-runtime-profile.py
+
+      - name: Generate representative EC defense pack
+        run: |
+          python scripts/make-ec-scenario-pack.py probe-four-dispenser.schem \
+            --output-dir /tmp/ec-pack \
+            --fire-input 1,2,1 \
+            --fire-mode redstone \
+            --direction east \
+            --distance 5 \
+            --shots 1 \
+            --min-forward-distance 0 \
+            --min-remaining-dispenser-ratio 0 \
+            --max-cannon-missing-blocks 999 \
+            --max-self-damage-blocks 999
+          test "$(find /tmp/ec-pack -name '*.yml' | wc -l)" -eq 7
+
+      - name: Audit every generated scenario
+        run: |
+          for scenario in /tmp/ec-pack/*.yml; do
+            python scripts/scenario-integrity-audit.py "$scenario" --json-out "$scenario.json"
+          done
+
+  plugin-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Build profile-aware plugin and command shims
+        run: gradle clean build --stacktrace
+
+      - name: Inventory built plugin stack
+        run: python scripts/inventory-plugin-stack.py --plugins-dir build/libs --json-out build/plugin-stack.json

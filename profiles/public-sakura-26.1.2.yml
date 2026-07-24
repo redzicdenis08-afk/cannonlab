@@ -1,0 +1,66 @@
+schema-version: 1
+id: public-sakura-26.1.2-default-cannons
+label: Public Sakura 26.1.2 cannon defaults
+purpose: Reproducible control profile from the pinned public Sakura source and generated configuration.
+evidence-grade: local-runtime
+truth-boundary:
+  - This profile describes the public Sakura build used by CannonLab, not ExtremeCraft private parity.
+server:
+  software: sakura
+  minecraft-version: 26.1.2
+sakura:
+  cannons:
+    merge-level: LENIENT
+    load-chunks: false
+    tnt-and-sand-affected-by-bubble-columns: true
+    treat-collidable-blocks-as-full:
+      while-moving: false
+      moving-faster-than: 64.0
+    restrictions:
+      left-shooting-threshold: disabled
+      max-adjust-distance: disabled
+      instant-block-fall-limit: disabled
+    tnt:
+      force-position-updates: false
+    sand:
+      despawn-inside-moving-pistons: true
+      concrete-solidify-in-water: true
+      prevent-stacking:
+        against-border: false
+        world-height: false
+      drop-items: true
+    mechanics:
+      mechanic-version: latest
+      server-type: paper
+      tnt-spread: ALL
+      tnt-flows-in-water: true
+      falling-block-parity: false
+      falling-block-floating-point-fix: false
+      broken-paper-explosion-behaviour: false
+    explosion:
+      optimise-protected-regions: false
+      batch-explosions: true
+      avoid-redundant-block-searches: false
+      reuse-block-cache-across-explosions: false
+      reduce-exposure-raycasts: false
+      destroy-waterlogged-blocks: false
+      explode-lava: false
+      consistent-radius: false
+      explosions-hurt-players: true
+      explosions-drop-items: true
+      break-blocks-when-outside-the-world-border: true
+      protect-blocks-above-y: disabled
+      protect-scaffolding-from-creepers: false
+      durable-materials-expiration: 1m
+      durable-materials:
+        obsidian: {durability: 4, resistance: 6.0, only-damaged-by-tnt: true}
+        anvil: {durability: 3, resistance: 9.0, only-damaged-by-tnt: true}
+        chipped_anvil: {durability: 3, resistance: 9.0, only-damaged-by-tnt: true}
+        damaged_anvil: {durability: 3, resistance: 9.0, only-damaged-by-tnt: true}
+cannonlab:
+  limits:
+    dispensers-per-chunk: 160
+  evidence:
+    label: local-runtime
+    require-profile-manifest: true
+unknowns: []

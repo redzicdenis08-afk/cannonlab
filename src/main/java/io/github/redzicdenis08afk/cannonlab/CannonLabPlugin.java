@@ -2,10 +2,23 @@ package io.github.redzicdenis08afk.cannonlab;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Chunk;
+import org.bukkit.Material;
 import org.bukkit.Location;
 import org.bukkit.World;
+import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
+import org.bukkit.block.Dispenser;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
+import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockExplodeEvent;
+import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -17,10 +30,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-public final class CannonLabPlugin extends JavaPlugin {
+public final class CannonLabPlugin extends JavaPlugin implements Listener {
     private ShotRecorder recorder;
     private LabRunController runController;
     private final List<ForcedChunk> forcedChunks = new ArrayList<>();
+    private boolean manualExplosionsEnabled = true;
 
     @Override
     public void onEnable() {
@@ -47,6 +61,7 @@ public final class CannonLabPlugin extends JavaPlugin {
         runController = new LabRunController(this, worldEditService, recorder);
         Bukkit.getPluginManager().registerEvents(recorder, this);
         Bukkit.getPluginManager().registerEvents(runController, this);
+        Bukkit.getPluginManager().registerEvents(this, this);
 
         getLogger().info("CannonLab 0.3 enabled. WorldEdit automation is ready."
                 + " Forced chunks=" + forcedChunks.size());
@@ -63,6 +78,12 @@ public final class CannonLabPlugin extends JavaPlugin {
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (command.getName().equalsIgnoreCase("p")) {
+            return plotCommand(sender, args);
+        }
+        if (command.getName().equalsIgnoreCase("bonetool")) {
+            return giveBoneTool(sender);
+        }
         if (args.length == 0) {
             sender.sendMessage("CannonLab: status, smoke, run <scenario>, cancel");
             return true;
@@ -87,11 +108,99 @@ public final class CannonLabPlugin extends JavaPlugin {
         }
     }
 
+    private boolean plotCommand(CommandSender sender, String[] args) {
+        if (args.length == 0) {
+            sender.sendMessage("CannonLab plot shim: /p tntfill or /p gui");
+            return true;
+        }
+        return switch (args[0].toLowerCase(Locale.ROOT)) {
+            case "tntfill" -> fillLoadedDispensers(sender);
+            case "gui" -> {
+                manualExplosionsEnabled = !manualExplosionsEnabled;
+                sender.sendMessage("CannonLab manual explosions: "
+                        + (manualExplosionsEnabled ? "ENABLED" : "DISABLED")
+                        + ". Automated scenarios always retain explosion control.");
+                yield true;
+            }
+            default -> {
+                sender.sendMessage("Unsupported plot shim. Use /p tntfill or /p gui.");
+                yield true;
+            }
+        };
+    }
+
+    private boolean fillLoadedDispensers(CommandSender sender) {
+        int dispensers = 0;
+        long tntItems = 0;
+        for (Chunk chunk : arenaWorld().getLoadedChunks()) {
+            for (BlockState state : chunk.getTileEntities()) {
+                if (!(state instanceof Dispenser dispenser)) {
+                    continue;
+                }
+                for (int slot = 0; slot < dispenser.getInventory().getSize(); slot++) {
+                    dispenser.getInventory().setItem(slot, new ItemStack(Material.TNT, 64));
+                    tntItems += 64;
+                }
+                dispenser.update(true, false);
+                dispensers++;
+            }
+        }
+        sender.sendMessage("CannonLab /p tntfill: filled " + dispensers
+                + " loaded dispensers with " + tntItems + " TNT items.");
+        return true;
+    }
+
+    private boolean giveBoneTool(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage("/bonetool must be used by a player.");
+            return true;
+        }
+        player.getInventory().addItem(new ItemStack(Material.BONE));
+        player.sendMessage("Bone tool: right-click places sand, sneak-right-click places obsidian, left-click removes.");
+        return true;
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onManualEntityExplosion(EntityExplodeEvent event) {
+        if (!manualExplosionsEnabled && (runController == null || !runController.isRunning())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
+    public void onManualBlockExplosion(BlockExplodeEvent event) {
+        if (!manualExplosionsEnabled && (runController == null || !runController.isRunning())) {
+            event.setCancelled(true);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onBoneTool(PlayerInteractEvent event) {
+        ItemStack item = event.getItem();
+        if (item == null || item.getType() != Material.BONE || event.getClickedBlock() == null) {
+            return;
+        }
+        Action action = event.getAction();
+        if (action == Action.LEFT_CLICK_BLOCK) {
+            event.getClickedBlock().setType(Material.AIR, false);
+            event.setCancelled(true);
+            return;
+        }
+        if (action != Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
+        Block placement = event.getClickedBlock().getRelative(event.getBlockFace());
+        placement.setType(event.getPlayer().isSneaking() ? Material.OBSIDIAN : Material.SAND, false);
+        event.setCancelled(true);
+    }
+
     private boolean status(CommandSender sender) {
         World world = arenaWorld();
         sender.sendMessage("CannonLab enabled | world=" + world.getName()
                 + " | WorldEdit=" + worldEditPluginName()
                 + " | forcedChunks=" + forcedChunks.size()
+                + " | profile=" + getConfig().getString("parity-profile.id", "unprofiled")
+                + "/" + getConfig().getString("parity-profile.evidence-grade", "unknown")
                 + " | run=" + runController.status());
         return true;
     }

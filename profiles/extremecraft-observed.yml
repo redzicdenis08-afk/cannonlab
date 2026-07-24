@@ -1,0 +1,104 @@
+schema-version: 1
+id: extremecraft-observed-2026-07-24
+label: ExtremeCraft observed candidate
+purpose: Closest reproducible public-Sakura approximation to the current ExtremeCraft Factions cannon environment.
+evidence-grade: mixed
+truth-boundary:
+  - Public Sakura behavior is local-runtime evidence only.
+  - Exact ExtremeCraft private plugins, patches, anti-lag, FAWE limits, durable-block config, and regen algorithms remain unverified.
+  - Values marked field-reported came from live player observations and require calibration before promotion.
+server:
+  software: sakura
+  minecraft-version: 26.1.2
+  network-front: velocity
+  factions-family: factionsuuid-style
+sakura:
+  cannons:
+    merge-level: NONE
+    load-chunks: false
+    tnt-and-sand-affected-by-bubble-columns: true
+    treat-collidable-blocks-as-full:
+      while-moving: false
+      moving-faster-than: 64.0
+    restrictions:
+      left-shooting-threshold: disabled
+      max-adjust-distance: disabled
+      instant-block-fall-limit: disabled
+    tnt:
+      force-position-updates: false
+    sand:
+      despawn-inside-moving-pistons: true
+      concrete-solidify-in-water: true
+      prevent-stacking:
+        against-border: false
+        world-height: false
+      drop-items: true
+    mechanics:
+      mechanic-version: 1.20.0
+      server-type: paper
+      tnt-spread: Y
+      tnt-flows-in-water: true
+      falling-block-parity: false
+      falling-block-floating-point-fix: false
+      broken-paper-explosion-behaviour: false
+    explosion:
+      optimise-protected-regions: false
+      batch-explosions: true
+      avoid-redundant-block-searches: false
+      reuse-block-cache-across-explosions: false
+      reduce-exposure-raycasts: false
+      destroy-waterlogged-blocks: false
+      explode-lava: false
+      consistent-radius: false
+      explosions-hurt-players: true
+      explosions-drop-items: true
+      break-blocks-when-outside-the-world-border: true
+      protect-blocks-above-y: disabled
+      protect-scaffolding-from-creepers: false
+      durable-materials-expiration: 1m
+      durable-materials:
+        obsidian:
+          durability: 4
+          resistance: 6.0
+          only-damaged-by-tnt: true
+        anvil:
+          durability: 3
+          resistance: 9.0
+          only-damaged-by-tnt: true
+        chipped_anvil:
+          durability: 3
+          resistance: 9.0
+          only-damaged-by-tnt: true
+        damaged_anvil:
+          durability: 3
+          resistance: 9.0
+          only-damaged-by-tnt: true
+cannonlab:
+  limits:
+    dispensers-per-chunk: 160
+    block-entities-per-paste: unknown
+  schematic:
+    format: sponge-v2
+    data-version: 3465
+  durability:
+    preferred-mode: native
+    fallback-mode: simulate
+  evidence:
+    label: local-runtime-candidate
+    require-profile-manifest: true
+field-workflow:
+  commands:
+    - //paste
+    - /p tntfill
+    - /bonetool
+    - /p gui
+  unsupported-commands:
+    - /schemdb
+    - /mechanic
+unknowns:
+  - Exact FAWE block-entity or NBT paste cap.
+  - Exact private ExtremeCraft plugin list and versions.
+  - Exact TNT merge, entity cap, anti-lag, and chunk-ticket overrides.
+  - Exact regen wall replacement algorithm and per-wall timings.
+  - Whether durable-material expiration or resistance differs from public Sakura defaults.
+  - Whether waterlogged-block destruction and explosion cache settings differ live.

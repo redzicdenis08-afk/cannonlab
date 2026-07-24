@@ -24,9 +24,15 @@ $UserAgent = 'CannonLab/0.3 (https://github.com/redzicdenis08-afk/cannonlab)'
 $Headers = @{ 'User-Agent' = $UserAgent }
 
 # Prefer a manually supplied Sakura jar. Paper is only the infrastructure smoke-test fallback.
-$SakuraJar = Join-Path $ServerRoot "sakura-$MinecraftVersion.jar"
+$SakuraCandidates = @()
+if ($env:CANNONLAB_SAKURA_JAR) {
+    $SakuraCandidates += $env:CANNONLAB_SAKURA_JAR
+}
+$SakuraCandidates += (Join-Path $LabHome "sakura-$MinecraftVersion.jar")
+$SakuraCandidates += (Join-Path $ServerRoot "sakura-$MinecraftVersion.jar")
+$SakuraJar = $SakuraCandidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
 $ServerJar = Join-Path $ServerRoot 'server.jar'
-if (Test-Path $SakuraJar) {
+if ($SakuraJar) {
     Copy-Item $SakuraJar $ServerJar -Force
     Write-Host "Using local Sakura jar: $SakuraJar"
 } elseif (-not (Test-Path $ServerJar)) {
@@ -89,6 +95,17 @@ if ($WorldEditFile.hashes.sha512) {
     Write-Host 'WorldEdit SHA-512 verified.'
 }
 
+# Optional public/private compatibility plugins can be mounted without placing
+# binaries in git. Runtime evidence inventories and hashes every resulting JAR.
+if ($env:CANNONLAB_PLUGIN_DIR) {
+    if (-not (Test-Path $env:CANNONLAB_PLUGIN_DIR)) {
+        throw "CANNONLAB_PLUGIN_DIR does not exist: $($env:CANNONLAB_PLUGIN_DIR)"
+    }
+    Get-ChildItem (Join-Path $env:CANNONLAB_PLUGIN_DIR '*') -File -Filter '*.jar' | ForEach-Object {
+        Copy-Item $_.FullName (Join-Path $PluginsRoot $_.Name) -Force
+    }
+}
+
 $PluginJar = Get-ChildItem (Join-Path $RepoRoot 'build\libs\CannonLab-*.jar') | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if (-not $PluginJar) {
     throw 'CannonLab plugin JAR was not built.'
@@ -102,14 +119,27 @@ Get-ChildItem (Join-Path $RepoRoot 'cannons\*.schem.b64') | ForEach-Object {
     [IO.File]::WriteAllBytes((Join-Path $CannonsTarget $OutputName), $Bytes)
 }
 
+# Private and user-supplied cannon corpora stay outside git but are first-class
+# lab inputs. The optional environment directory is useful for mounted uploads.
+$PrivateCannonRoots = @(
+    (Join-Path $RepoRoot 'private-cannons'),
+    $env:CANNONLAB_CORPUS_DIR
+) | Where-Object { $_ -and (Test-Path $_) }
+foreach ($PrivateRoot in $PrivateCannonRoots) {
+    Get-ChildItem (Join-Path $PrivateRoot '*') -File -Include '*.schem','*.litematic' -ErrorAction SilentlyContinue | ForEach-Object {
+        Copy-Item $_.FullName (Join-Path $CannonsTarget $_.Name) -Force
+    }
+}
+
 Copy-Item (Join-Path $RepoRoot 'scenarios\*.yml') $ScenariosTarget -Force
 
 @'
 eula=true
 '@ | Set-Content (Join-Path $ServerRoot 'eula.txt') -Encoding ascii
 
-@'
-server-port=25570
+$ServerPort = if ($env:CANNONLAB_SERVER_PORT) { [int]$env:CANNONLAB_SERVER_PORT } else { 25570 }
+@"
+server-port=$ServerPort
 online-mode=false
 spawn-protection=0
 max-players=1
@@ -123,7 +153,7 @@ allow-flight=true
 pause-when-empty-seconds=-1
 max-tick-time=-1
 motd=CannonLab isolated test server
-'@ | Set-Content (Join-Path $ServerRoot 'server.properties') -Encoding ascii
+"@ | Set-Content (Join-Path $ServerRoot 'server.properties') -Encoding ascii
 
 @'
 arena:
