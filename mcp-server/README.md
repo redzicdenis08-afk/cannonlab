@@ -8,10 +8,10 @@ This local MCP exposes CannonLab's evidence tools to an AI client.
 cd mcp-server
 python -m venv .venv
 .venv/bin/pip install -e .
-.venv/bin/python server.py
+.venv/bin/cannonlab-mcp
 ```
 
-On Windows, use `.venv\Scripts\python.exe`.
+On Windows, use `.venv\Scripts\cannonlab-mcp.exe`.
 
 The server uses stdio by default and never connects to ExtremeCraft. Paths are jailed to the CannonLab repository.
 
@@ -22,6 +22,10 @@ Use one of these before spending time on runtime tests:
 - `fast_cannon_intake`: one call for format/limit audit, functional and module mapping, and anti-pancake geometry profiling against real reference cannons
 - `profile_cannon`: rapidly compare a candidate with one or more decoded references and reject fake-modern geometry
 - `prepare_reference_cannon`: convert a proven Litematica or Sponge source into deterministic Sponge v2, then audit and profile the exact output
+- `audit_cannon_ratio`: parse authored 384/OSRB ratios, preserve uncertain timing tokens, account base versus attachment payload, and compare profiles
+- `analyze_impulse_graph`: identify the first motion-level divergence between real reference and candidate traces without inventing one source for ambiguous stacked explosions
+- `plan_cannon_synthesis`: select hash-verified modules, join declared ports, scan EC160 alignments, and optionally compile the strongest assembly candidate
+- `list_advanced_cannon_profiles`: inventory ratio, parity, archetype and synthesis profiles with explicit truth boundaries
 - `audit_paste_alignment`: translate schematic-minimum chunk scans into the actual WorldEdit player paste-point frame, including `WEOffsetX/Z`
 - `audit_scenario_integrity`: expose lab assists and weak evidence gates before a result is promoted
 - `map_cannon_modules`: map bank-centered modules, exact repeated lanes, controls, timing parts, directional links, and conservative role candidates
@@ -48,12 +52,16 @@ For modern raid work, pass the strongest real reference cannons available and us
 - `analyze_module_trace`: exact component-to-module runtime mapping, shared-component ambiguity, and bounded entity-source physics correlations
 - `compare_module_traces`: exact-geometry replay contracts with source accounting, shared-component timing, joint source dispensers, velocity, fuse, impact, and allowed-change controls
 - `analyze_repair_family`: transparent repair scoring, Pareto-front ranking, promotion blockers, and deterministic collateral-drift summaries
+- `audit_cannon_ratio`: authored timing/order evidence, base-stack accounting and profile comparison
+- `analyze_impulse_graph`: source-to-motion graphing and first-divergence comparison
+- `plan_cannon_synthesis`: evidence-gated module assembly and deterministic candidate compilation
+- `list_advanced_cannon_profiles`: machine-readable advanced profile inventory
 - `profile_cannon`: structural morphology and real-reference comparison without inventing subsystem roles
 - `prepare_reference_cannon`: deterministic Sponge v2 conversion plus output audit and geometry profile
 - `audit_cannon_corpus`: batch-compares a private folder of `.schem` and `.litematic` designs without publishing the files
 - `explain_shot`: converts `causal-events.csv` into firing cohorts and a compact timeline
 - `analyze_shot_quality`: scores trigger latency, firing cohorts, target convergence, falling payload and cannon self-damage
-- `audit_ec_calibration`: refuses an EC-calibrated label until every required live evidence probe is present and valid
+- `audit_ec_calibration`: requires the full hash-backed 16-dimension ExtremeCraft parity evidence contract; legacy eight-probe packs remain fail closed
 - `query_timeline`: filters exact events by tick and event type
 - `list_shot_traces`: lists local runtime evidence
 - `compare_shots`: compares two traces without pretending a subsystem role is proven

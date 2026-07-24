@@ -1,0 +1,96 @@
+name: Advanced Cannon MCP
+
+on:
+  pull_request:
+    paths:
+      - 'mcp-server/**'
+      - 'scripts/cannon-ratio-audit.py'
+      - 'scripts/analyze-impulse-graph.py'
+      - 'scripts/cannon-synthesis-planner.py'
+      - 'profiles/ratios/**'
+      - 'profiles/parity/**'
+      - 'profiles/archetypes/**'
+      - 'profiles/synthesis/**'
+      - '.github/workflows/advanced-cannon-mcp.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  advanced-mcp:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile advanced MCP
+        run: |
+          python -m py_compile \
+            mcp-server/advanced_tools.py \
+            mcp-server/advanced_server.py \
+            mcp-server/test-advanced-tools.py
+
+      - name: Run command and path regressions
+        run: python mcp-server/test-advanced-tools.py
+
+      - name: Install MCP package
+        run: python -m pip install -e mcp-server
+
+      - name: Verify real FastMCP registry
+        run: |
+          python - <<'PY'
+          import asyncio
+          import advanced_server
+
+          expected = {
+              'audit_cannon_ratio',
+              'analyze_impulse_graph',
+              'plan_cannon_synthesis',
+              'list_advanced_cannon_profiles',
+          }
+          tools = asyncio.run(advanced_server.mcp.list_tools())
+          names = {tool.name for tool in tools}
+          assert expected <= names, {'missing': sorted(expected - names), 'available': sorted(names)}
+          assert set(advanced_server.REGISTERED_ADVANCED_TOOLS) == expected
+          print(f'FastMCP registered {len(names)} total tools including all four advanced tools.')
+          PY
+
+      - name: Capture advanced tool inventory
+        run: |
+          mkdir -p lab-artifacts/advanced-cannon-mcp
+          python - <<'PY'
+          import asyncio
+          import json
+          from pathlib import Path
+          import advanced_server
+
+          tools = asyncio.run(advanced_server.mcp.list_tools())
+          payload = {
+              'schema_version': 1,
+              'tool_count': len(tools),
+              'tools': sorted(tool.name for tool in tools),
+              'advanced_tools': sorted(advanced_server.REGISTERED_ADVANCED_TOOLS),
+          }
+          Path('lab-artifacts/advanced-cannon-mcp/tools.json').write_text(
+              json.dumps(payload, indent=2, sort_keys=True) + '\n',
+              encoding='utf-8',
+          )
+          PY
+
+      - name: Upload MCP inventory
+        uses: actions/upload-artifact@v4
+        with:
+          name: advanced-cannon-mcp
+          path: lab-artifacts/advanced-cannon-mcp
+          if-no-files-found: error
