@@ -68,18 +68,23 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
     fill(blocks, (9, 1, 6), (11, 2, 6), obsidian)
 
     # One-high 3x4 source-water charge bed. The front is deliberately open to
-    # the slab-supported projectile, unlike the rejected sealed-wall design.
+    # the slab-supported projectile.
     fill(blocks, (6, 1, 2), (8, 1, 5), "minecraft:water[level=0]")
 
-    # Twelve top and twelve bottom charge dispensers.
+    # Twelve bottom charge dispensers. Eight top dispensers remain over X=6..7;
+    # X=8 top is intentionally omitted so charge power cannot reach payload.
     for x in (6, 7, 8):
         for z in range(2, 6):
-            top = (x, 2, z)
             bottom = (x, 0, z)
-            put(blocks, top, "minecraft:dispenser[facing=down,triggered=false]")
             put(blocks, bottom, "minecraft:dispenser[facing=up,triggered=false]")
-            dispensers.extend((top, bottom))
-            primary.extend(([x, 3, z], [x, -1, z]))
+            dispensers.append(bottom)
+            primary.append([x, -1, z])
+    for x in (6, 7):
+        for z in range(2, 6):
+            top = (x, 2, z)
+            put(blocks, top, "minecraft:dispenser[facing=down,triggered=false]")
+            dispensers.append(top)
+            primary.append([x, 3, z])
 
     # Six side charge dispensers.
     for x in (6, 7, 8):
@@ -90,8 +95,7 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
         dispensers.extend((north, south))
         primary.extend(([x, 1, 0], [x, 1, 7]))
 
-    # Two rear charge dispensers complete the 32-TNT charge. Rear corner cells
-    # are sealed with obsidian.
+    # Two rear charge dispensers complete the 28-TNT charge.
     put(blocks, (5, 1, 2), obsidian)
     put(blocks, (5, 1, 5), obsidian)
     for z in (3, 4):
@@ -100,9 +104,8 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
         dispensers.append(rear)
         primary.append([4, 1, z])
 
-    # Four bottom slabs stop the water while exposing the projectile above the
-    # slab to the horizontal charge impulse. Payload dispensers drop TNT from
-    # above so there is no full block between charge and projectile.
+    # Four payload TNT dispensers drop onto bottom slabs. No charge input is
+    # adjacent to these blocks, so they activate only in the delayed cohort.
     for z in range(2, 6):
         put(
             blocks,
@@ -123,8 +126,8 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
 
     put(blocks, (5, 3, 3), "minecraft:cyan_concrete")
 
-    if len(dispensers) != 36:
-        raise GenerationError(f"expected 36 dispensers, observed {len(dispensers)}")
+    if len(dispensers) != 32:
+        raise GenerationError(f"expected 32 dispensers, observed {len(dispensers)}")
 
     model = {
         "blocks": blocks,
@@ -139,11 +142,11 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
         },
     }
     metadata = {
-        "id": "c32-open-muzzle",
-        "charge_tnt": 32,
+        "id": "c28-open-muzzle",
+        "charge_tnt": 28,
         "payload_tnt": 4,
         "sand_blocks": 2,
-        "dispenser_count": 36,
+        "dispenser_count": 32,
         "primary_fire_inputs": primary,
         "delayed_fire_inputs": delayed,
         "cannon_max_x": 11,
@@ -169,7 +172,7 @@ def main() -> int:
     audit = load_audit()
     model, metadata = build()
     args.output_directory.mkdir(parents=True, exist_ok=True)
-    path = args.output_directory / "EC160-STACKER20-C32-OPENMUZZLE-P4-S2-v4.schem"
+    path = args.output_directory / "EC160-STACKER20-C28-OPENMUZZLE-P4-S2-v5.schem"
     audit.write_sponge_v2(path, model, 3465, canonical_gzip=True)
 
     root_name, root, trailing, _size, diagnostics = audit.load(path)
@@ -194,7 +197,7 @@ def main() -> int:
     ]
     scans = audit.scan_alignments(dispenser_coords)
     safe = [row for row in scans if row[0] <= 160]
-    if len(dispenser_coords) != 36:
+    if len(dispenser_coords) != 32:
         raise GenerationError(f"round-trip dispenser count is {len(dispenser_coords)}")
     if len(safe) != 256:
         raise GenerationError(f"only {len(safe)}/256 EC160-safe alignments")
