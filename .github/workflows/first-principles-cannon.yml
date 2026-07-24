@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'scripts/plan-first-principles-cannon.py'
+      - 'scripts/first-principles-cannon-core.py'
       - 'scripts/test-first-principles-cannon.py'
       - 'profiles/from-scratch/**'
       - 'docs/FIRST_PRINCIPLES_CANNON_FOUNDRY.md'
@@ -35,6 +36,7 @@ jobs:
       - name: Compile foundry tools
         run: |
           python -m py_compile \
+            scripts/first-principles-cannon-core.py \
             scripts/plan-first-principles-cannon.py \
             scripts/test-first-principles-cannon.py
 
@@ -80,11 +82,19 @@ jobs:
           assert len(report['experiment_program']) == 13, report
           assert len(report['architecture_candidates']) == 48, report
           assert report['objective']['watered_obsidian_hits'] == 4, report
-          assert report['objective']['regen_layers'] == 15, report
+          assert report['objective']['raid_depth_chunks'] == 15, report
           assert report['objective']['stack_height'] == 255, report
           assert report['truth_boundary']['architecture_budget_is_geometry'] is False, report
           assert report['truth_boundary']['architecture_budget_is_runtime_proof'] is False, report
           assert report['truth_boundary']['public_paper_or_sakura_is_extremecraft_parity'] is False, report
+          contracts = {
+              row['primitive']: row['acceptance_contract']
+              for row in report['experiment_program']
+          }
+          assert 'minimum_forward_range_blocks' not in contracts['protected-charge-cell'], contracts
+          assert contracts['guider']['minimum_forward_range_blocks'] == 256, contracts
+          assert contracts['regen-bust']['target_raid_depth_chunks'] == 15, contracts
+          assert contracts['campaign-cycle']['require_multi_stage_defense_campaign'] is True, contracts
           totals = set()
           for candidate in report['architecture_candidates']:
               assert candidate['status'] == 'ARCHITECTURE_BUDGET_ONLY', candidate
@@ -94,7 +104,7 @@ jobs:
               assert candidate['total_dispensers'] <= 1200, candidate
               totals.add(candidate['total_dispensers'])
           assert len(totals) >= 12, totals
-          print('Source-free dependency, objective and EC160 contracts passed.')
+          print('Source-free dependency, stage-specific objective and EC160 contracts passed.')
           PY
 
       - name: Upload foundry plan
