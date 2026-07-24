@@ -1,0 +1,162 @@
+{
+  "schema_version": 1,
+  "evidence_id": "cosmicreborn-formal-pred-shared-static-v1",
+  "captured_on": "2026-07-24",
+  "source_registry": "profiles/corpus/public-cannon-sources-v1.json",
+  "workflow": {
+    "name": "Legacy Shared Core Audit",
+    "run_id": 30117900655,
+    "head_sha": "3148b455839dbd9aae4a494a029c0811dd4b5b60",
+    "artifact_id": 8606176593,
+    "artifact_digest": "sha256:93df1ce50f5c4ce1e331bc93f8a526cde8d5fdf42a407bbbd4f0fdf3376b4a7f",
+    "contract_job": "success",
+    "controlled_shared_core_job": "success",
+    "raw_third_party_files_removed_before_upload": true
+  },
+  "sources": [
+    {
+      "id": "cosmicreborn-formal",
+      "sha256": "510abf89ca04e7219aa3fd3f002b28c31b9462c37b9eac82843019391df5c8ae"
+    },
+    {
+      "id": "cosmicreborn-pred",
+      "sha256": "9e13c77fbab9c1037d314bb6d96cf363244f257f17ef5e161137d34366324763"
+    }
+  ],
+  "transform": {
+    "degrees_y": 270,
+    "translation": [-649, 0, 357],
+    "reflection": false,
+    "scaling": false,
+    "warping": false
+  },
+  "metadata_aware_overlap": {
+    "shared_functional_position_count": 2798,
+    "same_kind_position_count": 2731,
+    "proven_metadata_equivalent_position_count": 2693,
+    "proven_equivalent_ratio_of_same_kind": 0.986086,
+    "kind_conflict_count": 67,
+    "metadata_conflict_count": 9,
+    "unresolved_directional_metadata_count": 29,
+    "reported_face_connected_component_count_at_minimum_8": 67,
+    "largest_face_connected_component_count": 302,
+    "face_closed_component_count": 0,
+    "promotion_eligible_component_count": 0
+  },
+  "shared_assembly_inventory": {
+    "equivalent_rotation_invariant_support_count": 2825,
+    "reported_assembly_count_at_minimum_8_functional": 10,
+    "accounted_functional_count": 2678,
+    "unreported_small_functional_count": 15,
+    "face_closed_assembly_count": 0,
+    "near_closed_static_review_candidate_count": 2,
+    "open_static_assembly_count": 8,
+    "promotion_eligible_assembly_count": 0
+  },
+  "largest_shared_spine": {
+    "assembly_id": "ASSEMBLY-001",
+    "classification": "OPEN_STATIC_ASSEMBLY",
+    "node_count": 3939,
+    "functional_count": 1803,
+    "support_count": 2136,
+    "face_connected_functional_island_count": 128,
+    "largest_functional_island_count": 302,
+    "dispenser_count": 559,
+    "best_max_dispensers_per_chunk": 153,
+    "legal_ec160_offset_count": 2,
+    "residual_boundary_summary": {
+      "first_only_nonair_edges": 40,
+      "second_only_nonair_edges": 42,
+      "conflicting_functional_edges": 77,
+      "conflicting_support_edges": 8,
+      "unresolved_functional_edges": 58,
+      "unresolved_support_edges": 357
+    },
+    "interpretation": "Large shared static spine, but heavily entangled and unsafe to extract or redesign as a standalone module."
+  },
+  "review_candidates": [
+    {
+      "assembly_id": "ASSEMBLY-002",
+      "classification": "NEAR_CLOSED_STATIC_REVIEW_CANDIDATE",
+      "node_count": 538,
+      "functional_count": 273,
+      "support_count": 265,
+      "dispenser_count": 118,
+      "best_max_dispensers_per_chunk": 38,
+      "legal_ec160_offset_count": 256,
+      "residual_unique_boundary_position_count": 8,
+      "residual_boundary_kinds": {
+        "formal_only": {
+          "legacy_49_obsidian": 2,
+          "redstone_wire": 2
+        },
+        "pred_only": {
+          "legacy_49_obsidian": 2,
+          "redstone_wire": 1,
+          "repeater": 1
+        }
+      },
+      "paired_variant_boundary_port_hypothesis_count": 2,
+      "port_vertical_spans": [[13, 14], [17, 18]],
+      "formal_face": "west",
+      "pred_face_after_global_alignment": "south",
+      "promotion_eligible": false
+    },
+    {
+      "assembly_id": "ASSEMBLY-007",
+      "classification": "NEAR_CLOSED_STATIC_REVIEW_CANDIDATE",
+      "node_count": 85,
+      "functional_count": 44,
+      "support_count": 41,
+      "dispenser_count": 12,
+      "best_max_dispensers_per_chunk": 6,
+      "legal_ec160_offset_count": 256,
+      "residual_unique_boundary_position_count": 4,
+      "residual_boundary_kinds": {
+        "formal_only": {
+          "legacy_49_obsidian": 1,
+          "redstone_wire": 1
+        },
+        "pred_only": {
+          "legacy_49_obsidian": 1,
+          "repeater": 1
+        }
+      },
+      "paired_variant_boundary_port_hypothesis_count": 1,
+      "port_vertical_spans": [[21, 22]],
+      "formal_face": "west",
+      "pred_face_after_global_alignment": "south",
+      "promotion_eligible": false
+    }
+  ],
+  "variant_boundary_port_hypotheses": {
+    "reviewed_assembly_count": 2,
+    "paired_hypothesis_count": 3,
+    "unpaired_boundary_group_count": 0,
+    "normalized_pattern_signature": "cfcafd795fa01ad1a415a318c2520cfa58a6631a272ab73240a0209244630bcc",
+    "entries_per_hypothesis": 2,
+    "token_category_counts_per_hypothesis": {
+      "signal": 1,
+      "support_or_unmapped": 1
+    },
+    "promotion_eligible_port_count": 0,
+    "interpretation": "The two sources place matching-shaped source-specific boundary attachments on different faces of otherwise shared assemblies. This supports a variant connector-placement hypothesis only."
+  },
+  "next_evidence_required": [
+    "reviewed modern block-state conversion with exact source-version mapping",
+    "explicit connector direction and signal timing from a causal runtime trace",
+    "standalone activation evidence for each candidate assembly",
+    "source-accounted payload and TNT phase evidence",
+    "private ExtremeCraft canary evidence before any EC-ready claim"
+  ],
+  "truth_boundary": {
+    "legacy_numeric_ids_are_modern_block_states": false,
+    "near_closed_review_candidate_is_a_proven_module": false,
+    "boundary_shape_proves_port_semantics": false,
+    "signal_bearing_proves_input_or_output": false,
+    "shared_static_assembly_proves_standalone_operation": false,
+    "runtime_semantics_confirmed": false,
+    "private_extremecraft_parity_confirmed": false,
+    "ec_ready": false
+  }
+}
