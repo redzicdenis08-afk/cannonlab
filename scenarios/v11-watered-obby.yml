@@ -1,0 +1,32 @@
+name: v11-watered-obby
+cannon:
+  file: ec-shadow384-v11.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: redstone
+  fire-input: {x: 27, y: 2, z: 23}
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: watered
+  material: obsidian
+  alternate-material: obsidian
+  direction: north
+  distance: 96
+  width: 33
+  height: 48
+  y-offset: -16
+  lateral-offset: 41
+  layers: 1
+  spacing: 16
+  durability:
+    mode: auto
+    only-tnt: true
+    materials:
+      obsidian: 4
+run:
+  shots: 1
+  warmup-ticks: 60
+  max-shot-ticks: 600
+  quiet-ticks: 120
+  shutdown-when-finished: true
