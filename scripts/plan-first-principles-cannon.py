@@ -2,184 +2,31 @@
 from __future__ import annotations
 
 import argparse
-import hashlib
+import importlib.util
 import json
-from dataclasses import dataclass
+import sys
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
-EVIDENCE_RANK = {
-    "unknown": 0,
-    "inference": 1,
-    "static": 2,
-    "local-runtime": 3,
-    "field-reported": 4,
-    "field-verified": 5,
-}
+CORE_SCRIPT = Path(__file__).with_name("first-principles-cannon-core.py")
+spec = importlib.util.spec_from_file_location("first_principles_core", CORE_SCRIPT)
+if spec is None or spec.loader is None:
+    raise RuntimeError(f"unable to load {CORE_SCRIPT}")
+core = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = core
+spec.loader.exec_module(core)
 
-
-class PlanError(ValueError):
-    pass
-
-
-@dataclass(frozen=True)
-class Primitive:
-    id: str
-    capability: str
-    prerequisites: tuple[str, ...]
-    budget_options: tuple[int, ...]
-    required_evidence: str
-    experiments: tuple[str, ...]
-    notes: str
-
-
-PRIMITIVES: dict[str, Primitive] = {
-    "control-spine": Primitive(
-        "control-spine",
-        "single-button-cycle",
-        (),
-        (0,),
-        "local-runtime",
-        ("static-integrity", "real-redstone-activation", "cumulative-reset"),
-        "One operator input, deterministic phase ordering, and a repeatable reset path.",
-    ),
-    "protected-charge-cell": Primitive(
-        "protected-charge-cell",
-        "water-protected-impulse",
-        ("control-spine",),
-        (24, 48, 72, 96, 120, 144),
-        "local-runtime",
-        ("dry-impulse", "water-survival", "causal-tnt-trace", "one-paste-endurance"),
-        "The first force source. It must survive in water and produce a measured impulse distribution.",
-    ),
-    "staged-booster": Primitive(
-        "staged-booster",
-        "multi-stage-compression",
-        ("protected-charge-cell",),
-        (16, 32, 48, 64, 80, 96),
-        "local-runtime",
-        ("stage-isolation", "impulse-gain", "cohort-separation", "survival-under-load"),
-        "Adds measured impulse without collapsing separate TNT cohorts into an untraceable blast cloud.",
-    ),
-    "guider": Primitive(
-        "guider",
-        "trajectory-alignment",
-        ("protected-charge-cell",),
-        (0, 4, 8, 12, 16),
-        "local-runtime",
-        ("axis-alignment-sweep", "range-sweep", "height-sweep", "repeatability"),
-        "Controls the final launch lane. It is judged by dispersion, not appearance.",
-    ),
-    "payload-injector": Primitive(
-        "payload-injector",
-        "payload-cohort",
-        ("control-spine", "protected-charge-cell"),
-        (4, 8, 12, 16, 24, 32),
-        "local-runtime",
-        ("payload-source-accounting", "fuse-separation", "muzzle-clearance", "target-envelope"),
-        "Produces the damaging TNT cohort with exact source and fuse evidence.",
-    ),
-    "falling-payload-fusion": Primitive(
-        "falling-payload-fusion",
-        "watered-wall-hybrid",
-        ("payload-injector", "guider"),
-        (0, 8, 16, 24, 32),
-        "local-runtime",
-        ("falling-block-trajectory", "explosion-overlap", "watered-obsidian-four-hit", "unembedded-water-negative"),
-        "Pairs falling payload and TNT at the target. Four-hit durability alone is not enough without overlap evidence.",
-    ),
-    "sand-compressor": Primitive(
-        "sand-compressor",
-        "stack-payload-compression",
-        ("control-spine", "staged-booster"),
-        (8, 16, 24, 32, 48, 64),
-        "local-runtime",
-        ("falling-block-count", "compression-volume", "order-of-entities", "jam-recovery"),
-        "Compresses a known falling-block cohort while preserving order and reset reliability.",
-    ),
-    "hammer": Primitive(
-        "hammer",
-        "vertical-stacking-impulse",
-        ("sand-compressor", "guider", "staged-booster"),
-        (24, 48, 72, 96, 120, 144),
-        "local-runtime",
-        ("hammer-cohort-source", "downward-impulse", "stack-height-sweep", "overstack-negative"),
-        "A separately sourced cohort that drives the stack vertically at the wall.",
-    ),
-    "slab-bust": Primitive(
-        "slab-bust",
-        "slab-filter-clearance",
-        ("payload-injector", "hammer"),
-        (4, 8, 12, 16, 24),
-        "local-runtime",
-        ("slab-timing-sweep", "slab-count-sweep", "stack-preservation", "filter-course"),
-        "Clears slab/filter interference without destroying the intended stack timing.",
-    ),
-    "regen-bust": Primitive(
-        "regen-bust",
-        "regen-race-penetration",
-        ("falling-payload-fusion", "hammer", "slab-bust"),
-        (16, 32, 48, 64, 80, 96),
-        "local-runtime",
-        ("regen-delay-sweep", "contiguous-lane-before-restore", "hotdog-course", "pillar-course"),
-        "Must create one aligned penetration lane before the first actual restoration.",
-    ),
-    "nuke-cohort": Primitive(
-        "nuke-cohort",
-        "multi-height-damage",
-        ("payload-injector", "guider", "staged-booster"),
-        (16, 32, 48, 64, 80, 96),
-        "local-runtime",
-        ("cohort-spacing", "height-band-coverage", "kind-conflict-negative", "watered-course"),
-        "Creates intentionally separated damage cohorts. More TNT is rejected when it worsens alignment.",
-    ),
-    "osrb-sequence": Primitive(
-        "osrb-sequence",
-        "one-shot-regen-bust-sequence",
-        ("regen-bust", "nuke-cohort"),
-        (8, 16, 24, 32, 48),
-        "local-runtime",
-        ("phase-order-proof", "regen-course-one-pulse", "source-accounting", "failure-replay"),
-        "A proven phase sequence, not a label inferred from a filename or dispenser count.",
-    ),
-    "campaign-cycle": Primitive(
-        "campaign-cycle",
-        "sustained-raid-cycle",
-        ("osrb-sequence", "control-spine"),
-        (0,),
-        "local-runtime",
-        ("one-paste-100", "multi-target-campaign", "refill-reset", "self-damage-budget"),
-        "Preserves one physical cannon over repeated shots and changing defense stages.",
-    ),
-}
-
-FEATURE_ROOTS = {
-    "hybrid": "falling-payload-fusion",
-    "stacker": "hammer",
-    "slab-bust": "slab-bust",
-    "regen-bust": "regen-bust",
-    "nuke": "nuke-cohort",
-    "osrb": "osrb-sequence",
-    "campaign": "campaign-cycle",
-}
-
-
-def load_json(path: Path) -> dict[str, Any]:
-    payload = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(payload, dict):
-        raise PlanError("request must be a JSON object")
-    return payload
-
-
-def require_int(mapping: dict[str, Any], key: str, minimum: int, maximum: int | None = None) -> int:
-    try:
-        value = int(mapping[key])
-    except (KeyError, TypeError, ValueError) as exc:
-        raise PlanError(f"{key} must be an integer") from exc
-    if value < minimum or (maximum is not None and value > maximum):
-        suffix = f"..{maximum}" if maximum is not None else f">={minimum}"
-        raise PlanError(f"{key} must be in {suffix}")
-    return value
+PlanError = core.PlanError
+Primitive = core.Primitive
+PRIMITIVES = core.PRIMITIVES
+FEATURE_ROOTS = core.FEATURE_ROOTS
+EVIDENCE_RANK = core.EVIDENCE_RANK
+load_json = core.load_json
+require_int = core.require_int
+dependency_closure = core.dependency_closure
+candidate_combinations = core.candidate_combinations
+architecture_candidates = core.architecture_candidates
+experiment_program = core.experiment_program
 
 
 def validate_request(request: dict[str, Any]) -> None:
@@ -203,7 +50,7 @@ def validate_request(request: dict[str, Any]) -> None:
     require_int(objective, "range_blocks", 1, 100000)
     require_int(objective, "watered_obsidian_hits", 1, 1000)
     require_int(objective, "stack_height", 1, 10000)
-    require_int(objective, "regen_layers", 1, 10000)
+    require_int(objective, "raid_depth_chunks", 1, 10000)
     require_int(objective, "shot_cadence_ticks", 1, 100000)
     features = objective.get("features")
     if not isinstance(features, list) or not features:
@@ -218,91 +65,20 @@ def validate_request(request: dict[str, Any]) -> None:
         raise PlanError("from-scratch advanced planning requires at least local-runtime evidence")
 
 
-def dependency_closure(roots: Iterable[str]) -> list[str]:
-    seen: set[str] = set()
-    visiting: set[str] = set()
-    ordered: list[str] = []
-
-    def visit(primitive_id: str) -> None:
-        if primitive_id in seen:
-            return
-        if primitive_id in visiting:
-            raise PlanError(f"primitive dependency cycle at {primitive_id}")
-        visiting.add(primitive_id)
-        primitive = PRIMITIVES[primitive_id]
-        for dependency in primitive.prerequisites:
-            visit(dependency)
-        visiting.remove(primitive_id)
-        seen.add(primitive_id)
-        ordered.append(primitive_id)
-
-    for root in roots:
-        visit(root)
-    return ordered
-
-
 def options_for(primitive: Primitive, objective: dict[str, Any]) -> tuple[int, ...]:
     options = primitive.budget_options
     stack_height = int(objective.get("stack_height", 1))
-    regen_layers = int(objective.get("regen_layers", 1))
+    raid_depth_chunks = int(objective.get("raid_depth_chunks", 1))
     range_blocks = int(objective.get("range_blocks", 1))
     if primitive.id == "hammer" and stack_height >= 200:
         options = tuple(value for value in options if value >= 72)
-    if primitive.id == "regen-bust" and regen_layers >= 8:
+    if primitive.id == "regen-bust" and raid_depth_chunks >= 8:
         options = tuple(value for value in options if value >= 48)
     if primitive.id in {"protected-charge-cell", "staged-booster"} and range_blocks >= 192:
         options = tuple(value for value in options if value >= 48)
     if not options:
         raise PlanError(f"no budget options remain for {primitive.id}")
     return options
-
-
-def candidate_combinations(primitive_ids: list[str], objective: dict[str, Any], limit: int) -> list[dict[str, int]]:
-    varying = [primitive_id for primitive_id in primitive_ids if len(options_for(PRIMITIVES[primitive_id], objective)) > 1]
-    fixed = {
-        primitive_id: options_for(PRIMITIVES[primitive_id], objective)[0]
-        for primitive_id in primitive_ids
-        if primitive_id not in varying
-    }
-    # Deterministic, bounded sampling over an otherwise exponential option grid.
-    # Explicit low/middle/high anchors are followed by hash-derived rows so the
-    # candidate family explores mixed budgets instead of walking one diagonal.
-    rows: list[dict[str, int]] = []
-    seen: set[tuple[tuple[str, int], ...]] = set()
-
-    def append(indices: dict[str, int]) -> None:
-        row = dict(fixed)
-        for primitive_id in varying:
-            options = options_for(PRIMITIVES[primitive_id], objective)
-            row[primitive_id] = options[indices[primitive_id] % len(options)]
-        key = tuple(sorted(row.items()))
-        if key not in seen:
-            seen.add(key)
-            rows.append(row)
-
-    for anchor in (0, 1, 2):
-        append({
-            primitive_id: (
-                0
-                if anchor == 0
-                else (
-                    len(options_for(PRIMITIVES[primitive_id], objective)) - 1
-                    if anchor == 2
-                    else len(options_for(PRIMITIVES[primitive_id], objective)) // 2
-                )
-            )
-            for primitive_id in varying
-        })
-
-    phase = 0
-    while len(rows) < limit and phase < limit * 64:
-        indices: dict[str, int] = {}
-        for primitive_id in varying:
-            raw = hashlib.sha256(f"{phase}:{primitive_id}".encode("utf-8")).digest()
-            indices[primitive_id] = int.from_bytes(raw[:8], "big")
-        append(indices)
-        phase += 1
-    return rows[:limit]
 
 
 def pack_columns(budgets: dict[str, int], capacity: int, max_columns: int) -> tuple[list[dict[str, Any]], bool]:
@@ -312,19 +88,23 @@ def pack_columns(budgets: dict[str, int], capacity: int, max_columns: int) -> tu
         remaining = count
         segment = 1
         while remaining:
-            piece = min(remaining, capacity)
-            best_index = None
-            best_remaining = None
-            for index, column in enumerate(columns):
-                free = capacity - int(column["load"])
-                if free >= piece and (best_remaining is None or free - piece < best_remaining):
-                    best_index = index
-                    best_remaining = free - piece
-            if best_index is None:
+            free_columns = [
+                (capacity - int(column["load"]), index)
+                for index, column in enumerate(columns)
+                if int(column["load"]) < capacity
+            ]
+            fitting = [(free, index) for free, index in free_columns if free >= remaining]
+            if fitting:
+                free, best_index = min(fitting)
+            elif free_columns:
+                free, best_index = max(free_columns)
+            else:
                 if len(columns) >= max_columns:
                     return columns, False
                 columns.append({"column": len(columns), "load": 0, "segments": []})
                 best_index = len(columns) - 1
+                free = capacity
+            piece = min(remaining, free)
             columns[best_index]["load"] += piece
             columns[best_index]["segments"].append({
                 "primitive": primitive_id,
@@ -336,59 +116,39 @@ def pack_columns(budgets: dict[str, int], capacity: int, max_columns: int) -> tu
     return columns, True
 
 
-def architecture_candidates(request: dict[str, Any], primitive_ids: list[str]) -> list[dict[str, Any]]:
-    constraints = request["constraints"]
-    objective = request["objective"]
-    chunk_limit = int(constraints["chunk_limit"])
-    margin = int(constraints["min_chunk_margin"])
-    capacity = chunk_limit - margin
-    max_columns = int(constraints["max_columns"])
-    max_total = int(constraints["max_total_dispensers"])
-    max_candidates = int(constraints["max_candidate_count"])
-    rows = candidate_combinations(primitive_ids, objective, max_candidates * 4)
-    output: list[dict[str, Any]] = []
-    for budgets in rows:
-        total = sum(budgets.values())
-        if total > max_total:
-            continue
-        columns, legal = pack_columns(budgets, capacity, max_columns)
-        if not legal:
-            continue
-        max_load = max((int(column["load"]) for column in columns), default=0)
-        min_margin = chunk_limit - max_load
-        score = (
-            len(columns),
-            -min_margin,
-            total,
-            tuple(budgets[primitive_id] for primitive_id in primitive_ids),
-        )
-        output.append({
-            "id": "arch-" + hashlib.sha256(json.dumps(budgets, sort_keys=True).encode()).hexdigest()[:12],
-            "status": "ARCHITECTURE_BUDGET_ONLY",
-            "dispenser_budgets": budgets,
-            "total_dispensers": total,
-            "chunk_capacity_after_margin": capacity,
-            "columns": columns,
-            "column_count": len(columns),
-            "max_column_load": max_load,
-            "minimum_chunk_margin": min_margin,
-            "score": [len(columns), -min_margin, total],
-            "score_key": score,
-        })
-    output.sort(key=lambda row: row["score_key"])
-    for row in output:
-        row.pop("score_key", None)
-    return output[:max_candidates]
-
-
 def acceptance_contract(primitive_id: str, objective: dict[str, Any]) -> dict[str, Any]:
     contract: dict[str, Any] = {
         "require_exact_geometry_identity": True,
         "require_causal_source_accounting": True,
         "allow_single_lucky_shot_promotion": False,
     }
-    if primitive_id in {"protected-charge-cell", "staged-booster", "guider", "payload-injector"}:
-        contract["minimum_forward_range_blocks"] = int(objective["range_blocks"])
+    if primitive_id == "control-spine":
+        contract.update({
+            "require_real_redstone_activation": True,
+            "require_deterministic_phase_order": True,
+            "require_repeatable_reset": True,
+        })
+    if primitive_id == "protected-charge-cell":
+        contract.update({
+            "require_measured_impulse_distribution": True,
+            "minimum_one_paste_shots": 100,
+            "maximum_self_damage_blocks": 0,
+        })
+    if primitive_id == "staged-booster":
+        contract.update({
+            "require_positive_impulse_gain_over_baseline": True,
+            "require_separate_source_cohorts": True,
+        })
+    if primitive_id == "guider":
+        contract.update({
+            "minimum_forward_range_blocks": int(objective["range_blocks"]),
+            "require_repeatable_target_lane": True,
+        })
+    if primitive_id == "payload-injector":
+        contract.update({
+            "require_payload_fuse_separation": True,
+            "require_muzzle_clearance": True,
+        })
     if primitive_id == "falling-payload-fusion":
         contract.update({
             "required_registered_obsidian_hits": int(objective["watered_obsidian_hits"]),
@@ -397,77 +157,38 @@ def acceptance_contract(primitive_id: str, objective: dict[str, Any]) -> dict[st
         })
     if primitive_id in {"sand-compressor", "hammer"}:
         contract["target_stack_height"] = int(objective["stack_height"])
+    if primitive_id == "slab-bust":
+        contract.update({
+            "require_slab_filter_clearance": True,
+            "require_stack_preservation": True,
+        })
     if primitive_id in {"regen-bust", "osrb-sequence"}:
         contract.update({
-            "target_regen_layers": int(objective["regen_layers"]),
+            "target_raid_depth_chunks": int(objective["raid_depth_chunks"]),
+            "require_stage_geometry_manifest": True,
             "require_one_contiguous_lane_before_first_restore": True,
+        })
+    if primitive_id == "nuke-cohort":
+        contract.update({
+            "require_separated_damage_cohorts": True,
+            "require_height_band_coverage": True,
         })
     if primitive_id == "campaign-cycle":
         contract.update({
+            "target_raid_depth_chunks": int(objective["raid_depth_chunks"]),
             "maximum_shot_cadence_ticks": int(objective["shot_cadence_ticks"]),
             "minimum_one_paste_shots": 100,
             "require_refill_and_reset_proof": True,
+            "require_multi_stage_defense_campaign": True,
         })
     return contract
 
 
-def experiment_program(primitive_ids: list[str], minimum_evidence: str, objective: dict[str, Any]) -> list[dict[str, Any]]:
-    program: list[dict[str, Any]] = []
-    for index, primitive_id in enumerate(primitive_ids, start=1):
-        primitive = PRIMITIVES[primitive_id]
-        program.append({
-            "stage": index,
-            "primitive": primitive.id,
-            "capability": primitive.capability,
-            "prerequisites": list(primitive.prerequisites),
-            "required_evidence": max(
-                (minimum_evidence, primitive.required_evidence),
-                key=lambda value: EVIDENCE_RANK[value],
-            ),
-            "experiments": list(primitive.experiments),
-            "acceptance_contract": acceptance_contract(primitive_id, objective),
-            "promotion_rule": (
-                "Every experiment must pass on one exact geometry with causal source accounting; "
-                "static shape, filenames, labels, or one lucky shot cannot promote the primitive."
-            ),
-            "notes": primitive.notes,
-        })
-    return program
-
-
-def build_report(request: dict[str, Any]) -> dict[str, Any]:
-    validate_request(request)
-    objective = request["objective"]
-    roots = [FEATURE_ROOTS[str(feature)] for feature in objective["features"]]
-    primitive_ids = dependency_closure(roots)
-    architectures = architecture_candidates(request, primitive_ids)
-    return {
-        "schema_version": 1,
-        "status": "RESEARCH_PROGRAM_ONLY",
-        "request_id": str(request.get("id", "unnamed")),
-        "mode": "from-scratch",
-        "source_schematic_used": False,
-        "requested_features": list(map(str, objective["features"])),
-        "objective": dict(objective),
-        "required_primitives": primitive_ids,
-        "experiment_program": experiment_program(
-            primitive_ids,
-            str(request.get("minimum_evidence", "local-runtime")),
-            objective,
-        ),
-        "architecture_candidates": architectures,
-        "strongest_architecture": architectures[0] if architectures else None,
-        "truth_boundary": {
-            "architecture_budget_is_geometry": False,
-            "architecture_budget_is_runtime_proof": False,
-            "public_paper_or_sakura_is_extremecraft_parity": False,
-            "final_required_gate": "controlled-live-EC-canary",
-            "note": (
-                "This planner creates a source-free primitive discovery program and EC160-aware dispenser budgets. "
-                "It does not invent redstone geometry, subsystem semantics, or private server parity."
-            ),
-        },
-    }
+core.validate_request = validate_request
+core.options_for = options_for
+core.pack_columns = pack_columns
+core.acceptance_contract = acceptance_contract
+build_report = core.build_report
 
 
 def main() -> int:
