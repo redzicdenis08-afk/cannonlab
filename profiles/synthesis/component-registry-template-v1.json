@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "id": "replace-with-registry-id",
+  "components": [
+    {
+      "id": "replace-with-component-id",
+      "version": "1",
+      "evidence": {
+        "level": "local-runtime",
+        "sources": [
+          "replace with exact run id, trace, artifact or field observation"
+        ]
+      },
+      "capabilities": [
+        {
+          "id": "replace-with-evidenced-capability",
+          "evidence": "local-runtime"
+        }
+      ],
+      "schematic": {
+        "path": "replace-with-relative-module.schem",
+        "sha256": "replace-with-exact-64-character-sha256",
+        "data_version": 3465
+      },
+      "ports": [
+        {
+          "id": "signal-in",
+          "kind": "input",
+          "medium": "redstone",
+          "position": [0, 0, 0],
+          "direction": [-1, 0, 0],
+          "contract": {
+            "pulse_ticks": 4
+          }
+        },
+        {
+          "id": "signal-out",
+          "kind": "output",
+          "medium": "redstone",
+          "position": [1, 0, 0],
+          "direction": [1, 0, 0],
+          "contract": {
+            "pulse_ticks": 4
+          }
+        }
+      ],
+      "reusable": false,
+      "source": {
+        "kind": "private-reference",
+        "sha256": "replace-with-original-source-sha256",
+        "evidence_label": "local-runtime"
+      }
+    }
+  ]
+}
