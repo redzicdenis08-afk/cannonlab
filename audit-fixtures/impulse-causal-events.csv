@@ -1,0 +1,16 @@
+tick,server_tick,sequence,event,component_id,block_type,world_x,world_y,world_z,relative_x,relative_y,relative_z,old_power,new_power,direction,moved_blocks,item,entity_uuid,entity_type,vx,vy,vz,fuse,details
+0,1000,1,DISPENSE,"D[0,100,0]",DISPENSER,0,100,0,0,0,0,-1,-1,,0,TNT,,,0,0,0,-1,amount=1
+0,1000,2,DISPENSE,"D[2,100,0]",DISPENSER,2,100,0,2,0,0,-1,-1,,0,TNT,,,0,0,0,-1,amount=1
+0,1000,3,DISPENSE,"D[20,100,0]A",DISPENSER,20,100,0,20,0,0,-1,-1,,0,TNT,,,0,0,0,-1,amount=1
+0,1000,4,DISPENSE,"D[20,100,0]B",DISPENSER,20,100,0,20,0,0,-1,-1,,0,TNT,,,0,0,0,-1,amount=1
+0,1000,5,DISPENSE,"D[21,100,0]",DISPENSER,21,100,0,21,0,0,-1,-1,,0,TNT,,,0,0,0,-1,amount=1
+0,1000,6,DISPENSE,"D[10,100,0]",DISPENSER,10,100,0,10,0,0,-1,-1,,0,SAND,,,0,0,0,-1,amount=1
+1,1001,7,ENTITY_ADD,,,0.5,100.5,0.5,0.5,0.5,0.5,-1,-1,,0,,SRC-A,PRIMED_TNT,0,0,0,1,source=entity-add
+1,1001,8,ENTITY_ADD,,,2.5,100.5,0.5,2.5,0.5,0.5,-1,-1,,0,,MOVE-A,PRIMED_TNT,0,0,0,79,source=entity-add
+1,1001,9,ENTITY_ADD,,,20.5,100.5,0.5,20.5,0.5,0.5,-1,-1,,0,,SRC-B1,PRIMED_TNT,0,0,0,1,source=entity-add
+1,1001,10,ENTITY_ADD,,,20.5,100.5,0.5,20.5,0.5,0.5,-1,-1,,0,,SRC-B2,PRIMED_TNT,0,0,0,1,source=entity-add
+1,1001,11,ENTITY_ADD,,,21.5,100.5,0.5,21.5,0.5,0.5,-1,-1,,0,,MOVE-B,PRIMED_TNT,0,0,0,79,source=entity-add
+1,1001,12,ENTITY_ADD,,,10.5,100.5,0.5,10.5,0.5,0.5,-1,-1,,0,,COLLIDE-C,FALLING_BLOCK,1,0,0,-1,block_data=minecraft:sand
+2,1002,13,EXPLOSION,,,0.5,100.5,0.5,0.5,0.5,0.5,-1,-1,,0,,SRC-A,PRIMED_TNT,0,0,0,-1,affected_blocks=0
+2,1002,14,EXPLOSION,,,20.5,100.5,0.5,20.5,0.5,0.5,-1,-1,,0,,SRC-B1,PRIMED_TNT,0,0,0,-1,affected_blocks=0
+2,1002,15,EXPLOSION,,,20.5,100.5,0.5,20.5,0.5,0.5,-1,-1,,0,,SRC-B2,PRIMED_TNT,0,0,0,-1,affected_blocks=0
