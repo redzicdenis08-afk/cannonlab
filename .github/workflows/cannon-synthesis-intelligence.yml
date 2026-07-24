@@ -1,0 +1,65 @@
+name: Cannon Synthesis Intelligence
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/cannon-synthesis-planner.py'
+      - 'scripts/test-cannon-synthesis-planner.py'
+      - 'profiles/synthesis/**'
+      - 'docs/CANNON_SYNTHESIS_PLANNER.md'
+      - '.github/workflows/cannon-synthesis-intelligence.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  synthesis-intelligence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile synthesis tools
+        run: |
+          python -m py_compile \
+            scripts/cannon-synthesis-planner.py \
+            scripts/test-cannon-synthesis-planner.py
+
+      - name: Run fail-closed synthesis regressions
+        run: python scripts/test-cannon-synthesis-planner.py
+
+      - name: Validate template JSON
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          for path in sorted(Path('profiles/synthesis').glob('*.json')):
+              payload = json.loads(path.read_text(encoding='utf-8'))
+              assert payload['schema_version'] == 1, path
+          print('Synthesis templates parse and use schema version 1.')
+          PY
+
+      - name: Capture tool help
+        run: |
+          mkdir -p lab-artifacts/cannon-synthesis
+          python scripts/cannon-synthesis-planner.py --help \
+            > lab-artifacts/cannon-synthesis/help.txt
+
+      - name: Upload synthesis evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cannon-synthesis-intelligence
+          path: lab-artifacts/cannon-synthesis
+          if-no-files-found: error

@@ -1,0 +1,47 @@
+{
+  "schema_version": 1,
+  "id": "replace-with-assembly-request-id",
+  "min_evidence": "local-runtime",
+  "root_node": "control",
+  "nodes": [
+    {
+      "id": "control",
+      "requires": [
+        "control-spine"
+      ],
+      "max_candidates": 8
+    },
+    {
+      "id": "charge",
+      "requires": [
+        "charge-cohort"
+      ],
+      "max_candidates": 8
+    }
+  ],
+  "edges": [
+    {
+      "from": {
+        "node": "control",
+        "port": "signal-out"
+      },
+      "to": {
+        "node": "charge",
+        "port": "signal-in"
+      },
+      "connection": "adjacent"
+    }
+  ],
+  "constraints": {
+    "chunk_limit": 160,
+    "min_safe_alignments": 1,
+    "require_all_alignments_safe": false,
+    "max_dimensions": [128, 128, 128],
+    "max_occupied_blocks": 1000000,
+    "allow_identical_overlap": false,
+    "require_lossless_block_entities": true
+  },
+  "max_candidates_per_node": 12,
+  "max_combinations": 4096,
+  "max_plans": 12
+}

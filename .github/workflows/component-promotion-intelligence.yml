@@ -1,0 +1,64 @@
+name: Component Promotion Intelligence
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/promote-cannon-component.py'
+      - 'scripts/test-promote-cannon-component.py'
+      - 'profiles/components/**'
+      - 'docs/COMPONENT_PROMOTION.md'
+      - '.github/workflows/component-promotion-intelligence.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  component-promotion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile promotion tools
+        run: |
+          python -m py_compile \
+            scripts/promote-cannon-component.py \
+            scripts/test-promote-cannon-component.py
+
+      - name: Run fail-closed promotion regressions
+        run: python scripts/test-promote-cannon-component.py
+
+      - name: Validate manifest template
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          path = Path('profiles/components/promotion-manifest-template-v1.json')
+          payload = json.loads(path.read_text(encoding='utf-8'))
+          assert payload['schema_version'] == 1
+          print('Promotion manifest template parsed.')
+          PY
+
+      - name: Capture tool help
+        run: |
+          mkdir -p lab-artifacts/component-promotion
+          python scripts/promote-cannon-component.py --help \
+            > lab-artifacts/component-promotion/help.txt
+
+      - name: Upload promotion evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: component-promotion-intelligence
+          path: lab-artifacts/component-promotion
+          if-no-files-found: error

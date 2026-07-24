@@ -8,10 +8,10 @@ This local MCP exposes CannonLab's evidence tools to an AI client.
 cd mcp-server
 python -m venv .venv
 .venv/bin/pip install -e .
-.venv/bin/python server.py
+.venv/bin/cannonlab-mcp
 ```
 
-On Windows, use `.venv\Scripts\python.exe`.
+On Windows, use `.venv\Scripts\cannonlab-mcp.exe`.
 
 The server uses stdio by default and never connects to ExtremeCraft. Schematic and source paths are jailed to the CannonLab repository. Runtime-evidence tools may additionally read generated CannonLab artifacts under the workspace `output/` directory.
 
@@ -22,6 +22,12 @@ Use one of these before spending time on runtime tests:
 - `fast_cannon_intake`: one call for format/limit audit, functional and module mapping, and anti-pancake geometry profiling against real reference cannons
 - `profile_cannon`: rapidly compare a candidate with one or more decoded references and reject fake-modern geometry
 - `prepare_reference_cannon`: convert a proven Litematica or Sponge source into deterministic Sponge v2, then audit and profile the exact output
+- `audit_cannon_ratio`: parse authored 384/OSRB ratios, preserve uncertain timing tokens, account base versus attachment payload, and compare profiles
+- `analyze_impulse_graph`: identify the first motion-level divergence between real reference and candidate traces without inventing one source for ambiguous stacked explosions
+- `promote_cannon_component`: crop one exact reviewed module, enforce boundary and evidence gates, and emit a deterministic synthesis component plus registry
+- `plan_cannon_synthesis`: select hash-verified modules, join declared ports, scan EC160 alignments, and optionally compile the strongest assembly candidate
+- `generate_causal_repair_family`: route the first measured divergence into finite predeclared edits, then reject candidates that fail EC160 or preservation gates
+- `list_advanced_cannon_profiles`: inventory ratio, parity, archetype, synthesis, component and repair profiles with explicit truth boundaries
 - `audit_paste_alignment`: translate schematic-minimum chunk scans into the actual WorldEdit player paste-point frame, including `WEOffsetX/Z`
 - `advise_ec160_architecture`: find legal placement residues before redesign, then map bank-level redistribution pressure without modifying the source
 - `compare_reference_physics`: compare a recorded TNT or falling-block trajectory to the independent reference model and diagnose the first physical divergence
@@ -66,12 +72,18 @@ For modern raid work, pass the strongest real reference cannons available and us
 - `compare_entity_trajectories`: per-tick TNT trajectory and landing comparison with exact first-divergence evidence
 - `analyze_breach_evidence`: measured falling-payload overlap, water-contact failure counts, and contiguous target-layer progress before the first actual regeneration restore
 - `analyze_repair_family`: transparent repair scoring, Pareto-front ranking, promotion blockers, and deterministic collateral-drift summaries
+- `audit_cannon_ratio`: authored timing/order evidence, base-stack accounting and profile comparison
+- `analyze_impulse_graph`: source-to-motion graphing and first-divergence comparison
+- `promote_cannon_component`: evidence-backed source module extraction and synthesis registry creation
+- `plan_cannon_synthesis`: evidence-gated module assembly and deterministic candidate compilation
+- `generate_causal_repair_family`: first-divergence-driven bounded repair candidate generation
+- `list_advanced_cannon_profiles`: machine-readable advanced profile inventory
 - `profile_cannon`: structural morphology and real-reference comparison without inventing subsystem roles
 - `prepare_reference_cannon`: deterministic Sponge v2 conversion plus output audit and geometry profile
 - `audit_cannon_corpus`: batch-compares a private folder of `.schem` and `.litematic` designs without publishing the files
 - `explain_shot`: converts `causal-events.csv` into firing cohorts and a compact timeline
 - `analyze_shot_quality`: scores trigger latency, firing cohorts, target convergence, falling payload and cannon self-damage
-- `audit_ec_calibration`: refuses an EC-calibrated label until every required live evidence probe is present and valid
+- `audit_ec_calibration`: requires the full hash-backed 16-dimension ExtremeCraft parity evidence contract; legacy eight-probe packs remain fail closed
 - `query_timeline`: filters exact events by tick and event type
 - `list_shot_traces`: lists local runtime evidence
 - `compare_shots`: compares two traces without pretending a subsystem role is proven

@@ -1,0 +1,117 @@
+name: ExtremeCraft Parity Evidence V2
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/audit-ec-calibration.py'
+      - 'scripts/ec_parity_v2/**'
+      - 'scripts/test-ec-parity-audit.py'
+      - 'profiles/parity/extremecraft-evidence-rules-v1.json'
+      - 'profiles/parity/extremecraft-private-parity-required-v1.json'
+      - 'docs/EC_PARITY_EVIDENCE_V2.md'
+      - '.github/workflows/ec-parity-evidence.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  parity-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile v2 evidence auditor
+        run: |
+          python -m py_compile \
+            scripts/audit-ec-calibration.py \
+            scripts/ec_parity_v2/*.py \
+            scripts/test-ec-parity-audit.py
+
+      - name: Run hash and integrity regressions
+        run: python scripts/test-ec-parity-audit.py
+
+      - name: Validate the 16-dimension rules
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          required = json.loads(
+              Path('profiles/parity/extremecraft-private-parity-required-v1.json')
+              .read_text(encoding='utf-8')
+          )
+          rules = json.loads(
+              Path('profiles/parity/extremecraft-evidence-rules-v1.json')
+              .read_text(encoding='utf-8')
+          )
+          required_ids = {row['id'] for row in required['dimensions']}
+          rule_ids = set(rules['dimensions'])
+          assert len(required_ids) == 16, required_ids
+          assert required_ids == rule_ids, {
+              'missing_rules': sorted(required_ids - rule_ids),
+              'unexpected_rules': sorted(rule_ids - required_ids),
+          }
+          assert all(
+              int(rule['minimum_samples']) > 0
+              for rule in rules['dimensions'].values()
+          )
+          print('All 16 required parity dimensions have evidence contracts.')
+          PY
+
+      - name: Prove legacy packs remain fail closed
+        run: |
+          mkdir -p /tmp/ec-evidence-v2 lab-artifacts/ec-parity-v2
+          cat > /tmp/ec-evidence-v2/fuse.json <<'JSON'
+          {
+            "server": "ExtremeCraft Cannoning",
+            "captured_at": "2026-07-24T00:00:00Z",
+            "client_version": "1.21.11",
+            "probe": "single-dispenser-fuse",
+            "paste_origin": {"x": 0, "y": 100, "z": 0},
+            "chunk_origin_confirmed": true,
+            "samples": []
+          }
+          JSON
+          set +e
+          python scripts/audit-ec-calibration.py /tmp/ec-evidence-v2 \
+            --json-out lab-artifacts/ec-parity-v2/incomplete-legacy.json \
+            > /tmp/ec-parity-v2.txt
+          code=$?
+          set -e
+          test "$code" -eq 2
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path('lab-artifacts/ec-parity-v2/incomplete-legacy.json')
+              .read_text(encoding='utf-8')
+          )
+          assert report['schema_version'] == 2, report
+          assert report['status'] == 'INCOMPLETE', report
+          assert report['ec_calibrated'] is False, report
+          assert report['valid_dimension_count'] == 0, report
+          assert report['required_dimension_count'] == 16, report
+          assert 'chunk-paste-limits' in report['missing_probes'], report
+          assert report['legacy_compatibility']['legacy_files_do_not_promote_v2_dimensions'] is True
+          print('Legacy evidence stayed compatible and could not promote v2 parity.')
+          PY
+
+      - name: Upload fail-closed evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ec-parity-evidence-v2
+          path: lab-artifacts/ec-parity-v2
+          if-no-files-found: error

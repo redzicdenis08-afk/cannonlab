@@ -1,0 +1,104 @@
+name: Impulse Graph Intelligence
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/analyze-impulse-graph.py'
+      - 'scripts/test-impulse-graph.py'
+      - 'audit-fixtures/impulse-*.csv'
+      - 'docs/IMPULSE_GRAPH_INTELLIGENCE.md'
+      - '.github/workflows/impulse-intelligence.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  impulse-intelligence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile impulse intelligence
+        run: |
+          python -m py_compile \
+            scripts/analyze-impulse-graph.py \
+            scripts/test-impulse-graph.py
+
+      - name: Run fail-closed regressions
+        run: python scripts/test-impulse-graph.py
+
+      - name: Build synthetic reference graph
+        run: |
+          mkdir -p lab-artifacts/impulse-intelligence
+          python scripts/analyze-impulse-graph.py \
+            audit-fixtures/impulse-events-reference.csv \
+            audit-fixtures/impulse-causal-events.csv \
+            --json-out lab-artifacts/impulse-intelligence/reference-graph.json \
+            > /dev/null
+
+      - name: Prove first-divergence comparison
+        run: |
+          set +e
+          python scripts/analyze-impulse-graph.py \
+            audit-fixtures/impulse-events-reference.csv \
+            audit-fixtures/impulse-causal-events.csv \
+            --compare-events audit-fixtures/impulse-events-candidate.csv \
+            --compare-causal-events audit-fixtures/impulse-causal-events.csv \
+            --max-timing-delta 0 \
+            --max-velocity-delta 0.05 \
+            --max-position-delta 0.1 \
+            --json-out lab-artifacts/impulse-intelligence/comparison.json \
+            > /dev/null
+          code=$?
+          set -e
+          test "$code" -eq 2
+
+      - name: Validate evidence contracts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          graph = json.loads(
+              Path('lab-artifacts/impulse-intelligence/reference-graph.json')
+              .read_text(encoding='utf-8')
+          )
+          assert graph['status'] == 'WARN', graph
+          assert graph['summary']['entity_count'] == 6, graph
+          assert graph['summary']['impulse_edge_count'] == 2, graph
+          assert graph['summary']['ambiguous_impulse_edge_count'] == 1, graph
+          assert graph['summary']['unexplained_abrupt_change_count'] == 1, graph
+          assert graph['truth_boundary']['exact_vanilla_push_recreated'] is False, graph
+          assert graph['truth_boundary']['private_server_parity_confirmed'] is False, graph
+
+          comparison = json.loads(
+              Path('lab-artifacts/impulse-intelligence/comparison.json')
+              .read_text(encoding='utf-8')
+          )
+          assert comparison['status'] == 'FAIL', comparison
+          first = comparison['comparison']['first_divergence']
+          assert first['kind'] == 'impulse_velocity_drift', first
+          assert first['tick'] == 3, first
+          assert first['reference_raw_delta'] == [1.0, 0.0, 0.0], first
+          assert first['candidate_raw_delta'] == [0.4, 0.0, 0.0], first
+          print('Impulse graph and first-divergence contracts passed.')
+          PY
+
+      - name: Upload impulse evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: impulse-intelligence
+          path: lab-artifacts/impulse-intelligence
+          if-no-files-found: error
