@@ -416,7 +416,30 @@ def write_string_payload(stream: io.BytesIO, value: str) -> None:
     write_name(stream, value)
 
 
-def write_sponge_v2(path: Path, model: dict[str, Any], data_version: int) -> None:
+def deterministic_gzip_stored(data: bytes) -> bytes:
+    """Return a canonical gzip container using deterministic stored DEFLATE blocks."""
+    encoded = bytearray(b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff")
+    if not data:
+        encoded.extend(b"\x01\x00\x00\xff\xff")
+    else:
+        for start in range(0, len(data), 65535):
+            chunk = data[start:start + 65535]
+            final = start + len(chunk) >= len(data)
+            encoded.append(1 if final else 0)
+            length = len(chunk)
+            encoded.extend(struct.pack("<HH", length, length ^ 0xFFFF))
+            encoded.extend(chunk)
+    encoded.extend(struct.pack("<II", zlib.crc32(data) & 0xFFFFFFFF, len(data) & 0xFFFFFFFF))
+    return bytes(encoded)
+
+
+def write_sponge_v2(
+    path: Path,
+    model: dict[str, Any],
+    data_version: int,
+    *,
+    canonical_gzip: bool = False,
+) -> None:
     blocks = model["blocks"]
     width = model["source_dimensions"]["width"]
     height = model["source_dimensions"]["height"]
@@ -485,7 +508,11 @@ def write_sponge_v2(path: Path, model: dict[str, Any], data_version: int) -> Non
     out.write(struct.pack(">iii", 0, 0, 0))
     out.write(b"\x00")
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_bytes(gzip.compress(out.getvalue(), compresslevel=9, mtime=0))
+    raw_nbt = out.getvalue()
+    if canonical_gzip:
+        path.write_bytes(deterministic_gzip_stored(raw_nbt))
+    else:
+        path.write_bytes(gzip.compress(raw_nbt, compresslevel=9, mtime=0))
 
 
 def main() -> int:

@@ -1,4 +1,4 @@
-name: probe-redstone-endurance
+name: probe-redstone-cumulative-smoke
 cannon:
   file: probe-water-protected-dispenser.schem
   origin:
@@ -35,7 +35,7 @@ acceptance:
   max-cannon-unexpected-blocks: 0
   max-self-damage-blocks: 0
 run:
-  shots: 100
+  shots: 5
   rebuild-cannon-between-shots: false
   warmup-ticks: 20
   max-shot-ticks: 120

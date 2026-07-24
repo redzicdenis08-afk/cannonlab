@@ -297,6 +297,7 @@ def acceptance_block(
     water_exposed: bool = False,
     regen_layers: int = 0,
     self_damage: int = 24,
+    max_unexpected: int = 8,
 ) -> str:
     require_falling = bool(payload_contract["require_falling_block"])
     lines = [
@@ -312,6 +313,7 @@ def acceptance_block(
         "  min-remaining-dispenser-ratio: 0.95",
         f"  max-cannon-missing-blocks: {self_damage}",
         "  max-cannon-replaced-type-blocks: 4",
+        f"  max-cannon-unexpected-blocks: {max_unexpected}",
         f"  max-self-damage-blocks: {self_damage}",
     ]
     return "\n".join(lines)
@@ -390,13 +392,27 @@ def render_scenarios(
         corridor_args: list[str] | None = None,
     ) -> None:
         filename = f"forge-{slug}-{name}.yml"
+        if "run:\n" not in body:
+            raise ValueError(f"scenario {name} has no run section")
+        body = body.replace(
+            "run:\n",
+            "run:\n  rebuild-cannon-between-shots: false\n",
+            1,
+        )
+        final_assert_args = list(assert_args)
+        if expected_shots > 1:
+            final_assert_args += [
+                "--require-cumulative-cannon",
+                "--max-cannon-unexpected-blocks",
+                "8",
+            ]
         scenarios.append(
             {
                 "name": f"forge-{slug}-{name}",
                 "filename": filename,
                 "text": f"name: forge-{slug}-{name}\n{cannon}\n{common_limits}\n{body}\n",
                 "expected_shots": expected_shots,
-                "assert_args": assert_args,
+                "assert_args": final_assert_args,
                 "corridor_args": list(corridor_args or []),
             }
         )

@@ -262,6 +262,30 @@ def audit_scenario(
             "reason": "The run does not enforce the configured per-chunk dispenser limit.",
         })
 
+    scenario_name = str(get(values, "name", path.stem) or path.stem)
+    run_shots = int(get(values, "run.shots", 1) or 1)
+    rebuild_between_shots = bool(
+        get(values, "run.rebuild-cannon-between-shots", True)
+    )
+    lifecycle_explicit = "run.rebuild-cannon-between-shots" in values
+    if run_shots > 1 and not lifecycle_explicit:
+        warnings.append({
+            "code": "multi-shot-lifecycle-implicit",
+            "reason": (
+                "The scenario runs multiple shots but does not state whether the cannon is "
+                "rebuilt between shots. The default rebuilds it, so this is reliability over "
+                "fresh pastes, not cumulative endurance."
+            ),
+        })
+    if "endurance" in scenario_name.lower() and rebuild_between_shots:
+        blockers.append({
+            "code": "endurance-rebuilds-cannon",
+            "reason": (
+                "An endurance-labelled scenario rebuilds the cannon between shots. Set "
+                "run.rebuild-cannon-between-shots: false to test one physical cannon."
+            ),
+        })
+
     require_payload = bool(get(values, "acceptance.require-payload", False))
     min_target = int(get(values, "acceptance.min-target-destroyed", 0) or 0)
     min_embedded = int(
@@ -292,6 +316,9 @@ def audit_scenario(
     max_replaced = int(
         get(values, "acceptance.max-cannon-replaced-type-blocks", 2**31 - 1) or 0
     )
+    max_unexpected = int(
+        get(values, "acceptance.max-cannon-unexpected-blocks", 2**31 - 1) or 0
+    )
     max_self = int(get(values, "acceptance.max-self-damage-blocks", 2**31 - 1) or 0)
 
     required_acceptance_paths = {
@@ -301,6 +328,7 @@ def audit_scenario(
         "acceptance.min-remaining-dispenser-ratio",
         "acceptance.max-cannon-missing-blocks",
         "acceptance.max-cannon-replaced-type-blocks",
+        "acceptance.max-cannon-unexpected-blocks",
         "acceptance.max-self-damage-blocks",
     }
     target_type = str(get(values, "target.type", "watered")).lower().replace("_", "-")
@@ -397,6 +425,14 @@ def audit_scenario(
             "code": "weak-replaced-block-gate",
             "reason": "The run allows broad block-type replacement.",
         })
+    if max_unexpected > 25:
+        warnings.append({
+            "code": "weak-unexpected-block-gate",
+            "reason": (
+                "The run allows blocks or fluids to appear inside cannon cells that were "
+                "air in the original paste."
+            ),
+        })
     if max_self > 100:
         warnings.append({
             "code": "weak-self-damage-gate",
@@ -434,7 +470,9 @@ def audit_scenario(
         "weak-dispenser-survival",
         "weak-missing-block-gate",
         "weak-replaced-block-gate",
+        "weak-unexpected-block-gate",
         "weak-self-damage-gate",
+        "multi-shot-lifecycle-implicit",
     }
     field_candidate_eligible = (
         not assists
@@ -465,6 +503,13 @@ def audit_scenario(
         "fire_mode": fire_mode,
         "control_state_count": len(control_states),
         "control_states": control_states,
+        "run_shots": run_shots,
+        "rebuild_cannon_between_shots": rebuild_between_shots,
+        "cannon_lifecycle": (
+            "REBUILD_EACH_SHOT"
+            if rebuild_between_shots
+            else "PRESERVE_ACROSS_SHOTS"
+        ),
         "evidence_class": evidence_class,
         "field_candidate_eligible": field_candidate_eligible,
         "readiness_eligible": readiness_eligible,

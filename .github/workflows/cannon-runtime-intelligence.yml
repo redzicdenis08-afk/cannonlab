@@ -12,8 +12,11 @@ on:
       - 'scripts/cloud-smoke.sh'
       - 'scripts/explain-causal-trace.py'
       - 'scripts/analyze-breach-evidence.py'
+      - 'scripts/assert-results.py'
       - 'scenarios/probe-redstone-diagnostic.yml'
       - 'scenarios/breach-telemetry-probe.yml'
+      - 'scenarios/probe-unexpected-block-negative.yml'
+      - 'cannons/probe-water-protected-dispenser.schem.b64'
   workflow_dispatch:
 
 concurrency:
@@ -149,6 +152,79 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CannonLab-breach-evidence-${{ github.run_number }}
+          path: lab-artifacts/**
+          if-no-files-found: error
+          retention-days: 30
+
+  unexpected-block-negative-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Build cumulative integrity recorder
+        run: gradle clean build --stacktrace
+
+      - name: Require retained redstone obstruction to fail
+        env:
+          CANNONLAB_MC_VERSION: '26.1.2'
+          CANNONLAB_SCENARIO: probe-unexpected-block-negative.yml
+          CANNONLAB_EXPECTED_SHOTS: '1'
+          CANNONLAB_EXPECTED_LIFETIME: none
+          CANNONLAB_MAX_CANNON_UNEXPECTED_BLOCKS: '0'
+        run: |
+          set +e
+          bash scripts/cloud-smoke.sh
+          exit_code=$?
+          set -e
+          if [[ "$exit_code" -eq 0 ]]; then
+            echo 'Negative obstruction scenario unexpectedly passed.' >&2
+            exit 1
+          fi
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          summaries = sorted(
+              Path('lab-artifacts/results').rglob('run-summary.json'),
+              key=lambda path: path.stat().st_mtime,
+              reverse=True,
+          )
+          assert summaries, 'missing negative run summary'
+          summary = json.loads(summaries[0].read_text(encoding='utf-8'))
+          assert summary['finish_reason'] == 'contract_failed', summary
+          assert len(summary['shots']) == 1, summary
+          shot = summary['shots'][0]
+          assert shot['contract_pass'] is False, shot
+          assert shot['cannon_unexpected_blocks'] >= 1, shot
+          assert any(
+              failure.startswith('cannon_unexpected=')
+              for failure in shot['contract_failures']
+          ), shot
+          print('Unexpected-block negative runtime failed closed as required.')
+          PY
+
+      - name: Upload negative obstruction evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-unexpected-block-negative-${{ github.run_number }}
           path: lab-artifacts/**
           if-no-files-found: error
           retention-days: 30
