@@ -1,0 +1,52 @@
+{
+  "schema_version": 1,
+  "id": "replace-with-promotion-id",
+  "source": {
+    "sha256": "replace-with-exact-64-character-source-sha256"
+  },
+  "component": {
+    "id": "replace-with-component-id",
+    "version": "1",
+    "reusable": false,
+    "source_kind": "private-reference"
+  },
+  "selection": {
+    "module_id": "MODULE-001",
+    "expected_signature": "replace-with-module-signature",
+    "padding": [1, 1, 1]
+  },
+  "evidence": {
+    "level": "local-runtime",
+    "sources": [
+      "replace with exact run ID, trace artifact, or reviewed field record"
+    ],
+    "runtime_requirements": {
+      "require_active": true,
+      "min_exclusive_component_events": 1,
+      "min_correlated_entities": 0,
+      "min_entity_profile_coverage": 0.0
+    }
+  },
+  "capabilities": [
+    {
+      "id": "replace-with-reviewed-capability",
+      "evidence": "local-runtime",
+      "justification": "Describe the exact runtime evidence. Do not infer roles from filename or shape."
+    }
+  ],
+  "ports": [
+    {
+      "id": "signal-in",
+      "kind": "input",
+      "medium": "redstone",
+      "source_position": [0, 0, 0],
+      "direction": [-1, 0, 0],
+      "contract": {
+        "pulse_ticks": 4
+      }
+    }
+  ],
+  "boundary": {
+    "allowed_crossings": []
+  }
+}
