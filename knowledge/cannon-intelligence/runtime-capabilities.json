@@ -168,6 +168,22 @@
       "checks": [
         {"type": "any-token-anywhere", "paths": ["scripts", "src"], "tokens": ["live-canary", "field_verified", "field-verified", "extremecraft-canary"]}
       ]
+    },
+    {
+      "id": "parallel-cached-static-funnel",
+      "required_for": ["local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "all-token", "path": "scripts/cannon-forge.py", "tokens": ["ThreadPoolExecutor", "FORGE_CACHE", "static_workers", "build_execution_plan", "smoke-gate"]},
+        {"type": "all-token", "path": "scripts/cannon-variant-search.py", "tokens": ["ThreadPoolExecutor", "CACHE_ROOT", "deduplicated_candidates", "avoided_mutator_invocations", "winner-handoff.json"]}
+      ]
+    },
+    {
+      "id": "tiered-runtime-budget-and-exact-resume",
+      "required_for": ["local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "file", "path": "scripts/test-forge-campaign-performance.py"},
+        {"type": "all-token", "path": "scripts/run-forge-campaign.ps1", "tokens": ["WallClockBudgetSeconds", "PlanOnly", "cannonlab-forge-stage-fingerprint-v2", "runtime_hashes", "CANNONLAB_*", "cannonlab-forge-campaign-v3"]}
+      ]
     }
   ],
   "operator_capabilities": [
@@ -240,6 +256,24 @@
       "required_for": ["operator-ready"],
       "checks": [
         {"type": "all-token", "path": "mcp-server/server.py", "tokens": ["def analyze_wall_breach", "wall-breach-intelligence.py", "watered-obsidian", "raid-course"]}
+      ]
+    },
+    {
+      "id": "factory-budget-and-winner-handoff",
+      "required_for": ["operator-ready"],
+      "checks": [
+        {"type": "file", "path": "scripts/cannon-factory-budget.py"},
+        {"type": "file", "path": "scripts/test-cannon-factory-budget.py"},
+        {"type": "all-token", "path": "scripts/cannon-factory-budget.py", "tokens": ["runtime-budget-insufficient", "selected_counts", "estimated_wall_seconds", "top runtime survivors"]},
+        {"type": "all-token", "path": "scripts/cannon-variant-search.py", "tokens": ["materialize_winner", "cannonlab-variant-winner-handoff-v1", "winner-handoff.json"]}
+      ]
+    },
+    {
+      "id": "factory-performance-mcp-exposure",
+      "required_for": ["operator-ready"],
+      "checks": [
+        {"type": "all-token", "path": "mcp-server/server.py", "tokens": ["plan_cannon_factory_budget", "budget_seconds", "generate_cannon_variants", "wall_clock_budget_seconds", "plan_only"]},
+        {"type": "all-token", "path": "scripts/test-general-cannon-mcp.py", "tokens": ["test_factory_budget_planner_is_exposed", "test_operator_run_binds_tier_budget_and_resume"]}
       ]
     }
   ]

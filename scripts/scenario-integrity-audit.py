@@ -54,6 +54,7 @@ def minimal_yaml_paths(text: str) -> tuple[dict[str, Any], set[str]]:
     values: dict[str, Any] = {}
     nonempty_sequences: set[str] = set()
     stack: list[tuple[int, str]] = []
+    active_sequence: tuple[str, int] | None = None
 
     for original in text.splitlines():
         clean = strip_comment(original)
@@ -61,12 +62,40 @@ def minimal_yaml_paths(text: str) -> tuple[dict[str, Any], set[str]]:
             continue
         indent = len(clean) - len(clean.lstrip(" "))
         stripped = clean.strip()
+
+        # Preserve the list-of-mappings subset used by cannon.control-states
+        # even when PyYAML is unavailable. Nested item fields belong to the
+        # most recent dash item until indentation returns to the dash level.
+        if active_sequence is not None:
+            sequence_path, item_indent = active_sequence
+            if indent > item_indent and not stripped.startswith("-"):
+                item_match = re.match(r"([^:]+):(.*)$", stripped)
+                sequence = values.get(sequence_path)
+                if item_match and isinstance(sequence, list) and sequence and isinstance(sequence[-1], dict):
+                    key = item_match.group(1).strip()
+                    sequence[-1][key] = parse_scalar(item_match.group(2).strip())
+                    continue
+            elif indent <= item_indent:
+                active_sequence = None
+
         while stack and indent <= stack[-1][0]:
             stack.pop()
 
         if stripped.startswith("-"):
             if stack:
-                nonempty_sequences.add(".".join(part for _level, part in stack))
+                sequence_path = ".".join(part for _level, part in stack)
+                nonempty_sequences.add(sequence_path)
+                sequence = values.setdefault(sequence_path, [])
+                if isinstance(sequence, list):
+                    remainder = stripped[1:].strip()
+                    item_match = re.match(r"([^:]+):(.*)$", remainder)
+                    if item_match:
+                        sequence.append({
+                            item_match.group(1).strip(): parse_scalar(item_match.group(2).strip())
+                        })
+                        active_sequence = (sequence_path, indent)
+                    elif remainder:
+                        sequence.append(parse_scalar(remainder))
             continue
 
         match = re.match(r"([^:]+):(.*)$", stripped)

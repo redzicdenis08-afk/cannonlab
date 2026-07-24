@@ -285,7 +285,11 @@ def forge_command(args: argparse.Namespace, candidate: Path, references: list[Pa
         str(args.height),
         "--shots",
         str(args.shots),
+        "--static-workers",
+        str(getattr(args, "static_workers", 5)),
     ]
+    if getattr(args, "no_static_cache", False):
+        command.append("--no-static-cache")
     for specialization in args.specialization:
         command += ["--specialization", specialization]
     for control_state in getattr(args, "control_state_json", []):
@@ -310,7 +314,12 @@ def write_operator_job(slug: str, payload: dict[str, Any]) -> tuple[Path, Path]:
         "Run the local campaign only when the gate is PASS:\n\n"
         "```powershell\n"
         "$env:CANNONLAB_ACCEPT_EULA='TRUE'\n"
-        f"python scripts/cannon-operator.py run operator-jobs/{slug}/manifest.json --execute\n"
+        f"# One-shot smoke gate\n"
+        f"python scripts/cannon-operator.py run operator-jobs/{slug}/manifest.json --execute\n\n"
+        f"# Short qualification after smoke passes\n"
+        f"python scripts/cannon-operator.py run operator-jobs/{slug}/manifest.json --execute --max-tier qualify\n\n"
+        f"# Full local promotion, resuming passed stages\n"
+        f"python scripts/cannon-operator.py run operator-jobs/{slug}/manifest.json --execute --max-tier full\n"
         "```\n\n"
         f"Underlying Forge manifest: `{forge_manifest}`\n\n"
         "Local runtime evidence is not live ExtremeCraft proof.\n",
@@ -469,7 +478,16 @@ def powershell_executable() -> str:
     return "powershell" if sys.platform.startswith("win") else "pwsh"
 
 
-def run_job(manifest_raw: str, *, execute: bool) -> dict[str, Any]:
+def run_job(
+    manifest_raw: str,
+    *,
+    execute: bool,
+    max_tier: str = "smoke",
+    resume: bool = True,
+    plan_only: bool = False,
+    wall_clock_budget_seconds: int = 0,
+    force: bool = False,
+) -> dict[str, Any]:
     manifest_path, manifest = load_operator_manifest(manifest_raw)
     if manifest.get("status") != "PASS":
         return {
@@ -487,7 +505,17 @@ def run_job(manifest_raw: str, *, execute: bool) -> dict[str, Any]:
         str(FORGE_RUNNER),
         "-Manifest",
         str(forge_manifest),
+        "-MaxTier",
+        max_tier,
     ]
+    if not resume:
+        command.append("-NoResume")
+    if plan_only:
+        command.append("-PlanOnly")
+    if wall_clock_budget_seconds:
+        command += ["-WallClockBudgetSeconds", str(wall_clock_budget_seconds)]
+    if force:
+        command.append("-Force")
     if not execute:
         return {
             "schema": "cannonlab-operator-run-v1",
@@ -496,6 +524,11 @@ def run_job(manifest_raw: str, *, execute: bool) -> dict[str, Any]:
             "manifest": relative_or_absolute(manifest_path),
             "forge_manifest": relative_or_absolute(forge_manifest),
             "command": command,
+            "max_tier": max_tier,
+            "resume": resume,
+            "plan_only": plan_only,
+            "wall_clock_budget_seconds": wall_clock_budget_seconds,
+            "force": force,
             "truth_boundary": "Dry-run only. Pass --execute to start the local CannonLab campaign.",
         }
     result = subprocess.run(command, cwd=ROOT, text=True, check=False)
@@ -506,6 +539,11 @@ def run_job(manifest_raw: str, *, execute: bool) -> dict[str, Any]:
         "exit_code": result.returncode,
         "manifest": relative_or_absolute(manifest_path),
         "forge_manifest": relative_or_absolute(forge_manifest),
+        "max_tier": max_tier,
+        "resume": resume,
+        "plan_only": plan_only,
+        "wall_clock_budget_seconds": wall_clock_budget_seconds,
+        "force": force,
     }
 
 
@@ -546,18 +584,37 @@ def main() -> None:
     prepare.add_argument("--width", type=int, default=17)
     prepare.add_argument("--height", type=int, default=32)
     prepare.add_argument("--shots", type=int, default=10)
+    prepare.add_argument("--static-workers", type=int, default=5)
+    prepare.add_argument("--no-static-cache", action="store_true")
 
     run = subparsers.add_parser("run", help="Show or execute the staged local campaign")
     run.add_argument("manifest")
     run.add_argument("--execute", action="store_true")
+    run.add_argument("--max-tier", choices=["smoke", "qualify", "full"], default="smoke")
+    run.add_argument("--no-resume", action="store_true")
+    run.add_argument("--plan-only", action="store_true")
+    run.add_argument("--wall-clock-budget-seconds", type=int, default=0)
+    run.add_argument("--force", action="store_true")
 
     args = parser.parse_args()
     if args.command == "prepare":
-        if min(args.chunk_limit, args.distance, args.width, args.height, args.shots) < 1:
+        if min(args.chunk_limit, args.distance, args.width, args.height, args.shots, args.static_workers) < 1:
             parser.error("chunk limit, distance, dimensions and shots must be positive")
+        if args.static_workers > 5:
+            parser.error("static workers must be 1..5")
         result = prepare_job(args)
     else:
-        result = run_job(args.manifest, execute=args.execute)
+        if args.wall_clock_budget_seconds < 0:
+            parser.error("wall-clock budget cannot be negative")
+        result = run_job(
+            args.manifest,
+            execute=args.execute,
+            max_tier=args.max_tier,
+            resume=not args.no_resume,
+            plan_only=args.plan_only,
+            wall_clock_budget_seconds=args.wall_clock_budget_seconds,
+            force=args.force,
+        )
     print(json.dumps(result, indent=2))
     if result.get("status") in {"FAIL", "BLOCKED"}:
         raise SystemExit(2)

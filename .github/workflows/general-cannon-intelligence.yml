@@ -15,6 +15,7 @@ on:
       - 'scripts/wall-breach-intelligence.py'
       - 'scripts/run-forge-campaign.ps1'
       - 'scripts/cannon-variant-search.py'
+      - 'scripts/cannon-factory-budget.py'
       - 'scripts/cannon-variant-scorecard.py'
       - 'scripts/general-cannon-intelligence.py'
       - 'scripts/private-corpus-regression.py'
@@ -24,6 +25,7 @@ on:
       - 'scripts/test-cannon-mutator.py'
       - 'scripts/test-cannon-operator.py'
       - 'scripts/test-cannon-variant-search.py'
+      - 'scripts/test-cannon-factory-budget.py'
       - 'scripts/test-cannon-variant-scorecard.py'
       - 'scripts/test-general-cannon-mcp.py'
       - 'scripts/test-general-cannon-intelligence.py'
@@ -51,6 +53,7 @@ on:
       - 'scripts/wall-breach-intelligence.py'
       - 'scripts/run-forge-campaign.ps1'
       - 'scripts/cannon-variant-search.py'
+      - 'scripts/cannon-factory-budget.py'
       - 'scripts/cannon-variant-scorecard.py'
       - 'scripts/general-cannon-intelligence.py'
       - 'scripts/private-corpus-regression.py'
@@ -60,6 +63,7 @@ on:
       - 'scripts/test-cannon-mutator.py'
       - 'scripts/test-cannon-operator.py'
       - 'scripts/test-cannon-variant-search.py'
+      - 'scripts/test-cannon-factory-budget.py'
       - 'scripts/test-cannon-variant-scorecard.py'
       - 'scripts/test-general-cannon-mcp.py'
       - 'scripts/test-general-cannon-intelligence.py'
@@ -104,6 +108,7 @@ jobs:
             scripts/analyze-output-corridor.py \
             scripts/wall-breach-intelligence.py \
             scripts/cannon-variant-search.py \
+            scripts/cannon-factory-budget.py \
             scripts/cannon-variant-scorecard.py \
             scripts/general-cannon-intelligence.py \
             scripts/private-corpus-regression.py \
@@ -113,6 +118,7 @@ jobs:
             scripts/test-cannon-mutator.py \
             scripts/test-cannon-operator.py \
             scripts/test-cannon-variant-search.py \
+            scripts/test-cannon-factory-budget.py \
             scripts/test-cannon-variant-scorecard.py \
             scripts/test-general-cannon-mcp.py \
             scripts/test-general-cannon-intelligence.py \
@@ -151,6 +157,9 @@ jobs:
 
       - name: Prove deterministic bounded variant search
         run: python scripts/test-cannon-variant-search.py
+
+      - name: Prove wall-clock factory budget allocation
+        run: python scripts/test-cannon-factory-budget.py
 
       - name: Prove conservative runtime scorecard extraction
         run: python scripts/test-cannon-variant-scorecard.py

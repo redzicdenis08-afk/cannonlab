@@ -6,10 +6,17 @@ on:
       - 'knowledge/**'
       - 'skills/cannon-forge/**'
       - 'scripts/cannon-forge.py'
+      - 'scripts/cannon-operator.py'
+      - 'scripts/cannon-variant-search.py'
+      - 'scripts/cannon-factory-budget.py'
       - 'scripts/analyze-output-corridor.py'
       - 'scripts/wall-breach-intelligence.py'
       - 'scripts/run-forge-campaign.ps1'
       - 'scripts/test-cannon-forge.py'
+      - 'scripts/test-cannon-operator.py'
+      - 'scripts/test-cannon-variant-search.py'
+      - 'scripts/test-cannon-factory-budget.py'
+      - 'scripts/test-forge-campaign-performance.py'
       - 'scripts/test-output-corridor.py'
       - 'scripts/test-wall-breach-intelligence.py'
       - '.github/workflows/cannon-forge.yml'
@@ -19,10 +26,17 @@ on:
       - 'knowledge/**'
       - 'skills/cannon-forge/**'
       - 'scripts/cannon-forge.py'
+      - 'scripts/cannon-operator.py'
+      - 'scripts/cannon-variant-search.py'
+      - 'scripts/cannon-factory-budget.py'
       - 'scripts/analyze-output-corridor.py'
       - 'scripts/wall-breach-intelligence.py'
       - 'scripts/run-forge-campaign.ps1'
       - 'scripts/test-cannon-forge.py'
+      - 'scripts/test-cannon-operator.py'
+      - 'scripts/test-cannon-variant-search.py'
+      - 'scripts/test-cannon-factory-budget.py'
+      - 'scripts/test-forge-campaign-performance.py'
       - 'scripts/test-output-corridor.py'
       - 'scripts/test-wall-breach-intelligence.py'
       - '.github/workflows/cannon-forge.yml'
@@ -36,9 +50,15 @@ jobs:
         with:
           python-version: '3.11'
       - name: Compile forge tools
-        run: python -m py_compile scripts/cannon-forge.py scripts/analyze-output-corridor.py scripts/wall-breach-intelligence.py scripts/test-cannon-forge.py scripts/test-output-corridor.py scripts/test-wall-breach-intelligence.py
+        run: python -m py_compile scripts/cannon-forge.py scripts/cannon-operator.py scripts/cannon-variant-search.py scripts/cannon-factory-budget.py scripts/analyze-output-corridor.py scripts/wall-breach-intelligence.py scripts/test-cannon-forge.py scripts/test-cannon-operator.py scripts/test-cannon-variant-search.py scripts/test-cannon-factory-budget.py scripts/test-forge-campaign-performance.py scripts/test-output-corridor.py scripts/test-wall-breach-intelligence.py
       - name: Verify source registry and scenario contracts
         run: python scripts/test-cannon-forge.py
+      - name: Verify fast operator, cache and tier contracts
+        run: |
+          python scripts/test-cannon-operator.py
+          python scripts/test-cannon-variant-search.py
+          python scripts/test-cannon-factory-budget.py
+          python scripts/test-forge-campaign-performance.py
       - name: Verify measured output corridor contracts
         run: python scripts/test-output-corridor.py
       - name: Verify wall-breach contracts and diagnoses

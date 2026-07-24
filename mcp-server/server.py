@@ -1186,18 +1186,76 @@ def mutate_cannon_bounded(plan_path: str) -> dict[str, Any]:
 
 
 @mcp.tool()
-def generate_cannon_variants(spec_path: str, apply: bool = True) -> dict[str, Any]:
-    """Enumerate every declared bounded variant without random sampling, then apply static gates."""
+def generate_cannon_variants(
+    spec_path: str,
+    apply: bool = True,
+    workers: int = 4,
+    use_cache: bool = True,
+    timeout_seconds: int = 1200,
+) -> dict[str, Any]:
+    """Enumerate bounded variants in parallel, deduplicate exact plans, and reuse hash-identical static evidence."""
+    if not 1 <= workers <= 16:
+        raise ValueError("workers must be 1..16")
+    if timeout_seconds < 1:
+        raise ValueError("timeout_seconds must be positive")
     spec = _inside_runtime(spec_path)
     args = [
         sys.executable,
         str(SCRIPTS / "cannon-variant-search.py"),
         "generate",
         str(spec),
+        "--workers",
+        str(workers),
+        "--timeout-seconds",
+        str(timeout_seconds),
     ]
     if not apply:
         args.append("--no-apply")
+    if not use_cache:
+        args.append("--no-cache")
     return _run_json(args, timeout=3600)
+
+
+@mcp.tool()
+def plan_cannon_factory_budget(
+    search_manifest_path: str,
+    forge_manifest_path: str,
+    budget_seconds: float,
+    runtime_workers: int = 1,
+    target_tier: str = "full",
+    max_smoke: int = 16,
+    max_qualify: int = 4,
+    max_full: int = 1,
+    historical_summary_paths: list[str] | None = None,
+) -> dict[str, Any]:
+    """Allocate smoke, qualification, and full finalists under one explicit runtime budget."""
+    if budget_seconds <= 0 or runtime_workers < 1:
+        raise ValueError("budget_seconds and runtime_workers must be positive")
+    if target_tier not in {"smoke", "qualify", "full"}:
+        raise ValueError("target_tier must be smoke, qualify, or full")
+    search_manifest = _inside_runtime(search_manifest_path)
+    forge_manifest = _inside_runtime(forge_manifest_path)
+    args = [
+        sys.executable,
+        str(SCRIPTS / "cannon-factory-budget.py"),
+        str(search_manifest),
+        str(forge_manifest),
+        "--budget-seconds",
+        str(budget_seconds),
+        "--runtime-workers",
+        str(runtime_workers),
+        "--target-tier",
+        target_tier,
+        "--max-smoke",
+        str(max_smoke),
+        "--max-qualify",
+        str(max_qualify),
+        "--max-full",
+        str(max_full),
+    ]
+    for path in historical_summary_paths or []:
+        args += ["--historical-summary", str(_inside_runtime(path))]
+    return _run_json(args, timeout=300)
 
 
 @mcp.tool()
@@ -1329,17 +1387,39 @@ def prepare_cannon_operator(
 
 
 @mcp.tool()
-def run_cannon_operator(manifest_path: str, execute: bool = False) -> dict[str, Any]:
+def run_cannon_operator(
+    manifest_path: str,
+    execute: bool = False,
+    max_tier: str = "smoke",
+    resume: bool = True,
+    plan_only: bool = False,
+    wall_clock_budget_seconds: int = 0,
+    force: bool = False,
+) -> dict[str, Any]:
     """Show the exact staged local campaign command, or execute it when explicitly requested."""
+    if max_tier not in {"smoke", "qualify", "full"}:
+        raise ValueError("max_tier must be smoke, qualify, or full")
+    if wall_clock_budget_seconds < 0:
+        raise ValueError("wall_clock_budget_seconds cannot be negative")
     manifest = _inside_runtime(manifest_path)
     args = [
         sys.executable,
         str(SCRIPTS / "cannon-operator.py"),
         "run",
         str(manifest),
+        "--max-tier",
+        max_tier,
     ]
     if execute:
         args.append("--execute")
+    if not resume:
+        args.append("--no-resume")
+    if plan_only:
+        args.append("--plan-only")
+    if wall_clock_budget_seconds:
+        args += ["--wall-clock-budget-seconds", str(wall_clock_budget_seconds)]
+    if force:
+        args.append("--force")
     return _run_json(args, timeout=3600)
 
 

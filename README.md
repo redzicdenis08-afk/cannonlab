@@ -316,8 +316,47 @@ For a mode lever or other exact pre-fire state, repeat `--control-state-json` wi
 Run the staged campaign only after the operator manifest is `PASS`:
 
 ```powershell
+# Default: one-shot smoke gate. Obvious failures stop here.
 python scripts/cannon-operator.py run operator-jobs/repaired-osrb/manifest.json --execute
+
+# After smoke passes: short nine-shot cumulative qualification.
+python scripts/cannon-operator.py run operator-jobs/repaired-osrb/manifest.json `
+  --execute --max-tier qualify
+
+# Full local campaign. Passed smoke/qualification stages resume by exact
+# candidate, scenario, tool, runtime-JAR and CANNONLAB_* environment fingerprint.
+python scripts/cannon-operator.py run operator-jobs/repaired-osrb/manifest.json `
+  --execute --max-tier full
 ```
+
+Inspect the exact work without starting Minecraft, or cap one operator session:
+
+```powershell
+python scripts/cannon-operator.py run operator-jobs/repaired-osrb/manifest.json `
+  --max-tier full --plan-only
+
+python scripts/cannon-operator.py run operator-jobs/repaired-osrb/manifest.json `
+  --execute --max-tier qualify --wall-clock-budget-seconds 900
+```
+
+Forge static intake runs its independent schematic, alignment, map, module, and geometry checks concurrently and caches them by command plus file hashes. Bounded mutation tournaments also run unique variants concurrently, deduplicate identical rendered edits, and reuse exact cached results. Cache hits do not promote evidence: they only reuse an unchanged static or runtime contract. Changing a candidate, scenario, assertion, analysis tool, plugin/server JAR, lab home, or `CANNONLAB_*` setting invalidates the relevant runtime stage.
+
+Allocate a whole variant tournament under one real wall-clock budget before launching Minecraft:
+
+```powershell
+python scripts/cannon-factory-budget.py `
+  variant-jobs/delay-sweep/manifest.json `
+  forge-jobs/reference-campaign/manifest.json `
+  --budget-seconds 1800 `
+  --runtime-workers 2 `
+  --max-smoke 16 `
+  --max-qualify 4 `
+  --max-full 1
+```
+
+The planner maximizes the useful funnel that fits the budget. It can send many cheap candidates through smoke, fewer runtime survivors through qualification, and only the strongest finalists into the full campaign. Historical clean campaign summaries can replace the conservative fallback timing model. If the budget cannot carry even one candidate through the requested tier, the plan is `BLOCKED` instead of quietly overrunning.
+
+After runtime scorecard ranking, `cannon-variant-search.py rank` writes `winner/winner-handoff.json` and copies the winning `.schem` when the exact artifact exists. The handoff contains source and copied hashes, selected mutation values, and scores. It remains a local winner only until its required Forge tier and live EC canary pass.
 
 The general infrastructure audit can prove that the tooling surface is complete. It cannot promote a particular schematic. A candidate still needs its own repeated local runtime evidence and a recorded live ExtremeCraft canary before any EC-ready claim.
 

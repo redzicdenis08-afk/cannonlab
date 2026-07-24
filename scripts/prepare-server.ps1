@@ -1,5 +1,13 @@
 param(
-    [string]$LabHome = $(if ($env:CANNONLAB_HOME) { $env:CANNONLAB_HOME } else { 'C:\CannonLab' }),
+    [string]$LabHome = $(
+        if ($env:CANNONLAB_HOME) {
+            $env:CANNONLAB_HOME
+        } elseif ([IO.Path]::DirectorySeparatorChar -eq '\') {
+            'C:\CannonLab'
+        } else {
+            Join-Path $HOME 'CannonLab'
+        }
+    ),
     [string]$MinecraftVersion = '26.1.2',
     [int]$ArenaRadiusX = $(if ($env:CANNONLAB_ARENA_RADIUS_X) { [int]$env:CANNONLAB_ARENA_RADIUS_X } else { 256 }),
     [int]$ArenaRadiusY = $(if ($env:CANNONLAB_ARENA_RADIUS_Y) { [int]$env:CANNONLAB_ARENA_RADIUS_Y } else { 96 }),
@@ -143,7 +151,22 @@ Copy-Item (Join-Path $RepoRoot 'scenarios\*.yml') $ScenariosTarget -Force
 eula=true
 '@ | Set-Content (Join-Path $ServerRoot 'eula.txt') -Encoding ascii
 
-$ServerPort = if ($env:CANNONLAB_SERVER_PORT) { [int]$env:CANNONLAB_SERVER_PORT } else { 25570 }
+$ServerPort = if ($env:CANNONLAB_SERVER_PORT) {
+    [int]$env:CANNONLAB_SERVER_PORT
+} else {
+    # Every isolated LabHome receives a free ephemeral port so parallel
+    # candidate workers do not collide on one hard-coded Minecraft port.
+    $Listener = [Net.Sockets.TcpListener]::new([Net.IPAddress]::Loopback, 0)
+    try {
+        $Listener.Start()
+        [int]$Listener.LocalEndpoint.Port
+    } finally {
+        $Listener.Stop()
+    }
+}
+if ($ServerPort -lt 1 -or $ServerPort -gt 65535) {
+    throw "Invalid CannonLab server port: $ServerPort"
+}
 @"
 server-port=$ServerPort
 online-mode=false

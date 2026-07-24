@@ -3,11 +3,15 @@ from __future__ import annotations
 
 import argparse
 import base64
+import concurrent.futures
 import hashlib
 import json
+import os
 import re
 import subprocess
 import sys
+import threading
+import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -20,6 +24,10 @@ OUTPUT_ROOT = WORKSPACE_ROOT / "output"
 SCRIPTS = ROOT / "scripts"
 REGISTRY = ROOT / "knowledge" / "source-registry.json"
 PAYLOAD_CONTRACTS = ROOT / "knowledge" / "cannon-intelligence" / "payload-contracts.json"
+FORGE_CACHE = ROOT / "forge-jobs" / "_cache" / "static-intake"
+TIER_RANK = {"smoke": 0, "qualify": 1, "full": 2}
+_FILE_HASH_CACHE: dict[tuple[str, int, int], str] = {}
+_FILE_HASH_LOCK = threading.Lock()
 
 
 @dataclass(frozen=True)
@@ -69,7 +77,63 @@ def sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-def run_json(args: list[str], timeout: int = 300) -> dict[str, Any]:
+def cached_file_sha256(path: Path) -> str:
+    resolved = path.resolve()
+    stat = resolved.stat()
+    key = (str(resolved), stat.st_size, stat.st_mtime_ns)
+    with _FILE_HASH_LOCK:
+        cached = _FILE_HASH_CACHE.get(key)
+    if cached is not None:
+        return cached
+    digest = sha256(resolved)
+    with _FILE_HASH_LOCK:
+        _FILE_HASH_CACHE[key] = digest
+    return digest
+
+
+def command_cache_key(args: list[str]) -> str:
+    files: list[dict[str, Any]] = []
+    for raw in args:
+        try:
+            path = Path(raw)
+            if path.is_file():
+                files.append(
+                    {
+                        "path": str(path.resolve()),
+                        "sha256": cached_file_sha256(path),
+                    }
+                )
+        except (OSError, ValueError):
+            continue
+    payload = {
+        "schema": "cannonlab-forge-command-cache-v1",
+        "argv": [str(value) for value in args],
+        "files": files,
+        "python": [sys.version_info.major, sys.version_info.minor],
+    }
+    encoded = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return hashlib.sha256(encoded).hexdigest()
+
+
+def run_json(
+    args: list[str],
+    timeout: int = 300,
+    *,
+    cache_dir: Path | None = None,
+) -> dict[str, Any]:
+    cache_key = command_cache_key(args) if cache_dir is not None else None
+    cache_path = cache_dir / f"{cache_key}.json" if cache_dir is not None and cache_key else None
+    if cache_path is not None and cache_path.is_file():
+        try:
+            cached = json.loads(cache_path.read_text(encoding="utf-8"))
+            if isinstance(cached, dict):
+                cached["_cache_hit"] = True
+                cached["_elapsed_ms"] = 0
+                return cached
+        except (OSError, json.JSONDecodeError):
+            pass
+
+    started = time.perf_counter()
     result = subprocess.run(
         args,
         cwd=ROOT,
@@ -88,6 +152,13 @@ def run_json(args: list[str], timeout: int = 300) -> dict[str, Any]:
     except json.JSONDecodeError as exc:
         raise RuntimeError(f"non-JSON tool output: {result.stdout[-3000:]}") from exc
     payload["_exit_code"] = result.returncode
+    payload["_cache_hit"] = False
+    payload["_elapsed_ms"] = round((time.perf_counter() - started) * 1000)
+    if cache_path is not None:
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        temporary = cache_path.with_suffix(".tmp")
+        temporary.write_text(json.dumps(payload, sort_keys=True) + "\n", encoding="utf-8")
+        temporary.replace(cache_path)
     return payload
 
 
@@ -235,6 +306,9 @@ def static_intake(
     references: list[Path],
     intent: str,
     chunk_limit: int,
+    *,
+    workers: int | None = None,
+    use_cache: bool = True,
 ) -> dict[str, Any]:
     reference_args: list[str] = []
     for reference in references:
@@ -279,7 +353,33 @@ def static_intake(
             *reference_args,
         ],
     }
-    results = {name: run_json(command) for name, command in tools.items()}
+    started = time.perf_counter()
+    requested_workers = workers if workers is not None else min(5, max(2, os.cpu_count() or 2))
+    resolved_workers = max(1, min(len(tools), requested_workers))
+    unordered: dict[str, dict[str, Any]] = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=resolved_workers) as pool:
+        futures = {
+            pool.submit(
+                run_json,
+                command,
+                300,
+                cache_dir=FORGE_CACHE if use_cache else None,
+            ): name
+            for name, command in tools.items()
+        }
+        for future in concurrent.futures.as_completed(futures):
+            name = futures[future]
+            try:
+                unordered[name] = future.result()
+            except Exception as exc:
+                unordered[name] = {
+                    "status": "ERROR",
+                    "error": f"{type(exc).__name__}: {exc}",
+                    "_exit_code": 1,
+                    "_cache_hit": False,
+                    "_elapsed_ms": 0,
+                }
+    results = {name: unordered[name] for name in tools}
     blockers = [name for name, payload in results.items() if failed(payload)]
     if intent == "modern-raid" and not references:
         blockers.append("missing_reference")
@@ -287,6 +387,16 @@ def static_intake(
         "status": "PASS" if not blockers else "FAIL",
         "blockers": sorted(set(blockers)),
         "results": results,
+        "performance": {
+            "schema": "cannonlab-static-intake-performance-v1",
+            "parallel_workers": resolved_workers,
+            "tool_count": len(tools),
+            "cache_enabled": use_cache,
+            "cache_hits": sum(1 for payload in results.values() if payload.get("_cache_hit")),
+            "cache_misses": sum(1 for payload in results.values() if not payload.get("_cache_hit")),
+            "elapsed_ms": round((time.perf_counter() - started) * 1000),
+            "serial_tool_ms": sum(int(payload.get("_elapsed_ms", 0)) for payload in results.values()),
+        },
     }
 
 
@@ -391,7 +501,11 @@ def render_scenarios(
         assert_args: list[str],
         corridor_args: list[str] | None = None,
         wall_breach_args: list[str] | None = None,
+        *,
+        tier: str = "qualify",
     ) -> None:
+        if tier not in TIER_RANK:
+            raise ValueError(f"unsupported forge scenario tier: {tier}")
         filename = f"forge-{slug}-{name}.yml"
         if "run:\n" not in body:
             raise ValueError(f"scenario {name} has no run section")
@@ -413,6 +527,8 @@ def render_scenarios(
                 "filename": filename,
                 "text": f"name: forge-{slug}-{name}\n{cannon}\n{common_limits}\n{body}\n",
                 "expected_shots": expected_shots,
+                "tier": tier,
+                "tier_rank": TIER_RANK[tier],
                 "assert_args": final_assert_args,
                 "corridor_args": list(corridor_args or []),
                 "wall_breach_args": list(wall_breach_args or []),
@@ -463,6 +579,41 @@ def render_scenarios(
             "--max-lateral-center-spread", "2",
         ]
 
+    smoke_acceptance = acceptance_block(
+        payload_contract=payload_contract,
+        distance=distance,
+        self_damage=32,
+        max_unexpected=8,
+    )
+    add(
+        "smoke-gate",
+        f"{smoke_acceptance}\n"
+        "target:\n"
+        "  type: dry\n"
+        "  material: cobblestone\n"
+        f"  direction: {direction}\n"
+        f"  distance: {distance}\n"
+        f"  width: {max(3, min(width, 7))}\n"
+        f"  height: {max(3, min(height, 7))}\n"
+        "  layers: 1\n"
+        "  spacing: 3\n"
+        "  regeneration: {enabled: false}\n"
+        "run:\n"
+        "  shots: 1\n"
+        "  warmup-ticks: 20\n"
+        "  max-shot-ticks: 420\n"
+        "  quiet-ticks: 60\n"
+        "  shutdown-when-finished: true",
+        1,
+        ["--expected-shots", "1", "--min-target-peak-destroyed", "1", "--max-self-damage-blocks", "32"],
+        wall_breach_args=wall_diagnostic(
+            1,
+            self_damage=32,
+            falling=bool(payload_contract["require_falling_block"]),
+        ),
+        tier="smoke",
+    )
+
     dry_acceptance = acceptance_block(payload_contract=payload_contract, distance=distance)
     add(
         "dry-baseline",
@@ -486,6 +637,7 @@ def render_scenarios(
         3,
         ["--expected-shots", "3", "--min-target-peak-destroyed", "1", "--max-self-damage-blocks", "24"],
         wall_breach_args=wall_diagnostic(3, self_damage=24),
+        tier="qualify",
     )
 
     if payload_contract["mode"] == "tnt-only":
@@ -517,6 +669,7 @@ def render_scenarios(
             ["--expected-shots", "5", "--min-target-peak-destroyed", "1", "--max-self-damage-blocks", "20"],
             corridor(5),
             wall_diagnostic(5, self_damage=20, endurance=True),
+            tier="qualify",
         )
 
         multilayer_acceptance = acceptance_block(
@@ -547,6 +700,7 @@ def render_scenarios(
             ["--expected-shots", "10", "--min-layer-breached", "1", "--max-self-damage-blocks", "28"],
             corridor(10, half_width=4),
             wall_diagnostic(10, self_damage=28, contiguous_layers=1),
+            tier="full",
         )
 
         gauntlet_acceptance = acceptance_block(
@@ -606,6 +760,7 @@ def render_scenarios(
             ["--expected-shots", str(max(10, shots)), "--min-layer-breached", "1", "--max-self-damage-blocks", "32"],
             corridor(max(10, shots), half_width=4),
             wall_diagnostic(max(10, shots), self_damage=32, contiguous_layers=1),
+            tier="full",
         )
 
         endurance_shots = max(25, shots)
@@ -637,6 +792,7 @@ def render_scenarios(
             ["--expected-shots", str(endurance_shots), "--min-target-peak-destroyed", "1", "--max-self-damage-blocks", "16"],
             corridor(endurance_shots),
             wall_diagnostic(endurance_shots, self_damage=16, endurance=True),
+            tier="full",
         )
         return scenarios
 
@@ -673,6 +829,7 @@ def render_scenarios(
         ],
         corridor(5),
         wall_diagnostic(5, self_damage=24, falling=True, embedded=True),
+        tier="qualify",
     )
 
     regen_acceptance = acceptance_block(
@@ -722,6 +879,7 @@ def render_scenarios(
             regeneration=True,
             contiguous_layers=1,
         ),
+        tier="full",
     )
 
     mixed_acceptance = acceptance_block(
@@ -809,6 +967,7 @@ def render_scenarios(
         ],
         corridor(max(10, shots), half_width=4),
         ["--profile", "raid-course"],
+        tier="full",
     )
 
     endurance_shots = max(25, shots)
@@ -846,18 +1005,98 @@ def render_scenarios(
         ],
         corridor(endurance_shots),
         ["--profile", "raid-course"],
+        tier="full",
     )
     return scenarios
 
 
-def stage_candidate(candidate: Path, slug: str) -> tuple[Path, str]:
+def stage_candidate(candidate: Path, slug: str, job_dir: Path | None = None) -> tuple[Path, str]:
     if candidate.suffix.lower() != ".schem":
         raise ValueError("runtime staging requires a Sponge .schem; convert Litematica first")
     staged_name = f"forge-{slug}.schem"
-    staged_path = ROOT / "cannons" / f"{staged_name}.b64"
+    owner = job_dir if job_dir is not None else ROOT / "forge-jobs" / slug
+    staged_path = owner / "inputs" / f"{staged_name}.b64"
+    staged_path.parent.mkdir(parents=True, exist_ok=True)
     encoded = base64.b64encode(candidate.read_bytes()).decode("ascii") + "\n"
     staged_path.write_text(encoded, encoding="ascii")
     return staged_path, staged_name
+
+
+def build_execution_plan(scenarios: list[dict[str, Any]]) -> dict[str, Any]:
+    tiers: list[dict[str, Any]] = []
+    cumulative_scenarios = 0
+    cumulative_shots = 0
+    for tier in ("smoke", "qualify", "full"):
+        selected = [scenario for scenario in scenarios if scenario["tier"] == tier]
+        tier_shots = sum(int(scenario["expected_shots"]) for scenario in selected)
+        cumulative_scenarios += len(selected)
+        cumulative_shots += tier_shots
+        tiers.append(
+            {
+                "id": tier,
+                "rank": TIER_RANK[tier],
+                "scenario_count": len(selected),
+                "shots": tier_shots,
+                "cumulative_scenarios": cumulative_scenarios,
+                "cumulative_shots": cumulative_shots,
+                "scenarios": [scenario["name"] for scenario in selected],
+            }
+        )
+    return {
+        "schema": "cannonlab-forge-execution-plan-v1",
+        "default_tier": "smoke",
+        "resume_default": True,
+        "fail_fast": True,
+        "tiers": tiers,
+        "truth_boundary": (
+            "Smoke and qualification tiers accelerate iteration only. Full local promotion still requires the full tier, "
+            "and live ExtremeCraft claims still require recorded field evidence."
+        ),
+    }
+
+
+def arena_radii(
+    tier: str,
+    direction: str,
+    distance: int,
+    target_width: int,
+    target_height: int,
+    candidate_dimensions: dict[str, Any],
+    origin: Vec3 | None = None,
+) -> dict[str, Any]:
+    if tier not in TIER_RANK:
+        raise ValueError(f"unsupported arena tier: {tier}")
+    candidate_x = max(1, int(candidate_dimensions.get("width", 1)))
+    candidate_y = max(1, int(candidate_dimensions.get("height", 1)))
+    candidate_z = max(1, int(candidate_dimensions.get("length", 1)))
+    forward_candidate = candidate_x if direction in {"east", "west"} else candidate_z
+    cross_candidate = candidate_z if direction in {"east", "west"} else candidate_x
+
+    if tier == "smoke":
+        forward = max(48, distance + forward_candidate + 32)
+        cross = max(32, (target_width + 1) // 2 + cross_candidate + 24)
+        vertical = max(32, target_height + candidate_y + 20)
+    elif tier == "qualify":
+        forward = max(96, distance + forward_candidate + 64)
+        cross = max(48, (target_width + 1) // 2 + cross_candidate + 36)
+        vertical = max(48, target_height + candidate_y + 32)
+    else:
+        forward = max(256, distance + forward_candidate + 192)
+        cross = max(96, (target_width + 1) // 2 + cross_candidate + 64)
+        vertical = max(96, target_height + candidate_y + 48)
+
+    origin = origin or Vec3(0, 0, 0)
+    radius_x = forward if direction in {"east", "west"} else cross
+    radius_z = cross if direction in {"east", "west"} else forward
+    return {
+        "radius_x": radius_x + abs(origin.x),
+        "radius_y": vertical + abs(origin.y),
+        "radius_z": radius_z + abs(origin.z),
+        "truth_boundary": (
+            "Tier-sized forced-chunk envelope only. The full tier remains conservative; "
+            "a smaller smoke arena cannot promote long-range or off-axis behavior."
+        ),
+    }
 
 
 def stage_job(args: argparse.Namespace) -> dict[str, Any]:
@@ -880,9 +1119,16 @@ def stage_job(args: argparse.Namespace) -> dict[str, Any]:
             "results": {},
         }
         if args.skip_static
-        else static_intake(candidate, references, args.intent, args.chunk_limit)
+        else static_intake(
+            candidate,
+            references,
+            args.intent,
+            args.chunk_limit,
+            workers=args.static_workers,
+            use_cache=not args.no_static_cache,
+        )
     )
-    staged_path, staged_name = stage_candidate(candidate, slug)
+    staged_path, staged_name = stage_candidate(candidate, slug, job_dir)
     scenarios = render_scenarios(
         slug=slug,
         staged_name=staged_name,
@@ -899,8 +1145,15 @@ def stage_job(args: argparse.Namespace) -> dict[str, Any]:
     )
 
     scenario_records: list[dict[str, Any]] = []
+    scenario_snapshot_dir = job_dir / "scenarios"
+    scenario_snapshot_dir.mkdir(parents=True, exist_ok=True)
+    candidate_dimensions = (
+        intake.get("results", {}).get("audit", {}).get("dimensions", {})
+        if isinstance(intake, dict)
+        else {}
+    )
     for scenario in scenarios:
-        path = ROOT / "scenarios" / scenario["filename"]
+        path = scenario_snapshot_dir / scenario["filename"]
         path.write_text(scenario["text"], encoding="utf-8", newline="\n")
         integrity = run_json(
             [
@@ -916,6 +1169,17 @@ def stage_job(args: argparse.Namespace) -> dict[str, Any]:
                 "path": str(path.relative_to(ROOT)),
                 "sha256": sha256(path),
                 "expected_shots": scenario["expected_shots"],
+                "tier": scenario["tier"],
+                "tier_rank": scenario["tier_rank"],
+                "arena": arena_radii(
+                    scenario["tier"],
+                    args.direction,
+                    args.distance,
+                    args.width,
+                    args.height,
+                    candidate_dimensions,
+                    args.origin,
+                ),
                 "assert_args": scenario["assert_args"],
                 "corridor_args": scenario["corridor_args"],
                 "wall_breach_args": scenario["wall_breach_args"],
@@ -957,6 +1221,8 @@ def stage_job(args: argparse.Namespace) -> dict[str, Any]:
             "distance": args.distance,
             "width": args.width,
             "height": args.height,
+            "static_workers": args.static_workers,
+            "static_cache_enabled": not args.no_static_cache,
         },
         "source_registry": {
             "path": str(REGISTRY.relative_to(ROOT)),
@@ -964,6 +1230,7 @@ def stage_job(args: argparse.Namespace) -> dict[str, Any]:
             "source_count": len(load_registry()["sources"]),
         },
         "static_intake": intake,
+        "execution_plan": build_execution_plan(scenarios),
         "scenario_integrity_blockers": integrity_blockers,
         "scenarios": scenario_records,
     }
@@ -977,7 +1244,12 @@ def stage_job(args: argparse.Namespace) -> dict[str, Any]:
         "Run only when the manifest gate is PASS:\n\n"
         "```powershell\n"
         "$env:CANNONLAB_ACCEPT_EULA='TRUE'\n"
-        f"powershell -ExecutionPolicy Bypass -File scripts/run-forge-campaign.ps1 -Manifest forge-jobs/{slug}/manifest.json\n"
+        f"# Fast one-shot rejection gate (default)\n"
+        f"powershell -ExecutionPolicy Bypass -File scripts/run-forge-campaign.ps1 -Manifest forge-jobs/{slug}/manifest.json\n\n"
+        f"# Short qualification after smoke passes\n"
+        f"powershell -ExecutionPolicy Bypass -File scripts/run-forge-campaign.ps1 -Manifest forge-jobs/{slug}/manifest.json -MaxTier qualify\n\n"
+        f"# Full promotion campaign, resuming passed stages\n"
+        f"powershell -ExecutionPolicy Bypass -File scripts/run-forge-campaign.ps1 -Manifest forge-jobs/{slug}/manifest.json -MaxTier full\n"
         "```\n\n"
         "Local success is not live ExtremeCraft proof. Record a separate EC canary before promotion.\n",
         encoding="utf-8",
@@ -1021,6 +1293,13 @@ def main() -> None:
     stage.add_argument("--width", type=int, default=17)
     stage.add_argument("--height", type=int, default=32)
     stage.add_argument("--shots", type=int, default=10)
+    stage.add_argument(
+        "--static-workers",
+        type=int,
+        default=min(5, max(2, os.cpu_count() or 2)),
+        help="Parallel workers for independent static intake tools (1..5)",
+    )
+    stage.add_argument("--no-static-cache", action="store_true")
     stage.add_argument("--skip-static", action="store_true", help=argparse.SUPPRESS)
 
     args = parser.parse_args()
@@ -1043,6 +1322,8 @@ def main() -> None:
 
     if args.chunk_limit < 1 or args.distance < 1 or args.width < 1 or args.height < 1 or args.shots < 1:
         parser.error("chunk limit, distance, dimensions and shots must be positive")
+    if not 1 <= args.static_workers <= 5:
+        parser.error("static workers must be 1..5")
     try:
         manifest = stage_job(args)
     except (ValueError, FileNotFoundError) as exc:

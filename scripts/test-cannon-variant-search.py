@@ -5,6 +5,8 @@ import importlib.util
 import json
 import sys
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -104,10 +106,108 @@ class CannonVariantSearchTests(unittest.TestCase):
                 "alignment": {"dispensers": {"worldedit_paste_point_alignment": {"safe_count": 2, "best": {"max": 155}}}},
             }
             with patch.object(search, "run_json", side_effect=[(0, passing), (2, {"status": "BLOCKED"})]):
-                result = search.generate(str(spec_path), apply=True)
+                result = search.generate(str(spec_path), apply=True, use_cache=False)
             self.assertEqual(result["status"], "PASS")
             self.assertIsNotNone(result["candidates"][0]["static_score"])
             self.assertIsNone(result["candidates"][1]["static_score"])
+
+    def test_parallel_static_mutations_use_multiple_workers(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            root = Path(directory)
+            parent = root / "parent.schem"
+            parent.write_bytes(b"parallel-parent")
+            spec_path = root / "search.json"
+            spec_path.write_text(json.dumps(self.spec(parent)), encoding="utf-8")
+            lock = threading.Lock()
+            active = 0
+            maximum_active = 0
+
+            def fake_run(_command: list[str], timeout: int = 1200):
+                nonlocal active, maximum_active
+                with lock:
+                    active += 1
+                    maximum_active = max(maximum_active, active)
+                time.sleep(0.05)
+                with lock:
+                    active -= 1
+                return 0, {
+                    "status": "PASS",
+                    "changed_blocks": 1,
+                    "preservation": {"summary": {}},
+                    "alignment": {"dispensers": {"worldedit_paste_point_alignment": {"safe_count": 1, "best": {"max": 1}}}},
+                }
+
+            with patch.object(search, "run_json", side_effect=fake_run):
+                result = search.generate(
+                    str(spec_path),
+                    apply=True,
+                    workers=4,
+                    use_cache=False,
+                )
+            self.assertEqual(result["status"], "PASS", result)
+            self.assertGreaterEqual(maximum_active, 2)
+            self.assertEqual(result["performance"]["workers"], 4)
+            self.assertEqual(result["performance"]["unique_mutation_plans"], 4)
+
+    def test_identical_rendered_mutations_are_deduplicated(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            root = Path(directory)
+            parent = root / "parent.schem"
+            parent.write_bytes(b"dedupe-parent")
+            spec = self.spec(parent)
+            spec["variables"][0]["values"] = [2, 2]
+            spec["max_candidates"] = 2
+            spec_path = root / "search.json"
+            spec_path.write_text(json.dumps(spec), encoding="utf-8")
+            passing = {
+                "status": "PASS",
+                "changed_blocks": 1,
+                "preservation": {"summary": {}},
+                "alignment": {"dispensers": {"worldedit_paste_point_alignment": {"safe_count": 1, "best": {"max": 1}}}},
+            }
+            with patch.object(search, "run_json", return_value=(0, passing)) as mocked:
+                result = search.generate(str(spec_path), apply=True, workers=4, use_cache=False)
+            self.assertEqual(mocked.call_count, 1)
+            self.assertEqual(result["performance"]["deduplicated_candidates"], 1)
+            duplicate = next(item for item in result["candidates"] if item["deduplicated_from"])
+            self.assertEqual(duplicate["deduplicated_from"], result["candidates"][0]["variant_id"])
+
+    def test_content_addressed_cache_skips_repeated_mutation(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            root = Path(directory)
+            parent = root / "parent.schem"
+            parent.write_bytes(b"cache-parent")
+            spec = self.spec(parent)
+            spec["variables"][0]["values"] = [2]
+            spec["max_candidates"] = 1
+            spec_path = root / "search.json"
+            spec_path.write_text(json.dumps(spec), encoding="utf-8")
+
+            def fake_run(command: list[str], timeout: int = 1200):
+                plan = json.loads(Path(command[-1]).read_text(encoding="utf-8"))
+                output = Path(plan["output"])
+                output.parent.mkdir(parents=True, exist_ok=True)
+                output.write_bytes(b"cached-candidate")
+                return 0, {
+                    "status": "PASS",
+                    "changed_blocks": 1,
+                    "output": {"path": str(output)},
+                    "preservation": {"summary": {}},
+                    "alignment": {"dispensers": {"worldedit_paste_point_alignment": {"safe_count": 1, "best": {"max": 1}}}},
+                }
+
+            with (
+                patch.object(search, "OUTPUT_ROOT", root / "output"),
+                patch.object(search, "VARIANT_ROOT", root / "variant-jobs"),
+                patch.object(search, "CACHE_ROOT", root / "cache"),
+                patch.object(search, "run_json", side_effect=fake_run) as mocked,
+            ):
+                first = search.generate(str(spec_path), apply=True, workers=1, use_cache=True)
+                second = search.generate(str(spec_path), apply=True, workers=1, use_cache=True)
+            self.assertEqual(first["performance"]["cache_hits"], 0)
+            self.assertEqual(second["performance"]["cache_hits"], 1)
+            self.assertEqual(mocked.call_count, 1)
+            self.assertTrue(second["candidates"][0]["cache_hit"])
 
     def write_manifest_and_scorecard(self, root: Path) -> tuple[Path, Path]:
         manifest = {
@@ -160,6 +260,25 @@ class CannonVariantSearchTests(unittest.TestCase):
             manifest, scorecard = self.write_manifest_and_scorecard(Path(directory))
             result = search.rank(str(manifest), str(scorecard))
             self.assertIn("not automatically EC-ready", result["truth_boundary"])
+
+    def test_runtime_winner_is_materialized_for_handoff(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            root = Path(directory)
+            manifest, scorecard = self.write_manifest_and_scorecard(root)
+            winner_source = root / "winner-source.schem"
+            winner_source.write_bytes(b"winner-schematic")
+            payload = json.loads(manifest.read_text(encoding="utf-8"))
+            candidate = next(row for row in payload["candidates"] if row["variant_id"] == "v002-c")
+            candidate["result"] = {"output": {"path": str(winner_source)}}
+            manifest.write_text(json.dumps(payload), encoding="utf-8")
+            with patch.object(search, "VARIANT_ROOT", root / "variant-jobs"):
+                result = search.rank(str(manifest), str(scorecard))
+            handoff = result["winner_handoff"]
+            self.assertEqual(handoff["status"], "READY", handoff)
+            copied = Path(handoff["schematic"]["path"])
+            self.assertTrue(copied.is_file())
+            self.assertEqual(copied.read_bytes(), winner_source.read_bytes())
+            self.assertTrue(Path(handoff["handoff_path"]).is_file())
 
 
 if __name__ == "__main__":
