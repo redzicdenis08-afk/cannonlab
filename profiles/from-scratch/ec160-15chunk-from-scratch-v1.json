@@ -14,7 +14,7 @@
     "range_blocks": 256,
     "watered_obsidian_hits": 4,
     "stack_height": 255,
-    "regen_layers": 15,
+    "raid_depth_chunks": 15,
     "shot_cadence_ticks": 40,
     "features": [
       "hybrid",
