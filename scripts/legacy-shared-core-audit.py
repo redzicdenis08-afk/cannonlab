@@ -16,36 +16,28 @@ class SharedCoreError(ValueError):
 
 
 FACE_NEIGHBOURS = (
-    (1, 0, 0),
-    (-1, 0, 0),
-    (0, 1, 0),
-    (0, -1, 0),
-    (0, 0, 1),
-    (0, 0, -1),
+    (1, 0, 0), (-1, 0, 0), (0, 1, 0),
+    (0, -1, 0), (0, 0, 1), (0, 0, -1),
 )
-
 FACING_CODE_VECTORS = {
-    0: (0, -1, 0),
-    1: (0, 1, 0),
-    2: (0, 0, -1),
-    3: (0, 0, 1),
-    4: (-1, 0, 0),
-    5: (1, 0, 0),
+    0: (0, -1, 0), 1: (0, 1, 0), 2: (0, 0, -1),
+    3: (0, 0, 1), 4: (-1, 0, 0), 5: (1, 0, 0),
 }
 VECTOR_FACING_CODES = {value: key for key, value in FACING_CODE_VECTORS.items()}
 HORIZONTAL_FACING_VECTORS = {
-    0: (0, 0, -1),
-    1: (1, 0, 0),
-    2: (0, 0, 1),
-    3: (-1, 0, 0),
+    0: (0, 0, -1), 1: (1, 0, 0), 2: (0, 0, 1), 3: (-1, 0, 0),
 }
 VECTOR_HORIZONTAL_CODES = {value: key for key, value in HORIZONTAL_FACING_VECTORS.items()}
 
 PROVEN_ROTATABLE_IDS = {23, 29, 33, 34, 93, 94, 149, 150, 218}
-VOLATILE_BLOCK_ID_PAIRS = {75: 76, 76: 75, 93: 94, 94: 93, 149: 150, 150: 149}
+UNRESOLVED_DIRECTIONAL_IDS = {69, 75, 76, 77, 143}
+_MODULE_CACHE: dict[str, Any] = {}
 
 
 def load_script(name: str, filename: str) -> Any:
+    cached = _MODULE_CACHE.get(filename)
+    if cached is not None:
+        return cached
     path = Path(__file__).resolve().with_name(filename)
     spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
@@ -53,6 +45,7 @@ def load_script(name: str, filename: str) -> Any:
     module = importlib.util.module_from_spec(spec)
     sys.modules[name] = module
     spec.loader.exec_module(module)
+    _MODULE_CACHE[filename] = module
     return module
 
 
@@ -85,25 +78,17 @@ def rotate_legacy_data(block_id: int, data: int, turns: int) -> tuple[int, bool]
         return value, True
     if block_id in {23, 29, 33, 34, 218}:
         vector = FACING_CODE_VECTORS.get(value & 0x7)
-        if vector is None:
-            return value, False
-        rotated = VECTOR_FACING_CODES.get(rotate_y(vector, turns))
+        rotated = VECTOR_FACING_CODES.get(rotate_y(vector, turns)) if vector else None
         if rotated is None:
             return value, False
         return (value & ~0x7) | rotated, True
     if block_id in {93, 94, 149, 150}:
         vector = HORIZONTAL_FACING_VECTORS.get(value & 0x3)
-        if vector is None:
-            return value, False
-        rotated = VECTOR_HORIZONTAL_CODES.get(rotate_y(vector, turns))
+        rotated = VECTOR_HORIZONTAL_CODES.get(rotate_y(vector, turns)) if vector else None
         if rotated is None:
             return value, False
         return (value & ~0x3) | rotated, True
     return value, False
-
-
-def normalized_block_id(block_id: int) -> int:
-    return min(block_id, VOLATILE_BLOCK_ID_PAIRS.get(block_id, block_id))
 
 
 def load_legacy_map(path: Path) -> tuple[dict[tuple[int, int, int], tuple[int, int]], dict[str, Any]]:
@@ -144,8 +129,12 @@ def load_legacy_map(path: Path) -> tuple[dict[tuple[int, int, int], tuple[int, i
     }
 
 
-def kind_name(architecture: Any, block_id: int, data: int) -> str:
-    return architecture.token_kind(architecture.canonical_token(block_id, data))
+def canonical_token(architecture: Any, value: tuple[int, int]) -> str:
+    return architecture.canonical_token(value[0], value[1])
+
+
+def kind_name(architecture: Any, value: tuple[int, int]) -> str:
+    return architecture.token_kind(canonical_token(architecture, value))
 
 
 def compare_block(
@@ -154,22 +143,34 @@ def compare_block(
     second: tuple[int, int],
     turns: int,
 ) -> str:
-    first_id, first_data = first
-    second_id, second_data = second
-    if kind_name(architecture, first_id, first_data) != kind_name(
-        architecture, second_id, second_data
-    ):
+    first_kind = kind_name(architecture, first)
+    second_kind = kind_name(architecture, second)
+    if first_kind != second_kind:
         return "kind_conflict"
-    if normalized_block_id(first_id) != normalized_block_id(second_id):
-        return "same_kind_unresolved_id"
-    rotated_data, proven = rotate_legacy_data(second_id, second_data, turns)
+
+    first_id, _first_data = first
+    second_id, second_data = second
+    if turns % 4 and (
+        first_id in UNRESOLVED_DIRECTIONAL_IDS or second_id in UNRESOLVED_DIRECTIONAL_IDS
+    ):
+        return "same_kind_unresolved_metadata"
+
     if second_id in PROVEN_ROTATABLE_IDS:
+        rotated_data, proven = rotate_legacy_data(second_id, second_data, turns)
         if not proven:
             return "same_kind_unresolved_metadata"
-        return "proven_equivalent" if first_data == rotated_data else "metadata_conflict"
-    if first_data == second_data:
-        return "proven_equivalent"
-    return "same_kind_unresolved_metadata"
+        rotated_second = (second_id, rotated_data)
+        return (
+            "proven_equivalent"
+            if canonical_token(architecture, first) == canonical_token(architecture, rotated_second)
+            else "metadata_conflict"
+        )
+
+    return (
+        "proven_equivalent"
+        if canonical_token(architecture, first) == canonical_token(architecture, second)
+        else "same_kind_unresolved_metadata"
+    )
 
 
 def face_components(points: set[tuple[int, int, int]]) -> list[list[tuple[int, int, int]]]:
@@ -208,11 +209,12 @@ def point_bounds(points: Iterable[tuple[int, int, int]]) -> dict[str, Any] | Non
 
 
 def normalized_signature(
+    architecture: Any,
     points: Iterable[tuple[int, int, int]],
     first_map: dict[tuple[int, int, int], tuple[int, int]],
 ) -> str:
-    points = list(points)
-    box = point_bounds(points)
+    values = list(points)
+    box = point_bounds(values)
     if not box:
         return hashlib.sha256(b"[]").hexdigest()
     minimum = box["min"]
@@ -221,10 +223,9 @@ def normalized_signature(
             point[0] - minimum[0],
             point[1] - minimum[1],
             point[2] - minimum[2],
-            first_map[point][0],
-            first_map[point][1],
+            canonical_token(architecture, first_map[point]),
         ]
-        for point in sorted(points)
+        for point in sorted(values)
     ]
     return hashlib.sha256(
         json.dumps(rows, separators=(",", ":"), ensure_ascii=True).encode("utf-8")
@@ -273,12 +274,10 @@ def boundary_summary(
                 continue
             if neighbour in first_all:
                 first_crossings.add((point, neighbour))
-                block_id, data = first_all[neighbour]
-                first_outside_kinds[kind_name(architecture, block_id, data)] += 1
+                first_outside_kinds[kind_name(architecture, first_all[neighbour])] += 1
             if neighbour in transformed_second_all:
                 second_crossings.add((point, neighbour))
-                block_id, data = transformed_second_all[neighbour]
-                second_outside_kinds[kind_name(architecture, block_id, data)] += 1
+                second_outside_kinds[kind_name(architecture, transformed_second_all[neighbour])] += 1
     return {
         "first_nonair_face_crossing_count": len(first_crossings),
         "second_nonair_face_crossing_count": len(second_crossings),
@@ -321,13 +320,9 @@ def build_report(
         for point, value in second_all.items()
     }
     functional_ids = architecture.FUNCTIONAL_IDS
-    first_functional = {
-        point: value for point, value in first_all.items() if value[0] in functional_ids
-    }
+    first_functional = {point: value for point, value in first_all.items() if value[0] in functional_ids}
     second_functional = {
-        point: value
-        for point, value in transformed_second_all.items()
-        if value[0] in functional_ids
+        point: value for point, value in transformed_second_all.items() if value[0] in functional_ids
     }
 
     shared_positions = set(first_functional) & set(second_functional)
@@ -349,48 +344,40 @@ def build_report(
         if len(points) < minimum_component_size:
             continue
         point_set = set(points)
-        type_counts = Counter(
-            kind_name(architecture, *first_functional[point]) for point in points
-        )
+        type_counts = Counter(kind_name(architecture, first_functional[point]) for point in points)
         boundary = boundary_summary(point_set, first_all, transformed_second_all, architecture)
         status = (
             "CLOSED_STATIC_COMPONENT_CANDIDATE"
             if boundary["functionally_closed_in_both_sources"]
             else "OPEN_SHARED_REGION"
         )
-        component_rows.append(
-            {
-                "component_id": f"SHARED-{index:03d}",
-                "status": status,
-                "component_count": len(points),
-                "bounds": point_bounds(points),
-                "legacy_kind_counts": dict(sorted(type_counts.items())),
-                "normalized_exact_token_signature": normalized_signature(points, first_functional),
-                "ec160": chunk_scan(points, first_functional, chunk_limit),
-                "boundary": boundary,
-                "promotion_eligible": False,
-                "truth_boundary": (
-                    "shared legacy static region only; no subsystem role, timing phase, standalone "
-                    "operation, conversion safety, or runtime causality is confirmed"
-                ),
-            }
-        )
-    component_rows.sort(
-        key=lambda row: (
-            row["status"] != "CLOSED_STATIC_COMPONENT_CANDIDATE",
-            -row["component_count"],
-            row["component_id"],
-        )
-    )
+        component_rows.append({
+            "component_id": f"SHARED-{index:03d}",
+            "status": status,
+            "component_count": len(points),
+            "bounds": point_bounds(points),
+            "legacy_kind_counts": dict(sorted(type_counts.items())),
+            "normalized_canonical_token_signature": normalized_signature(
+                architecture, points, first_functional
+            ),
+            "ec160": chunk_scan(points, first_functional, chunk_limit),
+            "boundary": boundary,
+            "promotion_eligible": False,
+            "truth_boundary": (
+                "shared legacy static region only; no subsystem role, timing phase, standalone "
+                "operation, conversion safety, or runtime causality is confirmed"
+            ),
+        })
+    component_rows.sort(key=lambda row: (
+        row["status"] != "CLOSED_STATIC_COMPONENT_CANDIDATE",
+        -row["component_count"], row["component_id"],
+    ))
 
     return {
         "schema_version": 1,
         "status": "PASS",
         "classification": "LEGACY_SHARED_CORE_STATIC_AUDIT_ONLY",
-        "sources": [
-            {"id": first_id, **first_metadata},
-            {"id": second_id, **second_metadata},
-        ],
+        "sources": [{"id": first_id, **first_metadata}, {"id": second_id, **second_metadata}],
         "transform": {
             "turns": turns,
             "degrees": turns * 90,
@@ -403,9 +390,7 @@ def build_report(
             "proven_metadata_equivalent_position_count": len(proven_points),
             "classification_counts": dict(sorted(classification_counts.items())),
             "proven_equivalent_ratio_of_same_kind": (
-                round(len(proven_points) / len(same_kind_points), 6)
-                if same_kind_points
-                else 0.0
+                round(len(proven_points) / len(same_kind_points), 6) if same_kind_points else 0.0
             ),
         },
         "components": component_rows,
@@ -413,8 +398,7 @@ def build_report(
             "minimum_component_size": minimum_component_size,
             "reported_component_count": len(component_rows),
             "closed_component_candidate_count": sum(
-                row["status"] == "CLOSED_STATIC_COMPONENT_CANDIDATE"
-                for row in component_rows
+                row["status"] == "CLOSED_STATIC_COMPONENT_CANDIDATE" for row in component_rows
             ),
             "open_shared_region_count": sum(
                 row["status"] == "OPEN_SHARED_REGION" for row in component_rows
@@ -454,7 +438,7 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
-            "Audit whether a globally aligned pair of legacy cannons contains metadata-equivalent, "
+            "Audit whether globally aligned legacy cannons contain metadata-equivalent, "
             "face-connected shared regions without promoting static overlap into runtime roles"
         )
     )
@@ -468,15 +452,11 @@ def main() -> int:
     parser.add_argument("--minimum-component-size", type=int, default=8)
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args()
-
     try:
         if args.first_id == args.second_id:
             raise SharedCoreError("source IDs must be different")
         report = build_report(
-            args.first_id,
-            args.first.resolve(),
-            args.second_id,
-            args.second.resolve(),
+            args.first_id, args.first.resolve(), args.second_id, args.second.resolve(),
             turns=args.turns,
             translation_delta=parse_triplet(args.translation, "translation"),
             chunk_limit=args.chunk_limit,
