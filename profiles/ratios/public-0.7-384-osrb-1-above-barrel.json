@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "public-0.7-384-osrb-1-above-barrel",
+  "title": "0.7 384 OSRB, one above barrel",
+  "family": [
+    "384-stacker",
+    "osrb"
+  ],
+  "nominal_stack": 384,
+  "cycle_label": "0.7-second label from authored source",
+  "source": {
+    "repository": "Samsuik/CannonLibrary",
+    "commit": "9146378dd96d685a181b6a9b836e0ee9a1141f64",
+    "path": "examples/src/main/java/me/samsuik/cannonlib/examples/OSRBClippingExample.java",
+    "source_kind": "public ratio example",
+    "upstream_reference": "Discord message referenced by upstream source"
+  },
+  "evidence": {
+    "level": "public-authored-ratio",
+    "schematic_available": false,
+    "runtime_trace_available": false,
+    "live_extremecraft_verified": false
+  },
+  "ratio_text": "Sand Power      Amount: -    Tick: 0.0\n  sand          Amount: 381  Tick: 8.3\n  rev           Amount: 10   Tick: 7.1\n\nHammer Power    Amount: -    Tick: 4.0\n  hammer        Amount: 561  Tick: 8.1\n  hybrid sand 1 Amount: 2    Tick: 6.3\n  hybrid sand 2 Amount: 1    Tick: 7.3\n  osrb sand     Amount: 9    Tick: 8.3\n  osrb hammer   Amount: 31   Tick: 9.1\n  scatter       Amount: 6    Tick: 15\n"
+}
