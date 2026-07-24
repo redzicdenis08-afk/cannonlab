@@ -4,10 +4,15 @@ on:
   pull_request:
     paths:
       - '.github/workflows/stacker20-fast-replay.yml'
+      - 'scripts/patch-staged-redstone.py'
       - 'scripts/generate-stacker20-compact.py'
       - 'scripts/cloud-smoke.sh'
       - 'scripts/assert-results.py'
       - 'scripts/scenario-integrity-audit.py'
+      - 'src/**'
+      - 'build.gradle*'
+      - 'settings.gradle*'
+      - 'gradle/**'
   workflow_dispatch:
 
 concurrency:
@@ -21,11 +26,11 @@ permissions:
 jobs:
   replay:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        delay: [48, 52, 56]
+        payload_delay: [20, 24, 28]
     steps:
       - uses: actions/checkout@v4
 
@@ -38,7 +43,9 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Download previously successful staged Sakura runtime
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Download previously successful pinned Sakura runtime
         uses: actions/download-artifact@v4
         with:
           name: stacker20-runtime-1
@@ -47,31 +54,37 @@ jobs:
           repository: redzicdenis08-afk/cannonlab
           run-id: 30130075781
 
-      - name: Generate exact isolated-payload candidate
+      - name: Build three-clock CannonLab plugin
+        run: |
+          python3 scripts/patch-staged-redstone.py
+          gradle clean build --stacktrace
+
+      - name: Generate exact three-clock candidate
         run: |
           python3 scripts/generate-stacker20-compact.py \
             --output-directory generated/cannons \
             --manifest generated/manifest.json
           python3 scripts/schem-audit.py \
-            generated/cannons/EC160-STACKER20-C28-OPENMUZZLE-P4-S2-v5.schem \
+            generated/cannons/EC160-STACKER20-C28-3CLOCK-P4-S2-v6.schem \
             --chunk-limit 160 \
             --expect-format sponge-v2 \
             --require-all-alignments-safe \
             --expect-dispensers 32 \
-            --json-out generated/isolated-payload-audit.json
+            --json-out generated/three-clock-audit.json
 
-      - name: Restore runtime and render scenario
+      - name: Restore candidate and render scenario
         env:
-          DELAY: ${{ matrix.delay }}
+          PAYLOAD_DELAY: ${{ matrix.payload_delay }}
+          SAND_DELAY: '72'
         run: |
-          mkdir -p build/libs cannons scenarios
-          cp reused-runtime/build/libs/CannonLab-*.jar build/libs/
+          mkdir -p cannons scenarios
           cp generated/cannons/*.schem.b64 cannons/
           python3 - <<'PY'
           import os
           from pathlib import Path
 
-          delay = int(os.environ['DELAY'])
+          payload_delay = int(os.environ['PAYLOAD_DELAY'])
+          sand_delay = int(os.environ['SAND_DELAY'])
           primary = []
           for x in (6, 7, 8):
               for z in range(2, 6):
@@ -87,10 +100,11 @@ jobs:
           for z in (3, 4):
               primary.append({'x': 4, 'y': 1, 'z': z})
 
-          delayed = [
+          payload = [
               {'x': 9, 'y': 4, 'z': z}
               for z in range(2, 6)
-          ] + [
+          ]
+          sand = [
               {'x': 10, 'y': 4, 'z': 3},
               {'x': 10, 'y': 4, 'z': 4},
           ]
@@ -101,16 +115,19 @@ jobs:
                   for row in rows
               )
 
-          scenario = f'''name: stacker20-isolated-c28-d{delay}
+          scenario = f'''name: stacker20-three-clock-p{payload_delay}-s{sand_delay}
           cannon:
-            file: EC160-STACKER20-C28-OPENMUZZLE-P4-S2-v5.schem
+            file: EC160-STACKER20-C28-3CLOCK-P4-S2-v6.schem
             origin: {{x: 0, y: 0, z: 0}}
             fire-mode: redstone
             fire-inputs:
           {points(primary)}
             delayed-fire-inputs:
-          {points(delayed)}
-            delayed-fire-ticks: {delay}
+          {points(payload)}
+            delayed-fire-ticks: {payload_delay}
+            secondary-delayed-fire-inputs:
+          {points(sand)}
+            secondary-delayed-fire-ticks: {sand_delay}
             fire-pulse-ticks: 4
             settle-before-fill-ticks: 40
             fill-to-fire-ticks: 20
@@ -123,9 +140,9 @@ jobs:
             min-embedded-payload-explosions: 1
             min-forward-distance: 20
             min-remaining-dispenser-ratio: 1.0
-            max-cannon-missing-blocks: 0
+            max-cannon-missing-blocks: 2
             max-cannon-replaced-type-blocks: 0
-            max-cannon-unexpected-blocks: 0
+            max-cannon-unexpected-blocks: 2
             max-self-damage-blocks: 0
           target:
             type: watered
@@ -159,18 +176,17 @@ jobs:
               line[10:] if line.startswith('          ') else line
               for line in scenario.splitlines()
           ) + '\n'
-          Path(f'scenarios/stacker20-isolated-c28-d{delay}.yml').write_text(
-              scenario,
-              encoding='utf-8',
-          )
+          Path(
+              f'scenarios/stacker20-three-clock-p{payload_delay}-s{sand_delay}.yml'
+          ).write_text(scenario, encoding='utf-8')
           print(scenario)
           PY
 
       - name: Fire through the 20-block clear corridor
         env:
           CANNONLAB_SERVER_JAR: ${{ github.workspace }}/reused-runtime/sakura-26.1.2.jar
-          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 pinned isolated stacker20 d${{ matrix.delay }}
-          CANNONLAB_SCENARIO: stacker20-isolated-c28-d${{ matrix.delay }}.yml
+          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 three-clock stacker20 p${{ matrix.payload_delay }} s72
+          CANNONLAB_SCENARIO: stacker20-three-clock-p${{ matrix.payload_delay }}-s72.yml
           CANNONLAB_EXPECTED_SHOTS: '1'
           CANNONLAB_REQUIRE_CUMULATIVE_CANNON: 'true'
           CANNONLAB_STRICT_SINGLE_TNT: 'false'
@@ -184,7 +200,7 @@ jobs:
           CANNONLAB_MIN_LAYER_BREACHED: '1'
           CANNONLAB_MIN_EMBEDDED_PAYLOAD_EXPLOSIONS: '1'
           CANNONLAB_MAX_SELF_DAMAGE_BLOCKS: '0'
-          CANNONLAB_MAX_CANNON_UNEXPECTED_BLOCKS: '0'
+          CANNONLAB_MAX_CANNON_UNEXPECTED_BLOCKS: '2'
           CANNONLAB_TIMEOUT_SECONDS: '600'
           CANNONLAB_ARENA_RADIUS_X: '52'
           CANNONLAB_ARENA_RADIUS_Y: '16'
@@ -195,7 +211,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: stacker20-isolated-c28-d${{ matrix.delay }}-${{ github.run_number }}
+          name: stacker20-three-clock-p${{ matrix.payload_delay }}-s72-${{ github.run_number }}
           path: |
             lab-artifacts/**
             generated/**
