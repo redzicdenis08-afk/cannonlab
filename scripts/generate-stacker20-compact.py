@@ -58,8 +58,12 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
     delayed: list[list[int]] = []
     obsidian = "minecraft:obsidian"
 
-    # Dry muzzle floor and external shell around the compact protected chamber.
-    fill(blocks, (5, 0, 1), (10, 0, 6), obsidian)
+    # Dry muzzle floor and external shell, with sockets reserved for the
+    # eight upward-facing bottom charge dispensers.
+    fill(blocks, (5, 0, 1), (5, 0, 6), obsidian)
+    fill(blocks, (8, 0, 1), (10, 0, 6), obsidian)
+    fill(blocks, (6, 0, 1), (7, 0, 1), obsidian)
+    fill(blocks, (6, 0, 6), (7, 0, 6), obsidian)
     fill(blocks, (5, 3, 1), (8, 3, 1), obsidian)
     fill(blocks, (5, 3, 6), (8, 3, 6), obsidian)
     fill(blocks, (5, 1, 1), (5, 2, 1), obsidian)
