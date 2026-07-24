@@ -55,6 +55,46 @@ All six designs fail the current field-reported EC160 limit at every one of the 
 
 These files are therefore architecture corpus members, not unchanged ExtremeCraft paste candidates. Their useful value is in recurring timing spines, dispenser-bank layouts, attachment geometry, adjustment systems, guider structure, and family comparison.
 
+## Architecture-family evidence
+
+CannonLab performs two separate comparisons and does not merge their meanings:
+
+1. `legacy-cannon-architecture.py` preserves canonical legacy ID/data tokens and matches translation-only local motifs, bank contexts, and exact repeated slices.
+2. `legacy-cannon-rotation-compare.py` tries four Y-axis quarter-turns and compares functional token **kinds**. This structural view intentionally discards directional metadata, refuses reflection, and cannot prove matching timing or runtime semantics.
+
+The compact evidence is stored at:
+
+```text
+evidence/public-corpus/cosmicreborn-architecture-v1.json
+```
+
+The strongest result is the Formal/Pred pair:
+
+- identical top-ten dispenser-bank count fingerprints: `252, 252, 150, 149, 74, 44, 44, 32, 19, 19`
+- `0.911054` Y-rotation structural-motif Jaccard
+- 777 shared rotation-normalized local motifs
+- three shared rotation-normalized bank contexts
+
+This is strong static evidence that Formal and Pred belong to the same architecture family under rotation. It is not evidence that their directional wiring, delays, controls, or runtime behavior are identical.
+
+The next closest pair is Shakisha/L Stacker at `0.316758`. Mboze, Shakisha, and L Stacker share a broader construction dialect, while Raid Outpost QP is structurally isolated under this model. Its strongest pair is only `0.036665` against Mboze.
+
+Five of the six sources share high-frequency dispenser and repeater motifs. Raid Outpost QP is absent from those five-source motifs, which is why it should be treated as a separate family during component extraction rather than forced into the main Formal/Pred-style grammar.
+
+Example commands after a controlled fetch:
+
+```bash
+python scripts/legacy-cannon-architecture.py \
+  --source formal=FORMAL.schematic \
+  --source pred=PRED.schematic \
+  --json-out legacy-architecture.json
+
+python scripts/legacy-cannon-rotation-compare.py \
+  --source formal=FORMAL.schematic \
+  --source pred=PRED.schematic \
+  --json-out legacy-y-rotation-structure.json
+```
+
 ## Plan the intake
 
 ```bash
@@ -136,12 +176,13 @@ A public corpus member should move through these evidence stages:
 1. `SOURCE_FETCHED`
 2. `HASH_PINNED`
 3. `LEGACY_STATIC_AUDIT_ONLY` or modern static audit
-4. reviewed conversion candidate, when required
-5. exact module map and family comparison
-6. bounded local activation test
-7. source-accounted causal trace
-8. staged Paper or public-Sakura campaign
-9. live canary only after local evidence is coherent
+4. static architecture-family map
+5. reviewed conversion candidate, when required
+6. exact module extraction and promotion
+7. bounded local activation test
+8. source-accounted causal trace
+9. staged Paper or public-Sakura campaign
+10. live canary only after local evidence is coherent
 
 No stage automatically grants the next one.
 
@@ -162,4 +203,4 @@ Private, leaked, purchased, or faction-stolen cannons do not belong in the publi
 
 ## Truth boundary
 
-A public download is not an ExtremeCraft-ready cannon. A static OSRB-looking structure is not proven OSRB behavior. A pass on pinned public Sakura is local runtime evidence only. Private ExtremeCraft configuration, anti-lag, FAWE behavior, durability, regeneration, and TNT changes remain separate unknowns until measured.
+A public download is not an ExtremeCraft-ready cannon. A static OSRB-looking structure is not proven OSRB behavior. A rotation-normalized structural match does not preserve directional metadata and does not prove identical timing. A pass on pinned public Sakura is local runtime evidence only. Private ExtremeCraft configuration, anti-lag, FAWE behavior, durability, regeneration, and TNT changes remain separate unknowns until measured.
