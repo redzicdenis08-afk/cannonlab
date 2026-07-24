@@ -28,7 +28,7 @@ Redstone implementations, TNT handling, speed rules, dispenser limits, regenerat
 
 ### 4. A deep raid is a campaign
 
-A cannon that damages one watered wall once is not a 15-chunk raid system. The full machine must preserve one physical paste, reset reliably, refill, survive repeated shots and advance one aligned breach lane through changing defense stages before regeneration closes it.
+A cannon that damages one watered wall once is not a 15-chunk raid system. The full machine must preserve one physical paste, reset reliably, refill, survive repeated shots and advance one aligned breach lane through a manifested sequence of changing defense stages before regeneration closes it.
 
 ## Hard rules
 
@@ -72,7 +72,7 @@ Dependency order is derived from the requested capabilities. A hybrid-only reque
 - 256-block range target;
 - four registered watered-obsidian hits;
 - 255-block stack-height target;
-- fifteen regeneration layers;
+- fifteen chunks of staged raid depth;
 - at most 40 ticks between campaign shots;
 - hybrid, stacker, slab-bust, regen-bust, nuke, OSRB and sustained campaign capabilities;
 - 160 dispensers per X/Z chunk column;
