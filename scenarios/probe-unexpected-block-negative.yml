@@ -1,20 +1,11 @@
-name: probe-redstone-endurance
+name: probe-unexpected-block-negative
 cannon:
   file: probe-water-protected-dispenser.schem
-  origin:
-    x: 0
-    y: 0
-    z: 0
+  origin: {x: 0, y: 0, z: 0}
   fire-mode: redstone
-  fire-input:
-    x: 0
-    y: 1
-    z: 1
-  direct-dispenser:
-    x: 1
-    y: 1
-    z: 1
-  fire-pulse-ticks: 4
+  fire-input: {x: 0, y: 1, z: 1}
+  direct-dispenser: {x: 1, y: 1, z: 1}
+  fire-pulse-ticks: 200
 limits:
   enforce-dispenser-limit: true
 target:
@@ -35,9 +26,9 @@ acceptance:
   max-cannon-unexpected-blocks: 0
   max-self-damage-blocks: 0
 run:
-  shots: 100
+  shots: 1
   rebuild-cannon-between-shots: false
   warmup-ticks: 20
-  max-shot-ticks: 120
+  max-shot-ticks: 140
   quiet-ticks: 10
   shutdown-when-finished: true

@@ -13,6 +13,8 @@ on:
       - 'scripts/build-sakura-26.1.2.sh'
       - 'scripts/cloud-smoke.sh'
       - 'scripts/assert-results.py'
+      - 'scripts/assert-native-durability-result.py'
+      - 'scripts/test-native-durability-result.py'
       - 'scenarios/**'
       - 'cannons/**'
       - 'targets/**'
@@ -38,6 +40,18 @@ jobs:
         with:
           distribution: temurin
           java-version: '25'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Prove native durability reconciliation stays bounded
+        run: |
+          python -m py_compile \
+            scripts/assert-native-durability-result.py \
+            scripts/test-native-durability-result.py
+          python scripts/test-native-durability-result.py
 
       - name: Set up Gradle cache
         uses: gradle/actions/setup-gradle@v4
@@ -99,6 +113,8 @@ jobs:
           CANNONLAB_SERVER_LABEL: Sakura 26.1.2 pinned redstone endurance
           CANNONLAB_SCENARIO: probe-redstone-endurance.yml
           CANNONLAB_EXPECTED_SHOTS: '100'
+          CANNONLAB_REQUIRE_CUMULATIVE_CANNON: 'true'
+          CANNONLAB_MAX_CANNON_UNEXPECTED_BLOCKS: '0'
           CANNONLAB_STRICT_SINGLE_TNT: 'true'
           CANNONLAB_MIN_TNT_PER_SHOT: '1'
           CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '1'
@@ -208,8 +224,6 @@ jobs:
           CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '4'
           CANNONLAB_EXPECTED_LIFETIME: '79'
           CANNONLAB_LIFETIME_TOLERANCE: '0'
-          CANNONLAB_MIN_TARGET_PEAK_DESTROYED: '1'
-          CANNONLAB_MIN_LAYER_BREACHED: '1'
           CANNONLAB_MAX_SELF_DAMAGE_BLOCKS: '0'
           CANNONLAB_MAX_COMPANION_MISSING: '0'
           CANNONLAB_TIMEOUT_SECONDS: '600'
@@ -218,25 +232,44 @@ jobs:
           CANNONLAB_ARENA_RADIUS_Z: '16'
         run: bash scripts/cloud-smoke.sh
 
+      - name: Reconcile native durability final-state evidence
+        run: |
+          python scripts/assert-native-durability-result.py lab-artifacts/results \
+            --expected-shots 1 \
+            --min-final-destroyed 1 \
+            --min-effective-peak-destroyed 1 \
+            --min-effective-layer-breached 1 \
+            --json-out lab-artifacts/native-durability-reconciliation.json
+
       - name: Verify native Sakura durability selection
         run: |
           python - <<'PY'
-          import json
           import csv
+          import json
           from pathlib import Path
+
           summaries = list(Path('lab-artifacts/results').rglob('run-summary.json'))
           events = list(Path('lab-artifacts/results').rglob('causal-events.csv'))
+          reconciliation_path = Path('lab-artifacts/native-durability-reconciliation.json')
           assert len(summaries) == 1, summaries
           assert len(events) == 1, events
+          assert reconciliation_path.is_file(), reconciliation_path
+
           summary = json.loads(summaries[0].read_text())
+          reconciliation = json.loads(reconciliation_path.read_text())
           with events[0].open(newline='', encoding='utf-8') as handle:
               volley_events = sum(1 for row in csv.DictReader(handle) if row['event'] == 'VOLLEY_FIRE')
+
           assert summary['durability']['configured_mode'] == 'AUTO', summary
           assert summary['durability']['effective_mode'] == 'NATIVE', summary
           assert summary['volleys_per_shot'] == 4, summary
-          assert summary['shots'][0]['target_peak_destroyed'] >= 1, summary
+          assert summary['shots'][0]['target_blocks_destroyed'] >= 1, summary
+          assert reconciliation['status'] == 'PASS', reconciliation
+          assert reconciliation['shots'][0]['effective_lower_bounds']['target_peak_destroyed'] >= 1
+          assert reconciliation['shots'][0]['effective_lower_bounds']['max_layer_breached'] >= 1
+          assert reconciliation['truth_boundary']['final_state_infers_layers_beyond_first'] is False
           assert volley_events == 4, volley_events
-          print('Pinned Sakura selected native durability and broke the four-hit target.')
+          print('Pinned Sakura selected native durability and final-state evidence proved one breached layer.')
           PY
 
       - name: Upload Sakura durable-pressure evidence
