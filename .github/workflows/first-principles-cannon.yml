@@ -1,0 +1,126 @@
+name: First-Principles Cannon Foundry
+
+on:
+  push:
+    branches:
+      - 'feat/first-principles-cannon-foundry'
+    paths:
+      - 'scripts/plan-first-principles-cannon.py'
+      - 'scripts/first-principles-cannon-core.py'
+      - 'scripts/test-first-principles-cannon.py'
+      - 'profiles/from-scratch/**'
+      - 'docs/FIRST_PRINCIPLES_CANNON_FOUNDRY.md'
+      - '.github/workflows/first-principles-cannon.yml'
+  pull_request:
+    paths:
+      - 'scripts/plan-first-principles-cannon.py'
+      - 'scripts/first-principles-cannon-core.py'
+      - 'scripts/test-first-principles-cannon.py'
+      - 'profiles/from-scratch/**'
+      - 'docs/FIRST_PRINCIPLES_CANNON_FOUNDRY.md'
+      - '.github/workflows/first-principles-cannon.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  foundry-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONHASHSEED: '0'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile foundry tools
+        run: |
+          python -m py_compile \
+            scripts/first-principles-cannon-core.py \
+            scripts/plan-first-principles-cannon.py \
+            scripts/test-first-principles-cannon.py
+
+      - name: Run fail-closed regressions
+        run: python scripts/test-first-principles-cannon.py
+
+      - name: Build default source-free research program
+        run: |
+          mkdir -p lab-artifacts/first-principles
+          python scripts/plan-first-principles-cannon.py \
+            profiles/from-scratch/ec160-15chunk-from-scratch-v1.json \
+            --json-out lab-artifacts/first-principles/ec160-15chunk-plan.json \
+            > lab-artifacts/first-principles/ec160-15chunk-plan.stdout.json
+
+      - name: Verify objective, dependency and EC160 contracts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          report = json.loads(
+              Path('lab-artifacts/first-principles/ec160-15chunk-plan.json').read_text(encoding='utf-8')
+          )
+          expected = [
+              'control-spine',
+              'protected-charge-cell',
+              'payload-injector',
+              'guider',
+              'falling-payload-fusion',
+              'staged-booster',
+              'sand-compressor',
+              'hammer',
+              'slab-bust',
+              'regen-bust',
+              'nuke-cohort',
+              'osrb-sequence',
+              'campaign-cycle',
+          ]
+          assert report['status'] == 'RESEARCH_PROGRAM_ONLY', report
+          assert report['mode'] == 'from-scratch', report
+          assert report['source_schematic_used'] is False, report
+          assert report['required_primitives'] == expected, report['required_primitives']
+          assert len(report['experiment_program']) == 13, report
+          assert len(report['architecture_candidates']) == 48, report
+          assert report['objective']['watered_obsidian_hits'] == 4, report
+          assert report['objective']['raid_depth_chunks'] == 15, report
+          assert report['objective']['stack_height'] == 255, report
+          assert report['truth_boundary']['architecture_budget_is_geometry'] is False, report
+          assert report['truth_boundary']['architecture_budget_is_runtime_proof'] is False, report
+          assert report['truth_boundary']['public_paper_or_sakura_is_extremecraft_parity'] is False, report
+          contracts = {
+              row['primitive']: row['acceptance_contract']
+              for row in report['experiment_program']
+          }
+          assert 'minimum_forward_range_blocks' not in contracts['protected-charge-cell'], contracts
+          assert contracts['guider']['minimum_forward_range_blocks'] == 256, contracts
+          assert contracts['regen-bust']['target_raid_depth_chunks'] == 15, contracts
+          assert contracts['campaign-cycle']['require_multi_stage_defense_campaign'] is True, contracts
+          totals = set()
+          for candidate in report['architecture_candidates']:
+              assert candidate['status'] == 'ARCHITECTURE_BUDGET_ONLY', candidate
+              assert candidate['max_column_load'] <= 152, candidate
+              assert candidate['minimum_chunk_margin'] >= 8, candidate
+              assert candidate['column_count'] <= 12, candidate
+              assert candidate['total_dispensers'] <= 1200, candidate
+              totals.add(candidate['total_dispensers'])
+          assert len(totals) >= 12, totals
+          print('Source-free dependency, stage-specific objective and EC160 contracts passed.')
+          PY
+
+      - name: Upload foundry plan
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: first-principles-cannon-foundry
+          path: lab-artifacts/first-principles
+          if-no-files-found: error
