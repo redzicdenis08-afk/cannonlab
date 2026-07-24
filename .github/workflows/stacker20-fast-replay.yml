@@ -25,7 +25,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        delay: [68, 72, 76]
+        delay: [64, 68, 72]
     steps:
       - uses: actions/checkout@v4
 
@@ -47,18 +47,18 @@ jobs:
           repository: redzicdenis08-afk/cannonlab
           run-id: 30130075781
 
-      - name: Generate exact compact candidate
+      - name: Generate exact open-muzzle candidate
         run: |
           python3 scripts/generate-stacker20-compact.py \
             --output-directory generated/cannons \
             --manifest generated/manifest.json
           python3 scripts/schem-audit.py \
-            generated/cannons/EC160-STACKER20-C32-COMPACT-P4-S2-v3.schem \
+            generated/cannons/EC160-STACKER20-C32-OPENMUZZLE-P4-S2-v4.schem \
             --chunk-limit 160 \
             --expect-format sponge-v2 \
             --require-all-alignments-safe \
             --expect-dispensers 36 \
-            --json-out generated/compact-audit.json
+            --json-out generated/open-muzzle-audit.json
 
       - name: Restore runtime and render scenario
         env:
@@ -73,28 +73,26 @@ jobs:
 
           delay = int(os.environ['DELAY'])
           primary = []
-          for x in (6, 7):
+          for x in (6, 7, 8):
               for z in range(2, 6):
                   primary.extend((
-                      {'x': x, 'y': 4, 'z': z},
+                      {'x': x, 'y': 3, 'z': z},
                       {'x': x, 'y': -1, 'z': z},
                   ))
-          for x in (6, 7):
-              for y in (1, 2):
-                  primary.extend((
-                      {'x': x, 'y': y, 'z': 0},
-                      {'x': x, 'y': y, 'z': 7},
-                  ))
-          for y in (1, 2):
-              for z in range(2, 6):
-                  primary.append({'x': 4, 'y': y, 'z': z})
+          for x in (6, 7, 8):
+              primary.extend((
+                  {'x': x, 'y': 1, 'z': 0},
+                  {'x': x, 'y': 1, 'z': 7},
+              ))
+          for z in (3, 4):
+              primary.append({'x': 4, 'y': 1, 'z': z})
 
           delayed = [
-              {'x': 8, 'y': 0, 'z': z}
+              {'x': 9, 'y': 4, 'z': z}
               for z in range(2, 6)
           ] + [
-              {'x': 9, 'y': 4, 'z': 3},
-              {'x': 9, 'y': 4, 'z': 4},
+              {'x': 10, 'y': 4, 'z': 3},
+              {'x': 10, 'y': 4, 'z': 4},
           ]
 
           def points(rows):
@@ -103,9 +101,9 @@ jobs:
                   for row in rows
               )
 
-          scenario = f'''name: stacker20-compact-c32-d{delay}
+          scenario = f'''name: stacker20-open-muzzle-c32-d{delay}
           cannon:
-            file: EC160-STACKER20-C32-COMPACT-P4-S2-v3.schem
+            file: EC160-STACKER20-C32-OPENMUZZLE-P4-S2-v4.schem
             origin: {{x: 0, y: 0, z: 0}}
             fire-mode: redstone
             fire-inputs:
@@ -133,7 +131,7 @@ jobs:
             type: watered
             material: obsidian
             direction: east
-            distance: 32
+            distance: 33
             width: 1
             height: 1
             y-offset: 1
@@ -153,7 +151,7 @@ jobs:
             shots: 1
             rebuild-cannon-between-shots: false
             warmup-ticks: 40
-            max-shot-ticks: 240
+            max-shot-ticks: 260
             quiet-ticks: 50
             shutdown-when-finished: true
           '''
@@ -161,7 +159,7 @@ jobs:
               line[10:] if line.startswith('          ') else line
               for line in scenario.splitlines()
           ) + '\n'
-          Path(f'scenarios/stacker20-compact-c32-d{delay}.yml').write_text(
+          Path(f'scenarios/stacker20-open-muzzle-c32-d{delay}.yml').write_text(
               scenario,
               encoding='utf-8',
           )
@@ -171,8 +169,8 @@ jobs:
       - name: Fire through the 20-block clear corridor
         env:
           CANNONLAB_SERVER_JAR: ${{ github.workspace }}/reused-runtime/sakura-26.1.2.jar
-          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 pinned compact stacker20 d${{ matrix.delay }}
-          CANNONLAB_SCENARIO: stacker20-compact-c32-d${{ matrix.delay }}.yml
+          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 pinned open-muzzle stacker20 d${{ matrix.delay }}
+          CANNONLAB_SCENARIO: stacker20-open-muzzle-c32-d${{ matrix.delay }}.yml
           CANNONLAB_EXPECTED_SHOTS: '1'
           CANNONLAB_REQUIRE_CUMULATIVE_CANNON: 'true'
           CANNONLAB_STRICT_SINGLE_TNT: 'false'
@@ -188,7 +186,7 @@ jobs:
           CANNONLAB_MAX_SELF_DAMAGE_BLOCKS: '0'
           CANNONLAB_MAX_CANNON_UNEXPECTED_BLOCKS: '0'
           CANNONLAB_TIMEOUT_SECONDS: '600'
-          CANNONLAB_ARENA_RADIUS_X: '48'
+          CANNONLAB_ARENA_RADIUS_X: '52'
           CANNONLAB_ARENA_RADIUS_Y: '16'
           CANNONLAB_ARENA_RADIUS_Z: '16'
         run: bash scripts/cloud-smoke.sh
@@ -197,7 +195,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: stacker20-compact-c32-d${{ matrix.delay }}-${{ github.run_number }}
+          name: stacker20-open-muzzle-c32-d${{ matrix.delay }}-${{ github.run_number }}
           path: |
             lab-artifacts/**
             generated/**
