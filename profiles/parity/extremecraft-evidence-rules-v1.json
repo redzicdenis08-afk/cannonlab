@@ -1,0 +1,221 @@
+{
+  "schema_version": 1,
+  "id": "extremecraft-evidence-rules-v1",
+  "profile": "extremecraft-private-parity-required-v1",
+  "server": "ExtremeCraft Cannoning",
+  "global_fields": [
+    "server",
+    "captured_at",
+    "server_date",
+    "client_version",
+    "paste_origin",
+    "chunk_origin_confirmed",
+    "fixture",
+    "samples",
+    "raw_artifacts"
+  ],
+  "minimum_stochastic_samples": 100,
+  "dimensions": {
+    "tnt.spawn.horizontal_kick": {
+      "minimum_samples": 100,
+      "classifier": "horizontal-kick",
+      "sample_fields": [
+        "sample_id",
+        "spawn_tick",
+        "initial_velocity"
+      ]
+    },
+    "tnt.fuse.distribution": {
+      "minimum_samples": 100,
+      "classifier": "fuse-lifetime",
+      "sample_fields": [
+        "sample_id",
+        "spawn_tick",
+        "explosion_tick",
+        "initial_fuse"
+      ]
+    },
+    "redstone.dispenser.activation_order": {
+      "minimum_samples": 100,
+      "classifier": "sequence-order",
+      "sample_fields": [
+        "sample_id",
+        "sequence"
+      ]
+    },
+    "entity.collision.axis_order": {
+      "minimum_samples": 100,
+      "classifier": "none",
+      "sample_fields": [
+        "sample_id",
+        "orientation",
+        "initial_state",
+        "final_displacement",
+        "outcome"
+      ],
+      "required_labels": {
+        "field": "orientation",
+        "values": [
+          "east-west",
+          "west-east",
+          "north-south",
+          "south-north"
+        ]
+      }
+    },
+    "tnt.water_motion": {
+      "minimum_samples": 40,
+      "classifier": "none",
+      "sample_fields": [
+        "sample_id",
+        "environment",
+        "initial_state",
+        "positions",
+        "outcome"
+      ],
+      "required_labels": {
+        "field": "environment",
+        "values": [
+          "dry",
+          "water"
+        ]
+      }
+    },
+    "tnt.velocity_and_despawn_limits": {
+      "minimum_samples": 40,
+      "classifier": "none",
+      "sample_fields": [
+        "sample_id",
+        "requested_velocity",
+        "observed_velocity",
+        "outcome",
+        "removal_tick"
+      ]
+    },
+    "explosion.batch_and_per_tick_limits": {
+      "minimum_samples": 20,
+      "classifier": "explosion-batch",
+      "sample_fields": [
+        "sample_id",
+        "cohort_size",
+        "due_tick",
+        "due_count",
+        "observed_count",
+        "processing_tick_count"
+      ]
+    },
+    "falling_block.tick_and_collision": {
+      "minimum_samples": 60,
+      "classifier": "none",
+      "sample_fields": [
+        "sample_id",
+        "material",
+        "spawn_tick",
+        "positions",
+        "collision_layout",
+        "outcome"
+      ]
+    },
+    "piston_chain_and_observer_updates": {
+      "minimum_samples": 40,
+      "classifier": "none",
+      "sample_fields": [
+        "sample_id",
+        "chain_length",
+        "tnt_load",
+        "input_tick",
+        "event_order",
+        "outcome"
+      ]
+    },
+    "chunk_loading_and_crossing": {
+      "minimum_samples": 40,
+      "classifier": "none",
+      "sample_fields": [
+        "sample_id",
+        "boundary_type",
+        "player_position",
+        "positions",
+        "outcome"
+      ]
+    },
+    "limits.dispensers_per_chunk": {
+      "minimum_samples": 12,
+      "classifier": "paste-threshold",
+      "sample_fields": [
+        "sample_id",
+        "dispensers",
+        "block_entities",
+        "offset_x",
+        "offset_z",
+        "paste_result"
+      ]
+    },
+    "limits.fawe_block_entities": {
+      "minimum_samples": 12,
+      "classifier": "paste-threshold",
+      "sample_fields": [
+        "sample_id",
+        "dispensers",
+        "block_entities",
+        "block_entity_types",
+        "offset_x",
+        "offset_z",
+        "paste_result"
+      ]
+    },
+    "durability.material_hit_contract": {
+      "minimum_samples": 40,
+      "classifier": "none",
+      "sample_fields": [
+        "sample_id",
+        "material",
+        "hit_number",
+        "source_position",
+        "water_state",
+        "damage_tick",
+        "outcome_tick",
+        "outcome"
+      ]
+    },
+    "regeneration.algorithm": {
+      "minimum_samples": 40,
+      "classifier": "none",
+      "sample_fields": [
+        "sample_id",
+        "structure_hash",
+        "damage_tick",
+        "damaged_cells",
+        "replacement_events",
+        "outcome"
+      ]
+    },
+    "osrb.clip_and_restack": {
+      "minimum_samples": 40,
+      "classifier": "none",
+      "sample_fields": [
+        "sample_id",
+        "ratio_profile_id",
+        "target_layout_hash",
+        "payload_order",
+        "clip_result",
+        "restack_position",
+        "outcome"
+      ]
+    },
+    "full_cannon.field_workflow": {
+      "minimum_samples": 20,
+      "classifier": "none",
+      "sample_fields": [
+        "sample_id",
+        "paste_time",
+        "settle_ticks",
+        "fill_time",
+        "fire_input",
+        "prefire_activations",
+        "survival_snapshot",
+        "outcome"
+      ]
+    }
+  }
+}
