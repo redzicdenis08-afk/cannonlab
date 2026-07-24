@@ -33,6 +33,10 @@ The laboratory can:
 - export per-shot and per-run JSON/CSV evidence
 - rank cannon variants by reliability, penetration, errors, and repeatability
 - compare local physics fingerprints against measured server fingerprints
+- apply hash-stamped Paper/Sakura parity profiles instead of inheriting hidden machine state
+- audit declared field observations against the active profile and fail closed on mismatches
+- generate the same seven-scenario EC defense pack for every private cannon
+- expose isolated `/p tntfill`, `/p gui`, and `/bonetool` workflow shims for manual testing
 
 ## Runtime gates
 
@@ -64,6 +68,27 @@ The current field report is 160 dispensers per chunk. The older 128 figure is st
 
 The built-in regeneration model is a deterministic test simulator, not a claim that every server uses the same private replacement algorithm. A cannon is not labeled ExtremeCraft-ready until it passes the local suite and a small live calibration/canary test. CannonLab does not connect to or automate actions on ExtremeCraft and contains no Minecraft credentials or session tokens.
 
+The dated candidate profile is `profiles/extremecraft-observed.yml`. It records every requested Sakura cannon setting, the EC160 limit, the schematic workflow, evidence grade, and unresolved private mechanics. Every profiled run embeds the profile ID and SHA-256 in `run-summary.json`. See `docs/EXTREMECRAFT_PARITY.md`.
+
+Run an EC-candidate scenario with a pinned Sakura JAR:
+
+```powershell
+$env:CANNONLAB_ACCEPT_EULA = 'TRUE'
+$env:CANNONLAB_SAKURA_JAR = 'C:\path\to\sakura-26.1.2.jar'
+.\scripts\run-ec-lab.ps1 -Scenario my-cannon-ec-defense-gauntlet.yml
+```
+
+Generate a consistent defense pack for a cannon:
+
+```powershell
+py scripts\make-ec-scenario-pack.py cannon.schem `
+  --output-dir scenarios\generated\cannon `
+  --fire-input 7,2,12 `
+  --fire-mode button `
+  --direction west `
+  --distance 939
+```
+
 ## Commands
 
 ```text
@@ -71,6 +96,9 @@ The built-in regeneration model is a deterministic test simulator, not a claim t
 /cannonlab smoke
 /cannonlab run <scenario.yml>
 /cannonlab cancel
+/p tntfill
+/p gui
+/bonetool
 ```
 
 The server can autorun a scenario with:

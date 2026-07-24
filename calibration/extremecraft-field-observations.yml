@@ -1,0 +1,54 @@
+schema-version: 1
+server: extremecraft.net
+observed-at: 2026-07-24
+facts:
+  - id: backend-software
+    value: sakura
+    profile-path: server.software
+    evidence: field-observed
+    confidence: medium
+  - id: backend-version
+    value: 26.1.2
+    profile-path: server.minecraft-version
+    evidence: field-observed
+    confidence: medium
+  - id: dispenser-cap-per-chunk
+    value: 160
+    profile-path: cannonlab.limits.dispensers-per-chunk
+    evidence: field-reported
+    confidence: high
+  - id: schematic-format
+    value: sponge-v2
+    profile-path: cannonlab.schematic.format
+    evidence: field-verified
+    confidence: high
+  - id: schematic-data-version
+    value: 3465
+    profile-path: cannonlab.schematic.data-version
+    evidence: field-verified
+    confidence: high
+  - id: obsidian-hits
+    value: 4
+    profile-path: sakura.cannons.explosion.durable-materials.obsidian.durability
+    evidence: field-reported
+    confidence: medium
+  - id: paste-command
+    value: //paste
+    profile-path: field-workflow.commands[0]
+    evidence: field-verified
+    confidence: high
+unknowns:
+  - id: block-entity-paste-cap
+    probe: Paste schematics with increasing block-entity counts while staying below 160 dispensers per chunk.
+  - id: exact-merge-level
+    probe: Fire a calibrated overlapping TNT pair and compare entity count plus post-merge momentum.
+  - id: exact-tnt-spread
+    probe: Record at least 100 dispenser spawns at a fixed coordinate and compare X/Y/Z variance.
+  - id: durable-expiration
+    probe: Hit the same obsidian block three times, wait controlled intervals, then measure whether the fourth hit breaks it.
+  - id: regen-algorithm
+    probe: Record per-block restore timestamps for dry cobble, watered cobble, hotdog, and pillar defenses.
+  - id: chunk-ticket-policy
+    probe: Fire across unloaded chunk boundaries with and without a player following the payload.
+  - id: leftshot-and-adjust-restrictions
+    probe: Compare controlled direction changes and horizontal adjust distance against an unrestricted Sakura control.

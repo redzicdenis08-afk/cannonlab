@@ -615,6 +615,10 @@ final class LabRunController implements Listener {
             failures.add("target_destroyed=" + targetDestroyed
                     + "<" + acceptance.minTargetDestroyed());
         }
+        if (targetDestroyed > acceptance.maxTargetDestroyed()) {
+            failures.add("target_destroyed=" + targetDestroyed
+                    + ">" + acceptance.maxTargetDestroyed());
+        }
         if (result.maximumFallingBlocks() < acceptance.minFallingBlocks()) {
             failures.add("falling_blocks=" + result.maximumFallingBlocks()
                     + "<" + acceptance.minFallingBlocks());
@@ -1675,6 +1679,14 @@ final class LabRunController implements Listener {
                   "target_bounds": %s,
                   "target_companion_cells": %d,
                   "arena_origin": {"x": %d, "y": %d, "z": %d},
+                  "parity_profile": {
+                    "id": "%s",
+                    "evidence_grade": "%s",
+                    "sha256": "%s"
+                  },
+                  "plugin_stack": {
+                    "sha256": "%s"
+                  },
                   "regeneration": {
                     "enabled": %s,
                     "delay_ticks": %d,
@@ -1691,6 +1703,7 @@ final class LabRunController implements Listener {
                   "acceptance": {
                     "require_payload": %s,
                     "min_target_destroyed": %d,
+                    "max_target_destroyed": %d,
                     "min_falling_blocks": %d,
                     "min_embedded_payload_explosions": %d,
                     "max_unembedded_water_explosions": %d,
@@ -1728,6 +1741,10 @@ final class LabRunController implements Listener {
                 arenaOrigin.getBlockX(),
                 arenaOrigin.getBlockY(),
                 arenaOrigin.getBlockZ(),
+                json(System.getProperty("cannonlab.profile.id", "unprofiled")),
+                json(System.getProperty("cannonlab.profile.grade", "unknown")),
+                json(System.getProperty("cannonlab.profile.sha256", "")),
+                json(System.getProperty("cannonlab.plugin-stack.sha256", "")),
                 scenario != null && scenario.regeneration().enabled(),
                 scenario == null ? 0 : scenario.regeneration().delayTicks(),
                 scenario == null ? 0 : scenario.regeneration().intervalTicks(),
@@ -1739,6 +1756,7 @@ final class LabRunController implements Listener {
                 scenario == null ? 0.0 : scenario.durability().hitRadius(),
                 scenario != null && scenario.acceptance().requirePayload(),
                 scenario == null ? 0 : scenario.acceptance().minTargetDestroyed(),
+                scenario == null ? Integer.MAX_VALUE : scenario.acceptance().maxTargetDestroyed(),
                 scenario == null ? 0 : scenario.acceptance().minFallingBlocks(),
                 scenario == null ? 0 : scenario.acceptance().minEmbeddedPayloadExplosions(),
                 scenario == null ? Integer.MAX_VALUE : scenario.acceptance().maxUnembeddedWaterExplosions(),

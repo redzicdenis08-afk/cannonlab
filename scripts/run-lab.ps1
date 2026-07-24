@@ -1,6 +1,7 @@
 param(
     [string]$Scenario = 'probe-smoke.yml',
     [string]$LabHome = $(if ($env:CANNONLAB_HOME) { $env:CANNONLAB_HOME } else { 'C:\CannonLab' }),
+    [string]$Profile = $(if ($env:CANNONLAB_PROFILE) { $env:CANNONLAB_PROFILE } else { '' }),
     [int]$TimeoutSeconds = 600
 )
 
@@ -21,6 +22,36 @@ if (Test-Path $ArtifactRoot) {
     Remove-Item $ArtifactRoot -Recurse -Force
 }
 New-Item -ItemType Directory -Force -Path $ArtifactRoot | Out-Null
+
+$ProfileManifest = $null
+if ($Profile) {
+    $ProfilePath = if ([IO.Path]::IsPathRooted($Profile)) {
+        $Profile
+    } else {
+        Join-Path $RepoRoot (Join-Path 'profiles' $Profile)
+    }
+    if (-not (Test-Path $ProfilePath)) {
+        throw "Runtime profile does not exist: $ProfilePath"
+    }
+    $ProfileManifest = Join-Path $ArtifactRoot 'runtime-profile-manifest.json'
+    & py (Join-Path $PSScriptRoot 'apply-runtime-profile.py') $ProfilePath `
+        --server-root $ServerRoot `
+        --manifest-out $ProfileManifest `
+        | Set-Content (Join-Path $ArtifactRoot 'runtime-profile.stdout.json')
+    if ($LASTEXITCODE -ne 0) {
+        throw "Runtime profile application failed with exit code $LASTEXITCODE."
+    }
+}
+
+$PluginStackPath = Join-Path $ArtifactRoot 'plugin-stack.json'
+& py (Join-Path $PSScriptRoot 'inventory-plugin-stack.py') `
+    --plugins-dir (Join-Path $ServerRoot 'plugins') `
+    --json-out $PluginStackPath `
+    | Set-Content (Join-Path $ArtifactRoot 'plugin-stack.stdout.json')
+if ($LASTEXITCODE -ne 0) {
+    throw "Plugin stack inventory failed with exit code $LASTEXITCODE."
+}
+$PluginStack = Get-Content $PluginStackPath -Raw | ConvertFrom-Json
 
 $ScenarioPath = Join-Path (Join-Path $RepoRoot 'scenarios') $Scenario
 if (-not (Test-Path $ScenarioPath)) {
@@ -69,11 +100,18 @@ $JavaArguments = @(
     '-Xms1G',
     '-Xmx4G',
     "-Dcannonlab.scenario=$Scenario",
-    "-Dcannonlab.fresh-world=$($FreshWorld.ToString().ToLowerInvariant())",
-    '-jar',
-    'server.jar',
-    '--nogui'
+    "-Dcannonlab.fresh-world=$($FreshWorld.ToString().ToLowerInvariant())"
 )
+if ($ProfileManifest) {
+    $ProfileJson = Get-Content $ProfileManifest -Raw | ConvertFrom-Json
+    $JavaArguments += @(
+        "-Dcannonlab.profile.id=$($ProfileJson.profile_id)",
+        "-Dcannonlab.profile.grade=$($ProfileJson.evidence_grade)",
+        "-Dcannonlab.profile.sha256=$($ProfileJson.profile_sha256)"
+    )
+}
+$JavaArguments += "-Dcannonlab.plugin-stack.sha256=$($PluginStack.stack_sha256)"
+$JavaArguments += @('-jar', 'server.jar', '--nogui')
 
 Write-Host "Starting CannonLab scenario $Scenario"
 $RunStartedUtc = [DateTime]::UtcNow

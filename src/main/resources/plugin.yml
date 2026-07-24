@@ -11,6 +11,14 @@ commands:
     usage: /cannonlab <status|smoke|run|cancel>
     aliases: [cl]
     permission: cannonlab.admin
+  p:
+    description: ExtremeCraft-style isolated plot command shim
+    usage: /p <tntfill|gui>
+    permission: cannonlab.admin
+  bonetool:
+    description: ExtremeCraft-style sand and obsidian placement tool
+    usage: /bonetool
+    permission: cannonlab.admin
 permissions:
   cannonlab.admin:
     default: op

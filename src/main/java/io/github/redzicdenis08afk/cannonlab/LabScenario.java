@@ -175,6 +175,7 @@ record LabScenario(
         AcceptanceConfig acceptance = new AcceptanceConfig(
                 yaml.getBoolean("acceptance.require-payload", false),
                 Math.max(0, yaml.getInt("acceptance.min-target-destroyed", 0)),
+                Math.max(0, yaml.getInt("acceptance.max-target-destroyed", Integer.MAX_VALUE)),
                 Math.max(0, yaml.getInt("acceptance.min-falling-blocks", 0)),
                 Math.max(0, yaml.getInt("acceptance.min-embedded-payload-explosions", 0)),
                 Math.max(0, yaml.getInt(
@@ -471,6 +472,7 @@ record LabScenario(
     record AcceptanceConfig(
             boolean requirePayload,
             int minTargetDestroyed,
+            int maxTargetDestroyed,
             int minFallingBlocks,
             int minEmbeddedPayloadExplosions,
             int maxUnembeddedWaterExplosions,
