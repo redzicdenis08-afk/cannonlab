@@ -14,6 +14,9 @@ class AssemblyError(ValueError):
     pass
 
 
+CLEAN_ONE_SIDED_BOUNDARIES = {"first_only_nonair", "second_only_nonair"}
+
+
 def load(name: str, filename: str) -> Any:
     path = Path(__file__).resolve().with_name(filename)
     spec = importlib.util.spec_from_file_location(name, path)
@@ -47,6 +50,72 @@ def connected_components(
     return sorted(groups, key=lambda row: (-len(row), row[0]))
 
 
+def boundary_examples(
+    shared: Any,
+    envelope: Any,
+    architecture: Any,
+    region: set[tuple[int, int, int]],
+    first_all: dict[tuple[int, int, int], tuple[int, int]],
+    second_all: dict[tuple[int, int, int], tuple[int, int]],
+    turns: int,
+    *,
+    max_examples: int,
+) -> list[dict[str, Any]]:
+    rows: dict[
+        tuple[str, tuple[int, int, int], tuple[int, int, int]], dict[str, Any]
+    ] = {}
+    for inside in sorted(region):
+        for delta in shared.FACE_NEIGHBOURS:
+            outside = tuple(inside[index] + delta[index] for index in range(3))
+            if outside in region:
+                continue
+            first_value = first_all.get(outside)
+            second_value = second_all.get(outside)
+            classification = envelope.classify_outside_position(
+                shared, architecture, first_value, second_value, turns
+            )
+            if classification in {"air", "shared_equivalent_functional", "shared_equivalent_support"}:
+                continue
+            key = (classification, inside, outside)
+            rows[key] = {
+                "classification": classification,
+                "inside": list(inside),
+                "outside": list(outside),
+                "first_token": (
+                    shared.canonical_token(architecture, first_value)
+                    if first_value is not None
+                    else None
+                ),
+                "second_token": (
+                    shared.canonical_token(architecture, second_value)
+                    if second_value is not None
+                    else None
+                ),
+            }
+    output = [rows[key] for key in sorted(rows)]
+    return output[:max_examples]
+
+
+def review_classification(
+    residual: dict[str, int],
+    unique_residual_count: int,
+    pressure: dict[str, Any],
+    functional_count: int,
+    *,
+    near_closed_boundary_limit: int,
+) -> str:
+    if not residual:
+        return "FACE_CLOSED_STATIC_REVIEW_CANDIDATE"
+    if (
+        set(residual).issubset(CLEAN_ONE_SIDED_BOUNDARIES)
+        and unique_residual_count <= near_closed_boundary_limit
+        and pressure.get("legal_offset_count") == 256
+        and functional_count >= 16
+    ):
+        return "NEAR_CLOSED_STATIC_REVIEW_CANDIDATE"
+    return "OPEN_STATIC_ASSEMBLY"
+
+
 def build_report(
     first_id: str,
     first_path: Path,
@@ -58,6 +127,8 @@ def build_report(
     minimum_functional_count: int,
     chunk_limit: int,
     max_shared_support_nodes: int,
+    near_closed_boundary_limit: int = 16,
+    max_boundary_examples: int = 64,
 ) -> dict[str, Any]:
     if turns not in {0, 1, 2, 3}:
         raise AssemblyError("turns must be 0, 1, 2, or 3")
@@ -67,6 +138,10 @@ def build_report(
         raise AssemblyError("chunk_limit must be positive")
     if max_shared_support_nodes <= 0:
         raise AssemblyError("max_shared_support_nodes must be positive")
+    if near_closed_boundary_limit < 0:
+        raise AssemblyError("near_closed_boundary_limit cannot be negative")
+    if max_boundary_examples < 0:
+        raise AssemblyError("max_boundary_examples cannot be negative")
 
     shared = load("cannonlab_shared_assembly_base", "legacy-shared-core-audit.py")
     envelope = load("cannonlab_shared_assembly_envelope", "legacy-shared-core-envelope.py")
@@ -81,17 +156,14 @@ def build_report(
         for point, value in raw_second.items()
     }
 
-    functional_ids = architecture.FUNCTIONAL_IDS
     common_positions = set(first_all) & set(second_all)
     proven_functional: set[tuple[int, int, int]] = set()
     equivalent_support: set[tuple[int, int, int]] = set()
     classification_counts: Counter[str] = Counter()
 
     for point in sorted(common_positions):
-        first_value = first_all[point]
-        second_value = second_all[point]
         classification = envelope.classify_outside_position(
-            shared, architecture, first_value, second_value, turns
+            shared, architecture, first_all[point], second_all[point], turns
         )
         classification_counts[classification] += 1
         if classification == "shared_equivalent_functional":
@@ -119,16 +191,26 @@ def build_report(
             shared, architecture, region, first_all, second_all, turns
         )
         residual = boundary["edge_counts"]
+        unique_counts = boundary["unique_outside_position_counts"]
+        unique_residual_count = sum(unique_counts.values())
         status = "FACE_CLOSED_SHARED_ASSEMBLY" if not residual else "OPEN_SHARED_ASSEMBLY"
         kind_counts = Counter(
             shared.kind_name(architecture, first_all[point]) for point in functional
         )
         support_id_counts = Counter(str(first_all[point][0]) for point in support)
         pressure = shared.chunk_scan(functional, first_all, chunk_limit)
+        review = review_classification(
+            residual,
+            unique_residual_count,
+            pressure,
+            len(functional),
+            near_closed_boundary_limit=near_closed_boundary_limit,
+        )
 
         assemblies.append({
             "assembly_id": f"ASSEMBLY-{raw_index:03d}",
             "status": status,
+            "review_classification": review,
             "node_count": len(region),
             "functional_count": len(functional),
             "support_count": len(support),
@@ -141,25 +223,41 @@ def build_report(
             "support_legacy_id_counts": dict(sorted(support_id_counts.items())),
             "ec160": pressure,
             "residual_boundary_edge_counts": residual,
-            "residual_unique_outside_position_counts": boundary[
-                "unique_outside_position_counts"
-            ],
+            "residual_unique_outside_position_counts": unique_counts,
+            "residual_unique_outside_position_count": unique_residual_count,
             "residual_outside_kind_counts": boundary["outside_kind_counts"],
+            "boundary_examples": boundary_examples(
+                shared,
+                envelope,
+                architecture,
+                region,
+                first_all,
+                second_all,
+                turns,
+                max_examples=max_boundary_examples,
+            ),
             "promotion_eligible": False,
             "truth_boundary": (
                 "face-connected union of metadata-equivalent functional blocks and explicitly "
-                "rotation-invariant exact shared support blocks; subsystem role, ports, indirect "
-                "power, motion reach, fluids, conversion, and runtime causality remain unproven"
+                "rotation-invariant exact shared support blocks; review classification prioritizes "
+                "inspection only and does not establish ports, subsystem role, indirect power, "
+                "motion reach, fluids, conversion, or runtime causality"
             ),
         })
 
+    review_order = {
+        "FACE_CLOSED_STATIC_REVIEW_CANDIDATE": 0,
+        "NEAR_CLOSED_STATIC_REVIEW_CANDIDATE": 1,
+        "OPEN_STATIC_ASSEMBLY": 2,
+    }
     assemblies.sort(key=lambda row: (
-        row["status"] != "FACE_CLOSED_SHARED_ASSEMBLY",
+        review_order[row["review_classification"]],
         -row["functional_count"],
         -row["node_count"],
         row["assembly_id"],
     ))
     status_counts = Counter(row["status"] for row in assemblies)
+    review_counts = Counter(row["review_classification"] for row in assemblies)
     accounted_functional = sum(row["functional_count"] for row in assemblies)
 
     return {
@@ -186,12 +284,15 @@ def build_report(
             "minimum_functional_count": minimum_functional_count,
             "chunk_limit": chunk_limit,
             "max_shared_support_nodes": max_shared_support_nodes,
+            "near_closed_boundary_limit": near_closed_boundary_limit,
+            "max_boundary_examples": max_boundary_examples,
             "support_legacy_ids": sorted(envelope.ROTATION_INVARIANT_SUPPORT_IDS),
         },
         "assemblies": assemblies,
         "summary": {
             "reported_assembly_count": len(assemblies),
             "status_counts": dict(sorted(status_counts.items())),
+            "review_classification_counts": dict(sorted(review_counts.items())),
             "accounted_functional_count": accounted_functional,
             "unreported_small_or_support_only_functional_count": (
                 len(proven_functional) - accounted_functional
@@ -205,6 +306,7 @@ def build_report(
             "promotion_eligible_assembly_count": 0,
         },
         "truth_boundary": {
+            "near_closed_review_candidate_is_a_proven_module": False,
             "shared_static_assembly_proves_standalone_operation": False,
             "face_closure_proves_no_indirect_dependencies": False,
             "runtime_semantics_confirmed": False,
@@ -233,7 +335,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Merge globally aligned metadata-equivalent functional regions through exact shared "
-            "rotation-invariant support to expose bounded static assembly boundaries"
+            "rotation-invariant support and prioritize near-closed static review candidates"
         )
     )
     parser.add_argument("--first-id", required=True)
@@ -245,6 +347,8 @@ def main() -> int:
     parser.add_argument("--minimum-functional-count", type=int, default=8)
     parser.add_argument("--chunk-limit", type=int, default=160)
     parser.add_argument("--max-shared-support-nodes", type=int, default=100000)
+    parser.add_argument("--near-closed-boundary-limit", type=int, default=16)
+    parser.add_argument("--max-boundary-examples", type=int, default=64)
     parser.add_argument("--json-out", type=Path)
     args = parser.parse_args()
     try:
@@ -258,6 +362,8 @@ def main() -> int:
             minimum_functional_count=args.minimum_functional_count,
             chunk_limit=args.chunk_limit,
             max_shared_support_nodes=args.max_shared_support_nodes,
+            near_closed_boundary_limit=args.near_closed_boundary_limit,
+            max_boundary_examples=args.max_boundary_examples,
         )
     except (OSError, ValueError, AssemblyError) as exc:
         report = {
