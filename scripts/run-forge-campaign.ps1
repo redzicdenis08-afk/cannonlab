@@ -75,6 +75,22 @@ foreach ($Scenario in $Job.scenarios) {
             throw "Output corridor repeatability failed for $($Scenario.name)"
         }
     }
+
+    if ($Scenario.wall_breach_args -and @($Scenario.wall_breach_args).Count -gt 0) {
+        $WallBreachOut = Join-Path $Destination 'wall-breach.json'
+        $WallBreachArgs = @(
+            (Join-Path $PSScriptRoot 'wall-breach-intelligence.py'),
+            $Results
+        )
+        foreach ($Value in $Scenario.wall_breach_args) {
+            $WallBreachArgs += [string]$Value
+        }
+        $WallBreachArgs += @('--json-out', $WallBreachOut)
+        & py @WallBreachArgs
+        if ($LASTEXITCODE -ne 0) {
+            throw "Wall-breach contract failed for $($Scenario.name)"
+        }
+    }
 }
 
 $Summary = [ordered]@{
@@ -88,6 +104,11 @@ $Summary = [ordered]@{
             assertion = "runs/$($_.name)/assertion.json"
             output_corridor = if ($_.corridor_args -and @($_.corridor_args).Count -gt 0) {
                 "runs/$($_.name)/output-corridor.json"
+            } else {
+                $null
+            }
+            wall_breach = if ($_.wall_breach_args -and @($_.wall_breach_args).Count -gt 0) {
+                "runs/$($_.name)/wall-breach.json"
             } else {
                 $null
             }

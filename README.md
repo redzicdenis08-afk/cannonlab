@@ -31,6 +31,9 @@ The laboratory can:
 - diagnose first divergence as likely fuse, gravity, drag, water-push, collision, or unmodelled fork behavior
 - record target destruction and regeneration events in the same CSV timeline
 - measure forward travel, target miss distance, peak damage, the strongest aligned breach lane before the first actual restore, deepest layer breached, and restored blocks
+- reconstruct exact per-cell durability pressure, connected wall openings, and same-lane multi-layer continuation
+- attribute significant falling-payload velocity changes to nearby TNT explosions and score each impulse against the target axis
+- reject flight-only, explosion-only, scattered-hit, disconnected-hole, regen-lost, and cannon-died fake greens
 - compare one TNT entity tick by tick to find the first changed position, velocity, fuse, or landing point
 - export per-shot and per-run JSON/CSV evidence
 - rank cannon variants by reliability, penetration, errors, and repeatability
@@ -58,6 +61,7 @@ The CI suite contains:
 - directional travel and target-proximity gates
 - target-damage, layer-breach, and regeneration gates
 - falling-payload overlap, unembedded-water-explosion, and regen-race gates
+- direct four-hit obsidian sequences, connected-opening, same-lane continuation, impulse-axis, and dispenser-survival gates
 - all 256 X/Z chunk-alignment scans
 - legal, over-limit, truncated, and corrupted schematic fixtures
 - download checksum verification for Paper and WorldEdit
@@ -476,6 +480,7 @@ Set `CANNONLAB_STRICT_SINGLE_TNT=false` for real multi-dispenser cannons. Set `C
 scripts/schem-audit.py
 scripts/assert-results.py
 scripts/analyze-breach-evidence.py
+scripts/wall-breach-intelligence.py
 scripts/compare-entity-trajectories.py
 scripts/analyze-output-corridor.py
 scripts/rank-runs.py
@@ -496,6 +501,16 @@ python scripts/analyze-breach-evidence.py lab-artifacts/results `
   --require-all-layers-before-first-regen `
   --json-out breach-evidence.json
 ```
+
+Apply the strict target-facing wall contract and get a repair diagnosis:
+
+```powershell
+python scripts/wall-breach-intelligence.py lab-artifacts/results `
+  --profile watered-obsidian `
+  --json-out wall-breach.json
+```
+
+The wall-breach report reconstructs exact per-cell durability sequences, connected apertures, same-lane layer continuation, embedded payload, first real regeneration restore, cannon survival, falling-payload direction, and the TNT explosion nearest each significant payload impulse. It rejects raw explosion counts, scattered hits, disconnected damage, wrong-axis payload and walls broken by a cannon that destroyed itself. See `docs/WALL_BREACH_INTELLIGENCE.md`.
 
 Pinpoint the first per-tick TNT drift between a baseline and candidate:
 
@@ -530,9 +545,12 @@ The output-corridor analyzer reads every per-shot `events.csv`, projects TNT and
 3. Run direct activation to prove dispenser and telemetry plumbing.
 4. Run real redstone activation to verify the actual firing circuit.
 5. Run the cannon against dry and watered baseline targets.
-6. Stress it across range, height, hotdog lanes, pillars, fluid cells, and delayed regeneration.
-7. Rank variants from evidence rather than visual impressions.
-8. Compare the local fingerprint with the ExtremeCraft calibration fingerprint.
-9. Export the winning schematic plus its scenario, audit, timing, and test evidence.
+6. Require one-paste cumulative shots instead of rebuilding a fresh cannon for every attempt.
+7. Run wall-breach intelligence and reject targetless explosions, scattered durability pressure, disconnected damage, wrong-axis payload, regen loss, and cannon death.
+8. Require one dominant output corridor with bounded angle, lateral drift, and forward-distance spread.
+9. Stress it across range, height, hotdog lanes, pillars, fluid cells, and delayed regeneration.
+10. Rank bounded variants from evidence rather than visual impressions.
+11. Compare the local fingerprint with the ExtremeCraft calibration fingerprint.
+12. Export the winning schematic plus its scenario, audit, timing, and test evidence.
 
 See `docs/EXTREMECRAFT_CALIBRATION.md` for the final live calibration contract.

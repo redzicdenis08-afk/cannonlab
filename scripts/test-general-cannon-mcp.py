@@ -107,6 +107,33 @@ class GeneralCannonMcpTests(unittest.TestCase):
             self.assertIn("cannon-mutator.py", command[1])
             self.assertEqual(Path(command[2]), plan.resolve())
 
+    def test_wall_breach_tool_binds_strict_profile(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            run = Path(directory) / "run"
+            run.mkdir()
+            (run / "run-summary.json").write_text("{}\n", encoding="utf-8")
+            with patch.object(server, "_run_json", return_value={"status": "PASS"}) as mocked:
+                result = server.analyze_wall_breach(
+                    str(run),
+                    profile="watered-obsidian",
+                    min_shots=5,
+                    require_direct_durability_sequence=True,
+                    require_falling_payload=True,
+                    max_unembedded_water_explosions=0,
+                    min_connected_opening=1,
+                    min_contiguous_layers=2,
+                    max_self_damage_blocks=0,
+                    min_dispenser_survival_ratio=0.99,
+                )
+            self.assertEqual(result["status"], "PASS")
+            command = mocked.call_args.args[0]
+            self.assertIn("wall-breach-intelligence.py", " ".join(command))
+            self.assertIn("watered-obsidian", command)
+            self.assertIn("--require-direct-durability-sequence", command)
+            self.assertIn("--require-falling-payload", command)
+            self.assertIn("--max-unembedded-water-explosions", command)
+            self.assertIn("0", command)
+
     def test_variant_generation_tool_is_exposed(self) -> None:
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             spec_path = Path(directory) / "search.json"

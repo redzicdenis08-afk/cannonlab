@@ -632,6 +632,66 @@ def analyze_breach_evidence(
 
 
 @mcp.tool()
+def analyze_wall_breach(
+    results: str,
+    profile: str = "diagnostic",
+    min_shots: int | None = None,
+    expected_hits_to_break: int | None = None,
+    min_target_breaks: int | None = None,
+    require_direct_durability_sequence: bool = False,
+    min_embedded_payload_explosions: int | None = None,
+    max_unembedded_water_explosions: int | None = None,
+    require_falling_payload: bool = False,
+    min_connected_opening: int | None = None,
+    min_contiguous_layers: int | None = None,
+    require_regeneration: bool = False,
+    require_positive_regen_margin: bool = False,
+    max_self_damage_blocks: int | None = None,
+    min_dispenser_survival_ratio: float | None = None,
+    min_usable_breach_rate: float | None = None,
+    min_lane_repeatability: float | None = None,
+) -> dict[str, Any]:
+    """Reject fake greens and diagnose durable, watered, regen, and raid-course wall breaches."""
+    if profile not in {
+        "diagnostic", "dry-obsidian", "watered-obsidian", "regen-course", "raid-course"
+    }:
+        raise ValueError("unsupported wall-breach profile")
+    run = _inside_runtime(results)
+    args = [
+        sys.executable,
+        str(SCRIPTS / "wall-breach-intelligence.py"),
+        str(run),
+        "--profile",
+        profile,
+    ]
+    optional = {
+        "--min-shots": min_shots,
+        "--expected-hits-to-break": expected_hits_to_break,
+        "--min-target-breaks": min_target_breaks,
+        "--min-embedded-payload-explosions": min_embedded_payload_explosions,
+        "--max-unembedded-water-explosions": max_unembedded_water_explosions,
+        "--min-connected-opening": min_connected_opening,
+        "--min-contiguous-layers": min_contiguous_layers,
+        "--max-self-damage-blocks": max_self_damage_blocks,
+        "--min-dispenser-survival-ratio": min_dispenser_survival_ratio,
+        "--min-usable-breach-rate": min_usable_breach_rate,
+        "--min-lane-repeatability": min_lane_repeatability,
+    }
+    for flag, value in optional.items():
+        if value is not None:
+            args += [flag, str(value)]
+    if require_direct_durability_sequence:
+        args.append("--require-direct-durability-sequence")
+    if require_falling_payload:
+        args.append("--require-falling-payload")
+    if require_regeneration:
+        args.append("--require-regeneration")
+    if require_positive_regen_margin:
+        args.append("--require-positive-regen-margin")
+    return _run_json(args, timeout=300)
+
+
+@mcp.tool()
 def analyze_repair_family(
     reference_schematic: str,
     reference_summary: str,

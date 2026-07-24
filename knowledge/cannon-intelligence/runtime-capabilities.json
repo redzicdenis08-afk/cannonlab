@@ -112,6 +112,15 @@
       ]
     },
     {
+      "id": "wall-breach-contract-and-diagnosis",
+      "required_for": ["local-candidate", "ec-ready"],
+      "checks": [
+        {"type": "file", "path": "scripts/wall-breach-intelligence.py"},
+        {"type": "file", "path": "scripts/test-wall-breach-intelligence.py"},
+        {"type": "all-token", "path": "scripts/wall-breach-intelligence.py", "tokens": ["durability-hit-scatter", "connected_opening", "contiguous_layers", "payload-axis-mismatch", "min_dispenser_survival_ratio"]}
+      ]
+    },
+    {
       "id": "cannon-integrity-and-reset-repeatability",
       "required_for": ["local-candidate", "ec-ready"],
       "checks": [
@@ -224,6 +233,13 @@
         {"type": "file", "path": "scripts/cannon-variant-scorecard.py"},
         {"type": "file", "path": "scripts/test-cannon-variant-scorecard.py"},
         {"type": "all-token", "path": "mcp-server/server.py", "tokens": ["extract_cannon_variant_scorecard", "cannon-variant-scorecard.py"]}
+      ]
+    },
+    {
+      "id": "wall-breach-mcp-exposure",
+      "required_for": ["operator-ready"],
+      "checks": [
+        {"type": "all-token", "path": "mcp-server/server.py", "tokens": ["def analyze_wall_breach", "wall-breach-intelligence.py", "watered-obsidian", "raid-course"]}
       ]
     }
   ]

@@ -7,10 +7,13 @@ on:
       - 'scripts/ec160_architecture_advisor.py'
       - 'scripts/test-reference-physics.py'
       - 'scripts/test-ec160-architecture-advisor.py'
+      - 'scripts/wall-breach-intelligence.py'
+      - 'scripts/test-wall-breach-intelligence.py'
       - 'scripts/schem-audit.py'
       - 'docs/REFERENCE_PHYSICS_ORACLE.md'
       - 'docs/EC160_ARCHITECTURE_ADVISOR.md'
       - 'docs/EXPERT_CANNON_RESEARCH_2026.md'
+      - 'docs/WALL_BREACH_INTELLIGENCE.md'
       - 'docs/research/cannon-expert-sources.json'
       - 'audit-fixtures/**'
       - 'cannons/**'
@@ -45,14 +48,19 @@ jobs:
           python -m py_compile \
             scripts/cannon_physics_reference.py \
             scripts/ec160_architecture_advisor.py \
+            scripts/wall-breach-intelligence.py \
             scripts/test-reference-physics.py \
-            scripts/test-ec160-architecture-advisor.py
+            scripts/test-ec160-architecture-advisor.py \
+            scripts/test-wall-breach-intelligence.py
 
       - name: Run reference physics tests
         run: python scripts/test-reference-physics.py
 
       - name: Run EC160 architecture tests
         run: python scripts/test-ec160-architecture-advisor.py
+
+      - name: Run wall-breach intelligence tests
+        run: python scripts/test-wall-breach-intelligence.py
 
       - name: Render reference physics profiles
         run: |

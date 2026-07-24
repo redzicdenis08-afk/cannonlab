@@ -40,6 +40,7 @@ Use one of these before spending time on runtime tests:
 - `compare_module_traces`: enforce translation-normalized runtime contract v3 for exclusive modules plus fully accounted shared-component and joint entity-source cohorts
 - `compare_entity_trajectories`: translation-normalize one TNT entity and pinpoint the first changed position, velocity, fuse, or landing tick with nearby explosion context
 - `analyze_breach_evidence`: fail closed unless runtime evidence meets configured falling-payload overlap, unembedded-water, and pre-regen contiguous-layer gates
+- `analyze_wall_breach`: apply dry-obsidian, watered-obsidian, regen-course, or raid-course contracts; reconstruct concentrated durability hits, connected openings, same-lane continuation, impulse direction, fake-green status, and cannon survival
 - `analyze_repair_family`: screen every repair by run metrics, spend exact geometry on the strongest metric candidates, then spend full causal replay only on the strongest bounded candidates; candidates skipped by either evidence budget remain non-promotable
 - `extend_repair_family_runtime`: add causal replay to a requested runtime-rank window from an existing tournament without paying the metric and geometry cost again
 - `list_cannon_sources`: read the durable source registry and its evidence levels instead of relying on chat memory
@@ -71,6 +72,7 @@ For modern raid work, pass the strongest real reference cannons available and us
 - `compare_module_traces`: exact-geometry replay contracts with source accounting, shared-component timing, joint source dispensers, velocity, fuse, impact, and allowed-change controls
 - `compare_entity_trajectories`: per-tick TNT trajectory and landing comparison with exact first-divergence evidence
 - `analyze_breach_evidence`: measured falling-payload overlap, water-contact failure counts, and contiguous target-layer progress before the first actual regeneration restore
+- `analyze_wall_breach`: direct per-cell obsidian sequences, connected aperture geometry, repeated lane stability, TNT-to-payload impulse attribution, regen margin, dispenser survival, and ranked root-cause actions
 - `analyze_repair_family`: transparent repair scoring, Pareto-front ranking, promotion blockers, and deterministic collateral-drift summaries
 - `audit_cannon_ratio`: authored timing/order evidence, base-stack accounting and profile comparison
 - `analyze_impulse_graph`: source-to-motion graphing and first-divergence comparison

@@ -12,6 +12,7 @@ on:
       - 'scripts/cannon-mutator.py'
       - 'scripts/cannon-operator.py'
       - 'scripts/analyze-output-corridor.py'
+      - 'scripts/wall-breach-intelligence.py'
       - 'scripts/run-forge-campaign.ps1'
       - 'scripts/cannon-variant-search.py'
       - 'scripts/cannon-variant-scorecard.py'
@@ -28,6 +29,7 @@ on:
       - 'scripts/test-general-cannon-intelligence.py'
       - 'scripts/test-output-corridor.py'
       - 'scripts/test-prefire-control-state.py'
+      - 'scripts/test-wall-breach-intelligence.py'
       - 'scripts/test-private-corpus-regression.py'
       - 'scripts/test-cannon-architecture-policy.py'
       - 'skills/cannon-archetype-engine/**'
@@ -46,6 +48,7 @@ on:
       - 'scripts/cannon-mutator.py'
       - 'scripts/cannon-operator.py'
       - 'scripts/analyze-output-corridor.py'
+      - 'scripts/wall-breach-intelligence.py'
       - 'scripts/run-forge-campaign.ps1'
       - 'scripts/cannon-variant-search.py'
       - 'scripts/cannon-variant-scorecard.py'
@@ -62,6 +65,7 @@ on:
       - 'scripts/test-general-cannon-intelligence.py'
       - 'scripts/test-output-corridor.py'
       - 'scripts/test-prefire-control-state.py'
+      - 'scripts/test-wall-breach-intelligence.py'
       - 'scripts/test-private-corpus-regression.py'
       - 'scripts/test-cannon-architecture-policy.py'
       - 'skills/cannon-archetype-engine/**'
@@ -98,6 +102,7 @@ jobs:
             scripts/cannon-mutator.py \
             scripts/cannon-operator.py \
             scripts/analyze-output-corridor.py \
+            scripts/wall-breach-intelligence.py \
             scripts/cannon-variant-search.py \
             scripts/cannon-variant-scorecard.py \
             scripts/general-cannon-intelligence.py \
@@ -113,6 +118,7 @@ jobs:
             scripts/test-general-cannon-intelligence.py \
             scripts/test-output-corridor.py \
             scripts/test-prefire-control-state.py \
+            scripts/test-wall-breach-intelligence.py \
             scripts/test-private-corpus-regression.py \
             scripts/test-cannon-architecture-policy.py
 
@@ -133,6 +139,9 @@ jobs:
 
       - name: Prove pre-fire control-state scenario auditing
         run: python scripts/test-prefire-control-state.py
+
+      - name: Prove wall-breach contracts and fake-green diagnoses
+        run: python scripts/test-wall-breach-intelligence.py
 
       - name: Prove general family planning and fail-closed composition
         run: python scripts/test-general-cannon-intelligence.py

@@ -82,7 +82,10 @@ def test_scenario_pack() -> None:
     assert "type: pillars" in joined
     assert "min-embedded-payload-explosions: 1" in joined
     assert "suppress-paste-side-effects: false" in joined
+    assert "rebuild-cannon-between-shots: false" in joined
     assert all(scenario["assert_args"] for scenario in scenarios)
+    assert all(scenario["wall_breach_args"] for scenario in scenarios)
+    assert all("--require-cumulative-cannon" in scenario["assert_args"] for scenario in scenarios)
 
 
 def test_tnt_only_scenario_pack() -> None:
@@ -105,7 +108,10 @@ def test_tnt_only_scenario_pack() -> None:
     assert "type: watered" not in joined
     assert "min-falling-blocks: 0" in joined
     assert "min-embedded-payload-explosions: 0" in joined
+    assert "rebuild-cannon-between-shots: false" in joined
     assert sum(bool(scenario["corridor_args"]) for scenario in scenarios) == 4
+    assert all(scenario["wall_breach_args"] for scenario in scenarios)
+    assert all("--require-cumulative-cannon" in scenario["assert_args"] for scenario in scenarios)
 
 
 def test_control_state_rendering() -> None:

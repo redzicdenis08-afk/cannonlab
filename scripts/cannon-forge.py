@@ -390,6 +390,7 @@ def render_scenarios(
         expected_shots: int,
         assert_args: list[str],
         corridor_args: list[str] | None = None,
+        wall_breach_args: list[str] | None = None,
     ) -> None:
         filename = f"forge-{slug}-{name}.yml"
         if "run:\n" not in body:
@@ -414,8 +415,41 @@ def render_scenarios(
                 "expected_shots": expected_shots,
                 "assert_args": final_assert_args,
                 "corridor_args": list(corridor_args or []),
+                "wall_breach_args": list(wall_breach_args or []),
             }
         )
+
+    def wall_diagnostic(
+        expected_shots: int,
+        *,
+        self_damage: int,
+        falling: bool = False,
+        embedded: bool = False,
+        regeneration: bool = False,
+        contiguous_layers: int = 1,
+        endurance: bool = False,
+    ) -> list[str]:
+        args = [
+            "--profile", "diagnostic",
+            "--min-shots", str(expected_shots),
+            "--min-target-breaks", "1",
+            "--min-connected-opening", "1",
+            "--min-contiguous-layers", str(contiguous_layers),
+            "--max-self-damage-blocks", str(self_damage),
+            "--min-dispenser-survival-ratio", "0.95",
+        ]
+        if falling:
+            args.append("--require-falling-payload")
+        if embedded:
+            args += [
+                "--min-embedded-payload-explosions", "1",
+                "--max-unembedded-water-explosions", "0",
+            ]
+        if regeneration:
+            args += ["--require-regeneration", "--require-positive-regen-margin"]
+        if endurance:
+            args += ["--min-usable-breach-rate", "1.0", "--min-lane-repeatability", "0.8"]
+        return args
 
     def corridor(expected_shots: int, *, half_width: int = 3) -> list[str]:
         return [
@@ -451,6 +485,7 @@ def render_scenarios(
         "  shutdown-when-finished: true",
         3,
         ["--expected-shots", "3", "--min-target-peak-destroyed", "1", "--max-self-damage-blocks", "24"],
+        wall_breach_args=wall_diagnostic(3, self_damage=24),
     )
 
     if payload_contract["mode"] == "tnt-only":
@@ -481,6 +516,7 @@ def render_scenarios(
             5,
             ["--expected-shots", "5", "--min-target-peak-destroyed", "1", "--max-self-damage-blocks", "20"],
             corridor(5),
+            wall_diagnostic(5, self_damage=20, endurance=True),
         )
 
         multilayer_acceptance = acceptance_block(
@@ -510,6 +546,7 @@ def render_scenarios(
             10,
             ["--expected-shots", "10", "--min-layer-breached", "1", "--max-self-damage-blocks", "28"],
             corridor(10, half_width=4),
+            wall_diagnostic(10, self_damage=28, contiguous_layers=1),
         )
 
         gauntlet_acceptance = acceptance_block(
@@ -568,6 +605,7 @@ def render_scenarios(
             max(10, shots),
             ["--expected-shots", str(max(10, shots)), "--min-layer-breached", "1", "--max-self-damage-blocks", "32"],
             corridor(max(10, shots), half_width=4),
+            wall_diagnostic(max(10, shots), self_damage=32, contiguous_layers=1),
         )
 
         endurance_shots = max(25, shots)
@@ -598,6 +636,7 @@ def render_scenarios(
             endurance_shots,
             ["--expected-shots", str(endurance_shots), "--min-target-peak-destroyed", "1", "--max-self-damage-blocks", "16"],
             corridor(endurance_shots),
+            wall_diagnostic(endurance_shots, self_damage=16, endurance=True),
         )
         return scenarios
 
@@ -633,6 +672,7 @@ def render_scenarios(
             "--max-self-damage-blocks", "24",
         ],
         corridor(5),
+        wall_diagnostic(5, self_damage=24, falling=True, embedded=True),
     )
 
     regen_acceptance = acceptance_block(
@@ -674,6 +714,14 @@ def render_scenarios(
             "--max-self-damage-blocks", "24",
         ],
         corridor(10),
+        wall_diagnostic(
+            10,
+            self_damage=24,
+            falling=True,
+            embedded=True,
+            regeneration=True,
+            contiguous_layers=1,
+        ),
     )
 
     mixed_acceptance = acceptance_block(
@@ -760,6 +808,7 @@ def render_scenarios(
             "--max-self-damage-blocks", "32",
         ],
         corridor(max(10, shots), half_width=4),
+        ["--profile", "raid-course"],
     )
 
     endurance_shots = max(25, shots)
@@ -796,6 +845,7 @@ def render_scenarios(
             "--max-self-damage-blocks", "16",
         ],
         corridor(endurance_shots),
+        ["--profile", "raid-course"],
     )
     return scenarios
 
@@ -868,6 +918,7 @@ def stage_job(args: argparse.Namespace) -> dict[str, Any]:
                 "expected_shots": scenario["expected_shots"],
                 "assert_args": scenario["assert_args"],
                 "corridor_args": scenario["corridor_args"],
+                "wall_breach_args": scenario["wall_breach_args"],
                 "integrity": integrity,
             }
         )

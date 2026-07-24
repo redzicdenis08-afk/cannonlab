@@ -21,7 +21,8 @@ Never collapse these levels.
 5. Start edits from a decoded proven reference. Preserve its exact block-state geometry and causal sequence until one measured variable is intentionally changed.
 6. Run real redstone only after static structure, chunk alignment, block entities, control input, and morphology pass.
 7. Test the narrow changed module first, then the whole cannon.
-8. Return the `.schem` and the smallest honest evidence summary. Do not narrate every internal step.
+8. Run `analyze_wall_breach` before calling any target-facing candidate successful.
+9. Return the `.schem` and the smallest honest evidence summary. Do not narrate every internal step.
 
 ## Required deep workflow
 
@@ -33,10 +34,12 @@ Never collapse these levels.
 6. Compare at least ten repeatable shots before calling timing stable.
 7. Run `compare_reference_physics` on representative TNT and falling-block entities. Separate normal collision from fuse, drag, gravity, water-push or fork drift.
 8. Correlate dispenser cohorts, entity-spawn cohorts, piston cohorts and explosion ticks.
-9. Assign cannon roles only when the causal trace supports them.
-10. Treat community ratios and names as hypotheses unless reproduced on the exact target profile.
-11. Test one variable at a time.
-12. Preserve failed shots and their evidence.
+9. Run `analyze_wall_breach` with the intended contract. Require concentrated per-cell durability, a connected opening, same-lane continuation, regen margin and cannon survival rather than raw explosion totals.
+10. When payload motion is wrong, inspect the strongest attributed impulse before changing repeater timing. A sideways blast is a geometry or orientation failure.
+11. Assign cannon roles only when the causal trace supports them.
+12. Treat community ratios and names as hypotheses unless reproduced on the exact target profile.
+13. Test one variable at a time.
+14. Preserve failed shots and their evidence.
 
 ## Anti-pancake gate
 
@@ -70,6 +73,8 @@ Not allowed:
 - “It should work on ExtremeCraft.”
 - “Local Sakura proves EC.”
 - “A flat dispenser tray is a modern cannon because it fires TNT.”
+- “The scenario says contract_pass, therefore it breached the wall.”
+- “Four explosions near obsidian prove four hits on the same block.”
 
 ## ExtremeCraft profile
 
@@ -103,6 +108,7 @@ A cannon task is not complete until the repository contains:
 - causal explanation JSON or Markdown
 - EC160 architecture/advisor report
 - reference-physics comparison for representative TNT and falling-block trajectories
+- wall-breach intelligence report proving concentrated durability, connected aperture, same-lane continuation, target overlap, regen margin and survival for the selected profile
 - repeatability results
 - Sakura result
 - EC canary notes where applicable
