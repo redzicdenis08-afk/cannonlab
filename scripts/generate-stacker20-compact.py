@@ -59,22 +59,14 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
     sand_inputs: list[list[int]] = []
     obsidian = "minecraft:obsidian"
 
-    # Muzzle floor and rails. Initial cannon max X is 11 because of the sand
-    # blocks. The runtime target water begins at X=32, leaving X=12..31 clear.
     fill(blocks, (5, 0, 1), (5, 0, 6), obsidian)
     fill(blocks, (9, 0, 1), (11, 0, 6), obsidian)
     fill(blocks, (6, 0, 1), (8, 0, 1), obsidian)
     fill(blocks, (6, 0, 6), (8, 0, 6), obsidian)
     fill(blocks, (9, 1, 1), (11, 2, 1), obsidian)
     fill(blocks, (9, 1, 6), (11, 2, 6), obsidian)
-
-    # One-high 3x4 source-water charge bed. The front is deliberately open to
-    # the slab-supported projectile.
     fill(blocks, (6, 1, 2), (8, 1, 5), "minecraft:water[level=0]")
 
-    # Twelve bottom charge dispensers. Eight top dispensers remain over X=6..7;
-    # X=8 is covered with obsidian so its water cannot freeze and no charge
-    # control can accidentally power the payload bank.
     for x in (6, 7, 8):
         for z in range(2, 6):
             bottom = (x, 0, z)
@@ -89,7 +81,6 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
             primary.append([x, 3, z])
     fill(blocks, (8, 2, 2), (8, 2, 5), obsidian)
 
-    # Six side charge dispensers.
     for x in (6, 7, 8):
         north = (x, 1, 1)
         south = (x, 1, 6)
@@ -98,7 +89,6 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
         dispensers.extend((north, south))
         primary.extend(([x, 1, 0], [x, 1, 7]))
 
-    # Two rear charge dispensers complete the 28-TNT charge.
     put(blocks, (5, 1, 2), obsidian)
     put(blocks, (5, 1, 5), obsidian)
     for z in (3, 4):
@@ -107,8 +97,6 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
         dispensers.append(rear)
         primary.append([4, 1, z])
 
-    # Four payload TNT dispensers drop onto bottom slabs. They have their own
-    # timing clock and never share power with the charge or sand pistons.
     for z in range(2, 6):
         put(
             blocks,
@@ -120,11 +108,12 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
         dispensers.append(payload)
         payload_inputs.append([9, 4, z])
 
-    # Two piston-released sand blocks have a later, independent clock. They
-    # begin at X=11 and are pushed to X=12, where they become falling entities
-    # shortly before the charge explosion.
+    # Each sand block is supported at X=11 until its piston fires. The piston
+    # moves it into unsupported X=12, producing a falling entity only at the
+    # intended late release tick.
     for z in (3, 4):
         put(blocks, (10, 3, z), "minecraft:piston[facing=east,extended=false]")
+        put(blocks, (11, 2, z), obsidian)
         put(blocks, (11, 3, z), "minecraft:sand")
         sand_inputs.append([10, 4, z])
 
@@ -139,14 +128,10 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
             {"pos": pos, "id": "minecraft:dispenser", "raw": {}}
             for pos in sorted(dispensers)
         ],
-        "source_dimensions": {
-            "width": width,
-            "height": height,
-            "length": length,
-        },
+        "source_dimensions": {"width": width, "height": height, "length": length},
     }
     metadata = {
-        "id": "c28-three-clock-open-muzzle",
+        "id": "c28-three-clock-held-sand",
         "charge_tnt": 28,
         "payload_tnt": 4,
         "sand_blocks": 2,
@@ -177,7 +162,7 @@ def main() -> int:
     audit = load_audit()
     model, metadata = build()
     args.output_directory.mkdir(parents=True, exist_ok=True)
-    path = args.output_directory / "EC160-STACKER20-C28-3CLOCK-P4-S2-v6.schem"
+    path = args.output_directory / "EC160-STACKER20-C28-HELD-SAND-P4-S2-v7.schem"
     audit.write_sponge_v2(path, model, 3465, canonical_gzip=True)
 
     root_name, root, trailing, _size, diagnostics = audit.load(path)
@@ -186,12 +171,8 @@ def main() -> int:
         raise GenerationError("unexpected trailing NBT")
     if diagnostics.get("strict_gzip_valid") is not True:
         raise GenerationError("canonical gzip validation failed")
-    expected = {
-        pos: state for pos, state in model["blocks"].items() if base(state) not in AIR
-    }
-    observed = {
-        pos: state for pos, state in decoded["blocks"].items() if base(state) not in AIR
-    }
+    expected = {pos: state for pos, state in model["blocks"].items() if base(state) not in AIR}
+    observed = {pos: state for pos, state in decoded["blocks"].items() if base(state) not in AIR}
     if expected != observed:
         raise GenerationError("round-trip geometry mismatch")
 
