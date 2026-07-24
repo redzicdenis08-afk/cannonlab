@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "ec160-15chunk-from-scratch-v1",
+  "mode": "from-scratch",
+  "minimum_evidence": "local-runtime",
+  "constraints": {
+    "chunk_limit": 160,
+    "min_chunk_margin": 8,
+    "max_columns": 12,
+    "max_total_dispensers": 1200,
+    "max_candidate_count": 48
+  },
+  "objective": {
+    "range_blocks": 256,
+    "watered_obsidian_hits": 4,
+    "stack_height": 255,
+    "regen_layers": 15,
+    "shot_cadence_ticks": 40,
+    "features": [
+      "hybrid",
+      "stacker",
+      "slab-bust",
+      "regen-bust",
+      "nuke",
+      "osrb",
+      "campaign"
+    ]
+  }
+}
