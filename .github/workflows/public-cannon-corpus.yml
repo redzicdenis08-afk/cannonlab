@@ -11,12 +11,14 @@ on:
       - 'scripts/strict-fetch-public-cannon-corpus.py'
       - 'scripts/test-public-cannon-corpus.py'
       - 'scripts/test-public-cannon-corpus-adversarial.py'
+      - 'scripts/test-strict-fetch-exceptions.py'
       - 'scripts/test-legacy-cannon-architecture.py'
       - 'scripts/test-legacy-cannon-rotation-compare.py'
       - 'scripts/test-legacy-cannon-global-align.py'
       - 'profiles/corpus/**'
       - 'evidence/public-corpus/**'
       - 'docs/PUBLIC_CANNON_CORPUS.md'
+      - 'docs/ADVERSARIAL_PUBLIC_CORPUS_SELF_TEST.md'
       - '.github/workflows/public-cannon-corpus.yml'
   workflow_dispatch:
     inputs:
@@ -59,6 +61,7 @@ jobs:
             scripts/strict-fetch-public-cannon-corpus.py \
             scripts/test-public-cannon-corpus.py \
             scripts/test-public-cannon-corpus-adversarial.py \
+            scripts/test-strict-fetch-exceptions.py \
             scripts/test-legacy-cannon-architecture.py \
             scripts/test-legacy-cannon-rotation-compare.py \
             scripts/test-legacy-cannon-global-align.py
@@ -66,6 +69,7 @@ jobs:
       - name: Run normal corpus regressions
         run: |
           python scripts/test-public-cannon-corpus.py
+          python scripts/test-strict-fetch-exceptions.py
           python scripts/test-legacy-cannon-architecture.py
           python scripts/test-legacy-cannon-rotation-compare.py
           python scripts/test-legacy-cannon-global-align.py
@@ -126,7 +130,7 @@ jobs:
           print('Pinned hashes and first static evidence agree exactly.')
           PY
 
-      - name: Cross-check architecture-family evidence
+      - name: Cross-check local architecture-vocabulary evidence
         run: |
           python - <<'PY'
           import json
@@ -156,6 +160,38 @@ jobs:
           print('Local architecture-vocabulary evidence remains internally consistent.')
           PY
 
+      - name: Cross-check one-transform global evidence
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          registry = json.loads(
+              Path('profiles/corpus/public-cannon-sources-v1.json').read_text(encoding='utf-8')
+          )
+          evidence = json.loads(
+              Path('evidence/public-corpus/cosmicreborn-global-alignment-v1.json').read_text(encoding='utf-8')
+          )
+          registry_rows = {row['id']: row for row in registry['sources']}
+          evidence_rows = {row['id']: row for row in evidence['sources']}
+          assert registry_rows.keys() == evidence_rows.keys()
+          for source_id, source in registry_rows.items():
+              assert source['expected_sha256'] == evidence_rows[source_id]['sha256'], source_id
+          correction = evidence['formal_pred_correction']
+          assert correction['prior_local_y_rotation_motif_jaccard'] == 0.911054, correction
+          assert correction['single_global_transform_exact_kind_jaccard'] == 0.569077, correction
+          assert correction['exact_kind_overlap_count'] == 2731, correction
+          assert correction['formal_exact_coverage'] == 0.710643, correction
+          assert correction['pred_exact_coverage'] == 0.740711, correction
+          assert correction['degrees'] == 270, correction
+          assert correction['confidence'] == 'static-medium', correction
+          assert evidence['strict_fetch']['strict_validation_status'] == 'PASS', evidence
+          assert evidence['truth_boundary']['local_motif_similarity_proves_one_global_transform'] is False
+          assert evidence['truth_boundary']['static_alignment_proves_shared_runtime_semantics'] is False
+          assert evidence['truth_boundary']['ec_ready'] is False
+          print('Global evidence preserves the corrected Formal/Pred conclusion.')
+          PY
+
       - name: Upload plan evidence
         uses: actions/upload-artifact@v4
         with:
@@ -164,7 +200,7 @@ jobs:
           if-no-files-found: error
 
   controlled-fetch:
-    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.fetch_public_sources) }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.fetch_public_sources }}
     needs: corpus-contract
     runs-on: ubuntu-latest
     timeout-minutes: 20
