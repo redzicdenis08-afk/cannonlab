@@ -46,11 +46,15 @@ jobs:
             scripts/test-legacy-shared-core-audit.py
 
       - name: Run metadata and boundary regressions
-        run: python scripts/test-legacy-shared-core-audit.py
+        run: |
+          mkdir -p lab-artifacts/shared-core-contract
+          set -o pipefail
+          python scripts/test-legacy-shared-core-audit.py \
+            2>&1 | tee lab-artifacts/shared-core-contract/regressions.log
 
       - name: Verify pinned global transform contract
         run: |
-          python - <<'PY'
+          python - <<'PY' | tee lab-artifacts/shared-core-contract/transform-contract.log
           import json
           from pathlib import Path
 
@@ -64,6 +68,14 @@ jobs:
           assert evidence['truth_boundary']['ec_ready'] is False, evidence
           print('Formal/Pred shared-core input transform remains pinned to exact evidence.')
           PY
+
+      - name: Upload contract diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shared-core-contract-diagnostics
+          path: lab-artifacts/shared-core-contract
+          if-no-files-found: warn
 
   controlled-shared-core:
     if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.fetch_public_sources) }}
