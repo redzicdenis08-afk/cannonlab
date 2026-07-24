@@ -68,47 +68,59 @@ def write_schem(path, blocks, block_entities, data_version=3465):
     open(path,"wb").write(gzip.compress(out.getvalue(),mtime=0))
     return W,H,L,len(pal),len(block_entities)
 
-# ---- build a compact horizontal dispenser cannon ----
-def build_cannon(barrel_len=14, n_propellant=6):
+# ---- build a horizontal dispenser cannon (v2: axis-aligned charges, EAST facing) ----
+def build_cannon(barrel_len=16, n_propellant=6):
+    """
+    v2 fixes v1's two failures (sim + live diagnosed):
+      * charges now sit BEHIND the payload on the fire axis (push +x), not on the side
+      * every dispenser faces EAST (+x) so /tntfill detects them and they fire down-barrel
+    Layout: 3-wide barrel (z=-1..1), 2-tall; a 3x2 back charge grid of 6 dispensers at
+    x=0 facing east; payload dispenser at the front; redstone line + lever fire-input.
+    """
     B={}; BE=[]
     def put(x,y,z,v): B[(x,y,z)]=v
-    OBS="minecraft:obsidian"; WATER="minecraft:water[level=0]"; AIR="minecraft:air"
-    DISP_S="minecraft:dispenser[facing=south,triggered=false]"
+    OBS="minecraft:obsidian"; WATER="minecraft:water[level=0]"
+    DISP_E="minecraft:dispenser[facing=east,triggered=false]"   # faces fire direction
     DUST="minecraft:redstone_wire[east=side,west=side,north=side,south=side,power=0]"
     LEVER="minecraft:lever[face=floor,facing=north,powered=false]"
 
-    # barrel floor (y=0) and roof (y=2), z=0 lane, x=-1..barrel_len
-    for x in range(-1, barrel_len+1):
-        put(x,0,0,OBS)        # floor
-        put(x,2,0,OBS)        # roof
-        put(x,1,1,OBS)        # far wall (+z)
-    put(-1,1,0,OBS)           # back wall; muzzle (front) left open so payload exits
+    # 3-wide barrel shell: floor y=0, roof y=3, side walls z=-2 and z=2, x=0..barrel_len
+    for x in range(0, barrel_len+1):
+        for z in range(-1,2):
+            put(x,0,z,OBS)      # floor
+            put(x,3,z,OBS)      # roof
+        put(x,1,-2,OBS); put(x,2,-2,OBS)   # -z wall
+        put(x,1, 2,OBS); put(x,2, 2,OBS)   # +z wall
 
-    # water trough in the lane (protects the charge), leave front 2 dry
-    for x in range(0, barrel_len-2):
-        put(x,1,0,WATER)
+    # water trough on the barrel floor (protects the charge), leave front 3 dry
+    for x in range(1, barrel_len-2):
+        for z in range(-1,2):
+            put(x,1,z,WATER)
 
-    # side dispensers (z=-1) facing +z, eject TNT into the trough at z=0
-    disp_xs=list(range(1, 1+n_propellant))
-    for x in disp_xs:
-        put(x,1,-1,DISP_S); BE.append(((x,1,-1),"minecraft:dispenser"))
-    # payload dispenser near the front dry section
-    px=barrel_len-3
-    put(px,1,-1,DISP_S); BE.append(((px,1,-1),"minecraft:dispenser"))
+    # 6 charge dispensers: 3x2 grid at the BACK (x=0), facing EAST into the barrel
+    cnt=0
+    for y in (1,2):
+        for z in (-1,0,1):
+            if cnt>=n_propellant: break
+            put(0,y,z,DISP_E); BE.append(((0,y,z),"minecraft:dispenser")); cnt+=1
 
-    # redstone ignition line behind the dispensers (z=-2) + supports (y=0)
+    # payload dispenser at the front-center, facing EAST (fires the projectile out the muzzle)
+    px=barrel_len-2
+    put(px,1,0,DISP_E); BE.append(((px,1,0),"minecraft:dispenser"))
+
+    # redstone ignition line ON TOP of the roof (y=4, every dust sits on roof obsidian
+    # at y=3 -> fully supported) running back to the lever fire-input.
     for x in range(0, px+1):
-        put(x,0,-2,OBS)       # support for dust
-        put(x,1,-2,DUST)      # redstone line powering all dispenser backs
-    # lever fire-input at the back of the line
-    put(-1,0,-2,OBS); put(-1,1,-2,LEVER)
+        put(x,4,0,DUST)                 # supported by roof obsidian below
+    put(0,4,-1,OBS); put(0,5,-1,LEVER)  # lever fire-input at the back of the line
 
-    return B,BE,{"barrel_len":barrel_len,"n_propellant":n_propellant,
-                 "dispensers":len(BE),"fire_input":(-1,1,-2),"muzzle":(barrel_len,1,0)}
+    return B,BE,{"version":2,"barrel_len":barrel_len,"n_propellant":n_propellant,
+                 "dispensers":len(BE),"fire_input":(-1,4,-3),"muzzle":(barrel_len,1,0),
+                 "all_dispensers_face":"east"}
 
 if __name__=="__main__":
     B,BE,meta=build_cannon()
-    W,H,L,pal,nbe=write_schem("basic-dispenser-cannon.schem", B, BE)
+    W,H,L,pal,nbe=write_schem("basic-dispenser-cannon-v2.schem", B, BE)
     print(f"built cannon: {W}x{H}x{L}  palette={pal}  dispensers={nbe}")
     print(f"  meta: {meta}")
-    print("  wrote basic-dispenser-cannon.schem")
+    print("  wrote basic-dispenser-cannon-v2.schem")
