@@ -1,0 +1,113 @@
+name: First-Principles Activation Calibration
+
+on:
+  push:
+    branches:
+      - 'research/first-principles-activation-calibration'
+    paths:
+      - 'scripts/generate-activation-calibration-rigs.py'
+      - 'scripts/test-activation-calibration-rigs.py'
+      - 'profiles/from-scratch/activation-calibration-v1.json'
+      - 'scripts/generate-first-principles-rigs.py'
+      - 'scripts/schem-audit.py'
+      - '.github/workflows/activation-calibration.yml'
+  pull_request:
+    paths:
+      - 'scripts/generate-activation-calibration-rigs.py'
+      - 'scripts/test-activation-calibration-rigs.py'
+      - 'profiles/from-scratch/activation-calibration-v1.json'
+      - 'scripts/generate-first-principles-rigs.py'
+      - 'scripts/schem-audit.py'
+      - '.github/workflows/activation-calibration.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  calibration-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONHASHSEED: '0'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile calibration tools
+        run: |
+          python -m py_compile \
+            scripts/generate-activation-calibration-rigs.py \
+            scripts/test-activation-calibration-rigs.py
+
+      - name: Run calibration regressions
+        run: python scripts/test-activation-calibration-rigs.py
+
+      - name: Generate calibration family
+        run: |
+          mkdir -p lab-artifacts/activation-calibration/audits
+          python scripts/generate-activation-calibration-rigs.py \
+            profiles/from-scratch/activation-calibration-v1.json \
+            --output-directory lab-artifacts/activation-calibration/candidates \
+            --json-out lab-artifacts/activation-calibration/manifest-copy.json \
+            > lab-artifacts/activation-calibration/generator.stdout.json
+
+      - name: Audit every generated candidate
+        run: |
+          set -euo pipefail
+          for file in lab-artifacts/activation-calibration/candidates/*.schem; do
+            name=$(basename "$file" .schem)
+            python scripts/schem-audit.py "$file" \
+              --chunk-limit 160 \
+              --expect-format sponge-v2 \
+              --require-all-alignments-safe \
+              --json-out "lab-artifacts/activation-calibration/audits/$name.json" \
+              > /dev/null
+          done
+
+      - name: Verify matrix and truth contracts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('lab-artifacts/activation-calibration')
+          manifest = json.loads((root / 'candidates/manifest.json').read_text(encoding='utf-8'))
+          copy = json.loads((root / 'manifest-copy.json').read_text(encoding='utf-8'))
+          assert manifest == copy, (manifest, copy)
+          assert manifest['status'] == 'STATIC_ACTIVATION_CALIBRATION_ONLY', manifest
+          assert manifest['source_schematic_used'] is False, manifest
+          assert manifest['candidate_count'] == 10, manifest
+          rows = {row['id']: row for row in manifest['candidates']}
+          assert {'activation-direct', 'activation-dust'} <= rows.keys(), rows
+          repeaters = [row for row in rows.values() if row['kind'] == 'repeater']
+          assert len(repeaters) == 8, repeaters
+          assert {row['driver']['facing'] for row in repeaters} == {'east', 'west'}, repeaters
+          assert {row['driver']['delay'] for row in repeaters} == {1, 2, 3, 4}, repeaters
+          assert all(row['status'] == 'STATIC_ACTIVATION_HYPOTHESIS_ONLY' for row in rows.values())
+          assert all(row['chunk_pressure']['safe_alignment_count'] == 256 for row in rows.values())
+          assert manifest['truth_boundary']['repeater_orientation_proven'] is False
+          assert manifest['truth_boundary']['payload_role_proven'] is False
+          audits = list((root / 'audits').glob('*.json'))
+          assert len(audits) == 10, audits
+          assert all(json.loads(path.read_text(encoding='utf-8'))['status'] == 'PASS' for path in audits)
+          print('All 10 source-free activation calibration candidates passed static contracts.')
+          PY
+
+      - name: Upload calibration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: first-principles-activation-calibration
+          path: lab-artifacts/activation-calibration
+          if-no-files-found: error
+          retention-days: 30
