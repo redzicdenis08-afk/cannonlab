@@ -9,12 +9,14 @@ on:
       - 'scripts/cannon-synthesis-planner.py'
       - 'scripts/promote-cannon-component.py'
       - 'scripts/generate-causal-repair-family.py'
+      - 'scripts/run-cannon-campaign.py'
       - 'profiles/ratios/**'
       - 'profiles/parity/**'
       - 'profiles/archetypes/**'
       - 'profiles/synthesis/**'
       - 'profiles/components/**'
       - 'profiles/repairs/**'
+      - 'profiles/campaigns/**'
       - '.github/workflows/advanced-cannon-mcp.yml'
   workflow_dispatch:
 
@@ -63,13 +65,14 @@ jobs:
               'plan_cannon_synthesis',
               'promote_cannon_component',
               'generate_causal_repair_family',
+              'run_cannon_campaign',
               'list_advanced_cannon_profiles',
           }
           tools = asyncio.run(advanced_server.mcp.list_tools())
           names = {tool.name for tool in tools}
           assert expected <= names, {'missing': sorted(expected - names), 'available': sorted(names)}
           assert set(advanced_server.REGISTERED_ADVANCED_TOOLS) == expected
-          print(f'FastMCP registered {len(names)} total tools including all six advanced tools.')
+          print(f'FastMCP registered {len(names)} total tools including all seven advanced tools.')
           PY
 
       - name: Execute a real advanced tool through production adapter
@@ -109,6 +112,7 @@ jobs:
               'tools': sorted(tool.name for tool in tools),
               'advanced_tools': sorted(advanced_server.REGISTERED_ADVANCED_TOOLS),
               'production_runner_adapter': True,
+              'bounded_campaign_tool': 'run_cannon_campaign',
           }
           Path('lab-artifacts/advanced-cannon-mcp/tools.json').write_text(
               json.dumps(payload, indent=2, sort_keys=True) + '\n',

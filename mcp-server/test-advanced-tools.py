@@ -40,11 +40,18 @@ def make_registry():
             raise FileNotFoundError(candidate)
         return candidate
 
-    def run_json(script: Path, args: list[str], *, allowed_exit_codes=(0,)) -> dict[str, Any]:
+    def run_json(
+        script: Path,
+        args: list[str],
+        *,
+        allowed_exit_codes=(0,),
+        timeout: int = 180,
+    ) -> dict[str, Any]:
         call = {
             "script": script,
             "args": list(args),
             "allowed_exit_codes": tuple(allowed_exit_codes),
+            "timeout": timeout,
         }
         calls.append(call)
         return {"status": "captured", "call": call}
@@ -66,6 +73,7 @@ def expected_tools() -> set[str]:
         "plan_cannon_synthesis",
         "promote_cannon_component",
         "generate_causal_repair_family",
+        "run_cannon_campaign",
         "list_advanced_cannon_profiles",
     }
 
@@ -208,17 +216,64 @@ def test_repair_family_builds_exact_guarded_command() -> None:
         raise AssertionError("repair output path escape unexpectedly passed")
 
 
+def test_campaign_tool_builds_bounded_command_and_timeout() -> None:
+    mcp, calls, _ = make_registry()
+    mcp.tools["run_cannon_campaign"](
+        "profiles/campaigns/staged-campaign-template-v1.json",
+        "lab-artifacts/mcp/campaigns",
+        mode="execute",
+        report_output_path="lab-artifacts/mcp/campaign-report.json",
+    )
+    call = calls[-1]
+    assert call["script"].name == "run-cannon-campaign.py", call
+    assert call["allowed_exit_codes"] == (0, 2), call
+    assert call["timeout"] == 3700, call
+    assert call["args"][call["args"].index("--mode") + 1] == "execute", call
+    output = Path(call["args"][call["args"].index("--output-directory") + 1])
+    assert output == (ROOT / "lab-artifacts/mcp/campaigns").resolve(), output
+    assert "--json-out" in call["args"], call
+
+    mcp.tools["run_cannon_campaign"](
+        "profiles/campaigns/staged-campaign-template-v1.json",
+        "lab-artifacts/mcp/campaign-plan",
+        mode="plan",
+    )
+    assert calls[-1]["timeout"] == 300, calls[-1]
+
+    try:
+        mcp.tools["run_cannon_campaign"](
+            "profiles/campaigns/staged-campaign-template-v1.json",
+            "../outside-campaign",
+        )
+    except ValueError as exc:
+        assert "escapes CannonLab root" in str(exc), exc
+    else:
+        raise AssertionError("campaign output path escape unexpectedly passed")
+
+    try:
+        mcp.tools["run_cannon_campaign"](
+            "profiles/campaigns/staged-campaign-template-v1.json",
+            "lab-artifacts/mcp/campaign",
+            mode="forever",
+        )
+    except ValueError as exc:
+        assert "mode must be" in str(exc), exc
+    else:
+        raise AssertionError("invalid campaign mode unexpectedly passed")
+
+
 def test_profile_listing_is_machine_readable_and_truth_bounded() -> None:
     mcp, _, _ = make_registry()
     report = mcp.tools["list_advanced_cannon_profiles"]()
     assert report["schema_version"] == 1, report
-    assert report["profile_count"] >= 8, report
+    assert report["profile_count"] >= 9, report
     assert report["categories"]["ratios"], report
     assert report["categories"]["parity"], report
     assert report["categories"]["archetypes"], report
     assert report["categories"]["synthesis"], report
     assert report["categories"]["components"], report
     assert report["categories"]["repairs"], report
+    assert report["categories"]["campaigns"], report
     assert report["truth_boundary"]["profile_presence_proves_runtime_function"] is False
     json.dumps(report)
 
@@ -232,6 +287,7 @@ def main() -> None:
         test_synthesis_tool_allows_only_root_scoped_output,
         test_component_promotion_builds_exact_guarded_command,
         test_repair_family_builds_exact_guarded_command,
+        test_campaign_tool_builds_bounded_command_and_timeout,
         test_profile_listing_is_machine_readable_and_truth_bounded,
     ]
     for test in tests:

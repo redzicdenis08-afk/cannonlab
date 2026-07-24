@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "id": "replace-with-campaign-id",
+  "candidates": [
+    {
+      "id": "candidate-a",
+      "path": "cannons/replace-with-candidate.schem",
+      "sha256": "replace-with-exact-64-character-sha256",
+      "priority": 100,
+      "metadata": {
+        "evidence_label": "experimental-untested"
+      }
+    }
+  ],
+  "stages": [
+    {
+      "id": "ec160-static",
+      "type": "static",
+      "required": true,
+      "chunk_limit": 160,
+      "expect_format": "sponge-v2",
+      "timeout_seconds": 180
+    },
+    {
+      "id": "scenario-truth",
+      "type": "scenario-integrity",
+      "required": true,
+      "scenario": "scenarios/replace-with-scenario.yml",
+      "require_field_candidate": false,
+      "require_readiness": false,
+      "timeout_seconds": 180
+    },
+    {
+      "id": "paper-smoke",
+      "type": "runtime",
+      "required": true,
+      "scenario": "scenarios/replace-with-scenario.yml",
+      "expected_shots": 1,
+      "timeout_seconds": 600,
+      "environment": {
+        "CANNONLAB_STRICT_SINGLE_TNT": "false",
+        "CANNONLAB_MIN_TNT_PER_SHOT": "1",
+        "CANNONLAB_MIN_EXPLOSIONS_PER_SHOT": "1"
+      }
+    }
+  ],
+  "policy": {
+    "stop_on_required_failure": true,
+    "max_runtime_candidates": 3,
+    "build_plugin": true,
+    "build_timeout_seconds": 600
+  }
+}

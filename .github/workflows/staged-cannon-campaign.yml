@@ -1,0 +1,128 @@
+name: Staged Cannon Campaign
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/run-cannon-campaign.py'
+      - 'scripts/test-run-cannon-campaign.py'
+      - 'profiles/campaigns/**'
+      - 'docs/STAGED_CANNON_CAMPAIGNS.md'
+      - 'mcp-server/**'
+      - '.github/workflows/staged-cannon-campaign.yml'
+      - '.github/workflows/advanced-cannon-mcp.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  staged-campaign:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile campaign tools
+        run: |
+          python -m py_compile \
+            scripts/run-cannon-campaign.py \
+            scripts/test-run-cannon-campaign.py
+
+      - name: Run fail-closed campaign regressions
+        run: python scripts/test-run-cannon-campaign.py
+
+      - name: Validate campaign template
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          payload = json.loads(
+              Path('profiles/campaigns/staged-campaign-template-v1.json')
+              .read_text(encoding='utf-8')
+          )
+          assert payload['schema_version'] == 1
+          assert payload['policy']['max_runtime_candidates'] >= 1
+          print('Campaign template parsed.')
+          PY
+
+      - name: Prove real plan-mode delivery
+        run: |
+          mkdir -p lab-artifacts/campaign-plan
+          base64 -d cannons/probe-one-dispenser.schem.b64 \
+            > lab-artifacts/campaign-plan/probe.schem
+          sha=$(sha256sum lab-artifacts/campaign-plan/probe.schem | awk '{print $1}')
+          cat > lab-artifacts/campaign-plan/manifest.json <<JSON
+          {
+            "schema_version": 1,
+            "id": "ci-plan",
+            "candidates": [
+              {
+                "id": "probe",
+                "path": "lab-artifacts/campaign-plan/probe.schem",
+                "sha256": "$sha",
+                "priority": 100
+              }
+            ],
+            "stages": [
+              {
+                "id": "static",
+                "type": "static",
+                "required": true,
+                "chunk_limit": 160,
+                "expect_format": "sponge-v2"
+              },
+              {
+                "id": "truth",
+                "type": "scenario-integrity",
+                "required": true,
+                "scenario": "scenarios/probe-redstone-endurance.yml"
+              },
+              {
+                "id": "runtime",
+                "type": "runtime",
+                "required": true,
+                "scenario": "scenarios/probe-redstone-endurance.yml",
+                "expected_shots": 1
+              }
+            ],
+            "policy": {
+              "max_runtime_candidates": 1,
+              "build_plugin": false
+            }
+          }
+          JSON
+          python scripts/run-cannon-campaign.py \
+            lab-artifacts/campaign-plan/manifest.json \
+            --output-directory lab-artifacts/campaign-plan/output \
+            --mode plan \
+            --json-out lab-artifacts/campaign-plan/plan.json \
+            > /dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('lab-artifacts/campaign-plan/plan.json').read_text())
+          assert report['status'] == 'PLAN', report
+          assert report['summary']['delivered_count'] == 1, report
+          candidate = report['candidates'][0]
+          assert candidate['delivery']['delivered_before_testing'] is True
+          assert Path(candidate['delivery']['path']).is_file()
+          assert all(stage['status'] == 'PLANNED' for stage in candidate['stages'])
+          print('Plan mode delivered the exact candidate before all planned gates.')
+          PY
+
+      - name: Upload campaign evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: staged-cannon-campaign
+          path: lab-artifacts/campaign-plan
+          if-no-files-found: error

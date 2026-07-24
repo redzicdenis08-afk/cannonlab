@@ -13,7 +13,7 @@ def register_advanced_tools(
     inside_root: Callable[..., Path],
     run_json: Callable[..., dict[str, Any]],
 ) -> tuple[str, ...]:
-    """Register the research, impulse, synthesis, promotion and repair tools."""
+    """Register research, synthesis, repair and bounded campaign tools."""
 
     @mcp.tool()
     def audit_cannon_ratio(
@@ -88,7 +88,7 @@ def register_advanced_tools(
         compile_best_path: str | None = None,
         output_data_version: int = 3465,
     ) -> dict[str, Any]:
-        """Plan a hash-verified, declared-port cannon assembly and optionally compile its best candidate."""
+        """Plan a hash-verified, declared-port assembly and optionally compile its best candidate."""
         registry = inside_root(registry_path)
         request = inside_root(request_path)
         if output_data_version <= 0:
@@ -175,10 +175,49 @@ def register_advanced_tools(
         )
 
     @mcp.tool()
+    def run_cannon_campaign(
+        manifest_path: str,
+        output_directory_path: str,
+        mode: str = "plan",
+        report_output_path: str | None = None,
+    ) -> dict[str, Any]:
+        """Deliver all exact candidates, reject cheap failures, and runtime-test only bounded survivors."""
+        if mode not in {"plan", "static", "execute"}:
+            raise ValueError("mode must be plan, static, or execute")
+        manifest = inside_root(manifest_path)
+        output_directory = inside_root(output_directory_path, must_exist=False)
+        args = [
+            str(manifest),
+            "--output-directory",
+            str(output_directory),
+            "--repo-root",
+            str(root),
+            "--mode",
+            mode,
+        ]
+        if report_output_path:
+            report_output = inside_root(report_output_path, must_exist=False)
+            args.extend(["--json-out", str(report_output)])
+        return run_json(
+            scripts / "run-cannon-campaign.py",
+            args,
+            allowed_exit_codes=(0, 2),
+            timeout=3700 if mode == "execute" else 300,
+        )
+
+    @mcp.tool()
     def list_advanced_cannon_profiles() -> dict[str, Any]:
-        """List ratio, parity, archetype, synthesis, component and repair profiles."""
+        """List ratio, parity, archetype, synthesis, component, repair and campaign profiles."""
         profile_root = root / "profiles"
-        categories = ("ratios", "parity", "archetypes", "synthesis", "components", "repairs")
+        categories = (
+            "ratios",
+            "parity",
+            "archetypes",
+            "synthesis",
+            "components",
+            "repairs",
+            "campaigns",
+        )
         result: dict[str, list[dict[str, Any]]] = {}
         for category in categories:
             rows: list[dict[str, Any]] = []
@@ -222,5 +261,6 @@ def register_advanced_tools(
         "plan_cannon_synthesis",
         "promote_cannon_component",
         "generate_causal_repair_family",
+        "run_cannon_campaign",
         "list_advanced_cannon_profiles",
     )
