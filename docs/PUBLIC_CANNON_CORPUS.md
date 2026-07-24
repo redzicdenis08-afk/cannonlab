@@ -1,12 +1,12 @@
 # Public cannon corpus intake
 
-CannonLab can now ingest publicly downloadable cannon schematics without confusing public access with permission to re-host, without trusting mutable URLs, and without promoting old numeric block IDs into modern block states.
+CannonLab can ingest publicly downloadable cannon schematics without confusing public access with permission to re-host, without trusting mutable URLs, and without promoting old numeric block IDs into modern block states.
 
 ## Why this exists
 
 Real cannon architecture is scattered across faction server pages, test-server communities, Discord attachments, and personal archives. A useful corpus must preserve exact bytes and provenance before CannonLab compares modules, timings, or claimed roles.
 
-The intake contract therefore separates four things:
+The intake contract separates four things:
 
 1. **Source claim**: what the publisher says the cannon does.
 2. **Static observation**: what the schematic geometry actually contains.
@@ -30,6 +30,31 @@ The official source page credits Leepad, Phonis, and Tino. The page does not sta
 
 The registry intentionally records the target jar as `unknown`. Server branding and attachment labels do not establish physics parity.
 
+## First controlled fetch evidence
+
+A controlled GitHub Actions fetch completed on July 24, 2026. All six files downloaded, matched valid legacy MCEdit/Schematica NBT, produced no tile-entity integrity issues, and were pinned by exact SHA-256 in the source registry.
+
+The compact, non-redistributable evidence summary is stored at:
+
+```text
+evidence/public-corpus/cosmicreborn-static-v1.json
+```
+
+The raw third-party schematic files were deleted before the workflow artifact was uploaded.
+
+All six designs fail the current field-reported EC160 limit at every one of the 256 X/Z offsets:
+
+| Source | Dispensers | Best per chunk | Legal offsets |
+|---|---:|---:|---:|
+| Formal | 1,234 | 240 | 0 |
+| Pred | 1,207 | 243 | 0 |
+| Mboze | 564 | 188 | 0 |
+| Shakisha | 871 | 206 | 0 |
+| Raid Outpost QP | 514 | 174 | 0 |
+| L Stacker | 685 | 201 | 0 |
+
+These files are therefore architecture corpus members, not unchanged ExtremeCraft paste candidates. Their useful value is in recurring timing spines, dispenser-bank layouts, attachment geometry, adjustment systems, guider structure, and family comparison.
+
 ## Plan the intake
 
 ```bash
@@ -49,23 +74,24 @@ Plan mode validates:
 - creator attribution
 - claimed-capability metadata
 - fetch-only repository policy
-- optional exact SHA-256 pins
+- exact SHA-256 pins
 
 It performs no network request.
 
-## First controlled fetch
+## Repeat a controlled fetch
 
-The public files are currently unpinned. The first operator-reviewed fetch must explicitly accept the observed hashes and write a lock:
+The current source bytes are pinned in the registry. A repeat fetch verifies every upstream file against those pins:
 
 ```bash
 python scripts/fetch-public-cannon-corpus.py \
   profiles/corpus/public-cannon-sources-v1.json \
-  --output-directory lab-artifacts/public-corpus \
+  --output-directory lab-artifacts/public-corpus-repeat \
   --mode fetch \
-  --accept-new-hashes \
-  --write-lock lab-artifacts/public-cannon-lock-v1.json \
-  --json-out lab-artifacts/public-cannon-fetch.json
+  --write-lock lab-artifacts/public-cannon-lock-v1-repeat.json \
+  --json-out lab-artifacts/public-cannon-fetch-repeat.json
 ```
+
+A changed upstream file fails instead of silently replacing the corpus member. The controlled network job is manual so a temporary third-party outage cannot block unrelated CannonLab pull requests.
 
 The downloader:
 
@@ -73,24 +99,11 @@ The downloader:
 - rejects HTTP
 - rejects redirects outside the allowlist
 - rejects empty files
-- rejects HTML error/login pages disguised as downloads
+- rejects HTML error or login pages disguised as downloads
 - refuses to overwrite different cached bytes
 - computes SHA-256 while streaming
 - records the final URL, byte count, authors, source page, and redistribution policy
 - dispatches the file to the matching static auditor
-
-After human review, keep the generated lock in a trusted evidence location. Future fetches should omit `--accept-new-hashes` and pass the lock:
-
-```bash
-python scripts/fetch-public-cannon-corpus.py \
-  profiles/corpus/public-cannon-sources-v1.json \
-  --output-directory lab-artifacts/public-corpus-repeat \
-  --mode fetch \
-  --lock-file lab-artifacts/public-cannon-lock-v1.json \
-  --write-lock lab-artifacts/public-cannon-lock-v1-repeat.json
-```
-
-A changed upstream file then fails instead of silently replacing the corpus member.
 
 ## Legacy `.schematic` audit
 
@@ -127,7 +140,7 @@ A public corpus member should move through these evidence stages:
 5. exact module map and family comparison
 6. bounded local activation test
 7. source-accounted causal trace
-8. staged Paper/public-Sakura campaign
+8. staged Paper or public-Sakura campaign
 9. live canary only after local evidence is coherent
 
 No stage automatically grants the next one.
@@ -140,7 +153,7 @@ OneShot Cannoning remains a useful place to locate creators, test-server jars, a
 - whether analysis and storage are permitted
 - original attachment name
 - exact SHA-256
-- claimed jar/version
+- claimed jar or version
 - claimed capabilities
 - source message or page
 - whether redistribution is allowed
