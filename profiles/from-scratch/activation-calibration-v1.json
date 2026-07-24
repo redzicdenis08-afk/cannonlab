@@ -1,0 +1,24 @@
+{
+  "schema_version": 1,
+  "id": "activation-calibration-v1",
+  "mode": "from-scratch",
+  "data_version": 3465,
+  "chunk_limit": 160,
+  "shots_per_candidate": 10,
+  "controls": [
+    "direct",
+    "dust"
+  ],
+  "repeater": {
+    "facings": [
+      "east",
+      "west"
+    ],
+    "delays": [
+      1,
+      2,
+      3,
+      4
+    ]
+  }
+}
