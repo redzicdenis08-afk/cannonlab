@@ -18,8 +18,11 @@ class LegacySchematicError(ValueError):
 
 
 MAX_DECOMPRESSED_BYTES = 256 * 1024 * 1024
-MAX_COLLECTION_LENGTH = 100_000_000
-MAX_STRING_BYTES = 1_000_000
+MAX_BYTE_ARRAY_LENGTH = MAX_DECOMPRESSED_BYTES
+MAX_LIST_ITEMS = 1_000_000
+MAX_INT_ARRAY_ITEMS = 4_000_000
+MAX_LONG_ARRAY_ITEMS = 2_000_000
+MAX_COMPOUND_ENTRIES = 1_000_000
 MAX_DEPTH = 64
 
 LEGACY_COMPONENT_IDS = {
@@ -44,11 +47,30 @@ LEGACY_COMPONENT_IDS = {
     218: "observer",
 }
 
+MIN_PAYLOAD_BYTES = {
+    1: 1,
+    2: 2,
+    3: 4,
+    4: 8,
+    5: 4,
+    6: 8,
+    7: 4,
+    8: 2,
+    9: 5,
+    10: 1,
+    11: 4,
+    12: 4,
+}
+
 
 @dataclass
 class NbtReader:
     data: bytes
     offset: int = 0
+
+    @property
+    def remaining(self) -> int:
+        return len(self.data) - self.offset
 
     def _take(self, size: int) -> bytes:
         if size < 0 or self.offset + size > len(self.data):
@@ -56,6 +78,12 @@ class NbtReader:
         value = self.data[self.offset : self.offset + size]
         self.offset += size
         return value
+
+    def _require_possible_items(self, length: int, minimum_bytes: int, label: str) -> None:
+        if minimum_bytes > 0 and length > self.remaining // minimum_bytes:
+            raise LegacySchematicError(
+                f"{label} length {length} cannot fit in remaining NBT payload"
+            )
 
     def u8(self) -> int:
         return self._take(1)[0]
@@ -83,14 +111,12 @@ class NbtReader:
 
     def string(self) -> str:
         length = self.u16()
-        if length > MAX_STRING_BYTES:
-            raise LegacySchematicError(f"NBT string exceeds {MAX_STRING_BYTES} bytes")
         return self._take(length).decode("utf-8", errors="strict")
 
-    def collection_length(self) -> int:
+    def collection_length(self, *, maximum: int, label: str) -> int:
         length = self.i32()
-        if length < 0 or length > MAX_COLLECTION_LENGTH:
-            raise LegacySchematicError(f"invalid NBT collection length: {length}")
+        if length < 0 or length > maximum:
+            raise LegacySchematicError(f"invalid {label} length: {length}")
         return length
 
     def payload(self, tag_type: int, depth: int = 0) -> Any:
@@ -111,26 +137,55 @@ class NbtReader:
         if tag_type == 6:
             return self.f64()
         if tag_type == 7:
-            return self._take(self.collection_length())
+            length = self.collection_length(
+                maximum=MAX_BYTE_ARRAY_LENGTH, label="NBT byte-array"
+            )
+            self._require_possible_items(length, 1, "NBT byte-array")
+            return self._take(length)
         if tag_type == 8:
             return self.string()
         if tag_type == 9:
             child_type = self.u8()
-            return [self.payload(child_type, depth + 1) for _ in range(self.collection_length())]
+            length = self.collection_length(maximum=MAX_LIST_ITEMS, label="NBT list")
+            if child_type == 0:
+                if length != 0:
+                    raise LegacySchematicError(
+                        "TAG_End list type is valid only for an empty list"
+                    )
+                return []
+            minimum = MIN_PAYLOAD_BYTES.get(child_type)
+            if minimum is None:
+                raise LegacySchematicError(f"unsupported NBT list child type: {child_type}")
+            self._require_possible_items(length, minimum, "NBT list")
+            return [self.payload(child_type, depth + 1) for _ in range(length)]
         if tag_type == 10:
             result: dict[str, Any] = {}
+            entries = 0
             while True:
                 child_type = self.u8()
                 if child_type == 0:
                     return result
+                entries += 1
+                if entries > MAX_COMPOUND_ENTRIES:
+                    raise LegacySchematicError(
+                        f"NBT compound exceeds {MAX_COMPOUND_ENTRIES} entries"
+                    )
                 name = self.string()
                 if name in result:
                     raise LegacySchematicError(f"duplicate NBT compound key: {name}")
                 result[name] = self.payload(child_type, depth + 1)
         if tag_type == 11:
-            return [self.i32() for _ in range(self.collection_length())]
+            length = self.collection_length(
+                maximum=MAX_INT_ARRAY_ITEMS, label="NBT int-array"
+            )
+            self._require_possible_items(length, 4, "NBT int-array")
+            return [self.i32() for _ in range(length)]
         if tag_type == 12:
-            return [self.i64() for _ in range(self.collection_length())]
+            length = self.collection_length(
+                maximum=MAX_LONG_ARRAY_ITEMS, label="NBT long-array"
+            )
+            self._require_possible_items(length, 8, "NBT long-array")
+            return [self.i64() for _ in range(length)]
         raise LegacySchematicError(f"unsupported NBT tag type: {tag_type}")
 
 
@@ -220,6 +275,22 @@ def scan_chunk_offsets(
     }
 
 
+def block_id_at(
+    blocks: bytes,
+    add_blocks: bytes | None,
+    width: int,
+    height: int,
+    length: int,
+    x: int,
+    y: int,
+    z: int,
+) -> int | None:
+    if not (0 <= x < width and 0 <= y < height and 0 <= z < length):
+        return None
+    index = x + z * width + y * width * length
+    return full_block_id(blocks, add_blocks, index)
+
+
 def audit_legacy_schematic(path: Path, chunk_limit: int = 160) -> dict[str, Any]:
     root_name, root, decompressed_bytes = parse_root(path)
     width = require_int(root, "Width")
@@ -228,7 +299,7 @@ def audit_legacy_schematic(path: Path, chunk_limit: int = 160) -> dict[str, Any]
     if min(width, height, length) <= 0:
         raise LegacySchematicError("Width, Height, and Length must be positive")
     volume = width * height * length
-    if volume > MAX_COLLECTION_LENGTH:
+    if volume > MAX_BYTE_ARRAY_LENGTH:
         raise LegacySchematicError(f"schematic volume exceeds safety limit: {volume}")
 
     blocks = require_bytes(root, "Blocks")
@@ -237,10 +308,15 @@ def audit_legacy_schematic(path: Path, chunk_limit: int = 160) -> dict[str, Any]
         raise LegacySchematicError(f"Blocks length {len(blocks)} does not match volume {volume}")
     if len(data) != volume:
         raise LegacySchematicError(f"Data length {len(data)} does not match volume {volume}")
+
     add_blocks_value = root.get("AddBlocks")
     add_blocks = add_blocks_value if isinstance(add_blocks_value, bytes) else None
-    if add_blocks is not None and len(add_blocks) < (volume + 1) // 2:
-        raise LegacySchematicError("AddBlocks is shorter than required for the schematic volume")
+    if add_blocks is not None:
+        expected_add_length = (volume + 1) // 2
+        if len(add_blocks) != expected_add_length:
+            raise LegacySchematicError(
+                f"AddBlocks length {len(add_blocks)} does not match expected {expected_add_length}"
+            )
 
     counts: Counter[int] = Counter()
     dispenser_coordinates: list[tuple[int, int, int]] = []
@@ -256,22 +332,36 @@ def audit_legacy_schematic(path: Path, chunk_limit: int = 160) -> dict[str, Any]
     tile_entities = root.get("TileEntities", [])
     if not isinstance(tile_entities, list):
         raise LegacySchematicError("TileEntities must be an NBT list")
+
     tile_entity_issues: list[dict[str, Any]] = []
     tile_entity_positions: Counter[tuple[int, int, int]] = Counter()
+    tile_entity_id_counts: Counter[str] = Counter()
+    tile_entity_block_id_counts: Counter[int] = Counter()
     for index, entity in enumerate(tile_entities):
         if not isinstance(entity, dict):
             tile_entity_issues.append({"index": index, "issue": "not_compound"})
             continue
+        entity_id = entity.get("id")
+        if isinstance(entity_id, str):
+            tile_entity_id_counts[entity_id] += 1
         coords = (entity.get("x"), entity.get("y"), entity.get("z"))
         if not all(isinstance(value, int) for value in coords):
             tile_entity_issues.append({"index": index, "issue": "missing_integer_coordinates"})
             continue
         x, y, z = (int(value) for value in coords)
         tile_entity_positions[(x, y, z)] += 1
-        if not (0 <= x < width and 0 <= y < height and 0 <= z < length):
+        block_id = block_id_at(blocks, add_blocks, width, height, length, x, y, z)
+        if block_id is None:
             tile_entity_issues.append(
                 {"index": index, "issue": "out_of_bounds", "position": [x, y, z]}
             )
+            continue
+        tile_entity_block_id_counts[block_id] += 1
+        if block_id == 0:
+            tile_entity_issues.append(
+                {"index": index, "issue": "tile_entity_on_air", "position": [x, y, z]}
+            )
+
     for position, count in tile_entity_positions.items():
         if count > 1:
             tile_entity_issues.append(
@@ -287,9 +377,11 @@ def audit_legacy_schematic(path: Path, chunk_limit: int = 160) -> dict[str, Any]
     sha256 = hashlib.sha256(path.read_bytes()).hexdigest()
     alignment = scan_chunk_offsets(dispenser_coordinates, chunk_limit)
     materials = root.get("Materials")
+    integrity_pass = not tile_entity_issues
+    status = "PASS" if alignment["status"] == "PASS" and integrity_pass else "STATIC_FAIL"
     return {
-        "schema_version": 1,
-        "status": "PASS" if alignment["status"] == "PASS" else "STATIC_FAIL",
+        "schema_version": 2,
+        "status": status,
         "classification": "LEGACY_STATIC_AUDIT_ONLY",
         "path": str(path),
         "sha256": sha256,
@@ -304,8 +396,21 @@ def audit_legacy_schematic(path: Path, chunk_limit: int = 160) -> dict[str, Any]
         "component_counts": named_counts,
         "dispenser_count": len(dispenser_coordinates),
         "tile_entity_count": len(tile_entities),
+        "tile_entity_id_counts": dict(sorted(tile_entity_id_counts.items())),
+        "tile_entity_block_id_counts": {
+            str(block_id): count for block_id, count in sorted(tile_entity_block_id_counts.items())
+        },
         "tile_entity_issues": tile_entity_issues,
+        "integrity_status": "PASS" if integrity_pass else "FAIL",
         "ec_chunk_alignment": alignment,
+        "parser_limits": {
+            "max_decompressed_bytes": MAX_DECOMPRESSED_BYTES,
+            "max_list_items": MAX_LIST_ITEMS,
+            "max_int_array_items": MAX_INT_ARRAY_ITEMS,
+            "max_long_array_items": MAX_LONG_ARRAY_ITEMS,
+            "max_compound_entries": MAX_COMPOUND_ENTRIES,
+            "max_depth": MAX_DEPTH,
+        },
         "truth_boundary": {
             "legacy_numeric_ids_are_not_modern_block_states": True,
             "static_geometry_proves_runtime_function": False,
@@ -340,7 +445,7 @@ def main() -> int:
         report = audit_legacy_schematic(args.schematic, args.chunk_limit)
     except (OSError, UnicodeDecodeError, struct.error, LegacySchematicError) as exc:
         report = {
-            "schema_version": 1,
+            "schema_version": 2,
             "status": "ERROR",
             "error": str(exc),
             "truth_boundary": {

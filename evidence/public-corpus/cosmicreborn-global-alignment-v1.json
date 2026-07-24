@@ -1,0 +1,433 @@
+{
+  "captured_on": "2026-07-24",
+  "evidence_id": "cosmicreborn-global-alignment-v1",
+  "formal_pred_correction": {
+    "confidence": "static-medium",
+    "degrees": 270,
+    "exact_kind_overlap_count": 2731,
+    "formal_exact_coverage": 0.710643,
+    "interpretation": "Formal and Pred share a large globally aligned static structure, but the local 0.911054 motif score must not be described as whole-cannon equivalence or a simple rotated copy.",
+    "pred_exact_coverage": 0.740711,
+    "prior_local_y_rotation_motif_jaccard": 0.911054,
+    "single_global_transform_exact_kind_jaccard": 0.569077,
+    "translation": [
+      -649,
+      0,
+      357
+    ]
+  },
+  "schema_version": 1,
+  "single_global_transform_comparison": {
+    "classification": "LEGACY_STATIC_SINGLE_GLOBAL_TRANSFORM_ONLY",
+    "comparison_model": "one global rigid transform selected from four Y-axis quarter-turns and bounded translation votes; functional token kinds only; no reflection, scaling, or local warping",
+    "pair_count": 15,
+    "pairwise_alignment": [
+      {
+        "confidence": "static-medium",
+        "degrees": 270,
+        "equivalent_best_count": 1,
+        "exact_kind_jaccard": 0.569077,
+        "exact_kind_overlap_count": 2731,
+        "first": "cosmicreborn-formal",
+        "first_exact_coverage": 0.710643,
+        "kind_conflict_count": 67,
+        "kind_conflict_ratio_at_overlap": 0.023946,
+        "largest_connected_exact_overlap": 302,
+        "largest_connected_exact_overlap_ratio": 0.110582,
+        "second": "cosmicreborn-pred",
+        "second_exact_coverage": 0.740711,
+        "translation": [
+          -649,
+          0,
+          357
+        ],
+        "uniqueness_gap": 0.093764
+      },
+      {
+        "confidence": "static-low",
+        "degrees": 0,
+        "equivalent_best_count": 1,
+        "exact_kind_jaccard": 0.161199,
+        "exact_kind_overlap_count": 570,
+        "first": "cosmicreborn-mboze",
+        "first_exact_coverage": 0.31457,
+        "kind_conflict_count": 11,
+        "kind_conflict_ratio_at_overlap": 0.018933,
+        "largest_connected_exact_overlap": 280,
+        "largest_connected_exact_overlap_ratio": 0.491228,
+        "second": "cosmicreborn-shakisha",
+        "second_exact_coverage": 0.248474,
+        "translation": [
+          7,
+          200,
+          -942
+        ],
+        "uniqueness_gap": 0.000328
+      },
+      {
+        "confidence": "static-low",
+        "degrees": 180,
+        "equivalent_best_count": 1,
+        "exact_kind_jaccard": 0.153518,
+        "exact_kind_overlap_count": 755,
+        "first": "cosmicreborn-pred",
+        "first_exact_coverage": 0.204774,
+        "kind_conflict_count": 5,
+        "kind_conflict_ratio_at_overlap": 0.006579,
+        "largest_connected_exact_overlap": 241,
+        "largest_connected_exact_overlap_ratio": 0.319205,
+        "second": "cosmicreborn-l-stacker",
+        "second_exact_coverage": 0.380161,
+        "translation": [
+          369,
+          13,
+          680
+        ],
+        "uniqueness_gap": 0.000235
+      },
+      {
+        "confidence": "static-low",
+        "degrees": 180,
+        "equivalent_best_count": 1,
+        "exact_kind_jaccard": 0.151258,
+        "exact_kind_overlap_count": 499,
+        "first": "cosmicreborn-mboze",
+        "first_exact_coverage": 0.275386,
+        "kind_conflict_count": 10,
+        "kind_conflict_ratio_at_overlap": 0.019646,
+        "largest_connected_exact_overlap": 220,
+        "largest_connected_exact_overlap_ratio": 0.440882,
+        "second": "cosmicreborn-l-stacker",
+        "second_exact_coverage": 0.251259,
+        "translation": [
+          57,
+          200,
+          34
+        ],
+        "uniqueness_gap": 0.000349
+      },
+      {
+        "confidence": "static-weak",
+        "degrees": 90,
+        "equivalent_best_count": 1,
+        "exact_kind_jaccard": 0.148571,
+        "exact_kind_overlap_count": 754,
+        "first": "cosmicreborn-formal",
+        "first_exact_coverage": 0.196201,
+        "kind_conflict_count": 6,
+        "kind_conflict_ratio_at_overlap": 0.007895,
+        "largest_connected_exact_overlap": 236,
+        "largest_connected_exact_overlap_ratio": 0.312997,
+        "second": "cosmicreborn-l-stacker",
+        "second_exact_coverage": 0.379658,
+        "translation": [
+          32,
+          13,
+          -12
+        ],
+        "uniqueness_gap": 0.000226
+      },
+      {
+        "confidence": "static-weak",
+        "degrees": 0,
+        "equivalent_best_count": 1,
+        "exact_kind_jaccard": 0.141108,
+        "exact_kind_overlap_count": 680,
+        "first": "cosmicreborn-pred",
+        "first_exact_coverage": 0.184432,
+        "kind_conflict_count": 6,
+        "kind_conflict_ratio_at_overlap": 0.008746,
+        "largest_connected_exact_overlap": 300,
+        "largest_connected_exact_overlap_ratio": 0.441176,
+        "second": "cosmicreborn-mboze",
+        "second_exact_coverage": 0.375276,
+        "translation": [
+          312,
+          -194,
+          676
+        ],
+        "uniqueness_gap": 0.004716
+      },
+      {
+        "confidence": "static-weak",
+        "degrees": 180,
+        "equivalent_best_count": 1,
+        "exact_kind_jaccard": 0.141029,
+        "exact_kind_overlap_count": 529,
+        "first": "cosmicreborn-shakisha",
+        "first_exact_coverage": 0.230602,
+        "kind_conflict_count": 10,
+        "kind_conflict_ratio_at_overlap": 0.018553,
+        "largest_connected_exact_overlap": 251,
+        "largest_connected_exact_overlap_ratio": 0.47448,
+        "second": "cosmicreborn-l-stacker",
+        "second_exact_coverage": 0.266365,
+        "translation": [
+          50,
+          -2,
+          976
+        ],
+        "uniqueness_gap": 0.000304
+      },
+      {
+        "confidence": "static-weak",
+        "degrees": 270,
+        "equivalent_best_count": 1,
+        "exact_kind_jaccard": 0.136683,
+        "exact_kind_overlap_count": 680,
+        "first": "cosmicreborn-formal",
+        "first_exact_coverage": 0.176945,
+        "kind_conflict_count": 6,
+        "kind_conflict_ratio_at_overlap": 0.008746,
+        "largest_connected_exact_overlap": 300,
+        "largest_connected_exact_overlap_ratio": 0.441176,
+        "second": "cosmicreborn-mboze",
+        "second_exact_coverage": 0.375276,
+        "translation": [
+          27,
+          -194,
+          45
+        ],
+        "uniqueness_gap": 0.004777
+      },
+      {
+        "confidence": "static-weak",
+        "degrees": 270,
+        "equivalent_best_count": 1,
+        "exact_kind_jaccard": 0.125642,
+        "exact_kind_overlap_count": 685,
+        "first": "cosmicreborn-formal",
+        "first_exact_coverage": 0.178246,
+        "kind_conflict_count": 8,
+        "kind_conflict_ratio_at_overlap": 0.011544,
+        "largest_connected_exact_overlap": 316,
+        "largest_connected_exact_overlap_ratio": 0.461314,
+        "second": "cosmicreborn-shakisha",
+        "second_exact_coverage": 0.298605,
+        "translation": [
+          -945,
+          8,
+          38
+        ],
+        "uniqueness_gap": 0.001855
+      },
+      {
+        "confidence": "static-weak",
+        "degrees": 180,
+        "equivalent_best_count": 1,
+        "exact_kind_jaccard": 0.122771,
+        "exact_kind_overlap_count": 654,
+        "first": "cosmicreborn-pred",
+        "first_exact_coverage": 0.17738,
+        "kind_conflict_count": 39,
+        "kind_conflict_ratio_at_overlap": 0.056277,
+        "largest_connected_exact_overlap": 316,
+        "largest_connected_exact_overlap_ratio": 0.48318,
+        "second": "cosmicreborn-shakisha",
+        "second_exact_coverage": 0.285092,
+        "translation": [
+          367,
+          9,
+          1618
+        ],
+        "uniqueness_gap": 0.000211
+      },
+      {
+        "confidence": "static-weak",
+        "degrees": 180,
+        "equivalent_best_count": 1,
+        "exact_kind_jaccard": 0.098053,
+        "exact_kind_overlap_count": 282,
+        "first": "cosmicreborn-mboze",
+        "first_exact_coverage": 0.155629,
+        "kind_conflict_count": 7,
+        "kind_conflict_ratio_at_overlap": 0.024221,
+        "largest_connected_exact_overlap": 60,
+        "largest_connected_exact_overlap_ratio": 0.212766,
+        "second": "cosmicreborn-raid-outpost-qp",
+        "second_exact_coverage": 0.20951,
+        "translation": [
+          43,
+          -24,
+          25
+        ],
+        "uniqueness_gap": 0.017286
+      },
+      {
+        "confidence": "static-weak",
+        "degrees": 0,
+        "equivalent_best_count": 1,
+        "exact_kind_jaccard": 0.081467,
+        "exact_kind_overlap_count": 251,
+        "first": "cosmicreborn-raid-outpost-qp",
+        "first_exact_coverage": 0.186478,
+        "kind_conflict_count": 9,
+        "kind_conflict_ratio_at_overlap": 0.034615,
+        "largest_connected_exact_overlap": 76,
+        "largest_connected_exact_overlap_ratio": 0.302789,
+        "second": "cosmicreborn-l-stacker",
+        "second_exact_coverage": 0.126385,
+        "translation": [
+          -14,
+          209,
+          -6
+        ],
+        "uniqueness_gap": 0.045397
+      },
+      {
+        "confidence": "static-weak",
+        "degrees": 180,
+        "equivalent_best_count": 1,
+        "exact_kind_jaccard": 0.053149,
+        "exact_kind_overlap_count": 254,
+        "first": "cosmicreborn-pred",
+        "first_exact_coverage": 0.068891,
+        "kind_conflict_count": 1,
+        "kind_conflict_ratio_at_overlap": 0.003922,
+        "largest_connected_exact_overlap": 36,
+        "largest_connected_exact_overlap_ratio": 0.141732,
+        "second": "cosmicreborn-raid-outpost-qp",
+        "second_exact_coverage": 0.188707,
+        "translation": [
+          355,
+          -203,
+          701
+        ],
+        "uniqueness_gap": 0.001979
+      },
+      {
+        "confidence": "static-weak",
+        "degrees": 90,
+        "equivalent_best_count": 1,
+        "exact_kind_jaccard": 0.052963,
+        "exact_kind_overlap_count": 261,
+        "first": "cosmicreborn-formal",
+        "first_exact_coverage": 0.067916,
+        "kind_conflict_count": 0,
+        "kind_conflict_ratio_at_overlap": 0.0,
+        "largest_connected_exact_overlap": 36,
+        "largest_connected_exact_overlap_ratio": 0.137931,
+        "second": "cosmicreborn-raid-outpost-qp",
+        "second_exact_coverage": 0.193908,
+        "translation": [
+          52,
+          -203,
+          2
+        ],
+        "uniqueness_gap": 0.001068
+      },
+      {
+        "confidence": "static-weak",
+        "degrees": 0,
+        "equivalent_best_count": 1,
+        "exact_kind_jaccard": 0.031161,
+        "exact_kind_overlap_count": 110,
+        "first": "cosmicreborn-shakisha",
+        "first_exact_coverage": 0.047951,
+        "kind_conflict_count": 5,
+        "kind_conflict_ratio_at_overlap": 0.043478,
+        "largest_connected_exact_overlap": 14,
+        "largest_connected_exact_overlap_ratio": 0.127273,
+        "second": "cosmicreborn-raid-outpost-qp",
+        "second_exact_coverage": 0.081724,
+        "translation": [
+          10,
+          -206,
+          962
+        ],
+        "uniqueness_gap": 0.001749
+      }
+    ],
+    "source_count": 6
+  },
+  "source_registry": "profiles/corpus/public-cannon-sources-v1.json",
+  "sources": [
+    {
+      "dimensions": {
+        "height": 72,
+        "length": 18,
+        "width": 52
+      },
+      "functional_component_count": 3843,
+      "id": "cosmicreborn-formal",
+      "sha256": "510abf89ca04e7219aa3fd3f002b28c31b9462c37b9eac82843019391df5c8ae"
+    },
+    {
+      "dimensions": {
+        "height": 137,
+        "length": 701,
+        "width": 358
+      },
+      "functional_component_count": 3687,
+      "id": "cosmicreborn-pred",
+      "sha256": "9e13c77fbab9c1037d314bb6d96cf363244f257f17ef5e161137d34366324763"
+    },
+    {
+      "dimensions": {
+        "height": 255,
+        "length": 145,
+        "width": 44
+      },
+      "functional_component_count": 1812,
+      "id": "cosmicreborn-mboze",
+      "sha256": "c4ea5cfceb034db39f1f985a06e59b615b322ee4b3a3e82e2045b3d458257f72"
+    },
+    {
+      "dimensions": {
+        "height": 23,
+        "length": 988,
+        "width": 33
+      },
+      "functional_component_count": 2294,
+      "id": "cosmicreborn-shakisha",
+      "sha256": "fb164b8fbfbd2b9299f1a9bdaf6e03060af04d75bc91e8d71205e7c6e0c26e09"
+    },
+    {
+      "dimensions": {
+        "height": 255,
+        "length": 435,
+        "width": 26
+      },
+      "functional_component_count": 1346,
+      "id": "cosmicreborn-raid-outpost-qp",
+      "sha256": "301b759ab764e81d678ad6ffcae488ffb25fe6e48d61906767da350ec43a8d4a"
+    },
+    {
+      "dimensions": {
+        "height": 39,
+        "length": 595,
+        "width": 37
+      },
+      "functional_component_count": 1986,
+      "id": "cosmicreborn-l-stacker",
+      "sha256": "d34f37e879031a75693f528986633bb43d48f6f989c63ca6df1b8c0b71a538b5"
+    }
+  ],
+  "strict_fetch": {
+    "audit_completed_count": 6,
+    "pinned_verified_count": 6,
+    "source_count": 6,
+    "status": "PASS",
+    "strict_validation_status": "PASS"
+  },
+  "truth_boundary": {
+    "directional_metadata_preserved": false,
+    "ec_ready": false,
+    "local_motif_similarity_proves_one_global_transform": false,
+    "private_extremecraft_parity_confirmed": false,
+    "reflection_matching_performed": false,
+    "runtime_evidence_present": false,
+    "scaling_or_local_warping_performed": false,
+    "single_global_rigid_transform_tested": true,
+    "static_alignment_proves_shared_runtime_semantics": false
+  },
+  "workflow": {
+    "audit_artifact_digest": "sha256:38776489809e0ac8a169c57d564c02751a045a6a1ecdbd9c786f146a80418fcb",
+    "audit_artifact_id": 8604855800,
+    "contract_job": "success",
+    "controlled_fetch_job": "success",
+    "head_sha": "260223973dedda0fd7056f66b9c5eec85753ce3f",
+    "name": "Public Cannon Corpus",
+    "run_id": 30114438511
+  }
+}
