@@ -1,0 +1,63 @@
+name: Causal Repair Generation
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/generate-causal-repair-family.py'
+      - 'scripts/test-generate-causal-repair-family.py'
+      - 'profiles/repairs/**'
+      - 'docs/CAUSAL_REPAIR_GENERATION.md'
+      - '.github/workflows/causal-repair-generation.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  causal-repair-generation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile repair generator
+        run: |
+          python -m py_compile \
+            scripts/generate-causal-repair-family.py \
+            scripts/test-generate-causal-repair-family.py
+
+      - name: Run fail-closed repair regressions
+        run: python scripts/test-generate-causal-repair-family.py
+
+      - name: Validate repair policy template
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          payload = json.loads(Path('profiles/repairs/causal-repair-policy-template-v1.json').read_text(encoding='utf-8'))
+          assert payload['schema_version'] == 1
+          print('Repair policy template parsed.')
+          PY
+
+      - name: Capture help
+        run: |
+          mkdir -p lab-artifacts/causal-repair-generation
+          python scripts/generate-causal-repair-family.py --help \
+            > lab-artifacts/causal-repair-generation/help.txt
+
+      - name: Upload evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: causal-repair-generation
+          path: lab-artifacts/causal-repair-generation
+          if-no-files-found: error
