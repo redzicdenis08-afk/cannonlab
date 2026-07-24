@@ -13,7 +13,7 @@ python -m venv .venv
 
 On Windows, use `.venv\Scripts\python.exe`.
 
-The server uses stdio by default and never connects to ExtremeCraft. Paths are jailed to the CannonLab repository.
+The server uses stdio by default and never connects to ExtremeCraft. Schematic and source paths are jailed to the CannonLab repository. Runtime-evidence tools may additionally read generated CannonLab artifacts under the workspace `output/` directory.
 
 ## Fast path
 
@@ -30,6 +30,8 @@ Use one of these before spending time on runtime tests:
 - `compare_cannon_cores`: recover exact translated partial functional cores even when bank-centric module boundaries differ, while rejecting generic dispenser-panel overlap
 - `analyze_module_trace`: join a real schematic to `causal-events.csv`, recover observed module phases, correlate spawned entities, and capture spawn velocity, fuse, and explosion positions for unambiguous UUIDs
 - `compare_module_traces`: enforce translation-normalized runtime contract v3 for exclusive modules plus fully accounted shared-component and joint entity-source cohorts
+- `compare_entity_trajectories`: translation-normalize one TNT entity and pinpoint the first changed position, velocity, fuse, or landing tick with nearby explosion context
+- `analyze_breach_evidence`: fail closed unless runtime evidence meets configured falling-payload overlap, unembedded-water, and pre-regen contiguous-layer gates
 - `analyze_repair_family`: screen every repair by run metrics, spend exact geometry on the strongest metric candidates, then spend full causal replay only on the strongest bounded candidates; candidates skipped by either evidence budget remain non-promotable
 - `extend_repair_family_runtime`: add causal replay to a requested runtime-rank window from an existing tournament without paying the metric and geometry cost again
 
@@ -47,6 +49,8 @@ For modern raid work, pass the strongest real reference cannons available and us
 - `compare_cannon_cores`: translation-voted partial-core overlap with connectedness, mechanism-diversity, and generic-bank rejection gates
 - `analyze_module_trace`: exact component-to-module runtime mapping, shared-component ambiguity, and bounded entity-source physics correlations
 - `compare_module_traces`: exact-geometry replay contracts with source accounting, shared-component timing, joint source dispensers, velocity, fuse, impact, and allowed-change controls
+- `compare_entity_trajectories`: per-tick TNT trajectory and landing comparison with exact first-divergence evidence
+- `analyze_breach_evidence`: measured falling-payload overlap, water-contact failure counts, and contiguous target-layer progress before the first actual regeneration restore
 - `analyze_repair_family`: transparent repair scoring, Pareto-front ranking, promotion blockers, and deterministic collateral-drift summaries
 - `profile_cannon`: structural morphology and real-reference comparison without inventing subsystem roles
 - `prepare_reference_cannon`: deterministic Sponge v2 conversion plus output audit and geometry profile

@@ -83,6 +83,10 @@ def main() -> None:
     parser.add_argument("--min-target-peak-destroyed", type=int)
     parser.add_argument("--min-target-peak-mean", type=float)
     parser.add_argument("--min-layer-breached", type=int)
+    parser.add_argument("--min-embedded-payload-explosions", type=int)
+    parser.add_argument("--max-unembedded-water-explosions", type=int)
+    parser.add_argument("--min-contiguous-layers-before-first-regen", type=int)
+    parser.add_argument("--require-all-layers-before-first-regen", action="store_true")
     parser.add_argument("--max-self-damage-blocks", type=int)
     parser.add_argument("--require-regen", action="store_true")
     parser.add_argument("--min-regen-restored", type=int, default=1)
@@ -105,6 +109,14 @@ def main() -> None:
         fail("--min-target-peak-mean cannot be negative")
     if args.max_self_damage_blocks is not None and args.max_self_damage_blocks < 0:
         fail("--max-self-damage-blocks cannot be negative")
+    for name in (
+        "min_embedded_payload_explosions",
+        "max_unembedded_water_explosions",
+        "min_contiguous_layers_before_first_regen",
+    ):
+        value = getattr(args, name)
+        if value is not None and value < 0:
+            fail(f"--{name.replace('_', '-')} cannot be negative")
 
     summaries = sorted(
         args.results_root.rglob("run-summary.json"),
@@ -132,6 +144,10 @@ def main() -> None:
     peak_destroyed_values: list[float] = []
     regen_restored_values: list[float] = []
     layer_breached_values: list[float] = []
+    embedded_explosion_values: list[float] = []
+    unembedded_water_values: list[float] = []
+    layers_before_regen_values: list[float] = []
+    regen_race_margin_values: list[float] = []
     self_damage_values: list[float] = []
 
     if args.require_regen and not bool((summary.get("regeneration") or {}).get("enabled")):
@@ -161,6 +177,15 @@ def main() -> None:
         peak_destroyed = int(shot.get("target_peak_destroyed", 0))
         regen_restored = int(shot.get("regen_blocks_restored", 0))
         max_layer = int(shot.get("max_layer_breached", 0))
+        embedded_explosions = int(shot.get("embedded_payload_explosions", 0))
+        unembedded_water = int(shot.get("unembedded_water_explosions", 0))
+        contiguous_layers_before_regen = int(
+            shot.get("contiguous_layers_breached_before_first_regen", 0)
+        )
+        all_layers_before_regen = bool(
+            shot.get("all_layers_breached_before_first_regen", False)
+        )
+        regen_race_margin = int(shot.get("regen_race_margin_ticks", -1))
         self_damage = int(shot.get("self_damage_blocks", 0))
         durability_hits = int(shot.get("durability_hits", 0))
         durability_breaks = int(shot.get("durability_breaks", 0))
@@ -169,6 +194,11 @@ def main() -> None:
         peak_destroyed_values.append(float(peak_destroyed))
         regen_restored_values.append(float(regen_restored))
         layer_breached_values.append(float(max_layer))
+        embedded_explosion_values.append(float(embedded_explosions))
+        unembedded_water_values.append(float(unembedded_water))
+        layers_before_regen_values.append(float(contiguous_layers_before_regen))
+        if regen_race_margin >= 0:
+            regen_race_margin_values.append(float(regen_race_margin))
         self_damage_values.append(float(self_damage))
 
         if (
@@ -183,6 +213,36 @@ def main() -> None:
             failures.append(
                 f"shot {number}: max_layer_breached={max_layer} "
                 f"below {args.min_layer_breached}"
+            )
+        if (
+            args.min_embedded_payload_explosions is not None
+            and embedded_explosions < args.min_embedded_payload_explosions
+        ):
+            failures.append(
+                f"shot {number}: embedded_payload_explosions={embedded_explosions} "
+                f"below {args.min_embedded_payload_explosions}"
+            )
+        if (
+            args.max_unembedded_water_explosions is not None
+            and unembedded_water > args.max_unembedded_water_explosions
+        ):
+            failures.append(
+                f"shot {number}: unembedded_water_explosions={unembedded_water} "
+                f"above {args.max_unembedded_water_explosions}"
+            )
+        if (
+            args.min_contiguous_layers_before_first_regen is not None
+            and contiguous_layers_before_regen
+            < args.min_contiguous_layers_before_first_regen
+        ):
+            failures.append(
+                f"shot {number}: contiguous_layers_breached_before_first_regen="
+                f"{contiguous_layers_before_regen} below "
+                f"{args.min_contiguous_layers_before_first_regen}"
+            )
+        if args.require_all_layers_before_first_regen and not all_layers_before_regen:
+            failures.append(
+                f"shot {number}: all_layers_breached_before_first_regen=false"
             )
         if args.require_regen and regen_restored < args.min_regen_restored:
             failures.append(
@@ -435,6 +495,12 @@ def main() -> None:
         "target_peak_destroyed": numeric_stats(peak_destroyed_values),
         "regen_blocks_restored": numeric_stats(regen_restored_values),
         "max_layer_breached": numeric_stats(layer_breached_values),
+        "embedded_payload_explosions": numeric_stats(embedded_explosion_values),
+        "unembedded_water_explosions": numeric_stats(unembedded_water_values),
+        "contiguous_layers_breached_before_first_regen": numeric_stats(
+            layers_before_regen_values
+        ),
+        "regen_race_margin_ticks": numeric_stats(regen_race_margin_values),
         "self_damage_blocks": numeric_stats(self_damage_values),
         "custom_event_counts": dict(custom_events),
         "spawn_position": {

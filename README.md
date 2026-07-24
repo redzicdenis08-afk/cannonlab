@@ -12,7 +12,8 @@ The laboratory can:
 - decode and audit Sponge v2 `.schem` and Litematica `.litematic` files
 - convert compatible Litematica designs to Sponge v2 before runtime testing
 - paste Sponge `.schem` files at exact origins
-- clear and rebuild the arena between every shot
+- clear only the planned cannon/flight/target corridor between shots instead of scanning the entire configured arena cube
+- rebuild the cannon and target between every shot
 - audit and fill every dispenser with TNT
 - enforce the current user-reported ExtremeCraft limit of 160 dispensers per chunk
 - test conservative or historical limits such as 128 through an explicit CLI override
@@ -25,8 +26,10 @@ The laboratory can:
 - simulate configurable plugin-style delayed regeneration with delay, interval, and per-cycle caps
 - keep all arena chunks ticking without a connected player
 - record TNT and falling-block position, velocity, fuse, and explosion data every tick
+- record per-explosion center material, water contact, and measured falling-payload overlap in `breach-events.csv`
 - record target destruction and regeneration events in the same CSV timeline
-- measure forward travel, target miss distance, peak damage, deepest layer breached, and restored blocks
+- measure forward travel, target miss distance, peak damage, the strongest aligned breach lane before the first actual restore, deepest layer breached, and restored blocks
+- compare one TNT entity tick by tick to find the first changed position, velocity, fuse, or landing point
 - export per-shot and per-run JSON/CSV evidence
 - rank cannon variants by reliability, penetration, errors, and repeatability
 - compare local physics fingerprints against measured server fingerprints
@@ -46,6 +49,7 @@ The CI suite contains:
 - unique-entity and no-leak validation between resets
 - directional travel and target-proximity gates
 - target-damage, layer-breach, and regeneration gates
+- falling-payload overlap, unembedded-water-explosion, and regen-race gates
 - all 256 X/Z chunk-alignment scans
 - legal, over-limit, truncated, and corrupted schematic fixtures
 - download checksum verification for Paper and WorldEdit
@@ -241,6 +245,10 @@ acceptance:
   require-payload: true
   min-target-destroyed: 1
   min-falling-blocks: 0
+  min-embedded-payload-explosions: 1
+  max-unembedded-water-explosions: 0
+  min-contiguous-layers-before-first-regen: 20
+  require-all-layers-before-first-regen: true
   min-forward-distance: 120
   min-remaining-dispenser-ratio: 0.99
   max-cannon-missing-blocks: 20
@@ -273,7 +281,7 @@ run:
   shutdown-when-finished: true
 ```
 
-Supported target types are `dry`, `watered`, `cobble-regen`, `filter`, `slab-filter`, `hotdog`, and `pillars`. Supported directions are `north`, `south`, `east`, and `west`. Supported fire modes are `redstone`, `button`, `direct-dispense`, and diagnostic-only `tnt-probe`; `direct` is accepted as an alias. `tnt-probe` isolates defense physics and is never evidence that a cannon schematic works.
+Supported target types are `dry`, `watered`, `cobble-regen`, `filter`, `slab-filter`, `hotdog`, and `pillars`. Supported directions are `north`, `south`, `east`, and `west`. Supported fire modes are `redstone`, `button`, `direct-dispense`, and diagnostic-only `tnt-probe`; `direct` is accepted as an alias. `tnt-probe` isolates defense physics and is never evidence that a cannon schematic works. Optional `cannon.probe-falling-material` and `cannon.probe-falling-origin` fields add a stationary diagnostic falling payload so the overlap sensor can be calibrated independently.
 
 `cannon.fire-input` preserves the simple one-input format. `cannon.fire-inputs` powers every listed coordinate on the same tick and is intended for segmented or distributed cannon circuits.
 
@@ -287,9 +295,9 @@ python scripts/scenario-integrity-audit.py scenarios/candidate.yml `
   --json-out scenario-integrity.json
 ```
 
-The integrity audit exposes collision guides, forced TNT velocities, diagnostic magazine cutoffs, direct-dispenser fire, disabled dispenser limits, and weak survival/range/target gates. Assisted scenarios remain useful diagnostics, but their results cannot be promoted as standalone cannon or EC-readiness evidence.
+The integrity audit exposes collision guides, forced TNT velocities, diagnostic magazine cutoffs, direct-dispenser fire, disabled dispenser limits, and weak survival/range/target gates. For water-facing targets it also requires explicit falling-payload overlap and unembedded-water limits. For regenerating targets it requires one aligned penetration lane through successive layers before the first actual restoration. Assisted scenarios remain useful diagnostics, but their results cannot be promoted as standalone cannon or EC-readiness evidence.
 
-Acceptance is enforced inside the Java runtime. A failed shot writes `contract_pass: false`, the exact failure list, cannon survival counts, and `cannon-integrity.csv`; the run ends with `finish_reason: contract_failed`. Existing scenarios without explicit acceptance remain runnable for diagnosis, but the scenario audit classifies them as `INCOMPLETE`. Set `CANNONLAB_REQUIRE_FIELD_CANDIDATE=true` or `CANNONLAB_REQUIRE_READINESS=true` in either launcher to fail before server startup when the requested evidence level is not met.
+Acceptance is enforced inside the Java runtime. A failed shot writes `contract_pass: false`, the exact failure list, cannon survival counts, and `cannon-integrity.csv`; the run ends with `finish_reason: contract_failed`. Each shot also writes `breach-events.csv`. `falling_overlap_evidence=true` means a recorded falling-block trajectory overlapped the TNT explosion envelope at that tick. Runtime breach counters only use TNT explosions whose center is inside the recorded target envelope, so water inside the cannon cannot satisfy or poison the wall-impact gate. It is direct local runtime evidence, but it is not by itself proof of private ExtremeCraft water-bypass behavior. The regen race stops at the first target block that CannonLab actually restores, not merely at the first configured cycle. Scattered damage at different heights or lateral positions cannot be combined into a fake full-depth breach. Existing scenarios without explicit acceptance remain runnable for diagnosis, but the scenario audit classifies them as `INCOMPLETE`. Set `CANNONLAB_REQUIRE_FIELD_CANDIDATE=true` or `CANNONLAB_REQUIRE_READINESS=true` in either launcher to fail before server startup when the requested evidence level is not met.
 
 ## Included defense scenarios
 
@@ -299,6 +307,7 @@ plugin-regen-wall.yml
 fluid-regen-defense.yml
 hotdog-defense.yml
 pillar-defense.yml
+breach-telemetry-probe.yml  # diagnostic sensor calibration only
 ```
 
 The four-dispenser fixture is deliberately compact. It proves simultaneous multi-TNT activation, entity tracking, range measurement, target damage accounting, and regeneration plumbing. It is a laboratory cannon, not a raid cannon or OSRB replacement.
@@ -338,6 +347,10 @@ CANNONLAB_MAX_TARGET_MISS_DISTANCE
 CANNONLAB_MIN_TARGET_PEAK_DESTROYED
 CANNONLAB_MIN_TARGET_PEAK_MEAN
 CANNONLAB_MIN_LAYER_BREACHED
+CANNONLAB_MIN_EMBEDDED_PAYLOAD_EXPLOSIONS
+CANNONLAB_MAX_UNEMBEDDED_WATER_EXPLOSIONS
+CANNONLAB_MIN_CONTIGUOUS_LAYERS_BEFORE_FIRST_REGEN
+CANNONLAB_REQUIRE_ALL_LAYERS_BEFORE_FIRST_REGEN
 CANNONLAB_REQUIRE_REGEN
 CANNONLAB_MIN_REGEN_RESTORED
 CANNONLAB_ARENA_RADIUS_X
@@ -352,6 +365,8 @@ Set `CANNONLAB_STRICT_SINGLE_TNT=false` for real multi-dispenser cannons. Set `C
 ```text
 scripts/schem-audit.py
 scripts/assert-results.py
+scripts/analyze-breach-evidence.py
+scripts/compare-entity-trajectories.py
 scripts/rank-runs.py
 scripts/compare-fingerprints.py
 scripts/build-sakura-26.1.2.sh
@@ -359,6 +374,27 @@ scripts/cloud-smoke.sh
 ```
 
 The static auditor validates Sponge v2 and Litematica structure, packed block-state data, block data, tile coordinates, redstone supports, repeater states, water states, dispenser counts, block-entity pressure, and every possible chunk alignment before a cannon consumes server time. Compatible Litematica inputs can be converted to deterministic Sponge v2 output through the same audited path.
+
+Audit a completed watered or regenerating run:
+
+```powershell
+python scripts/analyze-breach-evidence.py lab-artifacts/results `
+  --min-embedded-payload-explosions 1 `
+  --max-unembedded-water-explosions 0 `
+  --min-contiguous-layers-before-first-regen 20 `
+  --require-all-layers-before-first-regen `
+  --json-out breach-evidence.json
+```
+
+Pinpoint the first per-tick TNT drift between a baseline and candidate:
+
+```powershell
+python scripts/compare-entity-trajectories.py `
+  baseline/shot-001/events.csv candidate/shot-001/events.csv `
+  --reference-uuid <baseline-tnt-uuid> `
+  --candidate-uuid <candidate-tnt-uuid> `
+  --json-out trajectory-diff.json
+```
 
 ## Cannon-development loop
 

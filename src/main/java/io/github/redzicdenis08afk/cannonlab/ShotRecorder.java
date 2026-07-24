@@ -31,8 +31,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -44,10 +46,13 @@ final class ShotRecorder implements Listener {
     private BukkitTask task;
     private BufferedWriter writer;
     private BufferedWriter causalWriter;
+    private BufferedWriter breachWriter;
+    private final Map<UUID, FallingFrame> latestFallingFrames = new HashMap<>();
     private World world;
     private Location origin;
     private Location cannonOrigin;
     private BlockBounds cannonBounds;
+    private BlockBounds targetBounds;
     private Path shotDirectory;
     private Consumer<ShotResult> completion;
     private long tick;
@@ -72,6 +77,9 @@ final class ShotRecorder implements Listener {
     private int tntPrimeEvents;
     private int fluidEvents;
     private int controlEvents;
+    private int embeddedPayloadExplosions;
+    private int waterContactExplosions;
+    private int unembeddedWaterExplosions;
     private boolean sawPayload;
     private boolean finishing;
 
@@ -91,6 +99,7 @@ final class ShotRecorder implements Listener {
             Location recordingOrigin,
             Location recordingCannonOrigin,
             BlockBounds recordingCannonBounds,
+            BlockBounds recordingTargetBounds,
             int shotMaxTicks,
             int requiredQuietTicks,
             int requiredTicksBeforeQuiet,
@@ -110,6 +119,16 @@ final class ShotRecorder implements Listener {
         );
         writer.write("tick,event,type,uuid,x,y,z,vx,vy,vz,fuse,affected_blocks\n");
 
+        breachWriter = Files.newBufferedWriter(
+                shotDirectory.resolve("breach-events.csv"),
+                StandardCharsets.UTF_8
+        );
+        breachWriter.write(
+                "tick,event,entity_uuid,entity_type,x,y,z,target_contact,center_block,center_water_contact,"
+                        + "falling_overlap_evidence,falling_uuid,falling_material,"
+                        + "falling_distance,affected_blocks\n"
+        );
+
         if (causalEnabled()) {
             causalWriter = Files.newBufferedWriter(
                     shotDirectory.resolve("causal-events.csv"),
@@ -127,6 +146,7 @@ final class ShotRecorder implements Listener {
         origin = recordingOrigin.clone();
         cannonOrigin = recordingCannonOrigin.clone();
         cannonBounds = recordingCannonBounds;
+        targetBounds = recordingTargetBounds;
         targetDirection = recordingTargetDirection;
         maxTicks = shotMaxTicks;
         quietTicksRequired = requiredQuietTicks;
@@ -150,6 +170,10 @@ final class ShotRecorder implements Listener {
         tntPrimeEvents = 0;
         fluidEvents = 0;
         controlEvents = 0;
+        embeddedPayloadExplosions = 0;
+        waterContactExplosions = 0;
+        unembeddedWaterExplosions = 0;
+        latestFallingFrames.clear();
         sawPayload = false;
         finishing = false;
 
@@ -190,8 +214,16 @@ final class ShotRecorder implements Listener {
             if (entity instanceof TNTPrimed tnt) {
                 tntCount++;
                 fuse = tnt.getFuseTicks();
-            } else {
+            } else if (entity instanceof FallingBlock fallingBlock) {
                 fallingCount++;
+                latestFallingFrames.put(
+                        entity.getUniqueId(),
+                        new FallingFrame(
+                                tick,
+                                entity.getLocation().clone(),
+                                fallingBlock.getBlockData().getMaterial()
+                        )
+                );
             }
 
             Vector velocity = entity.getVelocity();
@@ -211,6 +243,7 @@ final class ShotRecorder implements Listener {
 
         maximumTnt = Math.max(maximumTnt, tntCount);
         maximumFallingBlocks = Math.max(maximumFallingBlocks, fallingCount);
+        latestFallingFrames.entrySet().removeIf(entry -> tick - entry.getValue().tick() > 2);
 
         if (tntCount + fallingCount == 0) {
             if (sawPayload) {
@@ -445,6 +478,20 @@ final class ShotRecorder implements Listener {
         if (!activeIn(event.getLocation().getWorld())) {
             return;
         }
+        ExplosionContext context = inspectExplosionContext(event.getLocation());
+        boolean payloadTnt = event.getEntity() instanceof TNTPrimed;
+        if (payloadTnt
+                && context.targetContact()
+                && context.centerWaterContact()
+                && context.fallingOverlapEvidence()) {
+            embeddedPayloadExplosions++;
+        }
+        if (payloadTnt && context.targetContact() && context.centerWaterContact()) {
+            waterContactExplosions++;
+            if (!context.fallingOverlapEvidence()) {
+                unembeddedWaterExplosions++;
+            }
+        }
         explosions++;
         destroyedBlocks += event.blockList().size();
         int selfDamage = countSelfDamage(event.blockList());
@@ -457,6 +504,14 @@ final class ShotRecorder implements Listener {
                     event.getLocation(),
                     new Vector(),
                     -1,
+                    event.blockList().size()
+            );
+            writeBreachEvent(
+                    "EXPLOSION",
+                    event.getEntity().getUniqueId(),
+                    event.getEntityType().name(),
+                    event.getLocation(),
+                    context,
                     event.blockList().size()
             );
             if (causalEnabled()) {
@@ -475,6 +530,13 @@ final class ShotRecorder implements Listener {
                         -1,
                         "affected_blocks=" + event.blockList().size()
                                 + ";self_damage_blocks=" + selfDamage
+                                + ";center_block=" + context.centerBlock().name()
+                                + ";target_contact=" + context.targetContact()
+                                + ";center_water_contact=" + context.centerWaterContact()
+                                + ";falling_overlap_evidence=" + context.fallingOverlapEvidence()
+                                + ";falling_material=" + context.fallingMaterialName()
+                                + ";falling_distance="
+                                + String.format(Locale.ROOT, "%.6f", context.fallingDistance())
                 );
             }
         } catch (IOException exception) {
@@ -697,6 +759,105 @@ final class ShotRecorder implements Listener {
                 affectedBlocks));
     }
 
+    private void writeBreachEvent(
+            String event,
+            UUID entityUuid,
+            String entityType,
+            Location location,
+            ExplosionContext context,
+            int affectedBlocks
+    ) throws IOException {
+        if (breachWriter == null) {
+            return;
+        }
+        breachWriter.write(String.format(Locale.ROOT,
+                "%d,%s,%s,%s,%.6f,%.6f,%.6f,%s,%s,%s,%s,%s,%s,%.6f,%d%n",
+                tick,
+                csv(event),
+                entityUuid == null ? "" : entityUuid,
+                csv(entityType),
+                location.getX(), location.getY(), location.getZ(),
+                context.targetContact(),
+                csv(context.centerBlock().name()),
+                context.centerWaterContact(),
+                context.fallingOverlapEvidence(),
+                context.fallingUuid() == null ? "" : context.fallingUuid(),
+                csv(context.fallingMaterialName()),
+                context.fallingDistance(),
+                affectedBlocks
+        ));
+        breachWriter.flush();
+    }
+
+    private ExplosionContext inspectExplosionContext(Location explosion) {
+        Block center = explosion.getBlock();
+        boolean targetContact = targetBounds != null && targetBounds.contains(center, 1);
+        boolean waterContact = center.getType() == Material.WATER
+                || center.getType() == Material.BUBBLE_COLUMN
+                || center.getBlockData() instanceof org.bukkit.block.data.Waterlogged waterlogged
+                && waterlogged.isWaterlogged();
+
+        FallingFrame best = null;
+        double bestDistance = Double.POSITIVE_INFINITY;
+        for (Entity entity : world.getNearbyEntities(explosion, 1.0, 1.5, 1.0)) {
+            if (!(entity instanceof FallingBlock fallingBlock)) {
+                continue;
+            }
+            FallingFrame frame = new FallingFrame(
+                    tick,
+                    entity.getLocation().clone(),
+                    fallingBlock.getBlockData().getMaterial()
+            );
+            double distance = fallingOverlapDistance(explosion, frame.location());
+            if (distance < bestDistance) {
+                best = new FallingFrame(
+                        frame.tick(),
+                        frame.location(),
+                        frame.material(),
+                        entity.getUniqueId()
+                );
+                bestDistance = distance;
+            }
+        }
+        for (Map.Entry<UUID, FallingFrame> entry : latestFallingFrames.entrySet()) {
+            FallingFrame frame = entry.getValue();
+            if (tick - frame.tick() > 1) {
+                continue;
+            }
+            double distance = fallingOverlapDistance(explosion, frame.location());
+            if (distance < bestDistance) {
+                best = new FallingFrame(
+                        frame.tick(),
+                        frame.location(),
+                        frame.material(),
+                        entry.getKey()
+                );
+                bestDistance = distance;
+            }
+        }
+
+        boolean overlap = best != null && bestDistance <= 1.0;
+        return new ExplosionContext(
+                targetContact,
+                center.getType(),
+                waterContact,
+                overlap,
+                overlap ? best.uuid() : null,
+                overlap ? best.material() : null,
+                overlap ? bestDistance : -1.0
+        );
+    }
+
+    private double fallingOverlapDistance(Location explosion, Location falling) {
+        double dx = Math.abs(explosion.getX() - falling.getX());
+        double dz = Math.abs(explosion.getZ() - falling.getZ());
+        double dy = explosion.getY() - falling.getY();
+        if (dx > 0.75 || dz > 0.75 || dy < -0.35 || dy > 1.35) {
+            return Double.POSITIVE_INFINITY;
+        }
+        return Math.sqrt(dx * dx + dy * dy + dz * dz);
+    }
+
     private void writeCausal(
             String event,
             Block block,
@@ -870,6 +1031,9 @@ final class ShotRecorder implements Listener {
                 tntPrimeEvents,
                 fluidEvents,
                 controlEvents,
+                embeddedPayloadExplosions,
+                waterContactExplosions,
+                unembeddedWaterExplosions,
                 shotDirectory,
                 Instant.now().toString()
         );
@@ -915,7 +1079,10 @@ final class ShotRecorder implements Listener {
                   "entity_add_events": %d,
                   "tnt_prime_events": %d,
                   "fluid_events": %d,
-                  "control_events": %d
+                  "control_events": %d,
+                  "embedded_payload_explosions": %d,
+                  "water_contact_explosions": %d,
+                  "unembedded_water_explosions": %d
                 }
                 """.formatted(
                 result.finishedAt(),
@@ -936,7 +1103,10 @@ final class ShotRecorder implements Listener {
                 result.entityAddEvents(),
                 result.tntPrimeEvents(),
                 result.fluidEvents(),
-                result.controlEvents()
+                result.controlEvents(),
+                result.embeddedPayloadExplosions(),
+                result.waterContactExplosions(),
+                result.unembeddedWaterExplosions()
         );
         Files.writeString(shotDirectory.resolve("summary.json"), json, StandardCharsets.UTF_8);
     }
@@ -962,10 +1132,20 @@ final class ShotRecorder implements Listener {
             }
             causalWriter = null;
         }
+        if (breachWriter != null) {
+            try {
+                breachWriter.close();
+            } catch (IOException ignored) {
+                // Best effort during shutdown.
+            }
+            breachWriter = null;
+        }
+        latestFallingFrames.clear();
         world = null;
         origin = null;
         cannonOrigin = null;
         cannonBounds = null;
+        targetBounds = null;
         completion = null;
         finishing = false;
     }
@@ -979,9 +1159,13 @@ final class ShotRecorder implements Listener {
             int maxZ
     ) {
         boolean contains(Block block) {
-            return block.getX() >= minX && block.getX() <= maxX
-                    && block.getY() >= minY && block.getY() <= maxY
-                    && block.getZ() >= minZ && block.getZ() <= maxZ;
+            return contains(block, 0);
+        }
+
+        boolean contains(Block block, int padding) {
+            return block.getX() >= minX - padding && block.getX() <= maxX + padding
+                    && block.getY() >= minY - padding && block.getY() <= maxY + padding
+                    && block.getZ() >= minZ - padding && block.getZ() <= maxZ + padding;
         }
     }
 
@@ -1004,8 +1188,36 @@ final class ShotRecorder implements Listener {
             int tntPrimeEvents,
             int fluidEvents,
             int controlEvents,
+            int embeddedPayloadExplosions,
+            int waterContactExplosions,
+            int unembeddedWaterExplosions,
             Path directory,
             String finishedAt
     ) {
+    }
+
+    private record FallingFrame(
+            long tick,
+            Location location,
+            Material material,
+            UUID uuid
+    ) {
+        private FallingFrame(long tick, Location location, Material material) {
+            this(tick, location, material, null);
+        }
+    }
+
+    private record ExplosionContext(
+            boolean targetContact,
+            Material centerBlock,
+            boolean centerWaterContact,
+            boolean fallingOverlapEvidence,
+            UUID fallingUuid,
+            Material fallingMaterial,
+            double fallingDistance
+    ) {
+        private String fallingMaterialName() {
+            return fallingMaterial == null ? "" : fallingMaterial.name();
+        }
     }
 }

@@ -21,9 +21,14 @@ import org.bukkit.World;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 final class WorldEditService {
+    private final Map<Path, CachedClipboardMetadata> metadataCache = new HashMap<>();
 
     void clear(World world, Location minimum, Location maximum) throws WorldEditException {
         BlockVector3 min = BlockVector3.at(
@@ -56,15 +61,8 @@ final class WorldEditService {
             boolean ignoreAir,
             boolean suppressSideEffects
     ) throws IOException, WorldEditException {
-        ClipboardFormat format = ClipboardFormats.findByFile(schematic);
-        if (format == null) {
-            throw new IOException("Unknown schematic format: " + schematic.getName());
-        }
-
-        Clipboard clipboard;
-        try (ClipboardReader reader = format.getReader(new FileInputStream(schematic))) {
-            clipboard = reader.read();
-        }
+        Clipboard clipboard = readClipboard(schematic);
+        cacheMetadata(schematic, clipboard);
 
         BlockVector3 target = BlockVector3.at(
                 destination.getBlockX(), destination.getBlockY(), destination.getBlockZ());
@@ -83,12 +81,87 @@ final class WorldEditService {
             Operations.complete(operation);
         }
 
-        BlockVector3 delta = target.subtract(clipboard.getOrigin());
-        BlockVector3 minimum = clipboard.getRegion().getMinimumPoint().add(delta);
-        BlockVector3 maximum = clipboard.getRegion().getMaximumPoint().add(delta);
-        return new PasteResult(minimum, maximum, clipboard.getDimensions());
+        return pasteResult(clipboard, target);
+    }
+
+    PasteResult inspectPaste(File schematic, Location destination) throws IOException {
+        ClipboardMetadata metadata = clipboardMetadata(schematic);
+        BlockVector3 target = BlockVector3.at(
+                destination.getBlockX(), destination.getBlockY(), destination.getBlockZ());
+        return pasteResult(metadata, target);
+    }
+
+    private Clipboard readClipboard(File schematic) throws IOException {
+        ClipboardFormat format = ClipboardFormats.findByFile(schematic);
+        if (format == null) {
+            throw new IOException("Unknown schematic format: " + schematic.getName());
+        }
+        try (ClipboardReader reader = format.getReader(new FileInputStream(schematic))) {
+            return reader.read();
+        }
+    }
+
+    private PasteResult pasteResult(Clipboard clipboard, BlockVector3 target) {
+        return pasteResult(metadata(clipboard), target);
+    }
+
+    private PasteResult pasteResult(ClipboardMetadata metadata, BlockVector3 target) {
+        BlockVector3 delta = target.subtract(metadata.origin());
+        BlockVector3 minimum = metadata.minimum().add(delta);
+        BlockVector3 maximum = metadata.maximum().add(delta);
+        return new PasteResult(minimum, maximum, metadata.dimensions());
+    }
+
+    private ClipboardMetadata clipboardMetadata(File schematic) throws IOException {
+        Path path = schematic.toPath().toAbsolutePath().normalize();
+        long size = Files.size(path);
+        long modified = Files.getLastModifiedTime(path).toMillis();
+        CachedClipboardMetadata cached = metadataCache.get(path);
+        if (cached != null && cached.size() == size && cached.modified() == modified) {
+            return cached.metadata();
+        }
+        Clipboard clipboard = readClipboard(schematic);
+        ClipboardMetadata metadata = metadata(clipboard);
+        metadataCache.put(path, new CachedClipboardMetadata(size, modified, metadata));
+        return metadata;
+    }
+
+    private void cacheMetadata(File schematic, Clipboard clipboard) throws IOException {
+        Path path = schematic.toPath().toAbsolutePath().normalize();
+        metadataCache.put(
+                path,
+                new CachedClipboardMetadata(
+                        Files.size(path),
+                        Files.getLastModifiedTime(path).toMillis(),
+                        metadata(clipboard)
+                )
+        );
+    }
+
+    private ClipboardMetadata metadata(Clipboard clipboard) {
+        return new ClipboardMetadata(
+                clipboard.getOrigin(),
+                clipboard.getRegion().getMinimumPoint(),
+                clipboard.getRegion().getMaximumPoint(),
+                clipboard.getDimensions()
+        );
     }
 
     record PasteResult(BlockVector3 minimum, BlockVector3 maximum, BlockVector3 dimensions) {
+    }
+
+    private record ClipboardMetadata(
+            BlockVector3 origin,
+            BlockVector3 minimum,
+            BlockVector3 maximum,
+            BlockVector3 dimensions
+    ) {
+    }
+
+    private record CachedClipboardMetadata(
+            long size,
+            long modified,
+            ClipboardMetadata metadata
+    ) {
     }
 }

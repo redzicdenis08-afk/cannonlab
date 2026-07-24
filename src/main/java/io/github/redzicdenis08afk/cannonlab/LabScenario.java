@@ -21,6 +21,8 @@ record LabScenario(
         BlockPoint directDispenser,
         BlockPoint probeTntOrigin,
         int probeTntFuseTicks,
+        BlockPoint probeFallingOrigin,
+        Material probeFallingMaterial,
         int firePulseTicks,
         boolean suppressPasteSideEffects,
         int settleBeforeFillTicks,
@@ -82,6 +84,16 @@ record LabScenario(
                 yaml,
                 "cannon.probe-tnt-origin",
                 new BlockPoint(0, 1, 0)
+        );
+        BlockPoint probeFallingOrigin = point(
+                yaml,
+                "cannon.probe-falling-origin",
+                probeTntOrigin
+        );
+        Material probeFallingMaterial = material(
+                yaml.getString("cannon.probe-falling-material"),
+                Material.AIR,
+                "cannon.probe-falling-material"
         );
 
         String fireModeName = yaml.getString("cannon.fire-mode", "redstone");
@@ -164,6 +176,16 @@ record LabScenario(
                 yaml.getBoolean("acceptance.require-payload", false),
                 Math.max(0, yaml.getInt("acceptance.min-target-destroyed", 0)),
                 Math.max(0, yaml.getInt("acceptance.min-falling-blocks", 0)),
+                Math.max(0, yaml.getInt("acceptance.min-embedded-payload-explosions", 0)),
+                Math.max(0, yaml.getInt(
+                        "acceptance.max-unembedded-water-explosions",
+                        Integer.MAX_VALUE
+                )),
+                Math.max(0, yaml.getInt(
+                        "acceptance.min-contiguous-layers-before-first-regen",
+                        0
+                )),
+                yaml.getBoolean("acceptance.require-all-layers-before-first-regen", false),
                 Math.max(0.0, yaml.getDouble("acceptance.min-forward-distance", 0.0)),
                 Math.max(0.0, Math.min(1.0,
                         yaml.getDouble("acceptance.min-remaining-dispenser-ratio", 0.0))),
@@ -191,6 +213,8 @@ record LabScenario(
                 directDispenser,
                 probeTntOrigin,
                 Math.max(1, yaml.getInt("cannon.probe-tnt-fuse-ticks", 80)),
+                probeFallingOrigin,
+                probeFallingMaterial,
                 Math.max(1, yaml.getInt("cannon.fire-pulse-ticks", 2)),
                 suppressPasteSideEffects,
                 settleBeforeFillTicks,
@@ -367,7 +391,7 @@ record LabScenario(
         if (value == null || String.valueOf(value).isBlank()) {
             return fallback;
         }
-        Material parsed = Material.matchMaterial(String.valueOf(value), true);
+        Material parsed = Material.matchMaterial(String.valueOf(value), false);
         if (parsed == null || !parsed.isBlock()) {
             throw new IllegalArgumentException("Unsupported block material for " + path + ": " + value);
         }
@@ -448,6 +472,10 @@ record LabScenario(
             boolean requirePayload,
             int minTargetDestroyed,
             int minFallingBlocks,
+            int minEmbeddedPayloadExplosions,
+            int maxUnembeddedWaterExplosions,
+            int minContiguousLayersBeforeFirstRegen,
+            boolean requireAllLayersBeforeFirstRegen,
             double minForwardDistance,
             double minRemainingDispenserRatio,
             int maxCannonMissingBlocks,
