@@ -3,7 +3,7 @@ cannon:
   file: probe-one-dispenser.schem
   origin: {x: -16, y: 0, z: 0}
   fire-mode: tnt-probe
-  probe-tnt-origin: {x: 1, y: 1, z: 0}
+  probe-tnt-origin: {x: 2, y: 1, z: 0}
   probe-tnt-fuse-ticks: 80
 limits:
   enforce-dispenser-limit: true
