@@ -1,0 +1,130 @@
+{
+  "schema_version": 1,
+  "evidence_id": "cosmicreborn-static-v1",
+  "captured_on": "2026-07-24",
+  "source_registry": "profiles/corpus/public-cannon-sources-v1.json",
+  "workflow": {
+    "name": "Public Cannon Corpus",
+    "run_id": 30111547413,
+    "head_sha": "38c8728eaceba6c6d6edd692702b16cba2a68bfe",
+    "audit_artifact_id": 8603731263,
+    "audit_artifact_digest": "sha256:634caeb57afa41162d76f45fb8a2053020019c9e1417f54fa98334ff1b6af1df",
+    "contract_job": "success",
+    "controlled_fetch_job": "success"
+  },
+  "summary": {
+    "source_count": 6,
+    "downloaded_count": 6,
+    "parsed_count": 6,
+    "tile_entity_issue_count": 0,
+    "all_offsets_scanned_per_source": 256,
+    "ec_chunk_limit": 160,
+    "ec_legal_source_count": 0,
+    "best_pressure_range": {
+      "minimum": 174,
+      "maximum": 243
+    },
+    "classification": "LEGACY_STATIC_AUDIT_ONLY"
+  },
+  "sources": [
+    {
+      "id": "cosmicreborn-formal",
+      "filename": "FORMAL.schematic",
+      "sha256": "510abf89ca04e7219aa3fd3f002b28c31b9462c37b9eac82843019391df5c8ae",
+      "compressed_bytes": 37539,
+      "dimensions": {"width": 52, "height": 72, "length": 18},
+      "volume": 67392,
+      "dispenser_count": 1234,
+      "tile_entity_count": 1289,
+      "tile_entity_issues": [],
+      "best_max_dispensers_per_chunk": 240,
+      "best_offsets": [{"x": 3, "z": 2}],
+      "legal_offset_count": 0,
+      "status": "STATIC_FAIL"
+    },
+    {
+      "id": "cosmicreborn-pred",
+      "filename": "PRED.schematic",
+      "sha256": "9e13c77fbab9c1037d314bb6d96cf363244f257f17ef5e161137d34366324763",
+      "compressed_bytes": 123146,
+      "dimensions": {"width": 358, "height": 137, "length": 701},
+      "volume": 34381246,
+      "dispenser_count": 1207,
+      "tile_entity_count": 1261,
+      "tile_entity_issues": [],
+      "best_max_dispensers_per_chunk": 243,
+      "best_offsets": [{"x": 8, "z": 8}],
+      "legal_offset_count": 0,
+      "status": "STATIC_FAIL"
+    },
+    {
+      "id": "cosmicreborn-mboze",
+      "filename": "MBOZE.schematic",
+      "sha256": "c4ea5cfceb034db39f1f985a06e59b615b322ee4b3a3e82e2045b3d458257f72",
+      "compressed_bytes": 20764,
+      "dimensions": {"width": 44, "height": 255, "length": 145},
+      "volume": 1626900,
+      "dispenser_count": 564,
+      "tile_entity_count": 625,
+      "tile_entity_issues": [],
+      "best_max_dispensers_per_chunk": 188,
+      "best_offsets": [{"x": 0, "z": 3}, {"x": 1, "z": 3}],
+      "legal_offset_count": 0,
+      "status": "STATIC_FAIL"
+    },
+    {
+      "id": "cosmicreborn-shakisha",
+      "filename": "SHAKISHA.schematic",
+      "sha256": "fb164b8fbfbd2b9299f1a9bdaf6e03060af04d75bc91e8d71205e7c6e0c26e09",
+      "compressed_bytes": 16649,
+      "dimensions": {"width": 33, "height": 23, "length": 988},
+      "volume": 749892,
+      "dispenser_count": 871,
+      "tile_entity_count": 879,
+      "tile_entity_issues": [],
+      "best_max_dispensers_per_chunk": 206,
+      "best_offsets": [{"x": 7, "z": 1}, {"x": 8, "z": 1}],
+      "legal_offset_count": 0,
+      "status": "STATIC_FAIL"
+    },
+    {
+      "id": "cosmicreborn-raid-outpost-qp",
+      "filename": "RAIDOUTPOSTQP.schematic",
+      "sha256": "301b759ab764e81d678ad6ffcae488ffb25fe6e48d61906767da350ec43a8d4a",
+      "compressed_bytes": 16797,
+      "dimensions": {"width": 26, "height": 255, "length": 435},
+      "volume": 2884050,
+      "dispenser_count": 514,
+      "tile_entity_count": 522,
+      "tile_entity_issues": [],
+      "best_max_dispensers_per_chunk": 174,
+      "best_offsets": [{"x": 3, "z": 8}, {"x": 4, "z": 8}],
+      "legal_offset_count": 0,
+      "status": "STATIC_FAIL"
+    },
+    {
+      "id": "cosmicreborn-l-stacker",
+      "filename": "LSTACKER.schematic",
+      "sha256": "d34f37e879031a75693f528986633bb43d48f6f989c63ca6df1b8c0b71a538b5",
+      "compressed_bytes": 7484,
+      "dimensions": {"width": 37, "height": 39, "length": 595},
+      "volume": 858585,
+      "dispenser_count": 685,
+      "tile_entity_count": 691,
+      "tile_entity_issues": [],
+      "best_max_dispensers_per_chunk": 201,
+      "best_offsets": [{"x": 5, "z": 12}],
+      "legal_offset_count": 0,
+      "status": "STATIC_FAIL"
+    }
+  ],
+  "truth_boundary": {
+    "source_claims_prove_runtime_roles": false,
+    "legacy_numeric_ids_are_modern_block_states": false,
+    "automatic_modern_conversion_performed": false,
+    "static_geometry_proves_runtime_function": false,
+    "local_runtime_evidence_present": false,
+    "private_extremecraft_parity_confirmed": false,
+    "ec_ready": false
+  }
+}

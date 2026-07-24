@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "id": "public-cannon-sources-v1",
+  "policy": {
+    "allowed_hosts": [
+      "cosmicreborn.com",
+      "cdn.cosmicreborn.net"
+    ],
+    "max_bytes_per_file": 67108864,
+    "repository_storage": "fetch-only",
+    "chunk_limit": 160
+  },
+  "sources": [
+    {
+      "id": "cosmicreborn-formal",
+      "source_page": "https://cosmicreborn.com/schematics",
+      "download_url": "https://cdn.cosmicreborn.net/schematics/FORMAL.schematic",
+      "filename": "FORMAL.schematic",
+      "authors": ["Leepad", "Phonis", "Tino"],
+      "claimed_capabilities": ["diag", "float-left-right", "osrb", "hybrid", "double-tap", "dropbust", "slabbust", "no-rev", "pseudo", "efficient-nuke"],
+      "target_environment": {
+        "server": "CosmicReborn",
+        "jar": "unknown",
+        "minecraft_version": "legacy schematic format"
+      },
+      "publication_basis": "Official CosmicReborn schematic page exposes a direct download and credits the authors.",
+      "redistribution": "fetch-only",
+      "license_status": "not-stated",
+      "expected_sha256": "510abf89ca04e7219aa3fd3f002b28c31b9462c37b9eac82843019391df5c8ae"
+    },
+    {
+      "id": "cosmicreborn-pred",
+      "source_page": "https://cosmicreborn.com/schematics",
+      "download_url": "https://cdn.cosmicreborn.net/schematics/PRED.schematic",
+      "filename": "PRED.schematic",
+      "authors": ["Leepad", "Phonis", "Tino"],
+      "claimed_capabilities": ["diag", "osrb", "hybrid", "double-tap", "dropbust", "slabbust", "no-rev", "pseudo", "efficient-nuke"],
+      "target_environment": {
+        "server": "CosmicReborn",
+        "jar": "unknown",
+        "minecraft_version": "legacy schematic format"
+      },
+      "publication_basis": "Official CosmicReborn schematic page exposes a direct download and credits the authors.",
+      "redistribution": "fetch-only",
+      "license_status": "not-stated",
+      "expected_sha256": "9e13c77fbab9c1037d314bb6d96cf363244f257f17ef5e161137d34366324763"
+    },
+    {
+      "id": "cosmicreborn-mboze",
+      "source_page": "https://cosmicreborn.com/schematics",
+      "download_url": "https://cdn.cosmicreborn.net/schematics/MBOZE.schematic",
+      "filename": "MBOZE.schematic",
+      "authors": ["Leepad", "Phonis", "Tino"],
+      "claimed_capabilities": ["255-quickprint", "osrb", "no-cap", "hybrid", "double-tap"],
+      "target_environment": {
+        "server": "CosmicReborn",
+        "jar": "unknown",
+        "minecraft_version": "legacy schematic format"
+      },
+      "publication_basis": "Official CosmicReborn schematic page exposes a direct download and credits the authors.",
+      "redistribution": "fetch-only",
+      "license_status": "not-stated",
+      "expected_sha256": "c4ea5cfceb034db39f1f985a06e59b615b322ee4b3a3e82e2045b3d458257f72"
+    },
+    {
+      "id": "cosmicreborn-shakisha",
+      "source_page": "https://cosmicreborn.com/schematics",
+      "download_url": "https://cdn.cosmicreborn.net/schematics/SHAKISHA.schematic",
+      "filename": "SHAKISHA.schematic",
+      "authors": ["Leepad", "Phonis", "Tino"],
+      "claimed_capabilities": ["stepover", "cap-clipping-eight-chunks", "one-by-one-flight-path", "three-second"],
+      "target_environment": {
+        "server": "CosmicReborn",
+        "jar": "unknown",
+        "minecraft_version": "legacy schematic format"
+      },
+      "publication_basis": "Official CosmicReborn schematic page exposes a direct download and credits the authors.",
+      "redistribution": "fetch-only",
+      "license_status": "not-stated",
+      "expected_sha256": "fb164b8fbfbd2b9299f1a9bdaf6e03060af04d75bc91e8d71205e7c6e0c26e09"
+    },
+    {
+      "id": "cosmicreborn-raid-outpost-qp",
+      "source_page": "https://cosmicreborn.com/schematics",
+      "download_url": "https://cdn.cosmicreborn.net/schematics/RAIDOUTPOSTQP.schematic",
+      "filename": "RAIDOUTPOSTQP.schematic",
+      "authors": ["Leepad", "Phonis", "Tino"],
+      "claimed_capabilities": ["255-quickprint", "regen-minechat-lineup"],
+      "target_environment": {
+        "server": "CosmicReborn",
+        "jar": "unknown",
+        "minecraft_version": "legacy schematic format"
+      },
+      "publication_basis": "Official CosmicReborn schematic page exposes a direct download and credits the authors.",
+      "redistribution": "fetch-only",
+      "license_status": "not-stated",
+      "expected_sha256": "301b759ab764e81d678ad6ffcae488ffb25fe6e48d61906767da350ec43a8d4a"
+    },
+    {
+      "id": "cosmicreborn-l-stacker",
+      "source_page": "https://cosmicreborn.com/schematics",
+      "download_url": "https://cdn.cosmicreborn.net/schematics/LSTACKER.schematic",
+      "filename": "LSTACKER.schematic",
+      "authors": ["Leepad", "Phonis", "Tino"],
+      "claimed_capabilities": ["l-stacker", "one-by-one-hole-lineup"],
+      "target_environment": {
+        "server": "CosmicReborn",
+        "jar": "unknown",
+        "minecraft_version": "legacy schematic format"
+      },
+      "publication_basis": "Official CosmicReborn schematic page exposes a direct download and credits the authors.",
+      "redistribution": "fetch-only",
+      "license_status": "not-stated",
+      "expected_sha256": "d34f37e879031a75693f528986633bb43d48f6f989c63ca6df1b8c0b71a538b5"
+    }
+  ]
+}
