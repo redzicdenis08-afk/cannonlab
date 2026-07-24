@@ -78,7 +78,7 @@ jobs:
           if-no-files-found: error
 
   controlled-fetch:
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.fetch_public_sources }}
+    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.fetch_public_sources) }}
     needs: corpus-contract
     runs-on: ubuntu-latest
     timeout-minutes: 15
