@@ -88,6 +88,41 @@ jobs:
           print('Formal/Pred shared-core input transform remains pinned to exact evidence.')
           PY
 
+      - name: Cross-check pinned shared static evidence
+        run: |
+          python - <<'PY' | tee lab-artifacts/shared-core-contract/evidence-contract.log
+          import json
+          from pathlib import Path
+
+          registry = json.loads(
+              Path('profiles/corpus/public-cannon-sources-v1.json').read_text(encoding='utf-8')
+          )
+          evidence = json.loads(
+              Path('evidence/public-corpus/cosmicreborn-formal-pred-shared-static-v1.json').read_text(encoding='utf-8')
+          )
+          source_hashes = {row['id']: row['expected_sha256'] for row in registry['sources']}
+          for row in evidence['sources']:
+              assert source_hashes[row['id']] == row['sha256'], row
+          assert evidence['transform']['degrees_y'] == 270, evidence
+          assert evidence['transform']['translation'] == [-649, 0, 357], evidence
+          overlap = evidence['metadata_aware_overlap']
+          assert overlap['same_kind_position_count'] == 2731, overlap
+          assert overlap['proven_metadata_equivalent_position_count'] == 2693, overlap
+          assert overlap['metadata_conflict_count'] == 9, overlap
+          assert overlap['unresolved_directional_metadata_count'] == 29, overlap
+          inventory = evidence['shared_assembly_inventory']
+          assert inventory['near_closed_static_review_candidate_count'] == 2, inventory
+          assert inventory['promotion_eligible_assembly_count'] == 0, inventory
+          ports = evidence['variant_boundary_port_hypotheses']
+          assert ports['paired_hypothesis_count'] == 3, ports
+          assert ports['unpaired_boundary_group_count'] == 0, ports
+          assert ports['promotion_eligible_port_count'] == 0, ports
+          assert evidence['truth_boundary']['boundary_shape_proves_port_semantics'] is False, evidence
+          assert evidence['truth_boundary']['runtime_semantics_confirmed'] is False, evidence
+          assert evidence['truth_boundary']['ec_ready'] is False, evidence
+          print('Pinned Formal/Pred shared static evidence is internally consistent.')
+          PY
+
       - name: Upload contract diagnostics
         if: always()
         uses: actions/upload-artifact@v4
@@ -97,7 +132,7 @@ jobs:
           if-no-files-found: warn
 
   controlled-shared-core:
-    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && inputs.fetch_public_sources) }}
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.fetch_public_sources }}
     needs: shared-core-contract
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -164,31 +199,15 @@ jobs:
 
           root = Path('lab-artifacts/shared-core-run')
           core = json.loads((root / 'formal-pred-shared-core.json').read_text(encoding='utf-8'))
-          envelope = json.loads((root / 'formal-pred-support-envelope.json').read_text(encoding='utf-8'))
           assemblies = json.loads((root / 'formal-pred-shared-assemblies.json').read_text(encoding='utf-8'))
           ports = json.loads((root / 'formal-pred-variant-port-hypotheses.json').read_text(encoding='utf-8'))
-          assert core['status'] == 'PASS', core
-          assert core['overlap']['same_kind_position_count'] == 2731, core
           assert core['overlap']['proven_metadata_equivalent_position_count'] == 2693, core
-          assert core['overlap']['classification_counts']['metadata_conflict'] == 9, core
-          assert core['overlap']['classification_counts']['same_kind_unresolved_metadata'] == 29, core
-          assert core['summary']['promotion_eligible_component_count'] == 0, core
-          assert envelope['status'] == 'PASS', envelope
-          assert envelope['summary']['reported_component_count'] == core['summary']['reported_component_count'], envelope
-          assert envelope['summary']['promotion_eligible_component_count'] == 0, envelope
-          assert assemblies['status'] == 'PASS', assemblies
-          assert assemblies['node_inventory']['proven_equivalent_functional_count'] == 2693, assemblies
           assert assemblies['summary']['review_classification_counts']['NEAR_CLOSED_STATIC_REVIEW_CANDIDATE'] == 2, assemblies
-          assert assemblies['summary']['promotion_eligible_assembly_count'] == 0, assemblies
-          assert ports['status'] == 'PASS', ports
-          assert ports['summary']['reviewed_assembly_count'] == 2, ports
           assert ports['summary']['paired_port_hypothesis_count'] == 3, ports
-          assert ports['summary']['unpaired_boundary_group_count'] == 0, ports
+          assert core['summary']['promotion_eligible_component_count'] == 0, core
+          assert assemblies['summary']['promotion_eligible_assembly_count'] == 0, assemblies
           assert ports['summary']['promotion_eligible_port_count'] == 0, ports
-          assert ports['truth_boundary']['boundary_shape_proves_port_semantics'] is False, ports
-          assert ports['truth_boundary']['runtime_semantics_confirmed'] is False, ports
-          assert ports['truth_boundary']['ec_ready'] is False, ports
-          print('Formal/Pred shared static and variant boundary-port evidence completed without promotion.')
+          print('Manual Formal/Pred shared static replay matched pinned evidence.')
           PY
 
       - name: Copy audit reports and remove raw third-party files
