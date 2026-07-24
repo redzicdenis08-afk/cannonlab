@@ -118,9 +118,62 @@ def build_cannon(barrel_len=16, n_propellant=6):
                  "dispensers":len(BE),"fire_input":(-1,4,-3),"muzzle":(barrel_len,1,0),
                  "all_dispensers_face":"east"}
 
+def build_5stacker(barrel_len=10, stacks=5, sand_loaders=4, payloads=4):
+    """
+    v3: a compact 5-stacker sand-comp launcher for point-blank (15-block) watered
+    walls. 5 propulsion charge dispensers (the 'stack'), a bank of SAND loader
+    dispensers (sand-comp: sand embeds TNT through the water curtain), payload TNT
+    dispensers, all facing EAST. Redstone roof line + lever. Scale sand_loaders/
+    payloads up for more walls (sim: 10 watered-cobble walls ~ 406 TNT + 451 sand).
+    """
+    B={}; BE=[]
+    def put(x,y,z,v): B[(x,y,z)]=v
+    OBS="minecraft:obsidian"; WATER="minecraft:water[level=0]"
+    DISP_E="minecraft:dispenser[facing=east,triggered=false]"
+    DROP_E="minecraft:dropper[facing=east,triggered=false]"
+    DUST="minecraft:redstone_wire[east=side,west=side,north=side,south=side,power=0]"
+    LEVER="minecraft:lever[face=floor,facing=north,powered=false]"
+
+    # 3-wide barrel shell
+    for x in range(0, barrel_len+1):
+        for z in range(-1,2):
+            put(x,0,z,OBS); put(x,3,z,OBS)
+        put(x,1,-2,OBS); put(x,2,-2,OBS); put(x,1,2,OBS); put(x,2,2,OBS)
+    # water trough (front 3 dry for the projectile)
+    for x in range(1, barrel_len-2):
+        for z in range(-1,2):
+            put(x,1,z,WATER)
+
+    # 5 propulsion charge dispensers stacked at the back (x=0), facing east
+    cnt=0
+    for (y,z) in [(1,0),(2,0),(1,-1),(1,1),(2,-1)]:
+        if cnt>=stacks: break
+        put(0,y,z,DISP_E); BE.append(((0,y,z),"minecraft:dispenser")); cnt+=1
+
+    # SAND loader dispensers (sand-comp) along the mid barrel, facing east
+    for i in range(sand_loaders):
+        x=2+i
+        put(x,2,0,DISP_E); BE.append(((x,2,0),"minecraft:dispenser"))
+    # payload TNT dispensers near the front, facing east
+    for i in range(payloads):
+        x=barrel_len-3+ (i%2)*0  # cluster near muzzle
+        yz=[(1,-1),(1,1),(2,-1),(2,1)][i%4]
+        put(barrel_len-3, yz[0], yz[1], DISP_E); BE.append(((barrel_len-3,yz[0],yz[1]),"minecraft:dispenser"))
+
+    # redstone ignition on the roof (supported) + lever
+    px=barrel_len-3
+    for x in range(0, barrel_len):
+        put(x,4,0,DUST)
+    put(0,4,-1,OBS); put(0,5,-1,LEVER)
+
+    return B,BE,{"version":3,"type":"5stacker-sandcomp","stacks":stacks,
+                 "sand_loaders":sand_loaders,"payloads":payloads,
+                 "dispensers":len(BE),"barrel_len":barrel_len,"range_target":15,
+                 "all_dispensers_face":"east"}
+
 if __name__=="__main__":
-    B,BE,meta=build_cannon()
-    W,H,L,pal,nbe=write_schem("basic-dispenser-cannon-v2.schem", B, BE)
-    print(f"built cannon: {W}x{H}x{L}  palette={pal}  dispensers={nbe}")
+    B,BE,meta=build_5stacker()
+    W,H,L,pal,nbe=write_schem("5stacker-sandcomp-v3.schem", B, BE)
+    print(f"built 5-stacker sand-comp: {W}x{H}x{L}  palette={pal}  dispensers={nbe}")
     print(f"  meta: {meta}")
-    print("  wrote basic-dispenser-cannon-v2.schem")
+    print("  wrote 5stacker-sandcomp-v3.schem")
