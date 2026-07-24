@@ -1,0 +1,65 @@
+# Sakura 26.1.2 STOCK cannoning ruleset — read from Samsuik/Sakura @63f35d7.
+# CannonLab defaults its reference model to these. ExtremeCraft runs private
+# overrides: copy this to ec-ruleset.yml and replace values with LIVE-measured
+# ones. Anything unmeasured MUST stay `UNKNOWN` — never invent an EC value.
+source_commit: 63f35d74e0fbe6bcd76c58494c01c1632c83010d
+minecraft_version: "26.1.2"
+
+physics:
+  gravity: 0.04
+  drag: 0.98
+  fuse_lifetime_ticks: 79        # Sakura measured (vanilla 80)
+  prime_fuse_range: [10, 29]     # TNT lit by a blast
+  explosion_power: 4.0
+  ray_count: 1352
+  step: 0.3
+  decay_per_step: 0.22500001
+  water_push: 0.014              # TNT only; sand/falling-block get NONE
+
+cannons:
+  merge_level: LENIENT           # NONE | STRICT | LENIENT | SPAWN
+  tnt_flows_in_water: true
+  restrictions:
+    instant_block_fall_limit: DISABLED
+    left_shooting_threshold: DISABLED
+    max_adjust_distance: DISABLED
+  explosion:
+    destroy_waterlogged_blocks: false   # water defenses work -> hybrid required
+    explode_lava: false
+    reuse_block_cache_across_explosions: false
+    batch_explosions: true
+    consistent_radius: false            # per-ray RNG variance on
+    protect_blocks_above_y: DISABLED
+    durable_materials_expiration_seconds: 60
+    durable_materials:
+      obsidian: {durability: 4, resistance: 6.0, only_damaged_by_tnt: true}   # cobble resistance
+      anvil:    {durability: 3, resistance: 9.0, only_damaged_by_tnt: true}   # endstone resistance
+  sand:
+    despawn_inside_moving_pistons: true
+    concrete_solidify_in_water: true
+
+entity:
+  chunk_travel_limit:            # despawn past N chunks from origin (Chebyshev)
+    ender_pearl: 8
+    tnt: UNLIMITED               # EC likely caps this -> range wall
+    falling_block: UNLIMITED
+
+technical:
+  redstone_implementation: VANILLA   # VANILLA | EIGENCRAFT | ALTERNATE_CURRENT
+  redstone_cache: true
+  dispenser_random_item_selection: true
+  allow_tnt_duplication: false
+
+server_limits:
+  dispensers_per_chunk: 160      # EC user-reported cap (not a Sakura default)
+  live_tnt_soft_cap: 500
+
+# ---- EC PRIVATE OVERRIDES (fill from live probes; UNKNOWN until measured) ----
+ec_overrides:
+  cannons.merge_level: UNKNOWN
+  cannons.restrictions.instant_block_fall_limit: UNKNOWN
+  cannons.restrictions.max_adjust_distance: UNKNOWN
+  entity.chunk_travel_limit.tnt: UNKNOWN
+  entity.chunk_travel_limit.falling_block: UNKNOWN
+  cannons.explosion.durable_materials.obsidian.durability: UNKNOWN
+  technical.redstone_implementation: UNKNOWN
