@@ -5,9 +5,11 @@ on:
     paths:
       - 'scripts/legacy-schematic-audit.py'
       - 'scripts/legacy-cannon-architecture.py'
+      - 'scripts/legacy-cannon-rotation-compare.py'
       - 'scripts/fetch-public-cannon-corpus.py'
       - 'scripts/test-public-cannon-corpus.py'
       - 'scripts/test-legacy-cannon-architecture.py'
+      - 'scripts/test-legacy-cannon-rotation-compare.py'
       - 'profiles/corpus/**'
       - 'evidence/public-corpus/**'
       - 'docs/PUBLIC_CANNON_CORPUS.md'
@@ -45,14 +47,17 @@ jobs:
           python -m py_compile \
             scripts/legacy-schematic-audit.py \
             scripts/legacy-cannon-architecture.py \
+            scripts/legacy-cannon-rotation-compare.py \
             scripts/fetch-public-cannon-corpus.py \
             scripts/test-public-cannon-corpus.py \
-            scripts/test-legacy-cannon-architecture.py
+            scripts/test-legacy-cannon-architecture.py \
+            scripts/test-legacy-cannon-rotation-compare.py
 
       - name: Run fail-closed corpus regressions
         run: |
           python scripts/test-public-cannon-corpus.py
           python scripts/test-legacy-cannon-architecture.py
+          python scripts/test-legacy-cannon-rotation-compare.py
 
       - name: Validate source registry in plan mode
         run: |
@@ -138,27 +143,39 @@ jobs:
       - name: Map shared legacy cannon architecture
         run: |
           root=lab-artifacts/public-cannon-cache/public-cannon-sources-v1/files
-          python scripts/legacy-cannon-architecture.py \
-            --source cosmicreborn-formal=$root/cosmicreborn-formal/FORMAL.schematic \
+          sources="--source cosmicreborn-formal=$root/cosmicreborn-formal/FORMAL.schematic \
             --source cosmicreborn-pred=$root/cosmicreborn-pred/PRED.schematic \
             --source cosmicreborn-mboze=$root/cosmicreborn-mboze/MBOZE.schematic \
             --source cosmicreborn-shakisha=$root/cosmicreborn-shakisha/SHAKISHA.schematic \
             --source cosmicreborn-raid-outpost-qp=$root/cosmicreborn-raid-outpost-qp/RAIDOUTPOSTQP.schematic \
-            --source cosmicreborn-l-stacker=$root/cosmicreborn-l-stacker/LSTACKER.schematic \
+            --source cosmicreborn-l-stacker=$root/cosmicreborn-l-stacker/LSTACKER.schematic"
+          python scripts/legacy-cannon-architecture.py \
+            $sources \
             --json-out lab-artifacts/public-corpus-run/legacy-architecture.json \
+            > /dev/null
+          python scripts/legacy-cannon-rotation-compare.py \
+            $sources \
+            --json-out lab-artifacts/public-corpus-run/legacy-y-rotation-structure.json \
             > /dev/null
           python - <<'PY'
           import json
           from pathlib import Path
 
-          report = json.loads(
+          strict = json.loads(
               Path('lab-artifacts/public-corpus-run/legacy-architecture.json').read_text(encoding='utf-8')
           )
-          assert report['status'] == 'PASS', report
-          assert len(report['sources']) == 6, report
-          assert report['comparison']['summary']['pair_count'] == 15, report
-          assert report['truth_boundary']['ec_ready'] is False, report
-          print('Six-source legacy architecture map completed.')
+          rotated = json.loads(
+              Path('lab-artifacts/public-corpus-run/legacy-y-rotation-structure.json').read_text(encoding='utf-8')
+          )
+          assert strict['status'] == 'PASS', strict
+          assert rotated['status'] == 'PASS', rotated
+          assert len(strict['sources']) == 6, strict
+          assert len(rotated['sources']) == 6, rotated
+          assert strict['comparison']['summary']['pair_count'] == 15, strict
+          assert rotated['comparison']['summary']['pair_count'] == 15, rotated
+          assert strict['truth_boundary']['ec_ready'] is False, strict
+          assert rotated['truth_boundary']['ec_ready'] is False, rotated
+          print('Six-source strict and Y-rotation architecture maps completed.')
           PY
 
       - name: Copy audit reports and remove raw third-party files
