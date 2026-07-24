@@ -6,6 +6,8 @@ import json
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 from pathlib import Path
 
 
@@ -74,7 +76,9 @@ def test_scenario_pack() -> None:
         height=32,
         shots=10,
     )
-    assert len(scenarios) == 5
+    assert len(scenarios) == 6
+    assert scenarios[0]["tier"] == "smoke"
+    assert scenarios[0]["expected_shots"] == 1
     joined = "\n".join(scenario["text"] for scenario in scenarios)
     assert "type: watered" in joined
     assert "type: slab-filter" in joined
@@ -85,7 +89,16 @@ def test_scenario_pack() -> None:
     assert "rebuild-cannon-between-shots: false" in joined
     assert all(scenario["assert_args"] for scenario in scenarios)
     assert all(scenario["wall_breach_args"] for scenario in scenarios)
-    assert all("--require-cumulative-cannon" in scenario["assert_args"] for scenario in scenarios)
+    assert all(
+        "--require-cumulative-cannon" in scenario["assert_args"]
+        for scenario in scenarios
+        if scenario["expected_shots"] > 1
+    )
+    plan = forge.build_execution_plan(scenarios)
+    assert plan["default_tier"] == "smoke"
+    assert plan["tiers"][0]["cumulative_shots"] == 1
+    assert plan["tiers"][1]["cumulative_shots"] == 9
+    assert plan["tiers"][2]["cumulative_shots"] == 54
 
 
 def test_tnt_only_scenario_pack() -> None:
@@ -103,7 +116,7 @@ def test_tnt_only_scenario_pack() -> None:
         shots=10,
         payload_contract=contract,
     )
-    assert len(scenarios) == 5, scenarios
+    assert len(scenarios) == 6, scenarios
     joined = "\n".join(scenario["text"] for scenario in scenarios)
     assert "type: watered" not in joined
     assert "min-falling-blocks: 0" in joined
@@ -111,7 +124,15 @@ def test_tnt_only_scenario_pack() -> None:
     assert "rebuild-cannon-between-shots: false" in joined
     assert sum(bool(scenario["corridor_args"]) for scenario in scenarios) == 4
     assert all(scenario["wall_breach_args"] for scenario in scenarios)
-    assert all("--require-cumulative-cannon" in scenario["assert_args"] for scenario in scenarios)
+    assert all(
+        "--require-cumulative-cannon" in scenario["assert_args"]
+        for scenario in scenarios
+        if scenario["expected_shots"] > 1
+    )
+    plan = forge.build_execution_plan(scenarios)
+    assert plan["tiers"][0]["cumulative_shots"] == 1
+    assert plan["tiers"][1]["cumulative_shots"] == 9
+    assert plan["tiers"][2]["cumulative_shots"] == 54
 
 
 def test_control_state_rendering() -> None:
@@ -161,6 +182,79 @@ def test_stage_round_trip() -> None:
             assert base64.b64decode(staged.read_text(encoding="ascii")) == source.read_bytes()
         finally:
             staged.unlink(missing_ok=True)
+
+
+def test_static_intake_parallelism() -> None:
+    original = forge.run_json
+    lock = threading.Lock()
+    active = 0
+    maximum_active = 0
+
+    def fake_run_json(_args: list[str], _timeout: int = 300, **_kwargs: object) -> dict[str, object]:
+        nonlocal active, maximum_active
+        with lock:
+            active += 1
+            maximum_active = max(maximum_active, active)
+        time.sleep(0.04)
+        with lock:
+            active -= 1
+        return {
+            "status": "PASS",
+            "_exit_code": 0,
+            "_cache_hit": False,
+            "_elapsed_ms": 40,
+        }
+
+    with tempfile.TemporaryDirectory() as temporary:
+        candidate = Path(temporary) / "candidate.schem"
+        candidate.write_bytes(b"parallel-static-intake")
+        forge.run_json = fake_run_json
+        try:
+            result = forge.static_intake(
+                candidate,
+                [],
+                "calibration",
+                160,
+                workers=5,
+                use_cache=False,
+            )
+        finally:
+            forge.run_json = original
+    assert result["status"] == "PASS", result
+    assert maximum_active >= 2, maximum_active
+    assert result["performance"]["parallel_workers"] == 5
+    assert result["performance"]["serial_tool_ms"] == 200
+
+
+def test_run_json_content_cache() -> None:
+    with tempfile.TemporaryDirectory() as temporary:
+        root = Path(temporary)
+        marker = root / "marker.txt"
+        cache = root / "cache"
+        script = (
+            "from pathlib import Path; import json; "
+            f"p=Path({str(marker)!r}); "
+            "p.write_text(p.read_text()+'x' if p.exists() else 'x'); "
+            "print(json.dumps({'status':'PASS'}))"
+        )
+        command = [sys.executable, "-c", script]
+        first = forge.run_json(command, cache_dir=cache)
+        second = forge.run_json(command, cache_dir=cache)
+        assert first["_cache_hit"] is False, first
+        assert second["_cache_hit"] is True, second
+        assert marker.read_text(encoding="utf-8") == "x"
+
+
+def test_campaign_runner_contract() -> None:
+    runner = (forge.SCRIPTS / "run-forge-campaign.ps1").read_text(encoding="utf-8")
+    assert "[string]$MaxTier = 'smoke'" in runner
+    assert "[int]$WallClockBudgetSeconds = 0" in runner
+    assert "[switch]$PlanOnly" in runner
+    assert "cannonlab-forge-stage-fingerprint-v2" in runner
+    assert "[SKIP exact cached PASS]" in runner
+    assert "runtime_fingerprint_complete" in runner
+    assert "state/$($Scenario.name).json" in runner
+    assert "cannonlab-forge-campaign-v3" in runner
 
 
 def test_scenario_integrity() -> None:
@@ -216,8 +310,11 @@ def main() -> None:
     test_tnt_only_scenario_pack()
     test_control_state_rendering()
     test_stage_round_trip()
+    test_static_intake_parallelism()
+    test_run_json_content_cache()
+    test_campaign_runner_contract()
     test_scenario_integrity()
-    print(json.dumps({"status": "PASS", "tests": 8}))
+    print(json.dumps({"status": "PASS", "tests": 11}))
 
 
 if __name__ == "__main__":

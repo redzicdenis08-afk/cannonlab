@@ -29,9 +29,23 @@ Add every useful guide, video transcript, forum post, field report or decoded ca
 7. Resolve the base plus specializations into an explicit payload contract. Unknown or conflicting payload interfaces fail closed.
 8. Declare every required lever, repeater, comparator, piston, trapdoor, or dispenser mode state as a verified control state.
 9. Stage a deterministic campaign with `scripts/cannon-forge.py stage`.
-10. Run the campaign with `scripts/run-forge-campaign.ps1`.
-11. Explain every shot, analyze breach evidence, enforce output-corridor repeatability, and compare untouched module traces.
-12. Promote only the evidence level actually earned.
+10. Run the one-shot `smoke` tier first. Stop immediately on payload, direction, target-contact, survival, control-state, or integrity failure.
+11. Run the cumulative `qualify` tier only after smoke passes.
+12. Run the `full` tier only for candidates that passed qualification. Resume exact passed stages instead of rerunning them.
+13. Explain every shot, analyze breach evidence, enforce output-corridor repeatability, and compare untouched module traces.
+14. Promote only the evidence level actually earned.
+
+## Fast iteration funnel
+
+The default operator run executes only the one-shot smoke gate. The generated campaign is deliberately tiered:
+
+- `smoke`: one native shot for cheap rejection
+- `qualify`: smoke plus short cumulative baseline/payload qualification
+- `full`: every archetype-specific gauntlet and endurance contract
+
+Use `--plan-only` before expensive work and use a wall-clock budget when exploring. Static intake runs independent tools concurrently and reuses content-addressed results. Variant search runs unique bounded mutations concurrently, deduplicates identical rendered changes, and caches exact mutation outcomes.
+
+Runtime resume is valid only when candidate and scenario hashes, assertion arguments, analysis tools, plugin/server JARs, lab home, and `CANNONLAB_*` environment values match. A cache hit saves computation; it never raises the evidence level. Only a completed full campaign can earn the full local candidate verdict.
 
 ## Required stress campaign
 

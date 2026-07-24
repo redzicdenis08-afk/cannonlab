@@ -139,12 +139,50 @@ class GeneralCannonMcpTests(unittest.TestCase):
             spec_path = Path(directory) / "search.json"
             spec_path.write_text("{}\n", encoding="utf-8")
             with patch.object(server, "_run_json", return_value={"status": "PASS"}) as mocked:
-                result = server.generate_cannon_variants(str(spec_path), apply=False)
+                result = server.generate_cannon_variants(
+                    str(spec_path),
+                    apply=False,
+                    workers=6,
+                    use_cache=False,
+                    timeout_seconds=45,
+                )
             self.assertEqual(result["status"], "PASS")
             command = mocked.call_args.args[0]
             self.assertIn("cannon-variant-search.py", command[1])
             self.assertIn("generate", command)
             self.assertIn("--no-apply", command)
+            self.assertIn("--workers", command)
+            self.assertIn("6", command)
+            self.assertIn("--no-cache", command)
+            self.assertIn("--timeout-seconds", command)
+
+    def test_factory_budget_planner_is_exposed(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            root = Path(directory)
+            search_manifest = root / "search.json"
+            forge_manifest = root / "forge.json"
+            history = root / "history.json"
+            for path in (search_manifest, forge_manifest, history):
+                path.write_text("{}\n", encoding="utf-8")
+            with patch.object(server, "_run_json", return_value={"status": "PASS"}) as mocked:
+                result = server.plan_cannon_factory_budget(
+                    str(search_manifest),
+                    str(forge_manifest),
+                    1800,
+                    runtime_workers=2,
+                    target_tier="full",
+                    max_smoke=10,
+                    max_qualify=2,
+                    max_full=1,
+                    historical_summary_paths=[str(history)],
+                )
+            self.assertEqual(result["status"], "PASS")
+            command = mocked.call_args.args[0]
+            self.assertIn("cannon-factory-budget.py", command[1])
+            self.assertIn("--budget-seconds", command)
+            self.assertIn("1800", command)
+            self.assertIn("--runtime-workers", command)
+            self.assertIn("--historical-summary", command)
 
     def test_variant_runtime_ranking_tool_is_exposed(self) -> None:
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
@@ -215,6 +253,31 @@ class GeneralCannonMcpTests(unittest.TestCase):
             self.assertEqual(result["status"], "READY")
             command = mocked.call_args.args[0]
             self.assertNotIn("--execute", command)
+            self.assertIn("--max-tier", command)
+            self.assertIn("smoke", command)
+
+    def test_operator_run_binds_tier_budget_and_resume(self) -> None:
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            manifest = Path(directory) / "manifest.json"
+            manifest.write_text("{}\n", encoding="utf-8")
+            with patch.object(server, "_run_json", return_value={"status": "READY"}) as mocked:
+                result = server.run_cannon_operator(
+                    str(manifest),
+                    execute=False,
+                    max_tier="qualify",
+                    resume=False,
+                    plan_only=True,
+                    wall_clock_budget_seconds=900,
+                    force=True,
+                )
+            self.assertEqual(result["status"], "READY")
+            command = mocked.call_args.args[0]
+            self.assertIn("qualify", command)
+            self.assertIn("--no-resume", command)
+            self.assertIn("--plan-only", command)
+            self.assertIn("--wall-clock-budget-seconds", command)
+            self.assertIn("900", command)
+            self.assertIn("--force", command)
 
     def test_private_corpus_regression_tool_is_exposed(self) -> None:
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:

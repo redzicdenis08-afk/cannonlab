@@ -107,6 +107,8 @@ class CannonOperatorTests(unittest.TestCase):
             "width": 17,
             "height": 32,
             "shots": 10,
+            "static_workers": 5,
+            "no_static_cache": False,
         }
         values.update(updates)
         return argparse.Namespace(**values)
@@ -259,7 +261,41 @@ class CannonOperatorTests(unittest.TestCase):
         self.assertEqual(result["status"], "READY")
         self.assertFalse(result["executed"])
         self.assertIn(str(operator.FORGE_RUNNER), result["command"])
+        self.assertIn("smoke", result["command"])
         run.assert_not_called()
+
+    def test_run_dry_mode_exposes_fast_planner_and_budget(self) -> None:
+        forge_dir = self.root / "forge-jobs" / "ready-fast"
+        forge_dir.mkdir(parents=True)
+        forge_manifest = forge_dir / "manifest.json"
+        forge_manifest.write_text("{}\n", encoding="utf-8")
+        manifest = self.root / "ready-fast.json"
+        manifest.write_text(
+            json.dumps({
+                "schema": "cannonlab-operator-job-v1",
+                "status": "PASS",
+                "forge": {"manifest_path": str(forge_manifest)},
+            }),
+            encoding="utf-8",
+        )
+        result = operator.run_job(
+            str(manifest),
+            execute=False,
+            max_tier="qualify",
+            resume=False,
+            plan_only=True,
+            wall_clock_budget_seconds=600,
+            force=True,
+        )
+        command = result["command"]
+        self.assertIn("qualify", command)
+        self.assertIn("-NoResume", command)
+        self.assertIn("-PlanOnly", command)
+        self.assertIn("-WallClockBudgetSeconds", command)
+        self.assertIn("600", command)
+        self.assertIn("-Force", command)
+        self.assertTrue(result["plan_only"])
+        self.assertEqual(result["wall_clock_budget_seconds"], 600)
 
 
 if __name__ == "__main__":
