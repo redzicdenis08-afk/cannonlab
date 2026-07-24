@@ -11,7 +11,9 @@ on:
       - 'gradlew.bat'
       - 'scripts/cloud-smoke.sh'
       - 'scripts/explain-causal-trace.py'
+      - 'scripts/analyze-breach-evidence.py'
       - 'scenarios/probe-redstone-diagnostic.yml'
+      - 'scenarios/breach-telemetry-probe.yml'
   workflow_dispatch:
 
 concurrency:
@@ -95,5 +97,58 @@ jobs:
           name: CannonLab-runtime-intelligence-${{ github.run_number }}
           path: |
             lab-artifacts/**
+          if-no-files-found: error
+          retention-days: 30
+
+  breach-evidence-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Build breach telemetry recorder
+        run: gradle clean build --stacktrace
+
+      - name: Run diagnostic falling-payload overlap probe
+        env:
+          CANNONLAB_MC_VERSION: '26.1.2'
+          CANNONLAB_SCENARIO: breach-telemetry-probe.yml
+          CANNONLAB_EXPECTED_SHOTS: '1'
+          CANNONLAB_EXPECTED_LIFETIME: none
+          CANNONLAB_MIN_EMBEDDED_PAYLOAD_EXPLOSIONS: '1'
+          CANNONLAB_MAX_UNEMBEDDED_WATER_EXPLOSIONS: '0'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Verify breach telemetry fail-closed report
+        run: |
+          python scripts/analyze-breach-evidence.py lab-artifacts/results \
+            --min-embedded-payload-explosions 1 \
+            --max-unembedded-water-explosions 0 \
+            --min-contiguous-layers-before-first-regen 0 \
+            --json-out lab-artifacts/breach-evidence.json
+
+      - name: Upload breach telemetry evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-breach-evidence-${{ github.run_number }}
+          path: lab-artifacts/**
           if-no-files-found: error
           retention-days: 30

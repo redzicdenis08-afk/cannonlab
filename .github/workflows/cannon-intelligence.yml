@@ -8,6 +8,14 @@ on:
       - 'scripts/paste-alignment-audit.py'
       - 'scripts/scenario-integrity-audit.py'
       - 'scripts/test-runtime-integrity.py'
+      - 'scripts/assert-results.py'
+      - 'scripts/cloud-smoke.sh'
+      - 'scripts/prepare-server.ps1'
+      - 'scripts/analyze-breach-evidence.py'
+      - 'scripts/test-breach-evidence.py'
+      - 'scripts/test-assert-breach-contract.py'
+      - 'scripts/compare-entity-trajectories.py'
+      - 'scripts/test-entity-trajectory-compare.py'
       - 'scripts/cannon-static-map.py'
       - 'scripts/cannon-module-map.py'
       - 'scripts/test-static-analysis-cache.py'
@@ -27,6 +35,8 @@ on:
       - 'scripts/explain-causal-trace.py'
       - 'scripts/analyze-causal-quality.py'
       - 'mcp-server/**'
+      - 'src/main/java/**'
+      - 'scenarios/breach-telemetry-probe.yml'
       - 'audit-fixtures/**'
   workflow_dispatch:
 
@@ -58,6 +68,11 @@ jobs:
             scripts/paste-alignment-audit.py \
             scripts/scenario-integrity-audit.py \
             scripts/test-runtime-integrity.py \
+            scripts/analyze-breach-evidence.py \
+            scripts/test-breach-evidence.py \
+            scripts/test-assert-breach-contract.py \
+            scripts/compare-entity-trajectories.py \
+            scripts/test-entity-trajectory-compare.py \
             scripts/cannon-static-map.py \
             scripts/cannon-module-map.py \
             scripts/test-static-analysis-cache.py \
@@ -112,6 +127,12 @@ jobs:
       - name: Prove paste-point and evidence integrity gates
         run: |
           python scripts/test-runtime-integrity.py
+
+      - name: Prove breach and per-entity trajectory evidence
+        run: |
+          python scripts/test-breach-evidence.py
+          python scripts/test-assert-breach-contract.py
+          python scripts/test-entity-trajectory-compare.py
 
       - name: Prove module-preservation gate
         run: |

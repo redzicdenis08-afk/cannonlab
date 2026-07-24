@@ -11,6 +11,7 @@ from mcp.server.fastmcp import FastMCP
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
+OUTPUT_ROOT = ROOT.parents[1] / "output"
 mcp = FastMCP("CannonLab")
 
 
@@ -21,6 +22,20 @@ def _inside_root(raw: str | Path, *, must_exist: bool = True) -> Path:
     path = path.resolve()
     if not path.is_relative_to(ROOT):
         raise ValueError(f"path escapes CannonLab repository: {raw}")
+    if must_exist and not path.exists():
+        raise FileNotFoundError(path)
+    return path
+
+
+def _inside_runtime(raw: str | Path, *, must_exist: bool = True) -> Path:
+    """Allow CannonLab repo files plus generated CannonLab evidence under workspace output/."""
+    path = Path(raw)
+    if not path.is_absolute():
+        path = ROOT / path
+    path = path.resolve()
+    allowed = path.is_relative_to(ROOT) or path.is_relative_to(OUTPUT_ROOT)
+    if not allowed:
+        raise ValueError(f"path escapes CannonLab repository/output roots: {raw}")
     if must_exist and not path.exists():
         raise FileNotFoundError(path)
     return path
@@ -458,6 +473,85 @@ def compare_module_traces(
         args.append("--allow-joint-entity-cohort-changes")
     if allow_ambiguous_pairing:
         args.append("--allow-ambiguous-pairing")
+    return _run_json(args)
+
+
+@mcp.tool()
+def compare_entity_trajectories(
+    reference_events: str,
+    candidate_events: str,
+    reference_uuid: str = "",
+    candidate_uuid: str = "",
+    entity_index: int = 0,
+    infer_translation: bool = True,
+    position_tolerance: float = 1.0e-6,
+    velocity_tolerance: float = 1.0e-6,
+    fuse_tolerance: int = 0,
+    spawn_tick_tolerance: int = 0,
+    explosion_position_tolerance: float = 1.0e-6,
+    explosion_tick_tolerance: int = 0,
+    nearby_explosion_tick_window: int = 0,
+    nearby_explosion_radius: float = 16.0,
+) -> dict[str, Any]:
+    """Pinpoint the first per-tick TNT position, velocity, fuse, or landing divergence."""
+    reference = _inside_runtime(reference_events)
+    candidate = _inside_runtime(candidate_events)
+    args = [
+        sys.executable,
+        str(SCRIPTS / "compare-entity-trajectories.py"),
+        str(reference),
+        str(candidate),
+        "--entity-index",
+        str(entity_index),
+        "--position-tolerance",
+        str(position_tolerance),
+        "--velocity-tolerance",
+        str(velocity_tolerance),
+        "--fuse-tolerance",
+        str(fuse_tolerance),
+        "--spawn-tick-tolerance",
+        str(spawn_tick_tolerance),
+        "--explosion-position-tolerance",
+        str(explosion_position_tolerance),
+        "--explosion-tick-tolerance",
+        str(explosion_tick_tolerance),
+        "--nearby-explosion-tick-window",
+        str(nearby_explosion_tick_window),
+        "--nearby-explosion-radius",
+        str(nearby_explosion_radius),
+    ]
+    if reference_uuid:
+        args += ["--reference-uuid", reference_uuid]
+    if candidate_uuid:
+        args += ["--candidate-uuid", candidate_uuid]
+    if not infer_translation:
+        args.append("--no-infer-translation")
+    return _run_json(args)
+
+
+@mcp.tool()
+def analyze_breach_evidence(
+    results: str,
+    min_embedded_payload_explosions: int = 1,
+    max_unembedded_water_explosions: int = 0,
+    min_contiguous_layers_before_first_regen: int = 1,
+    require_all_layers_before_first_regen: bool = False,
+) -> dict[str, Any]:
+    """Fail closed unless runtime evidence shows falling-payload overlap and regen-race progress."""
+    run = _inside_runtime(results)
+    args = [
+        sys.executable,
+        str(SCRIPTS / "analyze-breach-evidence.py"),
+        str(run),
+        "--min-embedded-payload-explosions",
+        str(min_embedded_payload_explosions),
+        "--max-unembedded-water-explosions",
+        str(max_unembedded_water_explosions),
+        "--min-contiguous-layers-before-first-regen",
+        str(min_contiguous_layers_before_first_regen),
+    ]
+    if require_all_layers_before_first_regen:
+        args.append("--require-all-layers-before-first-regen")
     return _run_json(args)
 
 
