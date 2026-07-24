@@ -54,7 +54,12 @@ def main() -> None:
 
     audit = load_audit()
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    audit.write_sponge_v2(args.output, build_model(), 3465)
+    audit.write_sponge_v2(
+        args.output,
+        build_model(),
+        3465,
+        canonical_gzip=True,
+    )
 
     root_name, root, trailing, _decoded_size, diagnostics = audit.load(args.output)
     model = audit.decode_any(root_name, root)

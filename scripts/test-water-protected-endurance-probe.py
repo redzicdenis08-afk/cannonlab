@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import base64
+import gzip
 import importlib.util
 import tempfile
 from pathlib import Path
@@ -27,13 +28,30 @@ def main() -> None:
         SCRIPTS / "build-water-protected-endurance-probe.py",
     )
     audit = load_script("water_protected_endurance_audit", SCRIPTS / "schem-audit.py")
+    for payload in (b"", b"canonical", b"x" * 70000):
+        first = audit.deterministic_gzip_stored(payload)
+        second = audit.deterministic_gzip_stored(payload)
+        assert first == second
+        assert first[:10] == b"\x1f\x8b\x08\x00\x00\x00\x00\x00\x00\xff"
+        assert gzip.decompress(first) == payload
+
     committed = ROOT / "cannons" / "probe-water-protected-dispenser.schem.b64"
     expected_bytes = base64.b64decode(committed.read_text(encoding="ascii"))
+    assert expected_bytes[:3] == b"\x1f\x8b\x08", expected_bytes[:10]
+    assert expected_bytes[9] == 255, (
+        "committed endurance probe must use canonical gzip OS byte 255"
+    )
 
     with tempfile.TemporaryDirectory() as temp:
         generated = Path(temp) / "probe.schem"
-        audit.write_sponge_v2(generated, builder.build_model(), 3465)
+        audit.write_sponge_v2(
+            generated,
+            builder.build_model(),
+            3465,
+            canonical_gzip=True,
+        )
         actual_bytes = generated.read_bytes()
+        assert actual_bytes[9] == 255, actual_bytes[:10]
         assert actual_bytes == expected_bytes, (
             "committed endurance probe does not match deterministic generator"
         )
