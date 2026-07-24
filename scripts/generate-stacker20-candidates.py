@@ -65,9 +65,15 @@ def model_for(charge_count: int) -> tuple[dict[str, Any], dict[str, Any]]:
     water = "minecraft:water[level=0]"
 
     fill(blocks, (0, 0, 1), (10, 0, 6), obsidian)
-    fill(blocks, (0, 1, 1), (10, 2, 1), obsidian)
-    fill(blocks, (0, 1, 6), (10, 2, 6), obsidian)
-    fill(blocks, (0, 1, 2), (0, 2, 5), obsidian)
+    fill(blocks, (0, 2, 1), (10, 2, 1), obsidian)
+    fill(blocks, (0, 2, 6), (10, 2, 6), obsidian)
+    for x in (0, 9, 10):
+        set_block(blocks, (x, 1, 1), obsidian)
+        set_block(blocks, (x, 1, 6), obsidian)
+    if charge_count == 52:
+        fill(blocks, (0, 2, 2), (0, 2, 5), obsidian)
+    else:
+        fill(blocks, (0, 1, 2), (0, 2, 5), obsidian)
     fill(blocks, (1, 1, 2), (8, 1, 5), water)
 
     top_x = range(3, 9) if charge_count == 40 else range(1, 9)
