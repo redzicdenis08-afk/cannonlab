@@ -103,11 +103,19 @@ def inspect_cannon(path: str, chunk_limit: int = 160) -> dict[str, Any]:
         "--chunk-limit",
         str(chunk_limit),
     ])
+    ec160_architecture = _run_json([
+        sys.executable,
+        str(SCRIPTS / "ec160_architecture_advisor.py"),
+        str(source),
+        "--chunk-limit",
+        str(chunk_limit),
+    ])
     return {
         "audit": audit,
         "paste_alignment": paste_alignment,
         "static_map": static_map,
         "module_map": module_map,
+        "ec160_architecture": ec160_architecture,
     }
 
 
@@ -150,6 +158,13 @@ def fast_cannon_intake(
         "--chunk-limit",
         str(chunk_limit),
     ])
+    ec160_architecture = _run_json([
+        sys.executable,
+        str(SCRIPTS / "ec160_architecture_advisor.py"),
+        str(source),
+        "--chunk-limit",
+        str(chunk_limit),
+    ])
     profile = _run_json([
         sys.executable,
         str(SCRIPTS / "cannon-geometry-profile.py"),
@@ -165,6 +180,7 @@ def fast_cannon_intake(
         "paste_alignment": paste_alignment,
         "static_map": static_map,
         "module_map": module_map,
+        "ec160_architecture": ec160_architecture,
         "geometry_profile": profile,
         "next_action": (
             "Use a proven reference as the edit base. Do not generate a modern raid "
@@ -190,6 +206,66 @@ def audit_paste_alignment(
     ]
     if block_entity_limit is not None:
         args += ["--block-entity-limit", str(block_entity_limit)]
+    return _run_json(args)
+
+
+@mcp.tool()
+def advise_ec160_architecture(path: str, chunk_limit: int = 160) -> dict[str, Any]:
+    """Find legal X/Z placements first, then map bank-level reconstruction pressure without rewriting the cannon."""
+    source = _inside_root(path)
+    return _run_json([
+        sys.executable,
+        str(SCRIPTS / "ec160_architecture_advisor.py"),
+        str(source),
+        "--chunk-limit",
+        str(chunk_limit),
+    ])
+
+
+@mcp.tool()
+def compare_reference_physics(
+    events_path: str,
+    kind: str = "tnt",
+    profile: str = "modern-java",
+    entity_index: int = 0,
+    entity_uuid: str | None = None,
+    water_flow_x: float = 0.0,
+    water_flow_y: float = 0.0,
+    water_flow_z: float = 0.0,
+    position_tolerance: float = 1.0e-5,
+    velocity_tolerance: float = 1.0e-5,
+    fuse_tolerance: int = 0,
+) -> dict[str, Any]:
+    """Compare one recorded TNT/falling-block trajectory to the independent reference model and diagnose first drift."""
+    if kind not in {"tnt", "falling_block"}:
+        raise ValueError("kind must be tnt or falling_block")
+    if profile not in {"modern-java", "legacy-java-1.8"}:
+        raise ValueError("profile must be modern-java or legacy-java-1.8")
+    events = _inside_root(events_path)
+    args = [
+        sys.executable,
+        str(SCRIPTS / "cannon_physics_reference.py"),
+        "compare-events",
+        str(events),
+        "--kind",
+        kind,
+        "--profile",
+        profile,
+        "--entity-index",
+        str(entity_index),
+        "--water-flow",
+        str(water_flow_x),
+        str(water_flow_y),
+        str(water_flow_z),
+        "--position-tolerance",
+        str(position_tolerance),
+        "--velocity-tolerance",
+        str(velocity_tolerance),
+        "--fuse-tolerance",
+        str(fuse_tolerance),
+    ]
+    if entity_uuid:
+        args += ["--uuid", entity_uuid]
     return _run_json(args)
 
 

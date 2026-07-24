@@ -1,0 +1,107 @@
+{
+  "schema": "cannonlab-expert-source-registry-v1",
+  "retrieved_date": "2026-07-24",
+  "truth_rule": "Source code proves only what the inspected revision implements. Community videos prove terminology and demonstrated workflows only in the shown environment. Neither proves private ExtremeCraft parity.",
+  "software_sources": [
+    {
+      "id": "asynctnt-e1198cd",
+      "type": "git-repository",
+      "repository": "owengregson/AsyncTNT",
+      "commit": "e1198cd3db220daad2bd5ed7ac0d8a73bb4d89fc",
+      "commit_date": "2026-06-30",
+      "useful_for": ["modern TNT and falling-block motion order", "water-current push implementation", "explosion ray traversal and entity impulse", "version-profile differences"],
+      "boundary": "The repository explicitly warns that it is still buggy and in active development. Treat it as implementation evidence and a research corpus, not a drop-in authority for Sakura or ExtremeCraft."
+    },
+    {
+      "id": "cannonlib-daad9e9",
+      "type": "git-repository",
+      "repository": "lntricate1/CannonLib",
+      "commit": "daad9e913ef6cbd99cf401aa5480abca23d46768",
+      "commit_date": "2023-05-20",
+      "useful_for": ["differential basket angle counting", "target-to-basket TNT count solving", "ROM bit encoding for known cannon definitions", "explosion-vector calculations", "slime-bounce timing search"],
+      "boundary": "CannonLib does not generate a 384 OSRB, reconstruct redstone, solve EC160 architecture, or emulate private server plugins."
+    },
+    {
+      "id": "cannoningutils-17a6394",
+      "type": "git-repository",
+      "repository": "FlamingH0rse/CannoningUtils",
+      "commit": "17a6394d16d031fd36b539ff4a4d3896b725f3ff",
+      "commit_date": "2025-08-18",
+      "useful_for": ["cannon build and testing workflow context"],
+      "boundary": "Utility tooling is not a cannon solver and is not evidence for archetype mechanics."
+    }
+  ],
+  "community_sources": [
+    {
+      "id": "youtube-j0FSs6kvhug",
+      "title": "1.18 Cannoning Ep 35: Explaining OOE Stacking, OSRB and Overstacking",
+      "channel": "GlassCarpark",
+      "useful_for": ["community definitions of one-power stacking, overstacking and OSRB workflows", "render-order and stopper/scatter concepts", "server-specific compatibility warnings"],
+      "boundary": "Auto-captioned community explanation. Exact tick claims and terminology require schematic and runtime corroboration."
+    },
+    {
+      "id": "youtube-0krR3P2FkLc",
+      "title": "1.18 Cannoning Ep 42: 2s 384 OSRB Part 4",
+      "channel": "GlassCarpark",
+      "useful_for": ["nuke, rewing, slab-bust, bypass and OSRB integration workflow", "same-cannon module timing iteration"],
+      "boundary": "Build-session evidence from one environment, not a universal ratio book."
+    },
+    {
+      "id": "youtube-_iAUAHaVuJI",
+      "title": "1.18 Cannoning Ep 41: 2s 384 OSRB Part 3",
+      "channel": "GlassCarpark",
+      "useful_for": ["one-shot sand, OSRB sand, restack sand, scatter and hammer ordering", "double-pulse piston timing workflow"],
+      "boundary": "Community workflow. Timing must be remeasured on the target fork."
+    },
+    {
+      "id": "youtube-VI9CSBFrNmE",
+      "title": "Adjustable Horizontal Tunnel Stack - Rev Hybrid The Worm",
+      "channel": "Dragonairbender-Cannons",
+      "useful_for": ["horizontal tunnel-stacker anatomy", "reverse power, tunnel TNT, hammer, nuke and horizontal sand ordering", "patching and adjustment context"],
+      "boundary": "Historical community implementation. Numeric ratios and alignments are not promoted without modern runtime proof."
+    },
+    {
+      "id": "youtube-vcRTNfjNdC4",
+      "title": "1.18 Cannoning Ep 28: 3S WORM RELEASE + BUILD PRACTICAL",
+      "channel": "GlassCarpark",
+      "useful_for": ["worm construction workflow", "booster, sand-compression and timing iteration context"],
+      "boundary": "Community construction evidence only."
+    },
+    {
+      "id": "youtube-_v6nRG2tGVI",
+      "title": "How To Use Cannons in Minecraft Factions (FULL GUIDE)",
+      "channel": "Hxroic",
+      "useful_for": ["operator workflow for 75, 384 nuke and 384 OSRB/AP cannons", "dry-lever, fill, adjust, backstack and anti-patch mode context"],
+      "boundary": "Server-specific usage guide. Labels do not prove internal module semantics."
+    },
+    {
+      "id": "youtube-KkASJkHx-_E",
+      "title": "20 Stacker OneShot with Slab Bust",
+      "channel": "TNT MADNESS",
+      "useful_for": ["slab-bust, one-shot, compression and within-tick ordering concepts"],
+      "boundary": "Older-version tutorial. Modern Paper, Sakura and ExtremeCraft behavior must be measured independently."
+    }
+  ],
+  "rejected_or_universalized_claims": [
+    {
+      "claim": "hammer:sand is universally about 1:1.11",
+      "status": "REJECTED_AS_UNIVERSAL",
+      "reason": "No inspected primary source established one universal ratio across archetypes, exposures, versions and target mechanics."
+    },
+    {
+      "claim": "current Sakura 26.1.2 definitely has the Moonrise early-fuse bug",
+      "status": "UNPROVEN",
+      "reason": "A historical Folia/Moonrise issue is not proof of the current pinned runtime or private ExtremeCraft behavior. Use the reference-physics fingerprint test."
+    },
+    {
+      "claim": "CannonLib can design a complete 384 OSRB",
+      "status": "FALSE",
+      "reason": "The inspected library solves narrower trajectory, basket, ROM and bounce problems."
+    },
+    {
+      "claim": "384 means exactly 384 dispensers",
+      "status": "FALSE",
+      "reason": "Observed 384-labeled systems contain substantially different total dispenser counts. Treat 384 as a community payload/stack label until the exact design is decoded."
+    }
+  ]
+}

@@ -15,12 +15,13 @@ Never collapse these levels.
 ## Fast default workflow
 
 1. Use `fast_cannon_intake` once. Pass the candidate plus the strongest real reference cannons available.
-2. For a format-only or quick upload task, use `prepare_reference_cannon`; do not redesign the cannon.
-3. If `modern_raid_morphology` fails, reject the candidate immediately. Do not spend runtime hours proving a flat toy fires.
-4. Start edits from a decoded proven reference. Preserve its exact block-state geometry and causal sequence until one measured variable is intentionally changed.
-5. Run real redstone only after static structure, chunk alignment, block entities, control input, and morphology pass.
-6. Test the narrow changed module first, then the whole cannon.
-7. Return the `.schem` and the smallest honest evidence summary. Do not narrate every internal step.
+2. Read `ec160_architecture`. If any legal residue exists, document exact placement before attempting a bank redesign.
+3. For a format-only or quick upload task, use `prepare_reference_cannon`; do not redesign the cannon.
+4. If `modern_raid_morphology` fails, reject the candidate immediately. Do not spend runtime hours proving a flat toy fires.
+5. Start edits from a decoded proven reference. Preserve its exact block-state geometry and causal sequence until one measured variable is intentionally changed.
+6. Run real redstone only after static structure, chunk alignment, block entities, control input, and morphology pass.
+7. Test the narrow changed module first, then the whole cannon.
+8. Return the `.schem` and the smallest honest evidence summary. Do not narrate every internal step.
 
 ## Required deep workflow
 
@@ -30,10 +31,12 @@ Never collapse these levels.
 4. Run the cannon through real redstone, not direct dispenser activation, when judging its actual firing circuit.
 5. Run `explain_shot` on every shot.
 6. Compare at least ten repeatable shots before calling timing stable.
-7. Correlate dispenser cohorts, entity-spawn cohorts, piston cohorts and explosion ticks.
-8. Assign cannon roles only when the causal trace supports them.
-9. Test one variable at a time.
-10. Preserve failed shots and their evidence.
+7. Run `compare_reference_physics` on representative TNT and falling-block entities. Separate normal collision from fuse, drag, gravity, water-push or fork drift.
+8. Correlate dispenser cohorts, entity-spawn cohorts, piston cohorts and explosion ticks.
+9. Assign cannon roles only when the causal trace supports them.
+10. Treat community ratios and names as hypotheses unless reproduced on the exact target profile.
+11. Test one variable at a time.
+12. Preserve failed shots and their evidence.
 
 ## Anti-pancake gate
 
@@ -76,6 +79,8 @@ Not allowed:
 - Empty dispenser inventories are intentional because `/p tntfill` fills them.
 - Sponge v2, DataVersion 3465 is the field-verified paste target.
 - Chunk alignment must be recorded for every paste.
+- Scan all 256 residues before changing geometry. A placement-fragile legal cannon is not the same problem as a 0/256 cannon.
+- When 0/256, segment paired opposing banks symmetrically and re-prove transport timing. Do not move only one compression panel.
 - Paste empty, settle, fill, then use the real control input.
 - `/schemdb` and `/mechanic` are not valid recommendations for this project.
 
@@ -96,6 +101,8 @@ A cannon task is not complete until the repository contains:
 - scenario YAML
 - causal trace CSV
 - causal explanation JSON or Markdown
+- EC160 architecture/advisor report
+- reference-physics comparison for representative TNT and falling-block trajectories
 - repeatability results
 - Sakura result
 - EC canary notes where applicable

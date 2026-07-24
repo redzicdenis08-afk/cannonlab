@@ -23,6 +23,8 @@ Use one of these before spending time on runtime tests:
 - `profile_cannon`: rapidly compare a candidate with one or more decoded references and reject fake-modern geometry
 - `prepare_reference_cannon`: convert a proven Litematica or Sponge source into deterministic Sponge v2, then audit and profile the exact output
 - `audit_paste_alignment`: translate schematic-minimum chunk scans into the actual WorldEdit player paste-point frame, including `WEOffsetX/Z`
+- `advise_ec160_architecture`: find legal placement residues before redesign, then map bank-level redistribution pressure without modifying the source
+- `compare_reference_physics`: compare a recorded TNT or falling-block trajectory to the independent reference model and diagnose the first physical divergence
 - `audit_scenario_integrity`: expose lab assists and weak evidence gates before a result is promoted
 - `map_cannon_modules`: map bank-centered modules, exact repeated lanes, controls, timing parts, directional links, and conservative role candidates
 - `check_cannon_preservation`: fail closed when an edit exceeds its declared block, module, control, fluid, dispenser-bank, block-entity, or alignment-confidence budget
@@ -42,6 +44,8 @@ For modern raid work, pass the strongest real reference cannons available and us
 - `inspect_cannon`: static format, chunk, block-entity, functional-component, and module analysis
 - `fast_cannon_intake`: combined fast audit, structural map, reference comparison, and next-action verdict
 - `audit_paste_alignment`: safe player chunk-local paste offsets plus separate block-entity pressure
+- `advise_ec160_architecture`: all-offset legality, chunk-by-bank pressure, opposing-panel pairs, placement fragility, and non-destructive segmentation scaffolds
+- `compare_reference_physics`: source-audited free-flight prediction plus fuse, gravity, drag, water-current, collision, and unmodelled-fork diagnosis
 - `audit_scenario_integrity`: field-candidate and readiness eligibility for one runtime scenario
 - `map_cannon_modules`: conservative module boundaries and exact translation-family detection without invented runtime roles
 - `check_cannon_preservation`: exact reference-to-candidate structural and block-entity diff, module impact map, alignment confidence, risk score, and fail-closed policy verdict
