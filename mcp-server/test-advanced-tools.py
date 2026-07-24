@@ -118,8 +118,8 @@ def test_impulse_tool_builds_bounded_compare_command() -> None:
 def test_synthesis_tool_allows_only_root_scoped_output() -> None:
     mcp, calls, _ = make_registry()
     mcp.tools["plan_cannon_synthesis"](
-        "profiles/synthesis/registry-template.json",
-        "profiles/synthesis/request-template.json",
+        "profiles/synthesis/component-registry-template-v1.json",
+        "profiles/synthesis/request-template-v1.json",
         compile_best_path="lab-artifacts/mcp/candidate.schem",
     )
     call = calls[-1]
@@ -130,8 +130,8 @@ def test_synthesis_tool_allows_only_root_scoped_output() -> None:
 
     try:
         mcp.tools["plan_cannon_synthesis"](
-            "profiles/synthesis/registry-template.json",
-            "profiles/synthesis/request-template.json",
+            "profiles/synthesis/component-registry-template-v1.json",
+            "profiles/synthesis/request-template-v1.json",
             compile_best_path="../outside.schem",
         )
     except ValueError as exc:
