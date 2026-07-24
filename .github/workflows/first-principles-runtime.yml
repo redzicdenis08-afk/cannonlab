@@ -65,11 +65,14 @@ jobs:
           cp .sakura-26.1.2.jar first-principles-runtime-bundle/sakura-26.1.2.jar
           cp build/libs/CannonLab-*.jar first-principles-runtime-bundle/build/libs/
           cp -R primitive-rigs first-principles-runtime-bundle/primitive-rigs
-          find first-principles-runtime-bundle -type f \
-            ! -name runtime-bundle.sha256 -print0 \
-            | sort -z \
-            | xargs -0 sha256sum \
-            | tee first-principles-runtime-bundle/runtime-bundle.sha256
+          (
+            cd first-principles-runtime-bundle
+            find . -type f ! -name runtime-bundle.sha256 -print0 \
+              | sort -z \
+              | xargs -0 sha256sum \
+              > runtime-bundle.sha256
+            sha256sum --check runtime-bundle.sha256
+          )
 
       - name: Upload immutable runtime bundle
         uses: actions/upload-artifact@v4
@@ -102,10 +105,10 @@ jobs:
       - name: Restore runtime and charge fixture
         run: |
           mkdir -p build/libs cannons scenarios
-          cp downloaded-runtime/first-principles-runtime-bundle/build/libs/CannonLab-*.jar build/libs/
-          (cd downloaded-runtime && sha256sum --check first-principles-runtime-bundle/runtime-bundle.sha256)
+          (cd downloaded-runtime && sha256sum --check runtime-bundle.sha256)
+          cp downloaded-runtime/build/libs/CannonLab-*.jar build/libs/
           base64 --wrap=0 \
-            downloaded-runtime/first-principles-runtime-bundle/primitive-rigs/candidates/charge-c04.schem \
+            downloaded-runtime/primitive-rigs/candidates/charge-c04.schem \
             > cannons/charge-c04.schem.b64
           cat > scenarios/fp-charge-c04-endurance.yml <<'YAML'
           name: fp-charge-c04-endurance
@@ -153,7 +156,7 @@ jobs:
 
       - name: Run 100-shot enclosed charge endurance
         env:
-          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/downloaded-runtime/first-principles-runtime-bundle/sakura-26.1.2.jar
+          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/downloaded-runtime/sakura-26.1.2.jar
           CANNONLAB_SERVER_LABEL: Sakura 26.1.2 first-principles charge-c04
           CANNONLAB_SCENARIO: fp-charge-c04-endurance.yml
           CANNONLAB_EXPECTED_SHOTS: '100'
@@ -217,10 +220,10 @@ jobs:
           CANDIDATE: ${{ matrix.candidate }}
         run: |
           mkdir -p build/libs cannons scenarios
-          cp downloaded-runtime/first-principles-runtime-bundle/build/libs/CannonLab-*.jar build/libs/
-          (cd downloaded-runtime && sha256sum --check first-principles-runtime-bundle/runtime-bundle.sha256)
+          (cd downloaded-runtime && sha256sum --check runtime-bundle.sha256)
+          cp downloaded-runtime/build/libs/CannonLab-*.jar build/libs/
           base64 --wrap=0 \
-            "downloaded-runtime/first-principles-runtime-bundle/primitive-rigs/candidates/$CANDIDATE.schem" \
+            "downloaded-runtime/primitive-rigs/candidates/$CANDIDATE.schem" \
             > "cannons/$CANDIDATE.schem.b64"
           cat > "scenarios/fp-$CANDIDATE.yml" <<YAML
           name: fp-$CANDIDATE
@@ -264,7 +267,7 @@ jobs:
 
       - name: Run natural TNT trajectory experiment
         env:
-          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/downloaded-runtime/first-principles-runtime-bundle/sakura-26.1.2.jar
+          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/downloaded-runtime/sakura-26.1.2.jar
           CANNONLAB_SERVER_LABEL: Sakura 26.1.2 first-principles ${{ matrix.candidate }}
           CANNONLAB_SCENARIO: fp-${{ matrix.candidate }}.yml
           CANNONLAB_EXPECTED_SHOTS: '5'
