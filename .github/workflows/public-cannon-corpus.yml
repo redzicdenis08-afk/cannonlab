@@ -4,8 +4,12 @@ on:
   pull_request:
     paths:
       - 'scripts/legacy-schematic-audit.py'
+      - 'scripts/legacy-cannon-architecture.py'
+      - 'scripts/legacy-cannon-rotation-compare.py'
       - 'scripts/fetch-public-cannon-corpus.py'
       - 'scripts/test-public-cannon-corpus.py'
+      - 'scripts/test-legacy-cannon-architecture.py'
+      - 'scripts/test-legacy-cannon-rotation-compare.py'
       - 'profiles/corpus/**'
       - 'evidence/public-corpus/**'
       - 'docs/PUBLIC_CANNON_CORPUS.md'
@@ -42,11 +46,18 @@ jobs:
         run: |
           python -m py_compile \
             scripts/legacy-schematic-audit.py \
+            scripts/legacy-cannon-architecture.py \
+            scripts/legacy-cannon-rotation-compare.py \
             scripts/fetch-public-cannon-corpus.py \
-            scripts/test-public-cannon-corpus.py
+            scripts/test-public-cannon-corpus.py \
+            scripts/test-legacy-cannon-architecture.py \
+            scripts/test-legacy-cannon-rotation-compare.py
 
       - name: Run fail-closed corpus regressions
-        run: python scripts/test-public-cannon-corpus.py
+        run: |
+          python scripts/test-public-cannon-corpus.py
+          python scripts/test-legacy-cannon-architecture.py
+          python scripts/test-legacy-cannon-rotation-compare.py
 
       - name: Validate source registry in plan mode
         run: |
@@ -98,6 +109,36 @@ jobs:
           print('Pinned hashes and first static evidence agree exactly.')
           PY
 
+      - name: Cross-check architecture-family evidence
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          registry = json.loads(
+              Path('profiles/corpus/public-cannon-sources-v1.json').read_text(encoding='utf-8')
+          )
+          evidence = json.loads(
+              Path('evidence/public-corpus/cosmicreborn-architecture-v1.json').read_text(encoding='utf-8')
+          )
+          registry_rows = {row['id']: row for row in registry['sources']}
+          evidence_rows = {row['id']: row for row in evidence['sources']}
+          assert registry_rows.keys() == evidence_rows.keys()
+          for source_id, source in registry_rows.items():
+              assert source['expected_sha256'] == evidence_rows[source_id]['sha256'], source_id
+          pairs = evidence['y_rotation_structural_comparison']['pairwise_similarity']
+          strongest = pairs[0]
+          assert strongest['first'] == 'cosmicreborn-formal', strongest
+          assert strongest['second'] == 'cosmicreborn-pred', strongest
+          assert strongest['jaccard'] == 0.911054, strongest
+          assert strongest['shared_structural_motif_count'] == 777, strongest
+          assert strongest['shared_bank_context_count'] == 3, strongest
+          assert evidence_rows['cosmicreborn-formal']['top_bank_counts'] == evidence_rows['cosmicreborn-pred']['top_bank_counts']
+          assert evidence['truth_boundary']['directional_metadata_preserved_in_y_rotation_similarity'] is False
+          assert evidence['truth_boundary']['ec_ready'] is False
+          print('Architecture-family evidence agrees with pinned source identities and truth boundaries.')
+          PY
+
       - name: Upload plan evidence
         uses: actions/upload-artifact@v4
         with:
@@ -128,6 +169,44 @@ jobs:
             --mode fetch \
             --write-lock lab-artifacts/public-corpus-run/public-cannon-lock-v1.json \
             --json-out lab-artifacts/public-corpus-run/fetch-report.json
+
+      - name: Map shared legacy cannon architecture
+        run: |
+          root=lab-artifacts/public-cannon-cache/public-cannon-sources-v1/files
+          sources="--source cosmicreborn-formal=$root/cosmicreborn-formal/FORMAL.schematic \
+            --source cosmicreborn-pred=$root/cosmicreborn-pred/PRED.schematic \
+            --source cosmicreborn-mboze=$root/cosmicreborn-mboze/MBOZE.schematic \
+            --source cosmicreborn-shakisha=$root/cosmicreborn-shakisha/SHAKISHA.schematic \
+            --source cosmicreborn-raid-outpost-qp=$root/cosmicreborn-raid-outpost-qp/RAIDOUTPOSTQP.schematic \
+            --source cosmicreborn-l-stacker=$root/cosmicreborn-l-stacker/LSTACKER.schematic"
+          python scripts/legacy-cannon-architecture.py \
+            $sources \
+            --json-out lab-artifacts/public-corpus-run/legacy-architecture.json \
+            > /dev/null
+          python scripts/legacy-cannon-rotation-compare.py \
+            $sources \
+            --json-out lab-artifacts/public-corpus-run/legacy-y-rotation-structure.json \
+            > /dev/null
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          strict = json.loads(
+              Path('lab-artifacts/public-corpus-run/legacy-architecture.json').read_text(encoding='utf-8')
+          )
+          rotated = json.loads(
+              Path('lab-artifacts/public-corpus-run/legacy-y-rotation-structure.json').read_text(encoding='utf-8')
+          )
+          assert strict['status'] == 'PASS', strict
+          assert rotated['status'] == 'PASS', rotated
+          assert len(strict['sources']) == 6, strict
+          assert len(rotated['sources']) == 6, rotated
+          assert strict['comparison']['summary']['pair_count'] == 15, strict
+          assert rotated['comparison']['summary']['pair_count'] == 15, rotated
+          assert strict['truth_boundary']['ec_ready'] is False, strict
+          assert rotated['truth_boundary']['ec_ready'] is False, rotated
+          print('Six-source strict and Y-rotation architecture maps completed.')
+          PY
 
       - name: Copy audit reports and remove raw third-party files
         if: always()
