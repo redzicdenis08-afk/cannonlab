@@ -1,0 +1,105 @@
+name: Expert Cannon Intelligence
+
+on:
+  pull_request:
+    paths:
+      - 'scripts/cannon_physics_reference.py'
+      - 'scripts/ec160_architecture_advisor.py'
+      - 'scripts/test-reference-physics.py'
+      - 'scripts/test-ec160-architecture-advisor.py'
+      - 'scripts/schem-audit.py'
+      - 'docs/REFERENCE_PHYSICS_ORACLE.md'
+      - 'docs/EC160_ARCHITECTURE_ADVISOR.md'
+      - 'docs/EXPERT_CANNON_RESEARCH_2026.md'
+      - 'docs/research/cannon-expert-sources.json'
+      - 'audit-fixtures/**'
+      - 'cannons/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  expert-intelligence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.13']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Compile expert intelligence scripts
+        run: |
+          python -m py_compile \
+            scripts/cannon_physics_reference.py \
+            scripts/ec160_architecture_advisor.py \
+            scripts/test-reference-physics.py \
+            scripts/test-ec160-architecture-advisor.py
+
+      - name: Run reference physics tests
+        run: python scripts/test-reference-physics.py
+
+      - name: Run EC160 architecture tests
+        run: python scripts/test-ec160-architecture-advisor.py
+
+      - name: Render reference physics profiles
+        run: |
+          mkdir -p expert-artifacts
+          python scripts/cannon_physics_reference.py profiles \
+            --json-out expert-artifacts/physics-profiles.json \
+            > expert-artifacts/physics-profiles.stdout.json
+
+          python scripts/cannon_physics_reference.py compare-events \
+            audit-fixtures/reference-physics-modern.csv \
+            --json-out expert-artifacts/reference-physics-match.json \
+            > expert-artifacts/reference-physics-match.stdout.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('expert-artifacts/reference-physics-match.json').read_text())
+          assert report['status'] == 'MATCH', report
+          assert report['summary']['max_fuse_error'] == 0, report
+          print('Reference physics fixture matches exactly.')
+          PY
+
+      - name: Exercise EC160 advisor on deterministic fixture
+        run: |
+          mkdir -p .expert-input expert-artifacts
+          base64 --decode audit-fixtures/overflow-129.schem.b64 \
+            > .expert-input/overflow-129.schem
+          python scripts/ec160_architecture_advisor.py \
+            .expert-input/overflow-129.schem \
+            --chunk-limit 128 \
+            --json-out expert-artifacts/overflow-129-advice.json \
+            > expert-artifacts/overflow-129-advice.stdout.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          report = json.loads(Path('expert-artifacts/overflow-129-advice.json').read_text())
+          assert report['status'] == 'ALIGNMENT_ONLY_CANDIDATE', report
+          assert report['limits']['total_dispensers'] == 129, report
+          assert report['alignment']['best']['maximum_dispensers_in_one_chunk'] == 65, report
+          assert report['alignment']['safe_offset_count'] > 0, report
+          print('Reference EC160 advisor fixture is stable.')
+          PY
+
+      - name: Upload expert intelligence evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: CannonLab-expert-intelligence-py${{ matrix.python-version }}-${{ github.run_number }}
+          path: expert-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30

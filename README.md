@@ -25,11 +25,15 @@ The laboratory can:
 - simulate configurable plugin-style delayed regeneration with delay, interval, and per-cycle caps
 - keep all arena chunks ticking without a connected player
 - record TNT and falling-block position, velocity, fuse, and explosion data every tick
+- compare recorded entity motion against an independent source-audited reference-physics oracle
+- diagnose first divergence as likely fuse, gravity, drag, water-push, collision, or unmodelled fork behavior
 - record target destruction and regeneration events in the same CSV timeline
 - measure forward travel, target miss distance, peak damage, deepest layer breached, and restored blocks
 - export per-shot and per-run JSON/CSV evidence
 - rank cannon variants by reliability, penetration, errors, and repeatability
 - compare local physics fingerprints against measured server fingerprints
+- scan all 256 EC160 placements before redesign and map which dispenser banks create each overloaded chunk
+- propose symmetry-preserving bank-segmentation scaffolds when alignment alone cannot satisfy the limit
 
 ## Runtime gates
 
@@ -116,6 +120,35 @@ python scripts/paste-alignment-audit.py cannon.schem `
 ```
 
 Sponge `Metadata.WEOffsetX/Z` can move the schematic minimum relative to the player's paste point. The report preserves both frames and reports the safe player chunk-local X/Z offsets explicitly. It also reports block-entity pressure separately without inventing a live FAWE cap.
+
+## Reference physics and EC160 architecture
+
+Inspect the source-audited physics profiles:
+
+```powershell
+python scripts/cannon_physics_reference.py profiles
+```
+
+Compare one recorded CannonLab TNT trajectory to the independent motion oracle:
+
+```powershell
+python scripts/cannon_physics_reference.py compare-events `
+  lab-artifacts/results/<run>/shot-001/events.csv `
+  --kind tnt `
+  --json-out physics-comparison.json
+```
+
+The oracle predicts empty-space TNT and falling-block motion, calculates explosion impulse, and identifies the first likely fuse, gravity, drag, water-current, or collision divergence. It deliberately does not approximate complex voxel collisions or claim private ExtremeCraft parity. See `docs/REFERENCE_PHYSICS_ORACLE.md`.
+
+Before rebuilding a large cannon around the 160-per-chunk rule, determine whether exact placement already solves it:
+
+```powershell
+python scripts/ec160_architecture_advisor.py cannon.schem `
+  --chunk-limit 160 `
+  --json-out ec160-advice.json
+```
+
+The advisor scans all 256 X/Z residues, maps the dispenser banks contributing to every chunk, identifies probable opposing-panel pairs, and emits a symmetry-preserving segmentation scaffold only when no legal placement exists. It never rewrites the cannon. See `docs/EC160_ARCHITECTURE_ADVISOR.md` and `docs/EXPERT_CANNON_RESEARCH_2026.md`.
 
 ## Reference-first module preservation
 
