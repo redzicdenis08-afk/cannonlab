@@ -1,0 +1,61 @@
+name: Shadow384 Sakura Discovery
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  shadow384-discovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      PINNED_RUNTIME_ARTIFACT_ID: '8476376240'
+      PINNED_SAKURA_SHA256: e0d8d12a101a2501a58ac2ddde2f11f03dd6dea76e903b7c3e2e758207407a0f
+      PINNED_PLUGIN_SHA256: cc257ed60973e0cf1a6592bdf319532ef5b796d0abeb71817edd873647433a9e
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - name: Download verified pinned Sakura runtime
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh api "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${PINNED_RUNTIME_ARTIFACT_ID}/zip" > runtime.zip
+          mkdir -p downloaded
+          unzip -q runtime.zip -d downloaded
+          echo "${PINNED_SAKURA_SHA256}  downloaded/sakura-26.1.2.jar" | sha256sum --check --status
+          echo "${PINNED_PLUGIN_SHA256}  downloaded/build/libs/CannonLab-0.2.0-SNAPSHOT.jar" | sha256sum --check --status
+      - name: Restore plugin
+        run: |
+          mkdir -p build/libs
+          cp downloaded/build/libs/CannonLab-0.2.0-SNAPSHOT.jar build/libs/
+      - name: Fire preserved Shadow384 on Sakura
+        env:
+          CANNONLAB_SERVER_JAR: ${{ github.workspace }}/downloaded/sakura-26.1.2.jar
+          CANNONLAB_SERVER_LABEL: Sakura 26.1.2 Shadow384 discovery
+          CANNONLAB_SCENARIO: shadow384-discovery.yml
+          CANNONLAB_EXPECTED_SHOTS: '1'
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '1'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '1'
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '0'
+          CANNONLAB_TIMEOUT_SECONDS: '1200'
+          CANNONLAB_ARENA_RADIUS_X: '280'
+          CANNONLAB_ARENA_RADIUS_Y: '100'
+          CANNONLAB_ARENA_RADIUS_Z: '80'
+        run: bash scripts/cloud-smoke.sh
+      - name: Upload discovery evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Shadow384-discovery-evidence-${{ github.run_number }}
+          path: lab-artifacts/**
+          if-no-files-found: warn
+          retention-days: 30
