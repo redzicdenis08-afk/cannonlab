@@ -1,0 +1,171 @@
+from __future__ import annotations
+
+import importlib.util
+import json
+import sys
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+MODULE_PATH = ROOT / "mcp-server" / "advanced_tools.py"
+spec = importlib.util.spec_from_file_location("advanced_tools", MODULE_PATH)
+if spec is None or spec.loader is None:
+    raise RuntimeError(f"unable to import {MODULE_PATH}")
+advanced_tools = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = advanced_tools
+spec.loader.exec_module(advanced_tools)
+
+
+class FakeMCP:
+    def __init__(self) -> None:
+        self.tools: dict[str, Any] = {}
+
+    def tool(self):
+        def decorator(function):
+            self.tools[function.__name__] = function
+            return function
+
+        return decorator
+
+
+def make_registry():
+    mcp = FakeMCP()
+    calls: list[dict[str, Any]] = []
+
+    def inside_root(raw: str, *, must_exist: bool = True) -> Path:
+        candidate = (ROOT / raw).resolve()
+        if not candidate.is_relative_to(ROOT.resolve()):
+            raise ValueError("path escapes CannonLab root")
+        if must_exist and not candidate.exists():
+            raise FileNotFoundError(candidate)
+        return candidate
+
+    def run_json(script: Path, args: list[str], *, allowed_exit_codes=(0,)) -> dict[str, Any]:
+        call = {
+            "script": script,
+            "args": list(args),
+            "allowed_exit_codes": tuple(allowed_exit_codes),
+        }
+        calls.append(call)
+        return {"status": "captured", "call": call}
+
+    registered = advanced_tools.register_advanced_tools(
+        mcp,
+        root=ROOT,
+        scripts=ROOT / "scripts",
+        inside_root=inside_root,
+        run_json=run_json,
+    )
+    return mcp, calls, registered
+
+
+def test_registers_exact_advanced_tools() -> None:
+    mcp, _, registered = make_registry()
+    expected = {
+        "audit_cannon_ratio",
+        "analyze_impulse_graph",
+        "plan_cannon_synthesis",
+        "list_advanced_cannon_profiles",
+    }
+    assert set(registered) == expected, registered
+    assert set(mcp.tools) == expected, mcp.tools
+
+
+def test_ratio_tool_preserves_comparison_contract() -> None:
+    mcp, calls, _ = make_registry()
+    result = mcp.tools["audit_cannon_ratio"](
+        "profiles/ratios/public-0.7-384-osrb-1-above-barrel.json",
+        "profiles/ratios/public-1.2-384-4os-derived.json",
+    )
+    assert result["status"] == "captured", result
+    call = calls[-1]
+    assert call["script"].name == "cannon-ratio-audit.py", call
+    assert "--compare" in call["args"], call
+    assert call["allowed_exit_codes"] == (0, 2), call
+
+
+def test_impulse_tool_requires_paired_comparison_paths() -> None:
+    mcp, _, _ = make_registry()
+    try:
+        mcp.tools["analyze_impulse_graph"](
+            "audit-fixtures/impulse-events-reference.csv",
+            "audit-fixtures/impulse-causal-events.csv",
+            compare_events_path="audit-fixtures/impulse-events-candidate.csv",
+        )
+    except ValueError as exc:
+        assert "must be supplied together" in str(exc), exc
+    else:
+        raise AssertionError("half-specified comparison unexpectedly passed")
+
+
+def test_impulse_tool_builds_bounded_compare_command() -> None:
+    mcp, calls, _ = make_registry()
+    mcp.tools["analyze_impulse_graph"](
+        "audit-fixtures/impulse-events-reference.csv",
+        "audit-fixtures/impulse-causal-events.csv",
+        compare_events_path="audit-fixtures/impulse-events-candidate.csv",
+        compare_causal_events_path="audit-fixtures/impulse-causal-events.csv",
+        max_timing_delta=0,
+        max_velocity_delta=0.02,
+    )
+    call = calls[-1]
+    assert call["script"].name == "analyze-impulse-graph.py", call
+    assert "--compare-events" in call["args"], call
+    assert call["args"][call["args"].index("--max-timing-delta") + 1] == "0", call
+    assert call["args"][call["args"].index("--max-velocity-delta") + 1] == "0.02", call
+
+
+def test_synthesis_tool_allows_only_root_scoped_output() -> None:
+    mcp, calls, _ = make_registry()
+    mcp.tools["plan_cannon_synthesis"](
+        "profiles/synthesis/registry-template.json",
+        "profiles/synthesis/request-template.json",
+        compile_best_path="lab-artifacts/mcp/candidate.schem",
+    )
+    call = calls[-1]
+    assert call["script"].name == "cannon-synthesis-planner.py", call
+    assert "--compile-best" in call["args"], call
+    output = Path(call["args"][call["args"].index("--compile-best") + 1])
+    assert output == (ROOT / "lab-artifacts/mcp/candidate.schem").resolve(), output
+
+    try:
+        mcp.tools["plan_cannon_synthesis"](
+            "profiles/synthesis/registry-template.json",
+            "profiles/synthesis/request-template.json",
+            compile_best_path="../outside.schem",
+        )
+    except ValueError as exc:
+        assert "escapes CannonLab root" in str(exc), exc
+    else:
+        raise AssertionError("path escape unexpectedly passed")
+
+
+def test_profile_listing_is_machine_readable_and_truth_bounded() -> None:
+    mcp, _, _ = make_registry()
+    report = mcp.tools["list_advanced_cannon_profiles"]()
+    assert report["schema_version"] == 1, report
+    assert report["profile_count"] >= 6, report
+    assert report["categories"]["ratios"], report
+    assert report["categories"]["parity"], report
+    assert report["categories"]["archetypes"], report
+    assert report["categories"]["synthesis"], report
+    assert report["truth_boundary"]["profile_presence_proves_runtime_function"] is False
+    json.dumps(report)
+
+
+def main() -> None:
+    tests = [
+        test_registers_exact_advanced_tools,
+        test_ratio_tool_preserves_comparison_contract,
+        test_impulse_tool_requires_paired_comparison_paths,
+        test_impulse_tool_builds_bounded_compare_command,
+        test_synthesis_tool_allows_only_root_scoped_output,
+        test_profile_listing_is_machine_readable_and_truth_bounded,
+    ]
+    for test in tests:
+        test()
+        print(f"PASS {test.__name__}")
+
+
+if __name__ == "__main__":
+    main()
