@@ -16,6 +16,8 @@ text = replace_once(
     '        List<BlockPoint> fireInputs,\n'
     '        List<BlockPoint> delayedFireInputs,\n'
     '        int delayedFireTicks,\n'
+    '        List<BlockPoint> secondaryDelayedFireInputs,\n'
+    '        int secondaryDelayedFireTicks,\n'
     '        List<BlockPoint> leverInputs,\n'
     '        boolean leverEnableBeforeFire,\n'
     '        int leverDisableAfterTicks,\n'
@@ -27,6 +29,7 @@ text = replace_once(
     '        fireInputs = List.copyOf(fireInputs);\n        targetStages = List.copyOf(targetStages);',
     '        fireInputs = List.copyOf(fireInputs);\n'
     '        delayedFireInputs = List.copyOf(delayedFireInputs);\n'
+    '        secondaryDelayedFireInputs = List.copyOf(secondaryDelayedFireInputs);\n'
     '        leverInputs = List.copyOf(leverInputs);\n'
     '        targetStages = List.copyOf(targetStages);',
     'scenario immutable lists',
@@ -36,6 +39,8 @@ text = replace_once(
     '        BlockPoint directDispenser = point(\n',
     '        List<BlockPoint> delayedFireInputs = points(yaml, "cannon.delayed-fire-inputs");\n'
     '        int delayedFireTicks = Math.max(0, yaml.getInt("cannon.delayed-fire-ticks", 0));\n'
+    '        List<BlockPoint> secondaryDelayedFireInputs = points(yaml, "cannon.secondary-delayed-fire-inputs");\n'
+    '        int secondaryDelayedFireTicks = Math.max(0, yaml.getInt("cannon.secondary-delayed-fire-ticks", 0));\n'
     '        List<BlockPoint> leverInputs = points(yaml, "cannon.lever-inputs");\n'
     '        boolean leverEnableBeforeFire = yaml.getBoolean("cannon.lever-enable-before-fire", false);\n'
     '        int leverDisableAfterTicks = Math.max(-1, yaml.getInt("cannon.lever-disable-after-ticks", -1));\n'
@@ -48,6 +53,8 @@ text = replace_once(
     '                fireInputs,\n'
     '                delayedFireInputs,\n'
     '                delayedFireTicks,\n'
+    '                secondaryDelayedFireInputs,\n'
+    '                secondaryDelayedFireTicks,\n'
     '                leverInputs,\n'
     '                leverEnableBeforeFire,\n'
     '                leverDisableAfterTicks,\n'
@@ -89,6 +96,12 @@ text = replace_once(
                     Bukkit.getScheduler().runTaskLater(plugin, () ->
                                     pulseRedstone(world, pasteOrigin, scenario.delayedFireInputs(), "delayed"),
                             scenario.delayedFireTicks());
+                }
+                if (!scenario.secondaryDelayedFireInputs().isEmpty()) {
+                    Bukkit.getScheduler().runTaskLater(plugin, () ->
+                                    pulseRedstone(world, pasteOrigin,
+                                            scenario.secondaryDelayedFireInputs(), "secondary-delayed"),
+                            scenario.secondaryDelayedFireTicks());
                 }
             }''',
     'controller redstone switch',
@@ -163,4 +176,4 @@ text = replace_once(
     'pulse telemetry',
 )
 controller.write_text(text)
-print('staged redstone + lever cutoff patch applied')
+print('three-stage redstone + lever cutoff patch applied')
