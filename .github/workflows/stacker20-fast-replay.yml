@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        payload_delay: [20, 24, 28]
+        payload_delay: [13, 15, 17]
     steps:
       - uses: actions/checkout@v4
 
