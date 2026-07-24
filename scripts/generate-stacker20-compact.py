@@ -55,7 +55,8 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
     blocks: dict[tuple[int, int, int], str] = {}
     dispensers: list[tuple[int, int, int]] = []
     primary: list[list[int]] = []
-    delayed: list[list[int]] = []
+    payload_inputs: list[list[int]] = []
+    sand_inputs: list[list[int]] = []
     obsidian = "minecraft:obsidian"
 
     # Muzzle floor and rails. Initial cannon max X is 11 because of the sand
@@ -72,7 +73,8 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
     fill(blocks, (6, 1, 2), (8, 1, 5), "minecraft:water[level=0]")
 
     # Twelve bottom charge dispensers. Eight top dispensers remain over X=6..7;
-    # X=8 top is intentionally omitted so charge power cannot reach payload.
+    # X=8 is covered with obsidian so its water cannot freeze and no charge
+    # control can accidentally power the payload bank.
     for x in (6, 7, 8):
         for z in range(2, 6):
             bottom = (x, 0, z)
@@ -85,6 +87,7 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
             put(blocks, top, "minecraft:dispenser[facing=down,triggered=false]")
             dispensers.append(top)
             primary.append([x, 3, z])
+    fill(blocks, (8, 2, 2), (8, 2, 5), obsidian)
 
     # Six side charge dispensers.
     for x in (6, 7, 8):
@@ -104,8 +107,8 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
         dispensers.append(rear)
         primary.append([4, 1, z])
 
-    # Four payload TNT dispensers drop onto bottom slabs. No charge input is
-    # adjacent to these blocks, so they activate only in the delayed cohort.
+    # Four payload TNT dispensers drop onto bottom slabs. They have their own
+    # timing clock and never share power with the charge or sand pistons.
     for z in range(2, 6):
         put(
             blocks,
@@ -115,14 +118,15 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
         payload = (9, 3, z)
         put(blocks, payload, "minecraft:dispenser[facing=down,triggered=false]")
         dispensers.append(payload)
-        delayed.append([9, 4, z])
+        payload_inputs.append([9, 4, z])
 
-    # Two piston-released sand blocks. They begin at X=11 and are pushed to
-    # X=12, the first block of the runtime flight corridor, where they fall.
+    # Two piston-released sand blocks have a later, independent clock. They
+    # begin at X=11 and are pushed to X=12, where they become falling entities
+    # shortly before the charge explosion.
     for z in (3, 4):
         put(blocks, (10, 3, z), "minecraft:piston[facing=east,extended=false]")
         put(blocks, (11, 3, z), "minecraft:sand")
-        delayed.append([10, 4, z])
+        sand_inputs.append([10, 4, z])
 
     put(blocks, (5, 3, 3), "minecraft:cyan_concrete")
 
@@ -142,13 +146,14 @@ def build() -> tuple[dict[str, Any], dict[str, Any]]:
         },
     }
     metadata = {
-        "id": "c28-open-muzzle",
+        "id": "c28-three-clock-open-muzzle",
         "charge_tnt": 28,
         "payload_tnt": 4,
         "sand_blocks": 2,
         "dispenser_count": 32,
         "primary_fire_inputs": primary,
-        "delayed_fire_inputs": delayed,
+        "payload_fire_inputs": payload_inputs,
+        "sand_release_inputs": sand_inputs,
         "cannon_max_x": 11,
         "target_water_x": 32,
         "target_wall_x": 33,
@@ -172,7 +177,7 @@ def main() -> int:
     audit = load_audit()
     model, metadata = build()
     args.output_directory.mkdir(parents=True, exist_ok=True)
-    path = args.output_directory / "EC160-STACKER20-C28-OPENMUZZLE-P4-S2-v5.schem"
+    path = args.output_directory / "EC160-STACKER20-C28-3CLOCK-P4-S2-v6.schem"
     audit.write_sponge_v2(path, model, 3465, canonical_gzip=True)
 
     root_name, root, trailing, _size, diagnostics = audit.load(path)
