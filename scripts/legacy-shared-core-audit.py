@@ -31,6 +31,7 @@ VECTOR_HORIZONTAL_CODES = {value: key for key, value in HORIZONTAL_FACING_VECTOR
 
 PROVEN_ROTATABLE_IDS = {23, 29, 33, 34, 93, 94, 149, 150, 218}
 UNRESOLVED_DIRECTIONAL_IDS = {69, 75, 76, 77, 143}
+MAX_LEGACY_VOLUME = 100_000_000
 _MODULE_CACHE: dict[str, Any] = {}
 
 
@@ -100,8 +101,8 @@ def load_legacy_map(path: Path) -> tuple[dict[tuple[int, int, int], tuple[int, i
     if min(width, height, length) <= 0:
         raise SharedCoreError("legacy schematic dimensions must be positive")
     volume = width * height * length
-    if volume > legacy.MAX_COLLECTION_LENGTH:
-        raise SharedCoreError("legacy schematic volume exceeds parser safety limit")
+    if volume > MAX_LEGACY_VOLUME:
+        raise SharedCoreError(f"legacy schematic volume exceeds {MAX_LEGACY_VOLUME}")
     blocks = legacy.require_bytes(root, "Blocks")
     data = legacy.require_bytes(root, "Data")
     if len(blocks) != volume or len(data) != volume:
