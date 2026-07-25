@@ -260,12 +260,13 @@ def register_advanced_tools(
 
     @mcp.tool()
     def list_advanced_cannon_profiles() -> dict[str, Any]:
-        """List ratio, parity, grammar, archetype, synthesis, component, repair and campaign profiles."""
+        """List ratio, parity, grammar, raid, archetype, synthesis, component, repair and campaign profiles."""
         profile_root = root / "profiles"
         categories = (
             "ratios",
             "parity",
             "grammar",
+            "raid",
             "archetypes",
             "synthesis",
             "components",
