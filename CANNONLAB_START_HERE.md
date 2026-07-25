@@ -1,12 +1,12 @@
 # CannonLab: start here
 
-Verified against `main` after merged PRs `#43` and `#44` on 2026-07-25.
+Verified against `main` after merged PR `#45` on 2026-07-25.
 
 CannonLab is a layered cannon research system, not one plugin plus a folder of schematics. A fresh AI should call `get_cannonlab_handoff`, read `AGENTS.md`, then use this document to find the correct evidence and tools before changing geometry.
 
 ## The repository in one sentence
 
-CannonLab can intake schematics, audit legal placement, build pinned runtimes, execute controlled shots, record per-tick causal evidence, model defenses, compare modules, synthesize bounded candidates, generate causal repairs, run staged campaigns, and plan private-server parity experiments. It still cannot honestly claim a field-ready advanced ExtremeCraft raid cannon without missing private-server evidence and successful module composition.
+CannonLab can intake schematics, audit legal placement, build pinned runtimes, execute controlled shots, record per-tick causal evidence, model defenses, compare modules, synthesize bounded candidates, generate causal repairs, run staged campaigns, plan private-server parity experiments, and plan a fail-closed fifteen-chunk raid qualification program. It still cannot honestly claim a field-ready advanced ExtremeCraft raid cannon without missing private-server evidence and successful module composition.
 
 ## Capability map
 
@@ -97,6 +97,30 @@ Start with:
 
 A plan is not a measurement. Every field dimension still needs raw, dated, hash-bound evidence and local comparison.
 
+### Fifteen-chunk raid qualification
+
+CannonLab has a dedicated fail-closed program for the long-term fifteen-chunk regeneration objective.
+
+It keeps these values independent:
+
+- buffer depth in chunks;
+- exact muzzle-to-first-target distance in blocks;
+- exact muzzle-to-core distance in blocks;
+- regeneration depth in chunks;
+- wall-group count and target heights.
+
+Fifteen chunks is not automatically a 240-block shot, a wall count or a regeneration depth. The planner blocks downstream qualification until the exact raid lane, current rules, private mechanics and module evidence are supplied.
+
+Start with:
+
+- `profiles/raid/extremecraft-15-chunk-regen-objective-v1.json`
+- `scripts/plan-extremecraft-raid-program.py`
+- `docs/EXTREMECRAFT_15_CHUNK_RAID_PROGRAM.md`
+- `research/sources/extremecraft-raid-sources-v1.json`
+- MCP tool `plan_extremecraft_raid_program`
+
+The program orders work through private parity, course survey, module proof, one external cell, one chunk, three chunks, measured regen depth, full fifteen-chunk course, one-paste endurance and a controlled field canary.
+
 ### Module mapping and preservation
 
 The forensic layer maps dispenser-bank-centered modules, controls, repeat families, directional endpoints and support risks. Candidate edits are checked against exact references with bounded module ownership and runtime trace preservation.
@@ -129,9 +153,10 @@ Known result: the public corpus provides architecture evidence. All six audited 
 
 ### MCP interface for AIs
 
-The production advanced MCP currently exposes ten tools:
+The production advanced MCP currently exposes eleven tools:
 
 - `get_cannonlab_handoff`
+- `plan_extremecraft_raid_program`
 - `audit_cannon_ratio`
 - `analyze_impulse_graph`
 - `plan_cannon_synthesis`
@@ -142,7 +167,7 @@ The production advanced MCP currently exposes ten tools:
 - `verify_sakura_cannon_contract`
 - `list_advanced_cannon_profiles`
 
-Start with `mcp-server/advanced_server.py`, `mcp-server/advanced_tools.py`, `mcp-server/handoff_tools.py` and `.github/workflows/advanced-cannon-mcp.yml`.
+Start with `mcp-server/advanced_server.py`, `mcp-server/advanced_tools.py`, `mcp-server/handoff_tools.py`, `mcp-server/raid_tools.py` and `.github/workflows/advanced-cannon-mcp.yml`.
 
 ## What is genuinely proven
 
@@ -158,17 +183,20 @@ Start with `mcp-server/advanced_server.py`, `mcp-server/advanced_tools.py`, `mcp
 - strict scenario and evidence gates;
 - public corpus provenance, static forensics and architecture comparison;
 - production MCP execution for advanced evidence tools;
-- a sixteen-module grammar and sixteen-dimension private parity campaign planner.
+- a sixteen-module grammar and sixteen-dimension private parity campaign planner;
+- a fail-closed, dependency-ordered fifteen-chunk raid research program.
 
 ## What is not proven
 
 - complete private ExtremeCraft mechanics parity;
+- the current exact buffer, regen, cannon-speed and cannon-rule profile;
 - a reusable causal guider, hammer, compressor or hybrid module under EC conditions;
 - a field-ready watered-wall one-stacker;
 - OSRB, nuke, reverse, left/right, slab-bust or bypass operation on current EC;
 - a legal advanced cannon capable of penetrating a fifteen-chunk regeneration base;
 - exact private FAWE block-entity limits;
-- exact private regeneration algorithm and rate.
+- exact private regeneration algorithm and rate;
+- a completed one-chunk, three-chunk or full-course qualification run.
 
 ## Important history
 
@@ -182,7 +210,8 @@ High-value merged milestones include:
 - PR `#31`: staged campaign execution;
 - PRs `#33` to `#36`: secure public corpus and metadata-aware architecture forensics;
 - PR `#43`: Sakura contract, grammar and causal failure classifier;
-- PR `#44`: paired parity and dependency-ordered module campaigns.
+- PR `#44`: paired parity and dependency-ordered module campaigns;
+- PR `#45`: mandatory AI handoff and production MCP handoff tool.
 
 Rejected history matters too:
 
@@ -201,7 +230,7 @@ Map the exact reference, run it unchanged, classify the first divergence, preser
 
 ### “Raid a fifteen-chunk regen base”
 
-First require the private parity profile, exact defense course, field workflow, legal dispenser distribution, proven modules, endurance and a controlled field canary. A filename containing `384`, `OSRB` or `NUKE` is not evidence.
+Run `plan_extremecraft_raid_program`. Measure the exact course and current rules, complete the private parity profile, prove the dependency-expanded modules, and qualify from one external cell through the full course. A filename containing `384`, `OSRB` or `NUKE` is not evidence.
 
 ### “Send the schematic quickly”
 
@@ -214,10 +243,10 @@ Before making the first edit, a fresh AI should be able to answer:
 - Which facts are field-verified, field-reported, local-runtime, static, inferred or unknown?
 - Which three version identities control a run?
 - Which private parity dimensions are still unknown?
+- What are the exact flight distance, wall-group count, regen depth, target heights and lane?
 - Which modules does the requested architecture require?
 - Which module is the first unproven dependency?
 - Which existing component or architecture specimen is the source?
-- What is the exact target distance and independent target fixture?
 - What static, local causal, endurance and field gates are required?
 - What result would force the candidate to be rejected rather than published?
 

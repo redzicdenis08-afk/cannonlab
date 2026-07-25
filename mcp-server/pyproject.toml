@@ -1,6 +1,6 @@
 [project]
 name = "cannonlab-mcp"
-version = "0.2.4"
+version = "0.2.5"
 description = "Local MCP tools for evidence-driven Minecraft cannon analysis"
 requires-python = ">=3.11"
 dependencies = [
@@ -11,4 +11,4 @@ dependencies = [
 cannonlab-mcp = "advanced_server:main"
 
 [tool.setuptools]
-py-modules = ["server", "advanced_server", "advanced_tools", "handoff_tools"]
+py-modules = ["server", "advanced_server", "advanced_tools", "handoff_tools", "raid_tools"]

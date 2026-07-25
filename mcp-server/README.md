@@ -15,11 +15,12 @@ On Windows, use `.venv\Scripts\cannonlab-mcp.exe`.
 
 The server uses stdio by default and never connects to ExtremeCraft. Schematic and source paths are jailed to the CannonLab repository. Runtime-evidence tools may additionally read generated CannonLab artifacts under the workspace `output/` directory.
 
-## Mandatory AI first call
+## Mandatory AI first calls
 
-- `get_cannonlab_handoff`: returns the mandatory reading order, current proof/unknown state, three version identities, module/parity counts, forbidden shortcuts and required first actions. Set `include_documents=true` to include `AGENTS.md` and `CANNONLAB_START_HERE.md` directly in the response.
+- `get_cannonlab_handoff`: returns the mandatory reading order, current proof/unknown state, three version identities, module/parity counts, forbidden shortcuts and required first actions. Set `include_documents=true` to include the operating documents directly.
+- `plan_extremecraft_raid_program`: for a fifteen-chunk objective, expands the core module dependencies, separates buffer depth from exact flight distance, wall count and regen depth, exposes all missing mechanics/course inputs, and returns a fail-closed qualification ladder.
 
-This handoff is a repository map, not runtime or field proof. Live PR, CI and private-server state must still be rechecked.
+These tools are repository and program maps, not runtime or field proof. Live PR, CI and private-server state must still be rechecked.
 
 ## Fast path
 
@@ -28,6 +29,7 @@ Use one of these before spending time on runtime tests:
 - `fast_cannon_intake`: one call for format/limit audit, functional and module mapping, and anti-pancake geometry profiling against real reference cannons
 - `profile_cannon`: rapidly compare a candidate with one or more decoded references and reject fake-modern geometry
 - `prepare_reference_cannon`: convert a proven Litematica or Sponge source into deterministic Sponge v2, then audit and profile the exact output
+- `plan_extremecraft_raid_program`: build the staged fifteen-chunk research plan without inventing a 240-block range or current EC rule values
 - `audit_cannon_ratio`: parse authored 384/OSRB ratios, preserve uncertain timing tokens, account base versus attachment payload, and compare profiles
 - `analyze_impulse_graph`: identify the first motion-level divergence between real reference and candidate traces without inventing one source for ambiguous stacked explosions
 - `classify_cannon_failure`: separate range, lane, fuse, sand, fusion, target, durability and survival failures from a real run
@@ -52,9 +54,22 @@ Use one of these before spending time on runtime tests:
 
 For modern raid work, pass the strongest real reference cannons available and use `intent=modern-raid`. Small field-calibration cannons must use `intent=calibration` so the morphology gate does not pretend every valid diagnostic build needs full raid-cannon complexity.
 
-## All tools
+## Advanced tools
 
 - `get_cannonlab_handoff`: structured fresh-AI repository and truth-boundary map
+- `plan_extremecraft_raid_program`: dependency-ordered EC fifteen-chunk research and qualification plan
+- `audit_cannon_ratio`: authored timing/order evidence, base-stack accounting and profile comparison
+- `analyze_impulse_graph`: source-to-motion graphing and first-divergence comparison
+- `classify_cannon_failure`: causal run diagnosis for range, lane, fuse, sand, fusion, target and survival stages
+- `verify_sakura_cannon_contract`: source-backed public Sakura contract validation
+- `promote_cannon_component`: evidence-backed source module extraction and synthesis registry creation
+- `plan_cannon_synthesis`: evidence-gated module assembly and deterministic candidate compilation
+- `generate_causal_repair_family`: first-divergence-driven bounded repair candidate generation
+- `run_cannon_campaign`: staged plan/static/execute candidate funnel
+- `list_advanced_cannon_profiles`: machine-readable advanced profile inventory
+
+## General evidence tools
+
 - `inspect_cannon`: static format, chunk, block-entity, functional-component, and module analysis
 - `fast_cannon_intake`: combined fast audit, structural map, reference comparison, and next-action verdict
 - `audit_paste_alignment`: safe player chunk-local paste offsets plus separate block-entity pressure
@@ -68,15 +83,6 @@ For modern raid work, pass the strongest real reference cannons available and us
 - `compare_entity_trajectories`: per-tick TNT trajectory and landing comparison with exact first-divergence evidence
 - `analyze_breach_evidence`: measured falling-payload overlap, water-contact failure counts, and contiguous target-layer progress before the first actual regeneration restore
 - `analyze_repair_family`: transparent repair scoring, Pareto-front ranking, promotion blockers, and deterministic collateral-drift summaries
-- `audit_cannon_ratio`: authored timing/order evidence, base-stack accounting and profile comparison
-- `analyze_impulse_graph`: source-to-motion graphing and first-divergence comparison
-- `classify_cannon_failure`: causal run diagnosis for range, lane, fuse, sand, fusion, target and survival stages
-- `verify_sakura_cannon_contract`: source-backed public Sakura contract validation
-- `promote_cannon_component`: evidence-backed source module extraction and synthesis registry creation
-- `plan_cannon_synthesis`: evidence-gated module assembly and deterministic candidate compilation
-- `generate_causal_repair_family`: first-divergence-driven bounded repair candidate generation
-- `run_cannon_campaign`: staged plan/static/execute candidate funnel
-- `list_advanced_cannon_profiles`: machine-readable advanced profile inventory
 - `profile_cannon`: structural morphology and real-reference comparison without inventing subsystem roles
 - `prepare_reference_cannon`: deterministic Sponge v2 conversion plus output audit and geometry profile
 - `audit_cannon_corpus`: batch-compares a private folder of `.schem` and `.litematic` designs without publishing the files
@@ -104,4 +110,4 @@ Put private target files under `plugins/CannonLab/targets` for a local server. C
 
 ## Truth boundary
 
-Static geometry can confirm blocks, orientations, connectivity and chunk pressure. It cannot prove that a bank is a charge, hammer, booster, nuke, rev-worm or OSRB stage. Runtime traces provide firing order and entity motion. Public Paper/Sakura tests do not prove ExtremeCraft parity. `docs/EC_READINESS_LEVELS.md` defines the evidence needed before any candidate can be labeled EC-ready.
+Static geometry can confirm blocks, orientations, connectivity and chunk pressure. It cannot prove that a bank is a charge, hammer, booster, nuke, rev-worm or OSRB stage. A raid program can organize evidence and expose blockers; it cannot prove that a fifteen-chunk raid is possible. Runtime traces provide firing order and entity motion. Public Paper/Sakura tests do not prove ExtremeCraft parity. `docs/EC_READINESS_LEVELS.md` defines the evidence needed before any candidate can be labeled EC-ready.

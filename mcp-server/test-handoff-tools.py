@@ -35,25 +35,35 @@ def main() -> None:
     assert set(mcp.tools) == {"get_cannonlab_handoff"}, mcp.tools
 
     report = mcp.tools["get_cannonlab_handoff"]()
-    assert report["schema_version"] == 1, report
+    assert report["schema_version"] == 2, report
     assert report["counts"]["grammar_modules"] == 16, report
     assert report["counts"]["private_parity_dimensions"] == 16, report
     assert report["counts"]["public_runtime_probes"] == 12, report
     assert report["counts"]["paired_parity_priorities"] == 16, report
+    assert report["counts"]["raid_required_modules"] == 3, report
+    assert report["counts"]["raid_conditional_modules"] == 6, report
     assert report["counts"]["chunk_alignment_offsets"] == 256, report
     assert report["current_state"]["field_ready_advanced_extremecraft_cannon_exists"] is False
+    assert report["current_state"]["fifteen_chunk_raid_program_exists"] is True
+    assert report["current_state"]["fifteen_chunk_regen_raid_capability_proven"] is False
     assert report["current_state"]["failed_twenty_block_scratch_merged"] is False
+    assert report["raid_objective"]["buffer_depth_chunks"] == 15, report
+    assert report["raid_objective"]["exact_flight_distance_blocks"] is None, report
+    assert report["raid_objective"]["buffer_depth_is_projectile_distance"] is False, report
     assert report["truth_boundary"]["handoff_proves_field_readiness"] is False
+    assert report["truth_boundary"]["raid_program_proves_fifteen_chunk_capability"] is False
     assert "AGENTS.md" in report["mandatory_read_order"], report
+    assert "docs/EXTREMECRAFT_15_CHUNK_RAID_PROGRAM.md" in report["mandatory_read_order"], report
     json.dumps(report)
 
     full = mcp.tools["get_cannonlab_handoff"](include_documents=True)
     assert "documents" in full, full
     assert "No current full advanced cannon is field-ready" in full["documents"]["AGENTS.md"]
     assert "What is genuinely proven" in full["documents"]["CANNONLAB_START_HERE.md"]
+    assert "five distances and counts" in full["documents"]["docs/EXTREMECRAFT_15_CHUNK_RAID_PROGRAM.md"]
 
-    print("PASS get_cannonlab_handoff structured summary")
-    print("PASS get_cannonlab_handoff optional documents")
+    print("PASS get_cannonlab_handoff structured raid-aware summary")
+    print("PASS get_cannonlab_handoff optional raid documents")
 
 
 if __name__ == "__main__":

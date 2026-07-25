@@ -1,0 +1,104 @@
+{
+  "schema_version": 1,
+  "id": "extremecraft-raid-sources-v1",
+  "verified_at": "2026-07-25",
+  "sources": [
+    {
+      "id": "extremecraft-cannoning-server",
+      "url": "https://www.extremecraft.net/servers/cannoning/",
+      "type": "official-current-server-page",
+      "authority": "high-for-current-commands-and-purpose",
+      "use": "Current official Cannoning server purpose and operator commands including /p tntfill and /bonetool.",
+      "limitations": "The page says behavior is designed to closely match Factions, not that every private Factions setting is identical."
+    },
+    {
+      "id": "extremecraft-factions-reset-raidtimer",
+      "url": "https://www.extremecraft.net/news/factions-reset-this-friday/",
+      "type": "official-server-news",
+      "authority": "high-for-the-announced-season-change",
+      "use": "RaidTimer removal and current-season reset context.",
+      "limitations": "Does not define cannon timings, wall limits or private mechanics."
+    },
+    {
+      "id": "extremecraft-factions-tnt-chunk-loading",
+      "url": "https://www.extremecraft.net/news/factions-updates-new-towny-ranks-spawnerdeobstructors-and-more/",
+      "type": "official-historical-server-news",
+      "authority": "medium-high-revalidation-required",
+      "use": "Historical statement that TNT cannon issues were fixed and TNT would load chunks.",
+      "limitations": "Historical behavior may have changed; pair with current field probes."
+    },
+    {
+      "id": "extremecraft-factions-cannon-mechanics-update",
+      "url": "https://www.extremecraft.net/3/",
+      "type": "official-historical-server-news",
+      "authority": "medium-high-revalidation-required",
+      "use": "Historical statements about world-border/height stacking, consistent radius, lava interaction, parity and concrete solidification.",
+      "limitations": "Not a current complete config dump; every mechanic must be remeasured."
+    },
+    {
+      "id": "extremecraft-creative-cannoning-features",
+      "url": "https://www.extremecraft.net/news/creative-server-update-cannoning-features/",
+      "type": "official-historical-server-news",
+      "authority": "medium-high-for-workflow-features",
+      "use": "Official introduction of plot explosion controls, /p tntfill, /bonetool and protection blocks.",
+      "limitations": "Creative/Cannoning similarity is not proof of current private Factions parity."
+    },
+    {
+      "id": "extremecraft-suggestion-15-buffer-8-regen-2s",
+      "url": "https://www.extremecraft.net/suggestions/?category=3&server=26&sort=newest&status=open",
+      "type": "community-suggestion-on-official-site",
+      "authority": "low-community-signal",
+      "use": "Repeated player vocabulary around fifteen-chunk buffers, eight chunks of regens, two-second cannon speed and OSRB compatibility concerns.",
+      "limitations": "Suggestions and staff replies are not the same as published current rules. Do not promote numbers without field verification."
+    },
+    {
+      "id": "extremecraft-suggestion-tnt-speed-despawn",
+      "url": "https://www.extremecraft.net/suggestions/?category=3&server=26&sort=votesasc&status=open",
+      "type": "community-suggestion-on-official-site",
+      "authority": "low-community-signal",
+      "use": "Player report that faster TNT may despawn and that Cannoning/Factions behavior can diverge.",
+      "limitations": "Unverified report; motivates the velocity/despawn and paired-environment probes only."
+    },
+    {
+      "id": "extremecraft-old-buffer-and-overstacker-discussion",
+      "url": "https://www.extremecraft.net/suggestions/?category=-1&server=26&sort=newest&status=rejected",
+      "type": "historical-community-discussion",
+      "authority": "low-historical",
+      "use": "Historical evidence that buffer depth, overstackers, reverse midairs, wet-to-dry defenses and patching pressure were meaningful raid variables.",
+      "limitations": "Old rejected suggestions are not current mechanics or rules."
+    },
+    {
+      "id": "factions-wiki-lein",
+      "url": "https://minecraft-factions.fandom.com/wiki/Lein_(cannon)",
+      "type": "community-history",
+      "authority": "medium-low-vocabulary",
+      "use": "Historical staged architecture vocabulary: realignment, hammer, slab bust and sand compression.",
+      "limitations": "Historical cannon architecture, not current ExtremeCraft proof."
+    },
+    {
+      "id": "factions-wiki-hammer",
+      "url": "https://minecraft-factions.fandom.com/wiki/Hammer",
+      "type": "community-vocabulary",
+      "authority": "medium-low-vocabulary",
+      "use": "Community description of hammer as a distinct sand-stacking impulse stage.",
+      "limitations": "Ratios and timings are server/design specific and require runtime traces."
+    },
+    {
+      "id": "factions-wiki-reverse",
+      "url": "https://minecraft-factions.fandom.com/wiki/Reverse_cannon",
+      "type": "community-vocabulary",
+      "authority": "medium-low-vocabulary",
+      "use": "Community description of vertical-first reverse and reverse-leftshot trajectories.",
+      "limitations": "Does not establish legality or functionality on current ExtremeCraft."
+    }
+  ],
+  "research_rules": {
+    "official_current_page_can_define_available_commands": true,
+    "official_historical_update_requires_current_revalidation": true,
+    "suggestion_equals_current_rule": false,
+    "community_term_proves_module_function": false,
+    "fifteen_chunk_buffer_proves_240_block_shot_distance": false,
+    "reported_regen_depth_proves_current_regen_depth": false,
+    "cannoning_server_proves_private_factions_parity": false
+  }
+}

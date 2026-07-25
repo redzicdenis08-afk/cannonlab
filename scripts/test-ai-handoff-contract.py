@@ -28,6 +28,7 @@ def main() -> None:
         "README.md",
         "docs/CANNON_GRAMMAR_AND_PARITY.md",
         "docs/CANNON_PARITY_CAMPAIGNS.md",
+        "docs/EXTREMECRAFT_15_CHUNK_RAID_PROGRAM.md",
         "docs/CANNON_CAMPAIGNS.md",
         "docs/LITEMATICA_CONVERSION.md",
         "docs/DEFENSE_MODELS.md",
@@ -38,7 +39,11 @@ def main() -> None:
         "profiles/parity/sakura-26.1.2-cannon-contract.json",
         "profiles/parity/extremecraft-private-parity-required-v1.json",
         "profiles/parity/extremecraft-parity-probe-priorities-v1.json",
+        "profiles/raid/extremecraft-15-chunk-regen-objective-v1.json",
         "profiles/campaigns/module-proof-request-template-v1.json",
+        "research/sources/extremecraft-raid-sources-v1.json",
+        "scripts/plan-extremecraft-raid-program.py",
+        "scripts/test-extremecraft-raid-program.py",
         "scripts/plan-cannon-parity-campaign.py",
         "scripts/plan-cannon-module-campaign.py",
         "scripts/classify-cannon-run.py",
@@ -54,8 +59,10 @@ def main() -> None:
         "scripts/run-cannon-campaign.py",
         "mcp-server/advanced_tools.py",
         "mcp-server/handoff_tools.py",
+        "mcp-server/raid_tools.py",
         "mcp-server/advanced_server.py",
         ".github/workflows/advanced-cannon-mcp.yml",
+        ".github/workflows/extremecraft-15-chunk-raid-program.yml",
     ]
     paths = {relative: require_path(relative) for relative in required_paths}
 
@@ -70,6 +77,12 @@ def main() -> None:
     )
     priorities = json.loads(
         paths["profiles/parity/extremecraft-parity-probe-priorities-v1.json"].read_text(encoding="utf-8")
+    )
+    raid_objective = json.loads(
+        paths["profiles/raid/extremecraft-15-chunk-regen-objective-v1.json"].read_text(encoding="utf-8")
+    )
+    raid_sources = json.loads(
+        paths["research/sources/extremecraft-raid-sources-v1.json"].read_text(encoding="utf-8")
     )
 
     modules = grammar.get("modules")
@@ -110,8 +123,22 @@ def main() -> None:
             f"extra={sorted(module_ids - expected_modules)}"
         )
 
+    if raid_objective["objective"]["buffer_depth_chunks"] != 15:
+        raise AssertionError("raid handoff lost the fifteen-chunk objective")
+    if raid_objective["truth_boundary"]["fifteen_chunks_equals_240_block_projectile_distance"] is not False:
+        raise AssertionError("raid handoff collapsed chunk depth into shot range")
+    if raid_objective["constraints"]["maximum_dispensers_per_xz_chunk_column"] != 160:
+        raise AssertionError("raid handoff lost EC160")
+    if raid_objective["constraints"]["required_chunk_alignment_offsets"] != 256:
+        raise AssertionError("raid handoff lost the all-offset requirement")
+    if len(raid_sources.get("sources", [])) < 8:
+        raise AssertionError("raid source registry is too small to preserve authority distinctions")
+    if raid_sources["research_rules"]["suggestion_equals_current_rule"] is not False:
+        raise AssertionError("community suggestion was promoted into a current rule")
+
     advanced_tools = paths["mcp-server/advanced_tools.py"].read_text(encoding="utf-8")
     handoff_tools = paths["mcp-server/handoff_tools.py"].read_text(encoding="utf-8")
+    raid_tools = paths["mcp-server/raid_tools.py"].read_text(encoding="utf-8")
     expected_advanced = {
         "audit_cannon_ratio",
         "analyze_impulse_graph",
@@ -130,7 +157,12 @@ def main() -> None:
         raise AssertionError(f"AI handoff lists missing advanced MCP tools: {missing_advanced}")
     if "def get_cannonlab_handoff(" not in handoff_tools:
         raise AssertionError("structured MCP handoff tool is missing")
-    expected_tools = expected_advanced | {"get_cannonlab_handoff"}
+    if "def plan_extremecraft_raid_program(" not in raid_tools:
+        raise AssertionError("structured fifteen-chunk raid planner tool is missing")
+    expected_tools = expected_advanced | {
+        "get_cannonlab_handoff",
+        "plan_extremecraft_raid_program",
+    }
 
     require_tokens(
         paths["AGENTS.md"],
@@ -140,8 +172,8 @@ def main() -> None:
             "DataVersion `3465`",
             "PR `#41`",
             "get_cannonlab_handoff",
-            "classify_cannon_failure",
-            "plan-cannon-parity-campaign.py",
+            "plan_extremecraft_raid_program",
+            "Fifteen chunks does not automatically mean a 240-block shot",
             "Never publish a generated schematic as working",
         },
     )
@@ -150,8 +182,8 @@ def main() -> None:
         {
             "sixteen evidence-gated modules",
             "sixteen independently variable dimensions",
-            "ten tools",
-            "get_cannonlab_handoff",
+            "eleven tools",
+            "plan_extremecraft_raid_program",
             "What is genuinely proven",
             "What is not proven",
             "PR `#41` was closed unmerged",
@@ -166,10 +198,12 @@ def main() -> None:
                 "grammar_modules": len(modules),
                 "private_parity_dimensions": len(dimensions),
                 "public_runtime_probes": len(probes),
+                "raid_sources": len(raid_sources.get("sources", [])),
                 "advanced_mcp_tools": len(expected_tools),
                 "truth_boundary": {
                     "handoff_contract_proves_field_ready_cannon": False,
                     "handoff_contract_proves_private_extremecraft_parity": False,
+                    "handoff_contract_proves_fifteen_chunk_raid_capability": False,
                 },
             },
             indent=2,

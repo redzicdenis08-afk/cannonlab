@@ -1,0 +1,86 @@
+name: ExtremeCraft 15-Chunk Raid Program
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/extremecraft-15-chunk-raid-program.yml'
+      - 'profiles/raid/**'
+      - 'profiles/grammar/**'
+      - 'profiles/parity/**'
+      - 'research/sources/extremecraft-raid-sources-v1.json'
+      - 'scripts/plan-extremecraft-raid-program.py'
+      - 'scripts/test-extremecraft-raid-program.py'
+      - 'docs/EXTREMECRAFT_15_CHUNK_RAID_PROGRAM.md'
+      - 'mcp-server/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  raid-program:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile planner and regressions
+        run: |
+          python -m py_compile \
+            scripts/plan-extremecraft-raid-program.py \
+            scripts/test-extremecraft-raid-program.py
+
+      - name: Validate machine-readable contracts
+        run: |
+          python -m json.tool profiles/raid/extremecraft-15-chunk-regen-objective-v1.json >/dev/null
+          python -m json.tool research/sources/extremecraft-raid-sources-v1.json >/dev/null
+
+      - name: Run fail-closed regressions
+        run: python scripts/test-extremecraft-raid-program.py
+
+      - name: Generate canonical blocked research plan
+        run: |
+          mkdir -p lab-artifacts/extremecraft-raid-program
+          set +e
+          python scripts/plan-extremecraft-raid-program.py \
+            profiles/grammar/modern-factions-cannon-grammar-v1.json \
+            profiles/parity/extremecraft-private-parity-required-v1.json \
+            profiles/raid/extremecraft-15-chunk-regen-objective-v1.json \
+            --json-out lab-artifacts/extremecraft-raid-program/plan.json
+          status=$?
+          set -e
+          test "$status" -eq 2
+
+      - name: Verify the canonical plan does not fake capability
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          plan = json.loads(
+              Path('lab-artifacts/extremecraft-raid-program/plan.json').read_text(encoding='utf-8')
+          )
+          assert plan['readiness'] == 'BLOCKED', plan
+          assert plan['distinctions']['buffer_depth_chunks'] == 15, plan
+          assert plan['distinctions']['buffer_depth_is_projectile_distance'] is False, plan
+          assert plan['distinctions']['exact_flight_distance_blocks'] is None, plan
+          assert plan['throughput']['uses_buffer_depth_as_wall_count'] is False, plan
+          assert plan['truth_boundary']['program_plan_proves_fifteen_chunk_raid_capability'] is False, plan
+          assert plan['constraints']['maximum_dispensers_per_xz_chunk_column'] == 160, plan
+          assert plan['constraints']['required_chunk_alignment_offsets'] == 256, plan
+          print(
+              f"blocked with {plan['blocker_count']} explicit blockers and "
+              f"{plan['module_stage_count']} dependency-ordered module stages"
+          )
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: extremecraft-15-chunk-raid-program-${{ github.run_number }}
+          path: lab-artifacts/extremecraft-raid-program/**
+          if-no-files-found: error
+          retention-days: 30
