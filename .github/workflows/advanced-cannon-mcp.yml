@@ -57,6 +57,7 @@ jobs:
             mcp-server/advanced_server.py \
             mcp-server/test-advanced-tools.py \
             mcp-server/test-handoff-tools.py \
+            mcp-server/test-raid-tools.py \
             scripts/classify-cannon-run.py \
             scripts/verify-sakura-cannon-contract.py \
             scripts/plan-extremecraft-raid-program.py \
@@ -66,6 +67,7 @@ jobs:
         run: |
           python mcp-server/test-advanced-tools.py
           python mcp-server/test-handoff-tools.py
+          python mcp-server/test-raid-tools.py
           python scripts/test-extremecraft-raid-program.py
 
       - name: Install MCP package
@@ -118,12 +120,14 @@ jobs:
           assert report['truth_boundary']['private_server_parity_confirmed'] is False, report
 
           tools = {tool.name: tool for tool in asyncio.run(advanced_server.mcp.list_tools())}
+          assert 'get_cannonlab_handoff' in tools and 'plan_extremecraft_raid_program' in tools, tools
+
           handoff = asyncio.run(
               advanced_server.mcp.call_tool('get_cannonlab_handoff', {'include_documents': False})
           )
           handoff_text = str(handoff)
           assert 'grammar_modules' in handoff_text and 'private_parity_dimensions' in handoff_text, handoff_text
-          assert 'field_ready_advanced_extremecraft_cannon_exists' in handoff_text, handoff_text
+          assert 'fifteen_chunk_raid_program_exists' in handoff_text, handoff_text
 
           raid = asyncio.run(
               advanced_server.mcp.call_tool('plan_extremecraft_raid_program', {})
