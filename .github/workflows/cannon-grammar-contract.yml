@@ -1,0 +1,69 @@
+name: Cannon Grammar Contract
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/cannon-grammar-contract.yml'
+      - 'profiles/grammar/**'
+      - 'profiles/parity/**'
+      - 'research/sources/**'
+      - 'docs/CANNON_GRAMMAR_AND_PARITY.md'
+      - 'scripts/classify-cannon-run.py'
+      - 'scripts/test-classify-cannon-run.py'
+      - 'scripts/verify-sakura-cannon-contract.py'
+      - 'scripts/test-verify-sakura-cannon-contract.py'
+      - 'scripts/test-cannon-grammar-contract.py'
+      - 'mcp-server/advanced_tools.py'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile tools
+        run: |
+          python -m py_compile \
+            scripts/classify-cannon-run.py \
+            scripts/verify-sakura-cannon-contract.py \
+            scripts/test-classify-cannon-run.py \
+            scripts/test-verify-sakura-cannon-contract.py \
+            scripts/test-cannon-grammar-contract.py \
+            mcp-server/advanced_tools.py
+
+      - name: Run classifier regressions
+        run: python scripts/test-classify-cannon-run.py
+
+      - name: Run Sakura contract regressions
+        run: python scripts/test-verify-sakura-cannon-contract.py
+
+      - name: Validate grammar and source registry
+        run: python scripts/test-cannon-grammar-contract.py
+
+      - name: Verify pinned contract offline
+        run: |
+          mkdir -p cannon-grammar-artifacts
+          python scripts/verify-sakura-cannon-contract.py \
+            profiles/parity/sakura-26.1.2-cannon-contract.json \
+            --json-out cannon-grammar-artifacts/sakura-contract-report.json
+
+      - name: Validate JSON documents
+        run: |
+          python -m json.tool profiles/grammar/modern-factions-cannon-grammar-v1.json >/dev/null
+          python -m json.tool profiles/parity/sakura-26.1.2-cannon-contract.json >/dev/null
+          python -m json.tool research/sources/cannon-community-sources-v1.json >/dev/null
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cannon-grammar-contract-${{ github.run_number }}
+          path: cannon-grammar-artifacts/**
+          if-no-files-found: error
+          retention-days: 14

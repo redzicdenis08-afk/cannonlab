@@ -1,0 +1,107 @@
+{
+  "schema_version": 1,
+  "id": "sakura-26.1.2-cannon-contract",
+  "title": "Pinned public Sakura 26.1.2 cannon mechanics contract",
+  "verified_at": "2026-07-25",
+  "source": {
+    "repository": "Samsuik/Sakura",
+    "commit": "63f35d74e0fbe6bcd76c58494c01c1632c83010d",
+    "sakura_version": "26.1.2",
+    "minecraft_runtime_version": "26.1.2",
+    "schematic_data_version": 3465,
+    "schematic_data_version_meaning": "Input block-state serialization target only; it does not select runtime cannon physics."
+  },
+  "defaults": {
+    "cannons": {
+      "merge_level": "LENIENT",
+      "tnt_and_sand_affected_by_bubble_columns": true,
+      "treat_all_blocks_as_full_when_moving": false,
+      "treat_all_blocks_as_full_when_moving_faster_than": 64.0,
+      "load_chunks": false,
+      "restrictions": {
+        "left_shooting_threshold": "disabled",
+        "max_adjust_distance": "disabled",
+        "instant_block_fall_limit": "disabled"
+      },
+      "tnt": {
+        "force_position_updates": false
+      },
+      "sand": {
+        "despawn_inside_moving_pistons": true,
+        "concrete_solidify_in_water": true,
+        "prevent_stacking_against_border": false,
+        "prevent_stacking_at_world_height": false,
+        "drop_items": true
+      },
+      "explosion": {
+        "batch_explosions": true,
+        "reduce_exposure_raycasts": false,
+        "durable_materials_expiration": "1m",
+        "destroy_waterlogged_blocks": false,
+        "explode_lava": false,
+        "consistent_radius": false,
+        "durable_materials": {
+          "minecraft:obsidian": {
+            "hits": 4,
+            "replacement_resistance_family": "cobblestone",
+            "enabled": true
+          }
+        }
+      },
+      "mechanics": {
+        "tnt_spread": "ALL",
+        "tnt_flows_in_water": true,
+        "falling_block_parity": false,
+        "mechanics_target": "latest+paper",
+        "falling_block_floating_point_fix": false,
+        "broken_paper_explosion_behaviour": false
+      }
+    },
+    "technical": {
+      "dispenser_random_item_selection": true,
+      "fluids_break_redstone": true,
+      "allow_tnt_duplication": false
+    }
+  },
+  "implementation_invariants": {
+    "primed_tnt_is_cannon_entity": true,
+    "spigot_max_tnt_per_tick_removed": true,
+    "tnt_initial_spread_is_configurable": [
+      "ALL",
+      "Y",
+      "NONE"
+    ],
+    "tnt_fluid_push_requires_paper_and_sakura_switches": true,
+    "large_movement_collision_axis_scan_threshold_squared": 12.0,
+    "mechanics_target_separates_version_and_server_type": true,
+    "mechanic_command_reports": [
+      "mechanic_version",
+      "height_parity",
+      "tnt_spread",
+      "tnt_flow",
+      "redstone_implementation",
+      "broken_explosion_behaviour",
+      "consistent_radius",
+      "lava_flow_speed"
+    ]
+  },
+  "required_runtime_probes": [
+    "mechanics-command-snapshot",
+    "tnt-spread-distribution",
+    "tnt-flowing-water-motion",
+    "falling-block-height-parity",
+    "fast-axis-collision",
+    "linked-entity-merge",
+    "bubble-column-tnt-and-sand",
+    "chunk-boundary-flight",
+    "obsidian-four-hit-expiration",
+    "waterlogged-block-destruction",
+    "redstone-fluid-break",
+    "dispenser-random-selection"
+  ],
+  "truth_boundary": {
+    "public_sakura_defaults_equal_private_extremecraft_config": false,
+    "schematic_data_version_proves_runtime_version": false,
+    "source_contract_proves_runtime_behaviour_without_probes": false
+  }
+}

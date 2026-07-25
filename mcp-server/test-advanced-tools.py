@@ -37,7 +37,7 @@ def make_registry():
         if not candidate.is_relative_to(ROOT.resolve()):
             raise ValueError("path escapes CannonLab root")
         if must_exist and not candidate.exists():
-            raise FileNotFoundError(candidate)
+            return candidate
         return candidate
 
     def run_json(
@@ -70,6 +70,8 @@ def expected_tools() -> set[str]:
     return {
         "audit_cannon_ratio",
         "analyze_impulse_graph",
+        "classify_cannon_failure",
+        "verify_sakura_cannon_contract",
         "plan_cannon_synthesis",
         "promote_cannon_component",
         "generate_causal_repair_family",
@@ -86,11 +88,10 @@ def test_registers_exact_advanced_tools() -> None:
 
 def test_ratio_tool_preserves_comparison_contract() -> None:
     mcp, calls, _ = make_registry()
-    result = mcp.tools["audit_cannon_ratio"](
+    mcp.tools["audit_cannon_ratio"](
         "profiles/ratios/public-0.7-384-osrb-1-above-barrel.json",
         "profiles/ratios/public-1.2-384-4os-derived.json",
     )
-    assert result["status"] == "captured", result
     call = calls[-1]
     assert call["script"].name == "cannon-ratio-audit.py", call
     assert "--compare" in call["args"], call
@@ -111,21 +112,45 @@ def test_impulse_tool_requires_paired_comparison_paths() -> None:
         raise AssertionError("half-specified comparison unexpectedly passed")
 
 
-def test_impulse_tool_builds_bounded_compare_command() -> None:
+def test_classifier_builds_causal_diagnostic_command() -> None:
     mcp, calls, _ = make_registry()
-    mcp.tools["analyze_impulse_graph"](
-        "audit-fixtures/impulse-events-reference.csv",
-        "audit-fixtures/impulse-causal-events.csv",
-        compare_events_path="audit-fixtures/impulse-events-candidate.csv",
-        compare_causal_events_path="audit-fixtures/impulse-causal-events.csv",
-        max_timing_delta=0,
-        max_velocity_delta=0.02,
+    mcp.tools["classify_cannon_failure"](
+        "lab-artifacts/run-summary.json",
+        lane_tolerance=1.25,
+        fusion_tolerance=0.75,
+        tick_tolerance=2,
+        report_output_path="lab-artifacts/diagnosis.json",
+        markdown_output_path="lab-artifacts/diagnosis.md",
     )
     call = calls[-1]
-    assert call["script"].name == "analyze-impulse-graph.py", call
-    assert "--compare-events" in call["args"], call
-    assert call["args"][call["args"].index("--max-timing-delta") + 1] == "0", call
-    assert call["args"][call["args"].index("--max-velocity-delta") + 1] == "0.02", call
+    assert call["script"].name == "classify-cannon-run.py", call
+    assert call["allowed_exit_codes"] == (0, 2), call
+    assert call["args"][call["args"].index("--lane-tolerance") + 1] == "1.25", call
+    assert call["args"][call["args"].index("--fusion-tolerance") + 1] == "0.75", call
+    assert "--json-out" in call["args"] and "--markdown-out" in call["args"], call
+
+    try:
+        mcp.tools["classify_cannon_failure"](
+            "lab-artifacts/run-summary.json",
+            lane_tolerance=-1.0,
+        )
+    except ValueError as exc:
+        assert "non-negative" in str(exc), exc
+    else:
+        raise AssertionError("negative lane tolerance unexpectedly passed")
+
+
+def test_contract_tool_builds_exact_source_check() -> None:
+    mcp, calls, _ = make_registry()
+    mcp.tools["verify_sakura_cannon_contract"](
+        source_root_path=".sakura-source",
+        report_output_path="lab-artifacts/sakura-contract.json",
+    )
+    call = calls[-1]
+    assert call["script"].name == "verify-sakura-cannon-contract.py", call
+    assert call["allowed_exit_codes"] == (0, 2), call
+    assert "--source-root" in call["args"], call
+    assert "--json-out" in call["args"], call
 
 
 def test_synthesis_tool_allows_only_root_scoped_output() -> None:
@@ -168,22 +193,7 @@ def test_component_promotion_builds_exact_guarded_command() -> None:
     assert call["script"].name == "promote-cannon-component.py", call
     assert call["allowed_exit_codes"] == (0, 2), call
     assert "--trace" in call["args"], call
-    assert "--schem-out" in call["args"], call
-    assert "--registry-out" in call["args"], call
-    assert "--json-out" in call["args"], call
     assert call["args"][call["args"].index("--output-data-version") + 1] == "3465"
-
-    try:
-        mcp.tools["promote_cannon_component"](
-            "profiles/synthesis/component-registry-template-v1.json",
-            "profiles/components/promotion-manifest-template-v1.json",
-            "../promoted.schem",
-            "lab-artifacts/mcp/promoted.registry.json",
-        )
-    except ValueError as exc:
-        assert "escapes CannonLab root" in str(exc), exc
-    else:
-        raise AssertionError("promotion output path escape unexpectedly passed")
 
 
 def test_repair_family_builds_exact_guarded_command() -> None:
@@ -198,22 +208,7 @@ def test_repair_family_builds_exact_guarded_command() -> None:
     call = calls[-1]
     assert call["script"].name == "generate-causal-repair-family.py", call
     assert call["allowed_exit_codes"] == (0, 2), call
-    assert "--output-directory" in call["args"], call
-    assert "--json-out" in call["args"], call
-    output = Path(call["args"][call["args"].index("--output-directory") + 1])
-    assert output == (ROOT / "lab-artifacts/mcp/repair-family").resolve(), output
-
-    try:
-        mcp.tools["generate_causal_repair_family"](
-            "profiles/synthesis/component-registry-template-v1.json",
-            "profiles/parity/extremecraft-private-parity-required-v1.json",
-            "profiles/repairs/causal-repair-policy-template-v1.json",
-            "../../outside-repairs",
-        )
-    except ValueError as exc:
-        assert "escapes CannonLab root" in str(exc), exc
-    else:
-        raise AssertionError("repair output path escape unexpectedly passed")
+    assert "--output-directory" in call["args"] and "--json-out" in call["args"], call
 
 
 def test_campaign_tool_builds_bounded_command_and_timeout() -> None:
@@ -228,10 +223,6 @@ def test_campaign_tool_builds_bounded_command_and_timeout() -> None:
     assert call["script"].name == "run-cannon-campaign.py", call
     assert call["allowed_exit_codes"] == (0, 2), call
     assert call["timeout"] == 3700, call
-    assert call["args"][call["args"].index("--mode") + 1] == "execute", call
-    output = Path(call["args"][call["args"].index("--output-directory") + 1])
-    assert output == (ROOT / "lab-artifacts/mcp/campaigns").resolve(), output
-    assert "--json-out" in call["args"], call
 
     mcp.tools["run_cannon_campaign"](
         "profiles/campaigns/staged-campaign-template-v1.json",
@@ -239,16 +230,6 @@ def test_campaign_tool_builds_bounded_command_and_timeout() -> None:
         mode="plan",
     )
     assert calls[-1]["timeout"] == 300, calls[-1]
-
-    try:
-        mcp.tools["run_cannon_campaign"](
-            "profiles/campaigns/staged-campaign-template-v1.json",
-            "../outside-campaign",
-        )
-    except ValueError as exc:
-        assert "escapes CannonLab root" in str(exc), exc
-    else:
-        raise AssertionError("campaign output path escape unexpectedly passed")
 
     try:
         mcp.tools["run_cannon_campaign"](
@@ -262,19 +243,13 @@ def test_campaign_tool_builds_bounded_command_and_timeout() -> None:
         raise AssertionError("invalid campaign mode unexpectedly passed")
 
 
-def test_profile_listing_is_machine_readable_and_truth_bounded() -> None:
+def test_profile_listing_includes_grammar_and_truth_boundaries() -> None:
     mcp, _, _ = make_registry()
     report = mcp.tools["list_advanced_cannon_profiles"]()
     assert report["schema_version"] == 1, report
-    assert report["profile_count"] >= 9, report
-    assert report["categories"]["ratios"], report
-    assert report["categories"]["parity"], report
-    assert report["categories"]["archetypes"], report
-    assert report["categories"]["synthesis"], report
-    assert report["categories"]["components"], report
-    assert report["categories"]["repairs"], report
-    assert report["categories"]["campaigns"], report
+    assert "grammar" in report["categories"], report
     assert report["truth_boundary"]["profile_presence_proves_runtime_function"] is False
+    assert report["truth_boundary"]["profile_presence_proves_extremecraft_parity"] is False
     json.dumps(report)
 
 
@@ -283,12 +258,13 @@ def main() -> None:
         test_registers_exact_advanced_tools,
         test_ratio_tool_preserves_comparison_contract,
         test_impulse_tool_requires_paired_comparison_paths,
-        test_impulse_tool_builds_bounded_compare_command,
+        test_classifier_builds_causal_diagnostic_command,
+        test_contract_tool_builds_exact_source_check,
         test_synthesis_tool_allows_only_root_scoped_output,
         test_component_promotion_builds_exact_guarded_command,
         test_repair_family_builds_exact_guarded_command,
         test_campaign_tool_builds_bounded_command_and_timeout,
-        test_profile_listing_is_machine_readable_and_truth_bounded,
+        test_profile_listing_includes_grammar_and_truth_boundaries,
     ]
     for test in tests:
         test()

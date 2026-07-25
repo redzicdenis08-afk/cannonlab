@@ -1,0 +1,213 @@
+{
+  "schema_version": 1,
+  "id": "modern-factions-cannon-grammar-v1",
+  "title": "Evidence-gated modern factions cannon grammar",
+  "verified_at": "2026-07-25",
+  "scope": {
+    "runtime": "Sakura/Paper-style modern factions cannoning",
+    "server_target": "ExtremeCraft unknown private configuration",
+    "schematic_format": "Sponge v2 DataVersion 3465 input",
+    "warning": "This grammar defines roles and evidence gates, not universal geometry or timing constants."
+  },
+  "architecture_rules": [
+    {
+      "id": "separate-runtime-version-from-schematic-version",
+      "rule": "Treat schematic DataVersion, server runtime version, and mechanics-target as independent inputs.",
+      "promotion_gate": "All three are recorded in the run evidence."
+    },
+    {
+      "id": "external-defense-course",
+      "rule": "Target defenses are generated outside the cannon schematic with a declared clear flight corridor.",
+      "promotion_gate": "Measured cannon bounds and target bounds prove the declared gap."
+    },
+    {
+      "id": "module-before-monolith",
+      "rule": "Prove charge, payload, guider, sand release, hammer, compression and hybrid overlap separately before one-button composition.",
+      "promotion_gate": "Each required module has a causal trace and a declared interface."
+    },
+    {
+      "id": "no-filename-proof",
+      "rule": "Names such as OSRB, nuke, leftshot, one-stacker or 384 do not prove the corresponding behavior.",
+      "promotion_gate": "Behavior is inferred only from runtime traces and target outcomes."
+    }
+  ],
+  "modules": [
+    {
+      "id": "charge-force",
+      "community_names": ["charge", "power", "force"],
+      "purpose": "Create the impulse that accelerates later cannon entities while remaining block-safe.",
+      "requires": ["protected-explosion-volume", "payload-coupling-line"],
+      "outputs": ["measured-impulse-cohort"],
+      "minimum_evidence": ["charge-cohort-count", "explosion-tick", "payload-velocity-delta", "zero-or-bounded-self-damage"],
+      "failure_signals": ["payload-range-short", "dry-charge-self-damage", "force-spread-without-coupling"]
+    },
+    {
+      "id": "payload",
+      "community_names": ["shot", "payload"],
+      "purpose": "Carry destructive TNT to the target plane on the intended lane and fuse window.",
+      "requires": ["charge-force", "payload-seat"],
+      "outputs": ["target-plane-tnt"],
+      "minimum_evidence": ["distinct-spawn-cohort", "target-plane-crossing", "lane-error", "explosion-forward-error"],
+      "failure_signals": ["early-fuse", "late-fuse", "lane-divergence", "payload-fired-with-charge"]
+    },
+    {
+      "id": "guider-realignment",
+      "community_names": ["guider", "realignment", "lineup"],
+      "purpose": "Constrain payload and sand to a repeatable flight lane or redirect them intentionally.",
+      "requires": ["payload"],
+      "outputs": ["bounded-lateral-error"],
+      "minimum_evidence": ["per-entity-lane-error", "repeat-shot-lane-variance", "collision-trace"],
+      "failure_signals": ["one-payload-peels-sideways", "axis-scan-collision-divergence", "random-spread-dominates"]
+    },
+    {
+      "id": "slab-bust",
+      "community_names": ["slabbust", "slab bust", "dropbust"],
+      "purpose": "Open or prepare slab/filter geometry so later stack, hammer or hybrid stages can act.",
+      "requires": ["payload", "target-course-with-slabs"],
+      "outputs": ["measured-slab-stage-change"],
+      "minimum_evidence": ["slab-target-cell-delta", "stage-specific-explosion", "no-credit-from-other-stage"],
+      "failure_signals": ["slab-untouched", "wrong-height", "scatter-credited-as-slabbust"]
+    },
+    {
+      "id": "sand-release",
+      "community_names": ["sand release", "sand feed"],
+      "purpose": "Convert held sand into a controlled falling-block cohort at a declared tick.",
+      "requires": ["held-sand-support", "release-control"],
+      "outputs": ["falling-sand-cohort"],
+      "minimum_evidence": ["held-before-release", "entity-add-after-release", "spawn-count", "spawn-position"],
+      "failure_signals": ["sand-falls-on-paste", "sand-never-falls", "piston-despawn"]
+    },
+    {
+      "id": "hammer",
+      "community_names": ["hammer", "reverse hammer"],
+      "purpose": "Apply a vertical impulse that forces sand into the intended stack direction rather than letting it glide naturally.",
+      "requires": ["sand-release", "hammer-tnt-cohort"],
+      "outputs": ["vertical-sand-impulse"],
+      "minimum_evidence": ["pre-post-sand-velocity", "hammer-explosion-to-sand-causal-edge", "stacked-block-count"],
+      "failure_signals": ["sand-range-short", "sand-glide", "hammer-misses-sand", "hammer-destroys-feed"]
+    },
+    {
+      "id": "sand-compression",
+      "community_names": ["sand comp", "compression"],
+      "purpose": "Time and spatially compress a larger sand cohort for stacking, filters and high-wall work.",
+      "requires": ["sand-release", "hammer"],
+      "outputs": ["compressed-sand-cohort"],
+      "minimum_evidence": ["cohort-span-before-after", "entity-order-preservation", "stack-height"],
+      "failure_signals": ["sand-cohort-stretches", "entity-merge-artifact", "instant-fall-limit"]
+    },
+    {
+      "id": "hybrid-fusion",
+      "community_names": ["hybrid", "fusion", "sand-TNT overlap"],
+      "purpose": "Make payload TNT explode while sand occupies the target interaction volume so water protection is defeated under the server rules.",
+      "requires": ["payload", "sand-release", "hammer"],
+      "outputs": ["embedded-payload-explosion"],
+      "minimum_evidence": ["spatiotemporal-overlap", "embedded-payload-count", "water-contact-state", "durability-hit"],
+      "failure_signals": ["payload-sand-no-fusion", "sand-arrives-after-explosion", "payload-arrives-without-sand"]
+    },
+    {
+      "id": "scatter",
+      "community_names": ["scatter"],
+      "purpose": "Distribute destructive payload around an opened or stacked cell without replacing lineup proof.",
+      "requires": ["payload", "guider-realignment"],
+      "outputs": ["declared-scatter-pattern"],
+      "minimum_evidence": ["explosion-cluster-shape", "target-cell-coverage", "no-cannon-self-hit"],
+      "failure_signals": ["scatter-at-muzzle", "wide-miss", "scatter-hides-lineup-failure"]
+    },
+    {
+      "id": "one-shot-cycle",
+      "community_names": ["one shot", "OS", "one-stacker when one sand is intended"],
+      "purpose": "Compose preparation, sand stack, hammer, hybrid and optional scatter into one controlled button cycle.",
+      "requires": ["slab-bust", "sand-release", "hammer", "hybrid-fusion"],
+      "outputs": ["one-cycle-wall-outcome"],
+      "minimum_evidence": ["stage-order", "one-control-cycle", "one-wall-outcome", "survival"],
+      "failure_signals": ["simultaneous-uncontrolled-fire", "target-next-to-cannon", "only-charge-tnt"]
+    },
+    {
+      "id": "double-tap",
+      "community_names": ["double tap"],
+      "purpose": "Fire two intentionally separated target interactions, commonly a prepared/scatter interaction followed by a lineup or backstack interaction.",
+      "requires": ["one-shot-cycle", "second-payload-cohort"],
+      "outputs": ["two-distinct-target-interactions"],
+      "minimum_evidence": ["two-spawn-cohorts", "two-explosion-windows", "stage-specific-target-deltas"],
+      "failure_signals": ["button-double-pulse", "cohorts-merge", "second-shot-is-only-late-charge"]
+    },
+    {
+      "id": "osrb",
+      "community_names": ["OSRB", "one-shot reverse barrel", "server-specific expansion unknown"],
+      "purpose": "Community label for an advanced one-shot/reverse-capable architecture; exact expansion and behavior must be declared per source.",
+      "requires": ["one-shot-cycle", "reverse"],
+      "outputs": ["declared-osrb-behaviors"],
+      "minimum_evidence": ["source-definition", "reverse-or-barrel-stage-trace", "one-shot-stage-trace"],
+      "failure_signals": ["label-only-classification", "384-name-treated-as-count"]
+    },
+    {
+      "id": "nuke",
+      "community_names": ["nuke", "efficient nuke"],
+      "purpose": "Deliver a larger coordinated destructive cohort for broad target interaction after lineup and protection stages are proven.",
+      "requires": ["payload", "guider-realignment", "hybrid-fusion"],
+      "outputs": ["multi-payload-target-cohort"],
+      "minimum_evidence": ["cohort-count", "target-cluster-coverage", "survival", "server-rule-compliance"],
+      "failure_signals": ["more-tnt-used-to-mask-lineup", "self-damage", "array-rule-violation"]
+    },
+    {
+      "id": "reverse",
+      "community_names": ["reverse", "rev", "reverse hammer"],
+      "purpose": "Send the shot vertically before a hammer/lineup stage drives the stack or hybrid interaction in the required reverse direction.",
+      "requires": ["payload", "reverse-hammer"],
+      "outputs": ["vertical-then-targeted-trajectory"],
+      "minimum_evidence": ["direction-change-tick", "vertical-apex", "post-reverse-lineup", "reverse-layer-target"],
+      "failure_signals": ["normal-shot-called-reverse", "apex-without-lineup", "reverse-hammer-miss"]
+    },
+    {
+      "id": "left-right-shot",
+      "community_names": ["leftshot", "rightshot", "L/R"],
+      "purpose": "Intentionally change horizontal direction after an initial path while respecting server thresholds and guider geometry.",
+      "requires": ["payload", "guider-realignment"],
+      "outputs": ["measured-direction-change"],
+      "minimum_evidence": ["pre-turn-distance", "turn-coordinate", "post-turn-lane", "restriction-profile"],
+      "failure_signals": ["random-lateral-peel-called-leftshot", "turn-before-threshold", "push-LR-rule-conflict"]
+    },
+    {
+      "id": "bypass-pseudo",
+      "community_names": ["bypass", "pseudo", "blank"],
+      "purpose": "Variant modules that disable, reroute or substitute stages for a particular defense or server rule set.",
+      "requires": ["declared-source-definition", "base-architecture"],
+      "outputs": ["variant-specific-stage-map"],
+      "minimum_evidence": ["before-after-stage-diff", "target-defense-specific-result"],
+      "failure_signals": ["unknown-sign-label-promoted-to-function", "variant-without-source-definition"]
+    }
+  ],
+  "promotion_levels": [
+    {
+      "level": "STATIC",
+      "requires": ["geometry-audit", "block-entity-integrity", "EC160-offset-scan"],
+      "proves": "The file is structurally parseable and placement-legal under the declared static limits."
+    },
+    {
+      "level": "LOCAL_CAUSAL",
+      "requires": ["distinct-module-traces", "first-divergence-classification", "external-target-course"],
+      "proves": "The declared behavior occurred on the pinned local runtime."
+    },
+    {
+      "level": "LOCAL_ENDURANCE",
+      "requires": ["repeated-one-paste-shots", "bounded-variance", "survival"],
+      "proves": "The local behavior is repeatable without rebuilding."
+    },
+    {
+      "level": "FIELD_CANARY",
+      "requires": ["private-server-canary", "exact-file-hash", "exact-control-procedure", "field-observation"],
+      "proves": "The exact candidate performed the canary behavior on the private target server."
+    },
+    {
+      "level": "FIELD_READY",
+      "requires": ["defense-course-canaries", "multiple-field-shots", "operator-accepted-procedure"],
+      "proves": "The exact candidate is ready only for its explicitly tested defense profile."
+    }
+  ],
+  "truth_boundary": {
+    "community_term_has_universal_definition": false,
+    "module_geometry_is_provided": false,
+    "local_sakura_success_proves_extremecraft_success": false,
+    "static_module_name_proves_behavior": false
+  }
+}

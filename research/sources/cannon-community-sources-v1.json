@@ -1,0 +1,97 @@
+{
+  "schema_version": 1,
+  "id": "cannon-community-sources-v1",
+  "verified_at": "2026-07-25",
+  "sources": [
+    {
+      "id": "sakura-world-config-26.1.2",
+      "url": "https://github.com/Samsuik/Sakura/blob/63f35d74e0fbe6bcd76c58494c01c1632c83010d/sakura-server/src/main/java/me/samsuik/sakura/configuration/WorldConfiguration.java",
+      "type": "primary-source-code",
+      "use": "Exact public Sakura cannon defaults and configurable mechanics.",
+      "authority": "high"
+    },
+    {
+      "id": "sakura-primed-tnt-26.1.2",
+      "url": "https://github.com/Samsuik/Sakura/blob/63f35d74e0fbe6bcd76c58494c01c1632c83010d/sakura-server/minecraft-patches/sources/net/minecraft/world/entity/item/PrimedTnt.java.patch",
+      "type": "primary-source-code",
+      "use": "TNT spread, water flow, position updates and max-TNT-per-tick behavior.",
+      "authority": "high"
+    },
+    {
+      "id": "sakura-cannon-movement-26.1.2",
+      "url": "https://github.com/Samsuik/Sakura/blob/63f35d74e0fbe6bcd76c58494c01c1632c83010d/sakura-server/minecraft-patches/features/0004-Optimise-cannon-entity-movement.patch",
+      "type": "primary-source-code",
+      "use": "Fast cannon-entity collision and axis-scan behavior.",
+      "authority": "high"
+    },
+    {
+      "id": "sakura-mechanics-target-26.1.2",
+      "url": "https://github.com/Samsuik/Sakura/blob/63f35d74e0fbe6bcd76c58494c01c1632c83010d/sakura-api/src/main/java/me/samsuik/sakura/mechanics/MinecraftMechanicsTarget.java",
+      "type": "primary-source-code",
+      "use": "Mechanic version and server-type targeting are independent runtime inputs.",
+      "authority": "high"
+    },
+    {
+      "id": "paper-world-configuration",
+      "url": "https://docs.papermc.io/paper/reference/world-configuration/",
+      "type": "official-documentation",
+      "use": "Paper TNT water movement and entity-height defaults that can affect cannon parity.",
+      "authority": "high"
+    },
+    {
+      "id": "paper-spigot-configuration",
+      "url": "https://docs.papermc.io/paper/reference/spigot-configuration/",
+      "type": "official-documentation",
+      "use": "Spigot max-tnt-per-tick behavior for non-Sakura comparison profiles.",
+      "authority": "high"
+    },
+    {
+      "id": "cosmicreborn-schematic-corpus",
+      "url": "https://cosmicreborn.com/schematics",
+      "type": "original-server-community-corpus",
+      "use": "Real architecture labels and feature combinations including OSRB, hybrid, double tap, slabbust, pseudo, nuke and L stacker.",
+      "authority": "medium"
+    },
+    {
+      "id": "cosmicreborn-cannon-rules",
+      "url": "https://cosmicreborn.com/rules",
+      "type": "original-server-rules",
+      "use": "Examples of operational constraints such as one wall per press, travel caps and prohibited push L/R behavior.",
+      "authority": "medium"
+    },
+    {
+      "id": "factions-wiki-lein",
+      "url": "https://minecraft-factions.fandom.com/wiki/Lein_(cannon)",
+      "type": "community-history",
+      "use": "Historical staged cannon architecture and the introduction of hammer, slab bust, realignment and compression.",
+      "authority": "medium-low"
+    },
+    {
+      "id": "factions-wiki-hammer",
+      "url": "https://minecraft-factions.fandom.com/wiki/Hammer",
+      "type": "community-vocabulary",
+      "use": "Community definition of hammer as the sand-stacking impulse stage.",
+      "authority": "medium-low"
+    },
+    {
+      "id": "factions-wiki-reverse",
+      "url": "https://minecraft-factions.fandom.com/wiki/Reverse_cannon",
+      "type": "community-vocabulary",
+      "use": "Community description of reverse and reverse-leftshoot staged trajectories.",
+      "authority": "medium-low"
+    },
+    {
+      "id": "minecraft-forum-defense-guide",
+      "url": "https://www.minecraftforum.net/forums/minecraft-java-edition/survival-mode/2140921-factions-1-7-the-ultimate-guide-to-minecraft",
+      "type": "community-defense-guide",
+      "use": "Defense taxonomy including filters, pillars, regens and sand-breaking defenses.",
+      "authority": "low-historical"
+    }
+  ],
+  "source_policy": {
+    "prefer_primary_source_code_for_runtime_mechanics": true,
+    "community_sources_define_vocabulary_not_private_server_truth": true,
+    "third_party_schematics_are_fetch_only_without_clear_license": true,
+    "contradictory_community_claims_require_runtime_experiments": true
+  }
+}
