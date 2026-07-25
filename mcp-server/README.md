@@ -15,6 +15,12 @@ On Windows, use `.venv\Scripts\cannonlab-mcp.exe`.
 
 The server uses stdio by default and never connects to ExtremeCraft. Schematic and source paths are jailed to the CannonLab repository. Runtime-evidence tools may additionally read generated CannonLab artifacts under the workspace `output/` directory.
 
+## Mandatory AI first call
+
+- `get_cannonlab_handoff`: returns the mandatory reading order, current proof/unknown state, three version identities, module/parity counts, forbidden shortcuts and required first actions. Set `include_documents=true` to include `AGENTS.md` and `CANNONLAB_START_HERE.md` directly in the response.
+
+This handoff is a repository map, not runtime or field proof. Live PR, CI and private-server state must still be rechecked.
+
 ## Fast path
 
 Use one of these before spending time on runtime tests:
@@ -24,10 +30,13 @@ Use one of these before spending time on runtime tests:
 - `prepare_reference_cannon`: convert a proven Litematica or Sponge source into deterministic Sponge v2, then audit and profile the exact output
 - `audit_cannon_ratio`: parse authored 384/OSRB ratios, preserve uncertain timing tokens, account base versus attachment payload, and compare profiles
 - `analyze_impulse_graph`: identify the first motion-level divergence between real reference and candidate traces without inventing one source for ambiguous stacked explosions
+- `classify_cannon_failure`: separate range, lane, fuse, sand, fusion, target, durability and survival failures from a real run
+- `verify_sakura_cannon_contract`: verify the pinned public Sakura contract and optionally cross-check an exact source checkout
 - `promote_cannon_component`: crop one exact reviewed module, enforce boundary and evidence gates, and emit a deterministic synthesis component plus registry
 - `plan_cannon_synthesis`: select hash-verified modules, join declared ports, scan EC160 alignments, and optionally compile the strongest assembly candidate
 - `generate_causal_repair_family`: route the first measured divergence into finite predeclared edits, then reject candidates that fail EC160 or preservation gates
-- `list_advanced_cannon_profiles`: inventory ratio, parity, archetype, synthesis, component and repair profiles with explicit truth boundaries
+- `run_cannon_campaign`: deliver every candidate, reject cheap failures, and runtime-test only bounded survivors
+- `list_advanced_cannon_profiles`: inventory ratio, parity, grammar, archetype, synthesis, component, repair and campaign profiles with explicit truth boundaries
 - `audit_paste_alignment`: translate schematic-minimum chunk scans into the actual WorldEdit player paste-point frame, including `WEOffsetX/Z`
 - `audit_scenario_integrity`: expose lab assists and weak evidence gates before a result is promoted
 - `map_cannon_modules`: map bank-centered modules, exact repeated lanes, controls, timing parts, directional links, and conservative role candidates
@@ -45,6 +54,7 @@ For modern raid work, pass the strongest real reference cannons available and us
 
 ## All tools
 
+- `get_cannonlab_handoff`: structured fresh-AI repository and truth-boundary map
 - `inspect_cannon`: static format, chunk, block-entity, functional-component, and module analysis
 - `fast_cannon_intake`: combined fast audit, structural map, reference comparison, and next-action verdict
 - `audit_paste_alignment`: safe player chunk-local paste offsets plus separate block-entity pressure
@@ -60,9 +70,12 @@ For modern raid work, pass the strongest real reference cannons available and us
 - `analyze_repair_family`: transparent repair scoring, Pareto-front ranking, promotion blockers, and deterministic collateral-drift summaries
 - `audit_cannon_ratio`: authored timing/order evidence, base-stack accounting and profile comparison
 - `analyze_impulse_graph`: source-to-motion graphing and first-divergence comparison
+- `classify_cannon_failure`: causal run diagnosis for range, lane, fuse, sand, fusion, target and survival stages
+- `verify_sakura_cannon_contract`: source-backed public Sakura contract validation
 - `promote_cannon_component`: evidence-backed source module extraction and synthesis registry creation
 - `plan_cannon_synthesis`: evidence-gated module assembly and deterministic candidate compilation
 - `generate_causal_repair_family`: first-divergence-driven bounded repair candidate generation
+- `run_cannon_campaign`: staged plan/static/execute candidate funnel
 - `list_advanced_cannon_profiles`: machine-readable advanced profile inventory
 - `profile_cannon`: structural morphology and real-reference comparison without inventing subsystem roles
 - `prepare_reference_cannon`: deterministic Sponge v2 conversion plus output audit and geometry profile
