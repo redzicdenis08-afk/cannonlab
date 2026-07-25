@@ -14,9 +14,12 @@ on:
       - 'scripts/promote-cannon-component.py'
       - 'scripts/generate-causal-repair-family.py'
       - 'scripts/run-cannon-campaign.py'
+      - 'scripts/plan-extremecraft-raid-program.py'
+      - 'scripts/test-extremecraft-raid-program.py'
       - 'profiles/ratios/**'
       - 'profiles/parity/**'
       - 'profiles/grammar/**'
+      - 'profiles/raid/**'
       - 'profiles/archetypes/**'
       - 'profiles/synthesis/**'
       - 'profiles/components/**'
@@ -50,16 +53,20 @@ jobs:
           python -m py_compile \
             mcp-server/advanced_tools.py \
             mcp-server/handoff_tools.py \
+            mcp-server/raid_tools.py \
             mcp-server/advanced_server.py \
             mcp-server/test-advanced-tools.py \
             mcp-server/test-handoff-tools.py \
             scripts/classify-cannon-run.py \
-            scripts/verify-sakura-cannon-contract.py
+            scripts/verify-sakura-cannon-contract.py \
+            scripts/plan-extremecraft-raid-program.py \
+            scripts/test-extremecraft-raid-program.py
 
-      - name: Run command, path and handoff regressions
+      - name: Run command, path, handoff and raid regressions
         run: |
           python mcp-server/test-advanced-tools.py
           python mcp-server/test-handoff-tools.py
+          python scripts/test-extremecraft-raid-program.py
 
       - name: Install MCP package
         run: python -m pip install -e mcp-server
@@ -72,6 +79,7 @@ jobs:
 
           expected = {
               'get_cannonlab_handoff',
+              'plan_extremecraft_raid_program',
               'audit_cannon_ratio',
               'analyze_impulse_graph',
               'classify_cannon_failure',
@@ -86,10 +94,10 @@ jobs:
           names = {tool.name for tool in tools}
           assert expected <= names, {'missing': sorted(expected - names), 'available': sorted(names)}
           assert set(advanced_server.REGISTERED_ADVANCED_TOOLS) == expected
-          print(f'FastMCP registered {len(names)} total tools including all ten advanced tools.')
+          print(f'FastMCP registered {len(names)} total tools including all eleven advanced tools.')
           PY
 
-      - name: Execute real advanced and handoff tools through production registry
+      - name: Execute real advanced, handoff and raid tools through production registry
         run: |
           python - <<'PY'
           import asyncio
@@ -110,12 +118,21 @@ jobs:
           assert report['truth_boundary']['private_server_parity_confirmed'] is False, report
 
           tools = {tool.name: tool for tool in asyncio.run(advanced_server.mcp.list_tools())}
-          handoff_tool = tools['get_cannonlab_handoff']
-          handoff = asyncio.run(advanced_server.mcp.call_tool(handoff_tool.name, {'include_documents': False}))
-          text = str(handoff)
-          assert 'grammar_modules' in text and 'private_parity_dimensions' in text, text
-          assert 'field_ready_advanced_extremecraft_cannon_exists' in text, text
-          print('Production registry executed the ratio auditor and structured handoff tool.')
+          handoff = asyncio.run(
+              advanced_server.mcp.call_tool('get_cannonlab_handoff', {'include_documents': False})
+          )
+          handoff_text = str(handoff)
+          assert 'grammar_modules' in handoff_text and 'private_parity_dimensions' in handoff_text, handoff_text
+          assert 'field_ready_advanced_extremecraft_cannon_exists' in handoff_text, handoff_text
+
+          raid = asyncio.run(
+              advanced_server.mcp.call_tool('plan_extremecraft_raid_program', {})
+          )
+          raid_text = str(raid)
+          assert 'fifteen_chunk_raid_capability' in raid_text, raid_text
+          assert 'buffer_depth_is_projectile_distance' in raid_text, raid_text
+          assert 'BLOCKED' in raid_text, raid_text
+          print('Production registry executed ratio, handoff and fail-closed raid planning tools.')
           PY
 
       - name: Capture advanced tool inventory
@@ -129,12 +146,13 @@ jobs:
 
           tools = asyncio.run(advanced_server.mcp.list_tools())
           payload = {
-              'schema_version': 3,
+              'schema_version': 4,
               'tool_count': len(tools),
               'tools': sorted(tool.name for tool in tools),
               'advanced_tools': sorted(advanced_server.REGISTERED_ADVANCED_TOOLS),
               'production_runner_adapter': True,
               'handoff_tool': 'get_cannonlab_handoff',
+              'raid_program_tool': 'plan_extremecraft_raid_program',
               'bounded_campaign_tool': 'run_cannon_campaign',
               'causal_failure_tool': 'classify_cannon_failure',
               'sakura_contract_tool': 'verify_sakura_cannon_contract',
