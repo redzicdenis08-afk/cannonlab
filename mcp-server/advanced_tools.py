@@ -13,7 +13,7 @@ def register_advanced_tools(
     inside_root: Callable[..., Path],
     run_json: Callable[..., dict[str, Any]],
 ) -> tuple[str, ...]:
-    """Register research, synthesis, repair and bounded campaign tools."""
+    """Register research, synthesis, repair, diagnostics and bounded campaign tools."""
 
     @mcp.tool()
     def audit_cannon_ratio(
@@ -80,6 +80,59 @@ def register_advanced_tools(
                 ]
             )
         return run_json(scripts / "analyze-impulse-graph.py", args, allowed_exit_codes=(0, 2))
+
+    @mcp.tool()
+    def classify_cannon_failure(
+        run_summary_path: str,
+        lane_tolerance: float = 2.0,
+        fusion_tolerance: float = 1.5,
+        tick_tolerance: int = 1,
+        report_output_path: str | None = None,
+        markdown_output_path: str | None = None,
+    ) -> dict[str, Any]:
+        """Classify the first measurable range, lane, fuse, sand, fusion or survival failure."""
+        if lane_tolerance < 0 or fusion_tolerance < 0:
+            raise ValueError("lane and fusion tolerances must be non-negative")
+        if tick_tolerance < 0:
+            raise ValueError("tick_tolerance must be non-negative")
+        summary = inside_root(run_summary_path)
+        args = [
+            str(summary),
+            "--lane-tolerance",
+            str(lane_tolerance),
+            "--fusion-tolerance",
+            str(fusion_tolerance),
+            "--tick-tolerance",
+            str(tick_tolerance),
+        ]
+        if report_output_path:
+            report = inside_root(report_output_path, must_exist=False)
+            args.extend(["--json-out", str(report)])
+        if markdown_output_path:
+            markdown = inside_root(markdown_output_path, must_exist=False)
+            args.extend(["--markdown-out", str(markdown)])
+        return run_json(scripts / "classify-cannon-run.py", args, allowed_exit_codes=(0, 2))
+
+    @mcp.tool()
+    def verify_sakura_cannon_contract(
+        contract_path: str = "profiles/parity/sakura-26.1.2-cannon-contract.json",
+        source_root_path: str | None = None,
+        report_output_path: str | None = None,
+    ) -> dict[str, Any]:
+        """Validate the pinned Sakura cannon contract and optionally cross-check an exact source checkout."""
+        contract = inside_root(contract_path)
+        args = [str(contract)]
+        if source_root_path:
+            source_root = inside_root(source_root_path)
+            args.extend(["--source-root", str(source_root)])
+        if report_output_path:
+            report = inside_root(report_output_path, must_exist=False)
+            args.extend(["--json-out", str(report)])
+        return run_json(
+            scripts / "verify-sakura-cannon-contract.py",
+            args,
+            allowed_exit_codes=(0, 2),
+        )
 
     @mcp.tool()
     def plan_cannon_synthesis(
@@ -207,11 +260,12 @@ def register_advanced_tools(
 
     @mcp.tool()
     def list_advanced_cannon_profiles() -> dict[str, Any]:
-        """List ratio, parity, archetype, synthesis, component, repair and campaign profiles."""
+        """List ratio, parity, grammar, archetype, synthesis, component, repair and campaign profiles."""
         profile_root = root / "profiles"
         categories = (
             "ratios",
             "parity",
+            "grammar",
             "archetypes",
             "synthesis",
             "components",
@@ -258,6 +312,8 @@ def register_advanced_tools(
     return (
         "audit_cannon_ratio",
         "analyze_impulse_graph",
+        "classify_cannon_failure",
+        "verify_sakura_cannon_contract",
         "plan_cannon_synthesis",
         "promote_cannon_component",
         "generate_causal_repair_family",
