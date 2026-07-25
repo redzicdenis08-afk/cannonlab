@@ -53,6 +53,8 @@ def main() -> None:
         "scripts/generate-causal-repair-family.py",
         "scripts/run-cannon-campaign.py",
         "mcp-server/advanced_tools.py",
+        "mcp-server/handoff_tools.py",
+        "mcp-server/advanced_server.py",
         ".github/workflows/advanced-cannon-mcp.yml",
     ]
     paths = {relative: require_path(relative) for relative in required_paths}
@@ -109,7 +111,8 @@ def main() -> None:
         )
 
     advanced_tools = paths["mcp-server/advanced_tools.py"].read_text(encoding="utf-8")
-    expected_tools = {
+    handoff_tools = paths["mcp-server/handoff_tools.py"].read_text(encoding="utf-8")
+    expected_advanced = {
         "audit_cannon_ratio",
         "analyze_impulse_graph",
         "plan_cannon_synthesis",
@@ -120,9 +123,14 @@ def main() -> None:
         "verify_sakura_cannon_contract",
         "list_advanced_cannon_profiles",
     }
-    missing_tools = sorted(name for name in expected_tools if f"def {name}(" not in advanced_tools)
-    if missing_tools:
-        raise AssertionError(f"AI handoff lists missing MCP tools: {missing_tools}")
+    missing_advanced = sorted(
+        name for name in expected_advanced if f"def {name}(" not in advanced_tools
+    )
+    if missing_advanced:
+        raise AssertionError(f"AI handoff lists missing advanced MCP tools: {missing_advanced}")
+    if "def get_cannonlab_handoff(" not in handoff_tools:
+        raise AssertionError("structured MCP handoff tool is missing")
+    expected_tools = expected_advanced | {"get_cannonlab_handoff"}
 
     require_tokens(
         paths["AGENTS.md"],
@@ -131,6 +139,7 @@ def main() -> None:
             "all 256",
             "DataVersion `3465`",
             "PR `#41`",
+            "get_cannonlab_handoff",
             "classify_cannon_failure",
             "plan-cannon-parity-campaign.py",
             "Never publish a generated schematic as working",
@@ -141,7 +150,8 @@ def main() -> None:
         {
             "sixteen evidence-gated modules",
             "sixteen independently variable dimensions",
-            "nine tools",
+            "ten tools",
+            "get_cannonlab_handoff",
             "What is genuinely proven",
             "What is not proven",
             "PR `#41` was closed unmerged",
