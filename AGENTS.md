@@ -15,6 +15,8 @@ Before designing, repairing, converting, rating, or publishing a cannon, read th
 7. `profiles/grammar/modern-factions-cannon-grammar-v1.json`
 8. `docs/EXTREMECRAFT_CALIBRATION.md`
 
+When the CannonLab MCP is available, call `get_cannonlab_handoff` before any other advanced cannon tool. Use `include_documents=true` when the current session has not already read this file and `CANNONLAB_START_HERE.md`.
+
 When exact historical hashes, timings, coordinates, field reports, or experiment results matter, inspect the relevant evidence file, workflow artifact, merged pull request, or raw trace. Do not reconstruct exact facts from filenames or memory.
 
 ## Current truth snapshot
@@ -76,6 +78,7 @@ For a serious cannon request:
 
 Advanced MCP tools currently include:
 
+- `get_cannonlab_handoff`
 - `audit_cannon_ratio`
 - `analyze_impulse_graph`
 - `plan_cannon_synthesis`
