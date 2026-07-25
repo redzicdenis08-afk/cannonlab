@@ -10,12 +10,14 @@ Before designing, repairing, converting, rating, or publishing a cannon, read th
 2. `README.md`
 3. `docs/CANNON_GRAMMAR_AND_PARITY.md`
 4. `docs/CANNON_PARITY_CAMPAIGNS.md`
-5. `profiles/parity/extremecraft-private-parity-required-v1.json`
-6. `profiles/parity/sakura-26.1.2-cannon-contract.json`
-7. `profiles/grammar/modern-factions-cannon-grammar-v1.json`
-8. `docs/EXTREMECRAFT_CALIBRATION.md`
+5. `docs/EXTREMECRAFT_15_CHUNK_RAID_PROGRAM.md`
+6. `profiles/raid/extremecraft-15-chunk-regen-objective-v1.json`
+7. `profiles/parity/extremecraft-private-parity-required-v1.json`
+8. `profiles/parity/sakura-26.1.2-cannon-contract.json`
+9. `profiles/grammar/modern-factions-cannon-grammar-v1.json`
+10. `docs/EXTREMECRAFT_CALIBRATION.md`
 
-When the CannonLab MCP is available, call `get_cannonlab_handoff` before any other advanced cannon tool. Use `include_documents=true` when the current session has not already read this file and `CANNONLAB_START_HERE.md`.
+When the CannonLab MCP is available, call `get_cannonlab_handoff` before any other advanced cannon tool. For a fifteen-chunk objective, call `plan_extremecraft_raid_program` before changing geometry. Use `include_documents=true` when the current session has not already read this file and the start-here documents.
 
 When exact historical hashes, timings, coordinates, field reports, or experiment results matter, inspect the relevant evidence file, workflow artifact, merged pull request, or raw trace. Do not reconstruct exact facts from filenames or memory.
 
@@ -23,6 +25,7 @@ When exact historical hashes, timings, coordinates, field reports, or experiment
 
 - CannonLab is a serious automated laboratory and evidence pipeline.
 - CannonLab is not yet a proven advanced ExtremeCraft raid-cannon factory.
+- CannonLab has a fail-closed fifteen-chunk raid qualification program, not a cannon that has passed it.
 - No current full advanced cannon is field-ready for a fifteen-chunk regen base.
 - The field-verified pocket counter is a dry-wall calibration fixture, not proof of water, regen, OSRB, nuke, leftshot, slab-bust, or full-raid capability.
 - Public Paper or pinned public Sakura results are local evidence only.
@@ -49,36 +52,42 @@ Never silently promote an item to a stronger label.
 
 1. A target wall must be a separate runtime fixture, not embedded beside the cannon to manufacture a pass.
 2. Obey the requested muzzle-to-target distance and prove the clear corridor geometrically.
-3. Do not call a design a stacker because it contains sand. Prove held-to-falling release, hammer impulse, compression or stack formation, payload-sand overlap, and target interaction as required by the requested architecture.
-4. Do not diagnose every failure as timing. Classify range, lane, fuse, sand release, sand range, sand lane, fusion, durability, regeneration, self-damage, and dispenser survival separately.
-5. Do not tune a downstream fuse while the payload lane is divergent.
-6. Do not add TNT to hide missing charge coupling, guider, hammer, compression, or hybrid logic.
-7. Static legality, filenames, signs, community names, explosions, screenshots, or green CI do not prove subsystem semantics.
-8. A local winner is not ExtremeCraft-ready until the relevant field canary reproduces it.
-9. Never publish a generated schematic as working when its runtime contract failed.
-10. Preserve rejected attempts as evidence, but do not merge failed cannon geometry into `main` as a promoted component.
+3. Keep buffer depth, exact projectile distance, regen depth, wall-group count and target height as separate measured variables. Fifteen chunks does not automatically mean a 240-block shot.
+4. Do not call a design a stacker because it contains sand. Prove held-to-falling release, hammer impulse, compression or stack formation, payload-sand overlap, and target interaction as required by the requested architecture.
+5. Do not diagnose every failure as timing. Classify range, lane, fuse, sand release, sand range, sand lane, fusion, durability, regeneration, self-damage, and dispenser survival separately.
+6. Do not tune a downstream fuse while the payload lane is divergent.
+7. Do not add TNT to hide missing charge coupling, guider, hammer, compression, or hybrid logic.
+8. Static legality, filenames, signs, community names, explosions, screenshots, or green CI do not prove subsystem semantics.
+9. A local winner is not ExtremeCraft-ready until the relevant field canary reproduces it.
+10. Never publish a generated schematic as working when its runtime contract failed.
+11. Preserve rejected attempts as evidence, but do not merge failed cannon geometry into `main` as a promoted component.
+12. Treat official historical updates as hypotheses requiring current revalidation, and community suggestions as probe-selection signals rather than current rules.
 
 ## Required workflow
 
 For a serious cannon request:
 
-1. Identify the target server profile, defense class, distance, height, dispenser limit, workflow, and required cannon modules.
-2. Run or inspect the paired parity campaign before assuming private mechanics.
-3. Expand the requested architecture through the module dependency planner.
-4. Reuse only exact evidence that already meets the requested promotion level.
-5. Audit the source and exact output schematic, including all 256 EC160 alignments.
-6. Verify paste-frame offsets, block entities, controls, fluids, supports, and scenario integrity.
-7. Prove modules in dependency order: charge, payload, guider, held sand, hammer, compression or fusion, preparation stages, then composition.
-8. Run bounded local campaigns and classify the first causal failure.
-9. Generate only bounded repairs tied to the first measured divergence.
-10. Require one-paste endurance before field canary promotion.
-11. Deliver the schematic only with its audit, scenario, controls, timing, evidence label, known limits, and exact unproven claims.
+1. Identify the target server profile, defense class, exact distance, height, dispenser limit, workflow, wall groups and required cannon modules.
+2. For a fifteen-chunk objective, run `plan_extremecraft_raid_program` and preserve every blocker.
+3. Run or inspect the paired parity campaign before assuming private mechanics.
+4. Survey the exact raid lane instead of deriving distance or wall count from chunk depth.
+5. Expand the requested architecture through the module dependency planner.
+6. Reuse only exact evidence that already meets the requested promotion level.
+7. Audit the source and exact output schematic, including all 256 EC160 alignments.
+8. Verify paste-frame offsets, block entities, controls, fluids, supports, and scenario integrity.
+9. Prove modules in dependency order: charge, payload, guider, held sand, hammer, compression or fusion, preparation stages, then composition.
+10. Run bounded local campaigns and classify the first causal failure.
+11. Generate only bounded repairs tied to the first measured divergence.
+12. Qualify one external cell, one measured chunk, a three-chunk transition course, the measured regen depth and only then the full fifteen-chunk course.
+13. Require one-paste endurance before field canary promotion.
+14. Deliver the schematic only with its audit, scenario, controls, timing, evidence label, known limits, and exact unproven claims.
 
 ## Important tools
 
 Advanced MCP tools currently include:
 
 - `get_cannonlab_handoff`
+- `plan_extremecraft_raid_program`
 - `audit_cannon_ratio`
 - `analyze_impulse_graph`
 - `plan_cannon_synthesis`
@@ -91,6 +100,7 @@ Advanced MCP tools currently include:
 
 Important CLI planners and gates include:
 
+- `scripts/plan-extremecraft-raid-program.py`
 - `scripts/plan-cannon-parity-campaign.py`
 - `scripts/plan-cannon-module-campaign.py`
 - `scripts/schem-audit.py`
@@ -117,6 +127,7 @@ Important CLI planners and gates include:
 Stop and report honestly instead of publishing a cannon when any of these remain unresolved:
 
 - target embedded in or too close to the cannon;
+- buffer depth substituted for exact flight distance, wall count or regen depth;
 - private mechanics assumed rather than measured;
 - payload does not reach the intended plane;
 - payload lane exceeds tolerance;
@@ -126,6 +137,7 @@ Stop and report honestly instead of publishing a cannon when any of these remain
 - target durability or regeneration is untouched;
 - the cannon damages itself beyond the declared contract;
 - dispenser survival or one-paste endurance fails;
+- exact defense transitions and target heights are unknown;
 - the exact field workflow is unknown.
 
 The goal is not to create cannon-shaped files quickly. The goal is to reduce uncertainty until a design survives the correct proof ladder.
