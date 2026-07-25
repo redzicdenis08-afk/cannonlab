@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "module-proof-request-template-v1",
+  "title": "Template request for a dependency-ordered cannon module proof campaign",
+  "target_modules": ["one-shot-cycle", "guider-realignment"],
+  "desired_level": "LOCAL_CAUSAL",
+  "available_evidence": {},
+  "server_profile": "profiles/parity/extremecraft-private-parity-required-v1.json",
+  "constraints": {
+    "external_target_required": true,
+    "minimum_clear_flight_blocks": 20,
+    "maximum_dispensers_per_chunk_column": 160,
+    "one_paste": true
+  },
+  "truth_boundary": {
+    "request_proves_geometry": false,
+    "request_proves_runtime": false,
+    "request_proves_private_parity": false
+  }
+}

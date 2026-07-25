@@ -1,0 +1,173 @@
+{
+  "schema_version": 1,
+  "id": "extremecraft-parity-probe-priorities-v1",
+  "title": "Prioritised paired local and field cannon parity probes",
+  "verified_at": "2026-07-25",
+  "probes": [
+    {
+      "dimension": "tnt.spawn.horizontal_kick",
+      "priority": 100,
+      "risk": "safe",
+      "phase": "identity-and-spawn",
+      "public_probe": "tnt-spread-distribution",
+      "public_baseline": "Sakura public default tnt_spread=ALL",
+      "minimum_repeats": 100,
+      "paired_comparison": "Compare initial X/Y/Z velocity distributions from identical isolated dispenser fixtures."
+    },
+    {
+      "dimension": "tnt.fuse.distribution",
+      "priority": 99,
+      "risk": "safe",
+      "phase": "identity-and-spawn",
+      "public_probe": "isolated-tnt-fuse-distribution",
+      "public_baseline": "Measure exact pinned runtime distribution; do not assume from schematic DataVersion.",
+      "minimum_repeats": 100,
+      "paired_comparison": "Compare entity-add-to-explosion lifetimes with no collisions or water."
+    },
+    {
+      "dimension": "redstone.dispenser.activation_order",
+      "priority": 98,
+      "risk": "safe",
+      "phase": "identity-and-spawn",
+      "public_probe": "dispenser-activation-order",
+      "public_baseline": "Measure pinned runtime ordering and random item selection separately.",
+      "minimum_repeats": 100,
+      "paired_comparison": "Use the same symmetric fixture hash and compare per-tick sequence."
+    },
+    {
+      "dimension": "tnt.water_motion",
+      "priority": 97,
+      "risk": "safe",
+      "phase": "motion",
+      "public_probe": "tnt-flowing-water-motion",
+      "public_baseline": "Sakura public default tnt_flows_in_water=true, also gated by Paper water-motion setting.",
+      "minimum_repeats": 30,
+      "paired_comparison": "Compare dry, source-water and flowing-water position/velocity traces."
+    },
+    {
+      "dimension": "entity.collision.axis_order",
+      "priority": 96,
+      "risk": "safe",
+      "phase": "motion",
+      "public_probe": "fast-axis-collision",
+      "public_baseline": "Pinned Sakura uses a specialised cannon collision path and axis scan for movement length squared >=12.",
+      "minimum_repeats": 30,
+      "paired_comparison": "Run mirrored X/Z fixtures at matched velocities and compare displacement distributions."
+    },
+    {
+      "dimension": "falling_block.tick_and_collision",
+      "priority": 95,
+      "risk": "safe",
+      "phase": "motion",
+      "public_probe": "falling-block-height-parity",
+      "public_baseline": "Sakura public default falling_block_parity=false and moving-piston sand despawn=true.",
+      "minimum_repeats": 30,
+      "paired_comparison": "Compare sand, gravel and concrete powder spawn, movement, conversion and removal events."
+    },
+    {
+      "dimension": "piston_chain_and_observer_updates",
+      "priority": 94,
+      "risk": "safe",
+      "phase": "redstone-and-release",
+      "public_probe": "piston-observer-order",
+      "public_baseline": "Measure exact pinned runtime; no source-only timing claim is promoted.",
+      "minimum_repeats": 30,
+      "paired_comparison": "Replay exact chain hashes at increasing length and TNT load."
+    },
+    {
+      "dimension": "chunk_loading_and_crossing",
+      "priority": 93,
+      "risk": "safe",
+      "phase": "motion",
+      "public_probe": "chunk-boundary-flight",
+      "public_baseline": "Sakura public cannon load_chunks default=false.",
+      "minimum_repeats": 20,
+      "paired_comparison": "Hold player position constant and compare tick continuity at every chunk boundary."
+    },
+    {
+      "dimension": "tnt.velocity_and_despawn_limits",
+      "priority": 92,
+      "risk": "safe-bounded",
+      "phase": "motion",
+      "public_probe": "bounded-flight-sweep",
+      "public_baseline": "Pinned public behavior must be measured across velocity and distance; private caps are unknown.",
+      "minimum_repeats": 10,
+      "paired_comparison": "Sweep non-destructive launch speeds and record removal reason, tick and chunk."
+    },
+    {
+      "dimension": "explosion.batch_and_per_tick_limits",
+      "priority": 85,
+      "risk": "controlled-destructive",
+      "phase": "explosion",
+      "public_probe": "synchronised-explosion-sweep",
+      "public_baseline": "Sakura removes Spigot max TNT per tick and public batch_explosions defaults true.",
+      "minimum_repeats": 10,
+      "paired_comparison": "Increase due-at-once cohorts while recording due and observed explosion order."
+    },
+    {
+      "dimension": "durability.material_hit_contract",
+      "priority": 84,
+      "risk": "controlled-destructive",
+      "phase": "target-contract",
+      "public_probe": "obsidian-four-hit-expiration",
+      "public_baseline": "Sakura public default obsidian is four hits with one-minute expiration.",
+      "minimum_repeats": 5,
+      "paired_comparison": "Use fixed TNT positions against dry and watered cells and compare hit/expiration behavior."
+    },
+    {
+      "dimension": "regeneration.algorithm",
+      "priority": 83,
+      "risk": "controlled-destructive",
+      "phase": "target-contract",
+      "public_probe": "regen-cell-timing",
+      "public_baseline": "Private plugin behavior; no public Sakura default is treated as equivalent.",
+      "minimum_repeats": 5,
+      "paired_comparison": "Record single-cell, multi-cell and sustained damage replacement order and cadence."
+    },
+    {
+      "dimension": "limits.dispensers_per_chunk",
+      "priority": 82,
+      "risk": "field-operational",
+      "phase": "paste-limits",
+      "public_probe": "ec160-offset-controls",
+      "public_baseline": "Field-reported 160 per X/Z chunk column; exact enforcement path remains private.",
+      "minimum_repeats": 3,
+      "paired_comparison": "Test exact 159/160/161 fixtures with recorded chunk-local paste point."
+    },
+    {
+      "dimension": "limits.fawe_block_entities",
+      "priority": 81,
+      "risk": "field-operational",
+      "phase": "paste-limits",
+      "public_probe": "fawe-block-entity-controls",
+      "public_baseline": "Unknown private FAWE limit; isolate from dispenser cap.",
+      "minimum_repeats": 3,
+      "paired_comparison": "Vary block-entity type, count and chunk distribution independently."
+    },
+    {
+      "dimension": "full_cannon.field_workflow",
+      "priority": 80,
+      "risk": "safe-calibration",
+      "phase": "workflow",
+      "public_probe": "field-workflow-replay",
+      "public_baseline": "Paste empty, settle, configure, fill, delay and real input is the current field workflow hypothesis.",
+      "minimum_repeats": 5,
+      "paired_comparison": "Replay the exact calibration file hash and initialization timeline locally and in field."
+    },
+    {
+      "dimension": "osrb.clip_and_restack",
+      "priority": 70,
+      "risk": "advanced-destructive",
+      "phase": "advanced-modules",
+      "public_probe": "ratio-level-osrb-clip",
+      "public_baseline": "Community label only until ratio and target-cell behavior are trace-proven.",
+      "minimum_repeats": 5,
+      "paired_comparison": "Prove an isolated ratio first, then replay one exact source-accounted architecture."
+    }
+  ],
+  "truth_boundary": {
+    "priority_proves_mechanics": false,
+    "public_baseline_equals_private_server": false,
+    "planned_probe_counts_as_observation": false
+  }
+}

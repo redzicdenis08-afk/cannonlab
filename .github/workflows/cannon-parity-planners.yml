@@ -1,0 +1,62 @@
+name: Cannon Parity Planners
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/cannon-parity-planners.yml'
+      - 'profiles/parity/extremecraft-parity-probe-priorities-v1.json'
+      - 'profiles/campaigns/module-proof-request-template-v1.json'
+      - 'profiles/grammar/**'
+      - 'scripts/plan-cannon-parity-campaign.py'
+      - 'scripts/plan-cannon-module-campaign.py'
+      - 'scripts/test-cannon-parity-planners.py'
+      - 'docs/CANNON_PARITY_CAMPAIGNS.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  planners:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile planners
+        run: python -m py_compile scripts/plan-cannon-parity-campaign.py scripts/plan-cannon-module-campaign.py scripts/test-cannon-parity-planners.py
+      - name: Run regressions
+        run: python scripts/test-cannon-parity-planners.py
+      - name: Build real plans
+        run: |
+          mkdir -p lab-artifacts/cannon-parity
+          python scripts/plan-cannon-parity-campaign.py \
+            profiles/parity/sakura-26.1.2-cannon-contract.json \
+            profiles/parity/extremecraft-private-parity-required-v1.json \
+            profiles/parity/extremecraft-parity-probe-priorities-v1.json \
+            --json-out lab-artifacts/cannon-parity/parity-plan.json
+          python scripts/plan-cannon-module-campaign.py \
+            profiles/grammar/modern-factions-cannon-grammar-v1.json \
+            profiles/campaigns/module-proof-request-template-v1.json \
+            --json-out lab-artifacts/cannon-parity/module-plan.json
+      - name: Validate plan truth boundaries
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          parity = json.loads(Path('lab-artifacts/cannon-parity/parity-plan.json').read_text())
+          modules = json.loads(Path('lab-artifacts/cannon-parity/module-plan.json').read_text())
+          assert parity['stage_count'] == 16, parity
+          assert parity['truth_boundary']['plan_is_measurement'] is False, parity
+          assert modules['stage_count'] >= 8, modules
+          assert modules['truth_boundary']['campaign_plan_proves_runtime'] is False, modules
+          print(f"planned {parity['stage_count']} parity dimensions and {modules['stage_count']} module stages")
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cannon-parity-plans-${{ github.run_number }}
+          path: lab-artifacts/cannon-parity/**
+          if-no-files-found: error
+          retention-days: 14
