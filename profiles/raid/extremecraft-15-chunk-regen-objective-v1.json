@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "id": "extremecraft-15-chunk-regen-objective-v1",
+  "title": "Evidence-gated ExtremeCraft fifteen-chunk regeneration raid objective",
+  "verified_at": "2026-07-25",
+  "target_server": "extremecraft.net",
+  "objective": {
+    "buffer_depth_chunks": 15,
+    "buffer_depth_evidence": "field-reported and community-repeated; reverify for the current map",
+    "regen_depth_chunks": null,
+    "regen_depth_evidence": "unknown-current",
+    "exact_muzzle_to_first_target_blocks": null,
+    "exact_muzzle_to_core_blocks": null,
+    "wall_group_count": null,
+    "target_height_min": null,
+    "target_height_max": null,
+    "target_lane": null,
+    "defense_families": [
+      "watered-walls",
+      "regeneration",
+      "hotdog-lanes",
+      "filters",
+      "slab-filters",
+      "pillars",
+      "high-y"
+    ]
+  },
+  "operations": {
+    "shots_per_wall_group": null,
+    "fire_interval_seconds": null,
+    "reload_overhead_seconds_per_shot": null,
+    "target_raid_time_minutes": null,
+    "one_wall_per_press_rule": "unknown-current",
+    "automatic_cannoning_rule": "unknown-current",
+    "allowed_reverse_or_left_right_rules": "unknown-current",
+    "patching_pressure_model": "unknown-current"
+  },
+  "constraints": {
+    "maximum_dispensers_per_xz_chunk_column": 160,
+    "maximum_dispenser_evidence": "field-reported-current",
+    "required_chunk_alignment_offsets": 256,
+    "fawe_block_entity_limit": null,
+    "one_paste_endurance_required": true,
+    "external_target_course_required": true,
+    "exact_field_workflow_required": true
+  },
+  "required_modules": [
+    "one-shot-cycle",
+    "guider-realignment",
+    "sand-compression"
+  ],
+  "conditional_modules": {
+    "scatter": "Use only after lane control is proven and the measured defense needs broader target coverage.",
+    "double-tap": "Use only when two distinct target interactions are required by the measured defense course.",
+    "reverse": "Use only when the target geometry requires a vertical-then-directed path and field restrictions are verified.",
+    "left-right-shot": "Use only when a measured turn is required and the server threshold/rule profile is verified.",
+    "osrb": "Use only with a source-defined ratio and isolated clip/restack evidence.",
+    "nuke": "Use only after lineup, hybrid fusion, survival and server-rule compliance are already proven."
+  },
+  "available_module_evidence": {},
+  "desired_module_level": "FIELD_READY",
+  "truth_boundary": {
+    "fifteen_chunks_equals_240_block_projectile_distance": false,
+    "buffer_depth_equals_wall_group_count": false,
+    "buffer_depth_equals_regen_depth": false,
+    "objective_profile_proves_geometry": false,
+    "objective_profile_proves_runtime": false,
+    "objective_profile_proves_private_extremecraft_parity": false,
+    "objective_profile_proves_raid_capability": false
+  }
+}
