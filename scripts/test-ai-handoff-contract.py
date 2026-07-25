@@ -73,7 +73,7 @@ def main() -> None:
     modules = grammar.get("modules")
     dimensions = private_profile.get("dimensions")
     probes = public_contract.get("required_runtime_probes")
-    priority_rows = priorities.get("dimensions")
+    priority_rows = priorities.get("probes")
     if not isinstance(modules, list) or len(modules) != 16:
         raise AssertionError(f"expected 16 grammar modules, got {len(modules or [])}")
     if not isinstance(dimensions, list) or len(dimensions) != 16:
@@ -85,16 +85,16 @@ def main() -> None:
 
     module_ids = {row.get("id") for row in modules}
     expected_modules = {
-        "charge",
+        "charge-force",
         "payload",
-        "guider",
+        "guider-realignment",
         "slab-bust",
         "sand-release",
         "hammer",
         "sand-compression",
-        "hybrid",
+        "hybrid-fusion",
         "scatter",
-        "one-shot",
+        "one-shot-cycle",
         "double-tap",
         "osrb",
         "nuke",
