@@ -6,12 +6,15 @@ on:
       - 'mcp-server/**'
       - 'scripts/cannon-ratio-audit.py'
       - 'scripts/analyze-impulse-graph.py'
+      - 'scripts/classify-cannon-run.py'
+      - 'scripts/verify-sakura-cannon-contract.py'
       - 'scripts/cannon-synthesis-planner.py'
       - 'scripts/promote-cannon-component.py'
       - 'scripts/generate-causal-repair-family.py'
       - 'scripts/run-cannon-campaign.py'
       - 'profiles/ratios/**'
       - 'profiles/parity/**'
+      - 'profiles/grammar/**'
       - 'profiles/archetypes/**'
       - 'profiles/synthesis/**'
       - 'profiles/components/**'
@@ -45,7 +48,9 @@ jobs:
           python -m py_compile \
             mcp-server/advanced_tools.py \
             mcp-server/advanced_server.py \
-            mcp-server/test-advanced-tools.py
+            mcp-server/test-advanced-tools.py \
+            scripts/classify-cannon-run.py \
+            scripts/verify-sakura-cannon-contract.py
 
       - name: Run command and path regressions
         run: python mcp-server/test-advanced-tools.py
@@ -62,6 +67,8 @@ jobs:
           expected = {
               'audit_cannon_ratio',
               'analyze_impulse_graph',
+              'classify_cannon_failure',
+              'verify_sakura_cannon_contract',
               'plan_cannon_synthesis',
               'promote_cannon_component',
               'generate_causal_repair_family',
@@ -72,7 +79,7 @@ jobs:
           names = {tool.name for tool in tools}
           assert expected <= names, {'missing': sorted(expected - names), 'available': sorted(names)}
           assert set(advanced_server.REGISTERED_ADVANCED_TOOLS) == expected
-          print(f'FastMCP registered {len(names)} total tools including all seven advanced tools.')
+          print(f'FastMCP registered {len(names)} total tools including all nine advanced tools.')
           PY
 
       - name: Execute a real advanced tool through production adapter
@@ -107,12 +114,14 @@ jobs:
 
           tools = asyncio.run(advanced_server.mcp.list_tools())
           payload = {
-              'schema_version': 1,
+              'schema_version': 2,
               'tool_count': len(tools),
               'tools': sorted(tool.name for tool in tools),
               'advanced_tools': sorted(advanced_server.REGISTERED_ADVANCED_TOOLS),
               'production_runner_adapter': True,
               'bounded_campaign_tool': 'run_cannon_campaign',
+              'causal_failure_tool': 'classify_cannon_failure',
+              'sakura_contract_tool': 'verify_sakura_cannon_contract',
           }
           Path('lab-artifacts/advanced-cannon-mcp/tools.json').write_text(
               json.dumps(payload, indent=2, sort_keys=True) + '\n',
