@@ -1,0 +1,56 @@
+name: AI Handoff Contract
+
+on:
+  pull_request:
+    paths:
+      - 'AGENTS.md'
+      - 'CANNONLAB_START_HERE.md'
+      - 'README.md'
+      - 'docs/**'
+      - 'profiles/grammar/**'
+      - 'profiles/parity/**'
+      - 'profiles/campaigns/**'
+      - 'mcp-server/advanced_tools.py'
+      - 'scripts/test-ai-handoff-contract.py'
+      - 'scripts/plan-cannon-parity-campaign.py'
+      - 'scripts/plan-cannon-module-campaign.py'
+      - 'scripts/classify-cannon-run.py'
+      - 'scripts/verify-sakura-cannon-contract.py'
+      - '.github/workflows/ai-handoff-contract.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  handoff-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile handoff regression
+        run: python -m py_compile scripts/test-ai-handoff-contract.py
+
+      - name: Verify fresh-AI map against repository
+        run: python scripts/test-ai-handoff-contract.py
+
+      - name: Upload machine-readable handoff verification
+        run: |
+          mkdir -p lab-artifacts/ai-handoff
+          python scripts/test-ai-handoff-contract.py > lab-artifacts/ai-handoff/contract.json
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-handoff-contract
+          path: lab-artifacts/ai-handoff/contract.json
+          if-no-files-found: error
+          retention-days: 30
