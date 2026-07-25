@@ -6,6 +6,7 @@ from typing import Any
 
 import server as base
 from advanced_tools import register_advanced_tools
+from handoff_tools import register_handoff_tools
 
 
 def _advanced_run_json(
@@ -35,6 +36,9 @@ REGISTERED_ADVANCED_TOOLS = register_advanced_tools(
     scripts=base.SCRIPTS,
     inside_root=base._inside_root,
     run_json=_advanced_run_json,
+) + register_handoff_tools(
+    base.mcp,
+    root=base.ROOT,
 )
 
 mcp = base.mcp
