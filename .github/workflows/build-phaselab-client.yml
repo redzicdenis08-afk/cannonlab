@@ -44,14 +44,14 @@ jobs:
         working-directory: phaselab-client
         shell: bash
         run: |
-          JAR='build/libs/phaselab-client-2.1.0.jar'
+          JAR='build/libs/phaselab-client-2.1.1.jar'
           test -f "$JAR"
           jar tf "$JAR" | tee jar-contents.txt
           jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseLabClient.class'
           jar tf "$JAR" | grep -F 'dev/denis/phaselab/mixin/ClientPacketListenerMixin.class'
           jar tf "$JAR" | grep -F 'phaselab.client.mixins.json'
           unzip -p "$JAR" fabric.mod.json | tee built-fabric.mod.json
-          grep -F '"version": "2.1.0"' built-fabric.mod.json
+          grep -F '"version": "2.1.1"' built-fabric.mod.json
           grep -F '"phaselab.client.mixins.json"' built-fabric.mod.json
           javap -classpath "$JAR" -p -v dev.denis.phaselab.mixin.ClientPacketListenerMixin > mixin-javap.txt
           grep -F 'method_11157' mixin-javap.txt
@@ -73,6 +73,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-client-2.1.0-mc1.21.11
-          path: phaselab-client/build/libs/phaselab-client-2.1.0.jar
+          name: phaselab-client-2.1.1-mc1.21.11
+          path: phaselab-client/build/libs/phaselab-client-2.1.1.jar
           if-no-files-found: error
