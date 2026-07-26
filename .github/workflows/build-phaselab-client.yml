@@ -7,6 +7,10 @@ on:
     paths:
       - 'phaselab-client/**'
       - '.github/workflows/build-phaselab-client.yml'
+  pull_request:
+    paths:
+      - 'phaselab-client/**'
+      - '.github/workflows/build-phaselab-client.yml'
   workflow_dispatch:
 
 jobs:
