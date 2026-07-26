@@ -7,6 +7,8 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.protocol.game.ServerboundMovePlayerPacket;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
 
@@ -17,37 +19,67 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
+/**
+ * Client-only movement acceptance probe for an authorized Sakura test server.
+ *
+ * It does not cancel setbacks or hide packets. It deliberately records whether
+ * a normal server correction packet is received after a candidate move.
+ */
 public final class PhaseLabClient implements ClientModInitializer {
-    private static final double START_DISTANCE = 0.05D;
-    private static final double STEP_DISTANCE = 0.05D;
-    private static final double MAX_DISTANCE = 1.60D;
-    private static final int SETTLE_TICKS = 3;
-    private static final int HOLD_TICKS = 10;
-    private static final double ACCEPT_ERROR = 0.12D;
-    private static final double CORRECTION_ERROR = 0.35D;
+    private static final double PROFILE_STEP = 0.025D;
+    private static final double MAX_SCAN_DISTANCE = 2.20D;
+    private static final int MAX_CANDIDATES = 18;
+    private static final int PREPARE_TICKS = 4;
+    private static final int VERIFY_TICKS = 14;
+    private static final int RESTORE_TICKS = 5;
+    private static final int APPLY_VERIFY_TICKS = 20;
+    private static final double ACCEPT_ERROR = 0.15D;
+    private static final double CORRECTION_ERROR = 0.40D;
 
     private enum State {
         IDLE,
-        SETTLING,
-        HOLDING,
+        PREPARING,
+        VERIFYING,
+        RESTORING,
         APPLYING_BEST
     }
 
+    private enum ScanDirection {
+        FORWARD,
+        DOWN,
+        UP;
+
+        private ScanDirection next() {
+            ScanDirection[] values = values();
+            return values[(ordinal() + 1) % values.length];
+        }
+    }
+
     private static State state = State.IDLE;
+    private static ScanDirection selectedDirection = ScanDirection.FORWARD;
+
     private static Vec3 scanOrigin;
     private static Vec3 target;
     private static Vec3 restorePoint;
-    private static double directionX;
-    private static double directionZ;
+    private static Vec3 scanVector;
+    private static Vec3 bestOffset;
+    private static List<Double> candidateDistances = List.of();
+
     private static double currentDistance;
     private static double bestAcceptedDistance = -1.0D;
-    private static int attemptIndex;
+    private static int candidateIndex;
     private static int stateTicks;
+    private static int correctionPackets;
+    private static int explicitOutboundPackets;
+    private static boolean correctionObserved;
     private static boolean originalNoPhysics;
     private static boolean manualRestoreAvailable;
 
+    private static boolean f7WasDown;
     private static boolean f8WasDown;
     private static boolean f9WasDown;
     private static boolean f10WasDown;
@@ -60,6 +92,14 @@ public final class PhaseLabClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(PhaseLabClient::onClientTick);
     }
 
+    /** Called by the client packet-listener mixin when the server sends a position correction. */
+    public static void onServerPositionCorrection() {
+        if (state == State.VERIFYING || state == State.APPLYING_BEST) {
+            correctionObserved = true;
+            correctionPackets++;
+        }
+    }
+
     private static void onClientTick(Minecraft client) {
         LocalPlayer player = client.player;
         if (player == null || client.level == null) {
@@ -69,9 +109,19 @@ public final class PhaseLabClient implements ClientModInitializer {
         }
 
         var window = client.getWindow();
+        boolean f7Down = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_F7);
         boolean f8Down = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_F8);
         boolean f9Down = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_F9);
         boolean f10Down = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_F10);
+
+        if (f7Down && !f7WasDown) {
+            if (state == State.IDLE) {
+                selectedDirection = selectedDirection.next();
+                message(player, "Direction: " + selectedDirection, false);
+            } else {
+                message(player, "Finish or abort the scan before changing direction.", false);
+            }
+        }
 
         if (f8Down && !f8WasDown) {
             if (state == State.IDLE) {
@@ -95,13 +145,15 @@ public final class PhaseLabClient implements ClientModInitializer {
             }
         }
 
+        f7WasDown = f7Down;
         f8WasDown = f8Down;
         f9WasDown = f9Down;
         f10WasDown = f10Down;
 
         switch (state) {
-            case SETTLING -> tickSettling(player);
-            case HOLDING -> tickHolding(player);
+            case PREPARING -> tickPreparing(player);
+            case VERIFYING -> tickVerifying(player);
+            case RESTORING -> tickRestoring(player);
             case APPLYING_BEST -> tickApplyingBest(player);
             case IDLE -> {
             }
@@ -114,96 +166,166 @@ public final class PhaseLabClient implements ClientModInitializer {
         originalNoPhysics = player.noPhysics;
         manualRestoreAvailable = false;
         bestAcceptedDistance = -1.0D;
-        attemptIndex = 0;
-        calculateDirection(player);
+        bestOffset = null;
+        candidateIndex = 0;
+        scanVector = calculateDirection(player, selectedDirection);
+        candidateDistances = discoverCandidates(player, scanVector);
+
+        if (candidateDistances.isEmpty()) {
+            message(player, "No solid layer with a clear player-sized gap behind it was found within 2.20 blocks.", false);
+            return;
+        }
+
         openLog();
         beginAttempt(player);
-        message(player, "PhaseLab scan started. F10 aborts.", false);
+        message(player, "Wall-aware " + selectedDirection + " scan started with " + candidateDistances.size() + " candidates. F10 aborts.", false);
     }
 
-    private static void calculateDirection(LocalPlayer player) {
-        double radians = Math.toRadians(player.getYRot());
-        directionX = -Math.sin(radians);
-        directionZ = Math.cos(radians);
-        double length = Math.sqrt(directionX * directionX + directionZ * directionZ);
-        if (length > 0.0D) {
-            directionX /= length;
-            directionZ /= length;
+    private static Vec3 calculateDirection(LocalPlayer player, ScanDirection direction) {
+        return switch (direction) {
+            case DOWN -> new Vec3(0.0D, -1.0D, 0.0D);
+            case UP -> new Vec3(0.0D, 1.0D, 0.0D);
+            case FORWARD -> {
+                double radians = Math.toRadians(player.getYRot());
+                double x = -Math.sin(radians);
+                double z = Math.cos(radians);
+                double length = Math.sqrt(x * x + z * z);
+                yield length == 0.0D ? new Vec3(0.0D, 0.0D, 1.0D) : new Vec3(x / length, 0.0D, z / length);
+            }
+        };
+    }
+
+    /**
+     * Finds only useful destinations: the player-sized box must cross a collision
+     * and then become clear again. This avoids reporting ordinary movement in open air.
+     */
+    private static List<Double> discoverCandidates(LocalPlayer player, Vec3 direction) {
+        List<Double> candidates = new ArrayList<>();
+        AABB originBox = player.getBoundingBox();
+        boolean crossedCollision = false;
+        boolean enteredExitGap = false;
+
+        for (double distance = PROFILE_STEP; distance <= MAX_SCAN_DISTANCE + 0.0001D; distance += PROFILE_STEP) {
+            AABB sampledBox = originBox.move(
+                direction.x * distance,
+                direction.y * distance,
+                direction.z * distance
+            ).deflate(0.001D);
+
+            boolean clear = player.level().noCollision(player, sampledBox);
+            if (!clear) {
+                if (enteredExitGap) {
+                    break;
+                }
+                crossedCollision = true;
+                continue;
+            }
+
+            if (crossedCollision) {
+                enteredExitGap = true;
+                candidates.add(roundDistance(distance));
+                if (candidates.size() >= MAX_CANDIDATES) {
+                    break;
+                }
+            }
         }
+
+        return List.copyOf(candidates);
+    }
+
+    private static double roundDistance(double distance) {
+        return Math.round(distance * 1000.0D) / 1000.0D;
     }
 
     private static void beginAttempt(LocalPlayer player) {
-        currentDistance = START_DISTANCE + (attemptIndex * STEP_DISTANCE);
-        player.noPhysics = true;
-        player.setDeltaMovement(Vec3.ZERO);
-        player.setPos(scanOrigin.x, scanOrigin.y, scanOrigin.z);
+        currentDistance = candidateDistances.get(candidateIndex);
+        target = scanOrigin.add(scanVector.scale(currentDistance));
+        correctionObserved = false;
+        correctionPackets = 0;
+        explicitOutboundPackets = 0;
+        moveLocalAndSend(player, scanOrigin);
         stateTicks = 0;
-        state = State.SETTLING;
-        message(player, String.format(Locale.ROOT, "Testing %.2f blocks...", currentDistance), true);
+        state = State.PREPARING;
+        message(player, String.format(Locale.ROOT, "Testing %.3f blocks...", currentDistance), true);
     }
 
-    private static void tickSettling(LocalPlayer player) {
-        player.noPhysics = true;
-        player.setDeltaMovement(Vec3.ZERO);
+    private static void tickPreparing(LocalPlayer player) {
+        freeze(player);
         stateTicks++;
-        if (stateTicks < SETTLE_TICKS) {
+        if (stateTicks < PREPARE_TICKS) {
             return;
         }
 
-        target = new Vec3(
-            scanOrigin.x + directionX * currentDistance,
-            scanOrigin.y,
-            scanOrigin.z + directionZ * currentDistance
-        );
-        player.setPos(target.x, target.y, target.z);
-        player.setDeltaMovement(Vec3.ZERO);
+        correctionObserved = false;
+        correctionPackets = 0;
+        moveLocalAndSend(player, target);
         stateTicks = 0;
-        state = State.HOLDING;
+        state = State.VERIFYING;
     }
 
-    private static void tickHolding(LocalPlayer player) {
-        player.noPhysics = true;
-        player.setDeltaMovement(Vec3.ZERO);
+    private static void tickVerifying(LocalPlayer player) {
+        freeze(player);
         stateTicks++;
 
-        Vec3 current = player.position();
-        double error = current.distanceTo(target);
-
+        double error = player.position().distanceTo(target);
+        if (correctionObserved) {
+            finishAttempt(player, "REJECTED_SERVER_SETBACK", error);
+            return;
+        }
         if (error > CORRECTION_ERROR) {
-            finishAttempt(player, "REJECTED_CORRECTION", error);
+            finishAttempt(player, "REJECTED_POSITION_DRIFT", error);
             return;
         }
 
-        if (stateTicks >= HOLD_TICKS) {
-            String result = error <= ACCEPT_ERROR ? "ACCEPTED" : "ADJUSTED";
-            if ("ACCEPTED".equals(result)) {
-                bestAcceptedDistance = Math.max(bestAcceptedDistance, currentDistance);
-            }
+        // One explicit confirmation packet makes the result less dependent on
+        // the vanilla client's packet batching without flooding the server.
+        if (stateTicks == 6) {
+            sendPosition(player, target);
+        }
+
+        if (stateTicks >= VERIFY_TICKS) {
+            String result = error <= ACCEPT_ERROR ? "NO_SETBACK_OBSERVED" : "INCONCLUSIVE_DRIFT";
             finishAttempt(player, result, error);
         }
     }
 
     private static void finishAttempt(LocalPlayer player, String result, double error) {
         writeLog(result, player.position(), error);
-        attemptIndex++;
 
-        double nextDistance = START_DISTANCE + (attemptIndex * STEP_DISTANCE);
-        if (nextDistance <= MAX_DISTANCE + 0.0001D) {
+        if ("NO_SETBACK_OBSERVED".equals(result) && currentDistance > bestAcceptedDistance) {
+            bestAcceptedDistance = currentDistance;
+            bestOffset = scanVector.scale(currentDistance);
+        }
+
+        correctionObserved = false;
+        moveLocalAndSend(player, scanOrigin);
+        stateTicks = 0;
+        state = State.RESTORING;
+    }
+
+    private static void tickRestoring(LocalPlayer player) {
+        freeze(player);
+        stateTicks++;
+        if (stateTicks < RESTORE_TICKS) {
+            return;
+        }
+
+        candidateIndex++;
+        if (candidateIndex < candidateDistances.size()) {
             beginAttempt(player);
             return;
         }
 
-        player.setPos(scanOrigin.x, scanOrigin.y, scanOrigin.z);
-        player.setDeltaMovement(Vec3.ZERO);
         player.noPhysics = originalNoPhysics;
+        player.setDeltaMovement(Vec3.ZERO);
         state = State.IDLE;
         closeLogQuietly();
 
-        if (bestAcceptedDistance > 0.0D) {
+        if (bestOffset != null) {
             message(player, String.format(Locale.ROOT,
-                "Scan done. Largest accepted offset: %.2f. Press F9 to retry it.", bestAcceptedDistance), false);
+                "Scan done. Largest no-setback candidate: %.3f. Press F9 to retry it.", bestAcceptedDistance), false);
         } else {
-            message(player, "Scan done. No offset survived the server correction window.", false);
+            message(player, "Scan done. Every meaningful candidate was corrected or drifted.", false);
         }
 
         if (logPath != null) {
@@ -212,51 +334,49 @@ public final class PhaseLabClient implements ClientModInitializer {
     }
 
     private static void applyBest(LocalPlayer player) {
-        if (bestAcceptedDistance <= 0.0D) {
-            message(player, "Run an F8 scan first. No accepted offset is stored.", false);
+        if (bestOffset == null) {
+            message(player, "Run an F8 scan first. No no-setback candidate is stored.", false);
             return;
         }
 
         restorePoint = player.position();
         originalNoPhysics = player.noPhysics;
         manualRestoreAvailable = true;
-        calculateDirection(player);
-        target = new Vec3(
-            restorePoint.x + directionX * bestAcceptedDistance,
-            restorePoint.y,
-            restorePoint.z + directionZ * bestAcceptedDistance
-        );
-        player.noPhysics = true;
-        player.setDeltaMovement(Vec3.ZERO);
-        player.setPos(target.x, target.y, target.z);
+        target = restorePoint.add(bestOffset);
+        correctionObserved = false;
+        correctionPackets = 0;
+        explicitOutboundPackets = 0;
+        moveLocalAndSend(player, target);
         stateTicks = 0;
         state = State.APPLYING_BEST;
         message(player, String.format(Locale.ROOT,
-            "Retrying %.2f blocks. F10 restores.", bestAcceptedDistance), false);
+            "Retrying %.3f blocks. F10 restores.", bestAcceptedDistance), false);
     }
 
     private static void tickApplyingBest(LocalPlayer player) {
-        player.noPhysics = true;
-        player.setDeltaMovement(Vec3.ZERO);
+        freeze(player);
         stateTicks++;
 
         double error = player.position().distanceTo(target);
-        if (error > CORRECTION_ERROR) {
-            restore(player, "Best offset was corrected by the server.");
+        if (correctionObserved || error > CORRECTION_ERROR) {
+            restore(player, "Best candidate was corrected by the server.");
             return;
         }
 
-        if (stateTicks >= HOLD_TICKS + 2) {
+        if (stateTicks == 7) {
+            sendPosition(player, target);
+        }
+
+        if (stateTicks >= APPLY_VERIFY_TICKS) {
             player.noPhysics = originalNoPhysics;
             state = State.IDLE;
-            message(player, "Offset held through the test window. F10 returns to the start.", false);
+            message(player, "No setback arrived through the extended verification window. F10 returns to the start.", false);
         }
     }
 
     private static void restore(LocalPlayer player, String text) {
         if (restorePoint != null) {
-            player.setPos(restorePoint.x, restorePoint.y, restorePoint.z);
-            player.setDeltaMovement(Vec3.ZERO);
+            moveLocalAndSend(player, restorePoint);
         }
         player.noPhysics = originalNoPhysics;
         state = State.IDLE;
@@ -265,12 +385,35 @@ public final class PhaseLabClient implements ClientModInitializer {
         message(player, text, false);
     }
 
+    private static void freeze(LocalPlayer player) {
+        player.noPhysics = true;
+        player.setDeltaMovement(Vec3.ZERO);
+    }
+
+    private static void moveLocalAndSend(LocalPlayer player, Vec3 position) {
+        player.noPhysics = true;
+        player.setDeltaMovement(Vec3.ZERO);
+        player.setPos(position.x, position.y, position.z);
+        sendPosition(player, position);
+    }
+
+    private static void sendPosition(LocalPlayer player, Vec3 position) {
+        player.connection.send(new ServerboundMovePlayerPacket.Pos(
+            position.x,
+            position.y,
+            position.z,
+            player.onGround(),
+            player.horizontalCollision
+        ));
+        explicitOutboundPackets++;
+    }
+
     private static void openLog() {
         closeLogQuietly();
         try {
             Path directory = FabricLoader.getInstance().getConfigDir().resolve("phaselab");
             Files.createDirectories(directory);
-            String fileName = "scan-" + Instant.now().toString().replace(':', '-') + ".csv";
+            String fileName = "scan-v2-" + Instant.now().toString().replace(':', '-') + ".csv";
             logPath = directory.resolve(fileName);
             logWriter = Files.newBufferedWriter(
                 logPath,
@@ -278,7 +421,7 @@ public final class PhaseLabClient implements ClientModInitializer {
                 StandardOpenOption.CREATE_NEW,
                 StandardOpenOption.WRITE
             );
-            logWriter.write("distance,target_x,target_y,target_z,final_x,final_y,final_z,error,result\n");
+            logWriter.write("timestamp,direction,attempt,distance,explicit_outbound,server_corrections,target_x,target_y,target_z,final_x,final_y,final_z,error,result\n");
             logWriter.flush();
         } catch (IOException exception) {
             logWriter = null;
@@ -292,8 +435,13 @@ public final class PhaseLabClient implements ClientModInitializer {
         }
         try {
             logWriter.write(String.format(Locale.ROOT,
-                "%.2f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%s%n",
+                "%s,%s,%d,%.3f,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%s%n",
+                Instant.now(),
+                selectedDirection,
+                candidateIndex + 1,
                 currentDistance,
+                explicitOutboundPackets,
+                correctionPackets,
                 target.x, target.y, target.z,
                 finalPosition.x, finalPosition.y, finalPosition.z,
                 error,
