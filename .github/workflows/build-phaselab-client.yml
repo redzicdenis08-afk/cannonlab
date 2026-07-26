@@ -32,10 +32,23 @@ jobs:
           gradle-version: '9.5.1'
 
       - name: Build client mod
+        id: build
         working-directory: phaselab-client
-        run: gradle build --stacktrace
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle build --stacktrace --console=plain 2>&1 | tee build.log
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phaselab-build-log
+          path: phaselab-client/build.log
+          if-no-files-found: error
 
       - name: Upload JAR
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: phaselab-client-1.21.11
