@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "phaselab",
-  "version": "${version}",
+  "version": "2.0.0",
   "name": "PhaseLab Client",
-  "description": "Client-only microclip tester for an authorized local Sakura/Fabric test server.",
+  "description": "Client-only wall-aware movement acceptance probe for an authorized Sakura test server.",
   "authors": ["Denis + OpenAI"],
   "license": "MIT",
   "environment": "client",
@@ -12,6 +12,9 @@
       "dev.denis.phaselab.PhaseLabClient"
     ]
   },
+  "mixins": [
+    "phaselab.client.mixins.json"
+  ],
   "depends": {
     "fabricloader": ">=0.19.3",
     "minecraft": "~1.21.11",
