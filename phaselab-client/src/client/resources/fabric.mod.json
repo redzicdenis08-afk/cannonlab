@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "phaselab",
+  "version": "${version}",
+  "name": "PhaseLab Client",
+  "description": "Client-only microclip tester for an authorized local Sakura/Fabric test server.",
+  "authors": ["Denis + OpenAI"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.denis.phaselab.PhaseLabClient"
+    ]
+  },
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
