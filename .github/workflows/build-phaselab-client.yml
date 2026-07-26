@@ -37,20 +37,38 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          gradle build --stacktrace --console=plain 2>&1 | tee build.log
+          gradle clean build --stacktrace --console=plain 2>&1 | tee build.log
+
+      - name: Verify built JAR contents
+        if: success()
+        working-directory: phaselab-client
+        shell: bash
+        run: |
+          JAR='build/libs/phaselab-client-2.0.0.jar'
+          test -f "$JAR"
+          jar tf "$JAR" | tee jar-contents.txt
+          jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseLabClient.class'
+          jar tf "$JAR" | grep -F 'dev/denis/phaselab/mixin/ClientPacketListenerMixin.class'
+          jar tf "$JAR" | grep -F 'phaselab.client.mixins.json'
+          unzip -p "$JAR" fabric.mod.json | tee built-fabric.mod.json
+          grep -F '"version": "2.0.0"' built-fabric.mod.json
+          grep -F '"phaselab.client.mixins.json"' built-fabric.mod.json
 
       - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: phaselab-build-log
-          path: phaselab-client/build.log
-          if-no-files-found: error
+          path: |
+            phaselab-client/build.log
+            phaselab-client/jar-contents.txt
+            phaselab-client/built-fabric.mod.json
+          if-no-files-found: warn
 
       - name: Upload JAR
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-client-1.21.11
-          path: phaselab-client/build/libs/phaselab-client-1.0.0.jar
+          name: phaselab-client-2.0.0-mc1.21.11
+          path: phaselab-client/build/libs/phaselab-client-2.0.0.jar
           if-no-files-found: error
