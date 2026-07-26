@@ -7,6 +7,10 @@ on:
     paths:
       - 'tools/patchcrumbs-fabric-1.21.11/**'
       - '.github/workflows/build-patchcrumbs.yml'
+  pull_request:
+    paths:
+      - 'tools/patchcrumbs-fabric-1.21.11/**'
+      - '.github/workflows/build-patchcrumbs.yml'
   workflow_dispatch:
 
 permissions:
