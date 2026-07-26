@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "denis_patchcrumbs",
+  "version": "${version}",
+  "name": "Denis Patchcrumbs",
+  "description": "Client-side factions patch helper that captures server-sent explosion coordinates, clusters nearby impacts, and marks the latest likely patch location.",
+  "authors": [
+    "Denis",
+    "OpenAI"
+  ],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "com.denis.patchcrumbs.PatchcrumbsClient"
+    ]
+  },
+  "mixins": [
+    {
+      "config": "denis_patchcrumbs.client.mixins.json",
+      "environment": "client"
+    }
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.3",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
