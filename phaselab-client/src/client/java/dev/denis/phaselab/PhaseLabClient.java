@@ -31,7 +31,8 @@ import java.util.Locale;
  */
 public final class PhaseLabClient implements ClientModInitializer {
     private static final double PROFILE_STEP = 0.025D;
-    private static final double MAX_SCAN_DISTANCE = 2.20D;
+    private static final double EXTRA_LAYER_CLEARANCE = 0.80D;
+    private static final double MAX_HARD_SCAN_DISTANCE = 4.00D;
     private static final int MAX_CANDIDATES = 18;
     private static final int REQUIRED_PASSES = 2;
     private static final int PREPARE_TICKS = 4;
@@ -70,6 +71,7 @@ public final class PhaseLabClient implements ClientModInitializer {
     private static Vec3 bestOffset;
     private static List<Double> candidateDistances = List.of();
 
+    private static double scanMaxDistance;
     private static double currentDistance;
     private static double bestAcceptedDistance = -1.0D;
     private static int candidateIndex;
@@ -188,10 +190,14 @@ public final class PhaseLabClient implements ClientModInitializer {
         trialNumber = 1;
         repeatCandidateAfterRestore = false;
         scanVector = calculateDirection(player, selectedDirection);
-        candidateDistances = discoverCandidates(player, scanVector);
+        scanMaxDistance = calculateScanLimit(player.getBoundingBox(), scanVector);
+        candidateDistances = discoverCandidates(player, scanVector, scanMaxDistance);
 
         if (candidateDistances.isEmpty()) {
-            message(player, "No solid layer with a clear player-sized gap behind it was found within 2.20 blocks.", false);
+            message(player, String.format(Locale.ROOT,
+                "No solid layer with a clear player-sized gap behind it was found within %.2f blocks.",
+                scanMaxDistance
+            ), false);
             return;
         }
 
@@ -219,16 +225,31 @@ public final class PhaseLabClient implements ClientModInitializer {
     }
 
     /**
+     * A horizontal one-block layer needs about 1 block plus the player's width.
+     * A vertical layer needs about 1 block plus the player's full pose height.
+     * The projection formula also works for diagonal forward scans and changed poses.
+     */
+    private static double calculateScanLimit(AABB box, Vec3 direction) {
+        double widthX = box.maxX - box.minX;
+        double heightY = box.maxY - box.minY;
+        double widthZ = box.maxZ - box.minZ;
+        double projectedBodyExtent = Math.abs(direction.x) * widthX
+            + Math.abs(direction.y) * heightY
+            + Math.abs(direction.z) * widthZ;
+        return Math.min(MAX_HARD_SCAN_DISTANCE, 1.0D + projectedBodyExtent + EXTRA_LAYER_CLEARANCE);
+    }
+
+    /**
      * Finds only useful destinations: the player-sized box must cross a collision
      * and then become clear again. This avoids reporting ordinary movement in open air.
      */
-    private static List<Double> discoverCandidates(LocalPlayer player, Vec3 direction) {
+    private static List<Double> discoverCandidates(LocalPlayer player, Vec3 direction, double maxDistance) {
         List<Double> candidates = new ArrayList<>();
         AABB originBox = player.getBoundingBox();
         boolean crossedCollision = false;
         boolean enteredExitGap = false;
 
-        for (double distance = PROFILE_STEP; distance <= MAX_SCAN_DISTANCE + 0.0001D; distance += PROFILE_STEP) {
+        for (double distance = PROFILE_STEP; distance <= maxDistance + 0.0001D; distance += PROFILE_STEP) {
             AABB sampledBox = originBox.move(
                 direction.x * distance,
                 direction.y * distance,
@@ -305,8 +326,6 @@ public final class PhaseLabClient implements ClientModInitializer {
             return;
         }
 
-        // One explicit confirmation packet makes the result less dependent on
-        // the vanilla client's packet batching without flooding the server.
         if (stateTicks == 10) {
             sendPosition(player, target);
         }
@@ -463,7 +482,7 @@ public final class PhaseLabClient implements ClientModInitializer {
                 StandardOpenOption.CREATE_NEW,
                 StandardOpenOption.WRITE
             );
-            logWriter.write("timestamp,direction,attempt,trial,distance,explicit_outbound,server_corrections,target_x,target_y,target_z,final_x,final_y,final_z,error,result\n");
+            logWriter.write("timestamp,direction,scan_max,attempt,trial,distance,explicit_outbound,server_corrections,target_x,target_y,target_z,final_x,final_y,final_z,error,result\n");
             logWriter.flush();
         } catch (IOException exception) {
             logWriter = null;
@@ -477,9 +496,10 @@ public final class PhaseLabClient implements ClientModInitializer {
         }
         try {
             logWriter.write(String.format(Locale.ROOT,
-                "%s,%s,%d,%d,%.3f,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%s%n",
+                "%s,%s,%.3f,%d,%d,%.3f,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%s%n",
                 Instant.now(),
                 selectedDirection,
+                scanMaxDistance,
                 candidateIndex + 1,
                 trialNumber,
                 currentDistance,
