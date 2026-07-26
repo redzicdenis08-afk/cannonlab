@@ -68,7 +68,7 @@ public final class PhaseLabClient implements ClientModInitializer {
             return;
         }
 
-        long window = client.getWindow().getWindow();
+        var window = client.getWindow();
         boolean f8Down = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_F8);
         boolean f9Down = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_F9);
         boolean f10Down = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_F10);
