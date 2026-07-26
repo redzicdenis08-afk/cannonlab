@@ -33,10 +33,11 @@ public final class PhaseLabClient implements ClientModInitializer {
     private static final double PROFILE_STEP = 0.025D;
     private static final double MAX_SCAN_DISTANCE = 2.20D;
     private static final int MAX_CANDIDATES = 18;
+    private static final int REQUIRED_PASSES = 2;
     private static final int PREPARE_TICKS = 4;
-    private static final int VERIFY_TICKS = 14;
+    private static final int VERIFY_TICKS = 20;
     private static final int RESTORE_TICKS = 5;
-    private static final int APPLY_VERIFY_TICKS = 20;
+    private static final int APPLY_VERIFY_TICKS = 60;
     private static final double ACCEPT_ERROR = 0.15D;
     private static final double CORRECTION_ERROR = 0.40D;
 
@@ -72,13 +73,17 @@ public final class PhaseLabClient implements ClientModInitializer {
     private static double currentDistance;
     private static double bestAcceptedDistance = -1.0D;
     private static int candidateIndex;
+    private static int trialNumber = 1;
     private static int stateTicks;
     private static int correctionPackets;
     private static int explicitOutboundPackets;
     private static boolean correctionObserved;
+    private static boolean repeatCandidateAfterRestore;
+    private static boolean packetHookSeen;
     private static boolean originalNoPhysics;
     private static boolean manualRestoreAvailable;
 
+    private static boolean f6WasDown;
     private static boolean f7WasDown;
     private static boolean f8WasDown;
     private static boolean f9WasDown;
@@ -92,8 +97,9 @@ public final class PhaseLabClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(PhaseLabClient::onClientTick);
     }
 
-    /** Called by the client packet-listener mixin when the server sends a position correction. */
+    /** Called by the client packet-listener mixin when the server sends a position packet. */
     public static void onServerPositionCorrection() {
+        packetHookSeen = true;
         if (state == State.VERIFYING || state == State.APPLYING_BEST) {
             correctionObserved = true;
             correctionPackets++;
@@ -109,10 +115,20 @@ public final class PhaseLabClient implements ClientModInitializer {
         }
 
         var window = client.getWindow();
+        boolean f6Down = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_F6);
         boolean f7Down = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_F7);
         boolean f8Down = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_F8);
         boolean f9Down = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_F9);
         boolean f10Down = InputConstants.isKeyDown(window, GLFW.GLFW_KEY_F10);
+
+        if (f6Down && !f6WasDown) {
+            message(player,
+                "Hook=" + (packetHookSeen ? "seen" : "not-seen-yet")
+                    + " | direction=" + selectedDirection
+                    + " | state=" + state,
+                false
+            );
+        }
 
         if (f7Down && !f7WasDown) {
             if (state == State.IDLE) {
@@ -145,6 +161,7 @@ public final class PhaseLabClient implements ClientModInitializer {
             }
         }
 
+        f6WasDown = f6Down;
         f7WasDown = f7Down;
         f8WasDown = f8Down;
         f9WasDown = f9Down;
@@ -168,6 +185,8 @@ public final class PhaseLabClient implements ClientModInitializer {
         bestAcceptedDistance = -1.0D;
         bestOffset = null;
         candidateIndex = 0;
+        trialNumber = 1;
+        repeatCandidateAfterRestore = false;
         scanVector = calculateDirection(player, selectedDirection);
         candidateDistances = discoverCandidates(player, scanVector);
 
@@ -178,7 +197,11 @@ public final class PhaseLabClient implements ClientModInitializer {
 
         openLog();
         beginAttempt(player);
-        message(player, "Wall-aware " + selectedDirection + " scan started with " + candidateDistances.size() + " candidates. F10 aborts.", false);
+        message(player,
+            "Wall-aware " + selectedDirection + " scan started with " + candidateDistances.size()
+                + " candidates. Each must pass twice. F10 aborts.",
+            false
+        );
     }
 
     private static Vec3 calculateDirection(LocalPlayer player, ScanDirection direction) {
@@ -246,7 +269,12 @@ public final class PhaseLabClient implements ClientModInitializer {
         moveLocalAndSend(player, scanOrigin);
         stateTicks = 0;
         state = State.PREPARING;
-        message(player, String.format(Locale.ROOT, "Testing %.3f blocks...", currentDistance), true);
+        message(player, String.format(Locale.ROOT,
+            "Testing %.3f blocks, pass %d/%d...",
+            currentDistance,
+            trialNumber,
+            REQUIRED_PASSES
+        ), true);
     }
 
     private static void tickPreparing(LocalPlayer player) {
@@ -279,7 +307,7 @@ public final class PhaseLabClient implements ClientModInitializer {
 
         // One explicit confirmation packet makes the result less dependent on
         // the vanilla client's packet batching without flooding the server.
-        if (stateTicks == 6) {
+        if (stateTicks == 10) {
             sendPosition(player, target);
         }
 
@@ -292,9 +320,17 @@ public final class PhaseLabClient implements ClientModInitializer {
     private static void finishAttempt(LocalPlayer player, String result, double error) {
         writeLog(result, player.position(), error);
 
-        if ("NO_SETBACK_OBSERVED".equals(result) && currentDistance > bestAcceptedDistance) {
-            bestAcceptedDistance = currentDistance;
-            bestOffset = scanVector.scale(currentDistance);
+        boolean passed = "NO_SETBACK_OBSERVED".equals(result);
+        if (passed && trialNumber < REQUIRED_PASSES) {
+            repeatCandidateAfterRestore = true;
+            trialNumber++;
+        } else {
+            if (passed && trialNumber >= REQUIRED_PASSES && currentDistance > bestAcceptedDistance) {
+                bestAcceptedDistance = currentDistance;
+                bestOffset = scanVector.scale(currentDistance);
+            }
+            repeatCandidateAfterRestore = false;
+            trialNumber = 1;
         }
 
         correctionObserved = false;
@@ -307,6 +343,12 @@ public final class PhaseLabClient implements ClientModInitializer {
         freeze(player);
         stateTicks++;
         if (stateTicks < RESTORE_TICKS) {
+            return;
+        }
+
+        if (repeatCandidateAfterRestore) {
+            repeatCandidateAfterRestore = false;
+            beginAttempt(player);
             return;
         }
 
@@ -323,9 +365,9 @@ public final class PhaseLabClient implements ClientModInitializer {
 
         if (bestOffset != null) {
             message(player, String.format(Locale.ROOT,
-                "Scan done. Largest no-setback candidate: %.3f. Press F9 to retry it.", bestAcceptedDistance), false);
+                "Scan done. Largest two-pass candidate: %.3f. Press F9 to retry it.", bestAcceptedDistance), false);
         } else {
-            message(player, "Scan done. Every meaningful candidate was corrected or drifted.", false);
+            message(player, "Scan done. No candidate survived two independent passes.", false);
         }
 
         if (logPath != null) {
@@ -335,7 +377,7 @@ public final class PhaseLabClient implements ClientModInitializer {
 
     private static void applyBest(LocalPlayer player) {
         if (bestOffset == null) {
-            message(player, "Run an F8 scan first. No no-setback candidate is stored.", false);
+            message(player, "Run an F8 scan first. No two-pass candidate is stored.", false);
             return;
         }
 
@@ -350,7 +392,7 @@ public final class PhaseLabClient implements ClientModInitializer {
         stateTicks = 0;
         state = State.APPLYING_BEST;
         message(player, String.format(Locale.ROOT,
-            "Retrying %.3f blocks. F10 restores.", bestAcceptedDistance), false);
+            "Retrying %.3f blocks for a 3-second verification. F10 restores.", bestAcceptedDistance), false);
     }
 
     private static void tickApplyingBest(LocalPlayer player) {
@@ -363,14 +405,14 @@ public final class PhaseLabClient implements ClientModInitializer {
             return;
         }
 
-        if (stateTicks == 7) {
+        if (stateTicks == 10 || stateTicks == 30) {
             sendPosition(player, target);
         }
 
         if (stateTicks >= APPLY_VERIFY_TICKS) {
             player.noPhysics = originalNoPhysics;
             state = State.IDLE;
-            message(player, "No setback arrived through the extended verification window. F10 returns to the start.", false);
+            message(player, "No setback arrived through the 3-second verification window. F10 returns to the start.", false);
         }
     }
 
@@ -421,7 +463,7 @@ public final class PhaseLabClient implements ClientModInitializer {
                 StandardOpenOption.CREATE_NEW,
                 StandardOpenOption.WRITE
             );
-            logWriter.write("timestamp,direction,attempt,distance,explicit_outbound,server_corrections,target_x,target_y,target_z,final_x,final_y,final_z,error,result\n");
+            logWriter.write("timestamp,direction,attempt,trial,distance,explicit_outbound,server_corrections,target_x,target_y,target_z,final_x,final_y,final_z,error,result\n");
             logWriter.flush();
         } catch (IOException exception) {
             logWriter = null;
@@ -435,10 +477,11 @@ public final class PhaseLabClient implements ClientModInitializer {
         }
         try {
             logWriter.write(String.format(Locale.ROOT,
-                "%s,%s,%d,%.3f,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%s%n",
+                "%s,%s,%d,%d,%.3f,%d,%d,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%s%n",
                 Instant.now(),
                 selectedDirection,
                 candidateIndex + 1,
+                trialNumber,
                 currentDistance,
                 explicitOutboundPackets,
                 correctionPackets,
