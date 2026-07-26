@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "phaselab",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "name": "PhaseLab Client",
   "description": "Client-only wall-aware movement acceptance probe for an authorized Sakura test server.",
   "authors": ["Denis + OpenAI"],
