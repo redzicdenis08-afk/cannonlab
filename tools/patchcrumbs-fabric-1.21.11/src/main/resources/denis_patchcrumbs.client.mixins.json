@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "package": "com.denis.patchcrumbs.mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "ClientPacketListenerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
