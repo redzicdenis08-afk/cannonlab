@@ -1,4 +1,4 @@
-# PhaseLab Client 2.1
+# PhaseLab Client 2.1.1
 
 Client-only Fabric 1.21.11 movement acceptance probe for an authorized Sakura test server.
 
@@ -14,12 +14,13 @@ Client-only Fabric 1.21.11 movement acceptance probe for an authorized Sakura te
 
 - Scans actual player-sized collision boxes instead of blind open-air offsets.
 - Tests only destinations where the path crosses a collision and the endpoint is clear.
+- Computes scan distance from the current pose's hitbox projection, so upright downward/upward scans can fully clear a one-block layer.
 - Sends explicit movement packets so results do not depend only on vanilla batching.
 - Hooks the remapped client position-correction handler directly.
 - Requires two independent no-setback passes before storing a candidate.
 - Restores and settles between attempts.
 - Holds the final F9 retry for three seconds and sends two confirmation packets.
-- Logs outbound probe packets, correction packets, target error and result.
+- Logs scan range, outbound probe packets, correction packets, target error and result.
 
 Logs are written to:
 
