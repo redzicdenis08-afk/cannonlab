@@ -7,10 +7,6 @@ on:
     paths:
       - 'phaselab-harness/**'
       - '.github/workflows/phaselab-headless-sakura.yml'
-  pull_request:
-    paths:
-      - 'phaselab-harness/**'
-      - '.github/workflows/phaselab-headless-sakura.yml'
   workflow_dispatch:
 
 concurrency:
