@@ -6,7 +6,12 @@ on:
       - research/phaselab-mixed-course
     paths:
       - 'phaselab-defense-course/**'
-      - 'phaselab-harness/mixed-claim-course.js'
+      - 'phaselab-harness/mixed-claim-course-v2.js'
+      - '.github/workflows/phaselab-mixed-claim-course-runtime.yml'
+  pull_request:
+    paths:
+      - 'phaselab-defense-course/**'
+      - 'phaselab-harness/mixed-claim-course-v2.js'
       - '.github/workflows/phaselab-mixed-claim-course-runtime.yml'
   workflow_dispatch:
 
@@ -155,7 +160,7 @@ jobs:
           PHASELAB_PORT=25565 \
           PHASELAB_USERNAME=PhaseBot \
           PHASELAB_OUTPUT="$RUNTIME/output" \
-          PHASELAB_RUNNER=mixed-claim-course.js \
+          PHASELAB_RUNNER=mixed-claim-course-v2.js \
           PHASELAB_HARD_TIMEOUT_MS=2700000 \
           npm test 2>&1 | tee "$RUNTIME/mixed-course-harness.log"
           STATUS=${PIPESTATUS[0]}
