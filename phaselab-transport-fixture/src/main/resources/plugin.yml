@@ -1,0 +1,14 @@
+name: PhaseLabTransportFixture
+version: ${version}
+main: dev.denis.phaselab.fixture.TransportFixturePlugin
+api-version: '1.21'
+authors: [Denis]
+description: Deterministic server-side transport mount fixture for PhaseLab.
+commands:
+  transportfixture:
+    description: Spawn and mount deterministic transport entities.
+    usage: /transportfixture <mount|clear> [horse|pig|camel|strider|minecart|chest_boat]
+    permission: phaselab.transportfixture.admin
+permissions:
+  phaselab.transportfixture.admin:
+    default: op
