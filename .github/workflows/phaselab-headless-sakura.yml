@@ -150,8 +150,12 @@ jobs:
           tail -f server.in | java -Xms1G -Xmx3G -jar server.jar nogui > server.log 2>&1 &
           SERVER_PIPE_PID=$!
           exec 3>server.in
+          MOUNT_LOOP_PID=''
 
           cleanup() {
+            if [ -n "$MOUNT_LOOP_PID" ]; then
+              kill "$MOUNT_LOOP_PID" 2>/dev/null || true
+            fi
             printf 'stop\n' >&3 2>/dev/null || true
             sleep 5
             kill "$SERVER_PIPE_PID" 2>/dev/null || true
@@ -176,6 +180,14 @@ jobs:
             cat server.log
             exit 1
           fi
+
+          (
+            while kill -0 "$SERVER_PIPE_PID" 2>/dev/null; do
+              printf 'ride PhaseBot mount @e[type=minecraft:oak_boat,limit=1,sort=nearest]\n' >&3 2>/dev/null || break
+              sleep 0.20
+            done
+          ) &
+          MOUNT_LOOP_PID=$!
 
           cd "$HARNESS"
           PHASELAB_HOST=127.0.0.1 \
