@@ -32,18 +32,25 @@ import java.util.UUID;
  * inside the interval and no longer look like a border crossing. This guard
  * stores an outside anchor and rolls the complete vehicle/passenger graph back
  * together whenever any anchored vehicle is observed inside the protected zone.
+ *
+ * After ejection, stale mounted packets can briefly become ordinary player
+ * movement. A post-rollback quarantine therefore pins every former passenger to
+ * the same outside anchor until the stale packet window has drained.
  */
 public final class RatchetGuardPlugin extends JavaPlugin implements Listener {
     private double minimumX;
     private double maximumX;
     private int rollbackRepetitions;
     private int rollbackSpacingTicks;
+    private int playerQuarantineTicks;
 
     private long logicalTick;
     private long blockedTransitions;
+    private long quarantineCorrections;
 
     private final Map<UUID, Location> safeVehicleLocations = new HashMap<>();
     private final Map<UUID, Location> safePlayerLocations = new HashMap<>();
+    private final Map<UUID, Long> playerQuarantineUntil = new HashMap<>();
     private final Set<UUID> rollbackEntities = new HashSet<>();
 
     @Override
@@ -52,6 +59,7 @@ public final class RatchetGuardPlugin extends JavaPlugin implements Listener {
         getConfig().addDefault("claim-zone.maximum-x", 255.999D);
         getConfig().addDefault("rollback.repetitions", 4);
         getConfig().addDefault("rollback.spacing-ticks", 1);
+        getConfig().addDefault("rollback.player-quarantine-ticks", 60);
         getConfig().options().copyDefaults(true);
         saveConfig();
 
@@ -66,18 +74,48 @@ public final class RatchetGuardPlugin extends JavaPlugin implements Listener {
             getConfig().getInt("rollback.repetitions", 4));
         rollbackSpacingTicks = Math.max(1,
             getConfig().getInt("rollback.spacing-ticks", 1));
+        playerQuarantineTicks = Math.max(20,
+            getConfig().getInt("rollback.player-quarantine-ticks", 60));
 
         Bukkit.getPluginManager().registerEvents(this, this);
-        Bukkit.getScheduler().runTaskTimer(this, () -> logicalTick++, 1L, 1L);
+        Bukkit.getScheduler().runTaskTimer(this, this::guardTick, 1L, 1L);
         getLogger().info("PhaseLab RatchetGuard enabled: claimX=[" + minimumX + ","
-            + maximumX + "] repetitions=" + rollbackRepetitions);
+            + maximumX + "] repetitions=" + rollbackRepetitions
+            + " quarantineTicks=" + playerQuarantineTicks);
     }
 
     @Override
     public void onDisable() {
         safeVehicleLocations.clear();
         safePlayerLocations.clear();
+        playerQuarantineUntil.clear();
         rollbackEntities.clear();
+    }
+
+    private void guardTick() {
+        logicalTick++;
+        List<UUID> expired = new ArrayList<>();
+        for (Map.Entry<UUID, Long> entry : playerQuarantineUntil.entrySet()) {
+            UUID playerId = entry.getKey();
+            if (entry.getValue() < logicalTick) {
+                expired.add(playerId);
+                continue;
+            }
+
+            Player player = Bukkit.getPlayer(playerId);
+            Location anchor = safePlayerLocations.get(playerId);
+            if (player == null || !player.isOnline() || anchor == null) {
+                continue;
+            }
+
+            if (isClaim(player.getLocation())) {
+                player.leaveVehicle();
+                player.setVelocity(new Vector(0.0D, 0.0D, 0.0D));
+                player.teleport(anchor);
+                quarantineCorrections++;
+            }
+        }
+        expired.forEach(playerQuarantineUntil::remove);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
@@ -104,8 +142,27 @@ public final class RatchetGuardPlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
-    public void onMountedPlayerMove(PlayerMoveEvent event) {
+    public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
+        UUID playerId = player.getUniqueId();
+        Long quarantineUntil = playerQuarantineUntil.get(playerId);
+        if (quarantineUntil != null && quarantineUntil >= logicalTick && isClaim(event.getTo())) {
+            Location anchor = safePlayerLocations.get(playerId);
+            event.setCancelled(true);
+            player.setVelocity(new Vector(0.0D, 0.0D, 0.0D));
+            if (anchor != null) {
+                Bukkit.getScheduler().runTask(this, () -> {
+                    if (player.isOnline()) {
+                        player.leaveVehicle();
+                        player.setVelocity(new Vector(0.0D, 0.0D, 0.0D));
+                        player.teleport(anchor);
+                        quarantineCorrections++;
+                    }
+                });
+            }
+            return;
+        }
+
         Entity mounted = player.getVehicle();
         if (mounted == null) {
             return;
@@ -131,6 +188,7 @@ public final class RatchetGuardPlugin extends JavaPlugin implements Listener {
     public void onQuit(PlayerQuitEvent event) {
         UUID playerId = event.getPlayer().getUniqueId();
         safePlayerLocations.remove(playerId);
+        playerQuarantineUntil.remove(playerId);
         rollbackEntities.remove(playerId);
     }
 
@@ -161,8 +219,14 @@ public final class RatchetGuardPlugin extends JavaPlugin implements Listener {
         Map<UUID, Location> playerAnchors = new HashMap<>();
         for (Player player : players) {
             Location anchor = safePlayerLocations.get(player.getUniqueId());
-            playerAnchors.put(player.getUniqueId(),
-                anchor == null ? safeVehicle.clone() : anchor.clone());
+            Location resolved = anchor == null ? safeVehicle.clone() : anchor.clone();
+            playerAnchors.put(player.getUniqueId(), resolved);
+            safePlayerLocations.put(player.getUniqueId(), resolved.clone());
+            playerQuarantineUntil.merge(
+                player.getUniqueId(),
+                logicalTick + playerQuarantineTicks,
+                Math::max
+            );
         }
 
         blockedTransitions++;
@@ -253,11 +317,13 @@ public final class RatchetGuardPlugin extends JavaPlugin implements Listener {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0 || args[0].equalsIgnoreCase("status")) {
             sender.sendMessage(String.format(Locale.ROOT,
-                "RatchetGuard claimX=[%.3f,%.3f] blocked=%d anchors=%d activeRollbacks=%d",
+                "RatchetGuard claimX=[%.3f,%.3f] blocked=%d quarantineCorrections=%d anchors=%d quarantined=%d activeRollbacks=%d",
                 minimumX,
                 maximumX,
                 blockedTransitions,
+                quarantineCorrections,
                 safeVehicleLocations.size(),
+                playerQuarantineUntil.size(),
                 rollbackEntities.size()
             ));
             return true;
@@ -266,8 +332,10 @@ public final class RatchetGuardPlugin extends JavaPlugin implements Listener {
         if (args[0].equalsIgnoreCase("reset")) {
             safeVehicleLocations.clear();
             safePlayerLocations.clear();
+            playerQuarantineUntil.clear();
             rollbackEntities.clear();
             blockedTransitions = 0L;
+            quarantineCorrections = 0L;
             sender.sendMessage("RatchetGuard runtime state reset.");
             return true;
         }
