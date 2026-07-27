@@ -6,12 +6,16 @@ on:
       - research/phaselab-mixed-course
     paths:
       - 'phaselab-transport-graph-guard/**'
+      - 'phaselab-transport-fixture/**'
       - 'phaselab-harness/transport-graph-regression.js'
+      - 'phaselab-harness/transport-graph-regression-v2.js'
       - '.github/workflows/phaselab-transport-graph-runtime.yml'
   pull_request:
     paths:
       - 'phaselab-transport-graph-guard/**'
+      - 'phaselab-transport-fixture/**'
       - 'phaselab-harness/transport-graph-regression.js'
+      - 'phaselab-harness/transport-graph-regression-v2.js'
       - '.github/workflows/phaselab-transport-graph-runtime.yml'
   workflow_dispatch:
 
@@ -40,9 +44,12 @@ jobs:
       - name: Install client
         working-directory: phaselab-harness
         run: npm install --no-audit --no-fund
-      - name: Build TransportGraphGuard
-        working-directory: phaselab-transport-graph-guard
-        run: gradle clean build --stacktrace --console=plain
+      - name: Build transport plugins
+        shell: bash
+        run: |
+          set -euxo pipefail
+          gradle -p phaselab-transport-graph-guard clean build --stacktrace --console=plain
+          gradle -p phaselab-transport-fixture clean build --stacktrace --console=plain
       - name: Restore pinned Sakura
         id: sakura-cache
         uses: actions/cache/restore@v4
@@ -76,8 +83,10 @@ jobs:
           mkdir -p phaselab-runtime/plugins phaselab-runtime/output
           cp phaselab-cache/server.jar phaselab-runtime/server.jar
           cp phaselab-transport-graph-guard/build/libs/PhaseLab-TransportGraphGuard-1.0.0.jar phaselab-runtime/plugins/
+          cp phaselab-transport-fixture/build/libs/PhaseLab-TransportFixture-1.0.0.jar phaselab-runtime/plugins/
           sha256sum phaselab-runtime/server.jar > phaselab-runtime/sakura-server.sha256
           sha256sum phaselab-runtime/plugins/PhaseLab-TransportGraphGuard-1.0.0.jar > phaselab-runtime/transport-graph-guard.sha256
+          sha256sum phaselab-runtime/plugins/PhaseLab-TransportFixture-1.0.0.jar > phaselab-runtime/transport-fixture.sha256
       - name: Install ViaVersion stack
         shell: bash
         run: |
@@ -88,7 +97,7 @@ jobs:
           VB_URL="$(printf '%s' "$VB_JSON" | jq -r '.files[] | select(.primary == true) | .url' | head -n 1)"
           curl -fL "$VV_URL" -o phaselab-runtime/plugins/ViaVersion.jar
           curl -fL "$VB_URL" -o phaselab-runtime/plugins/ViaBackwards.jar
-      - name: Run transport graph matrix
+      - name: Run transport graph matrix v2
         shell: bash
         run: |
           set -o pipefail
@@ -111,7 +120,7 @@ jobs:
           view-distance=5
           simulation-distance=5
           max-players=4
-          motd=PhaseLab transport graph
+          motd=PhaseLab transport graph v2
           EOF
           cat > "$RUNTIME/ops.json" <<'EOF'
           [{"uuid":"0c88e2e5-4a6f-3398-adba-5d004a77e35d","name":"PhaseBot","level":4,"bypassesPlayerLimit":true}]
@@ -135,12 +144,13 @@ jobs:
           done
           test "$READY" -eq 1
           grep -F 'PhaseLab TransportGraphGuard enabled' server.log
+          grep -F 'PhaseLab TransportFixture enabled' server.log
           cd "$HARNESS"
           PHASELAB_HOST=127.0.0.1 \
           PHASELAB_PORT=25565 \
           PHASELAB_USERNAME=PhaseBot \
           PHASELAB_OUTPUT="$RUNTIME/output" \
-          PHASELAB_RUNNER=transport-graph-regression.js \
+          PHASELAB_RUNNER=transport-graph-regression-v2.js \
           PHASELAB_HARD_TIMEOUT_MS=900000 \
           npm test 2>&1 | tee "$RUNTIME/transport-graph-harness.log"
           STATUS=${PIPESTATUS[0]}
@@ -157,5 +167,6 @@ jobs:
             phaselab-runtime/transport-graph-harness.log
             phaselab-runtime/server.log
             phaselab-runtime/transport-graph-guard.sha256
+            phaselab-runtime/transport-fixture.sha256
             phaselab-runtime/sakura-server.sha256
           if-no-files-found: warn
