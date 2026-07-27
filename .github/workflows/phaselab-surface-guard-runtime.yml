@@ -7,11 +7,13 @@ on:
     paths:
       - 'phaselab-surface-guard/**'
       - 'phaselab-harness/surface-guard-regression.js'
+      - 'phaselab-harness/surface-guard-regression-v2.js'
       - '.github/workflows/phaselab-surface-guard-runtime.yml'
   pull_request:
     paths:
       - 'phaselab-surface-guard/**'
       - 'phaselab-harness/surface-guard-regression.js'
+      - 'phaselab-harness/surface-guard-regression-v2.js'
       - '.github/workflows/phaselab-surface-guard-runtime.yml'
   workflow_dispatch:
 
@@ -98,7 +100,7 @@ jobs:
           curl -fL "$VV_URL" -o phaselab-runtime/plugins/ViaVersion.jar
           curl -fL "$VB_URL" -o phaselab-runtime/plugins/ViaBackwards.jar
 
-      - name: Run SurfaceGuard matrix
+      - name: Run SurfaceGuard matrix v2
         shell: bash
         run: |
           set -o pipefail
@@ -123,7 +125,7 @@ jobs:
           simulation-distance=5
           max-players=4
           allow-flight=false
-          motd=PhaseLab SurfaceGuard exact runtime
+          motd=PhaseLab SurfaceGuard exact runtime v2
           EOF
           cat > "$RUNTIME/ops.json" <<'EOF'
           [{"uuid":"0c88e2e5-4a6f-3398-adba-5d004a77e35d","name":"PhaseBot","level":4,"bypassesPlayerLimit":true}]
@@ -155,7 +157,7 @@ jobs:
           PHASELAB_PORT=25565 \
           PHASELAB_USERNAME=PhaseBot \
           PHASELAB_OUTPUT="$RUNTIME/output" \
-          PHASELAB_RUNNER=surface-guard-regression.js \
+          PHASELAB_RUNNER=surface-guard-regression-v2.js \
           PHASELAB_HARD_TIMEOUT_MS=900000 \
           npm test 2>&1 | tee "$RUNTIME/surface-guard-harness.log"
           STATUS=${PIPESTATUS[0]}
