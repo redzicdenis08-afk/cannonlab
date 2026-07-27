@@ -116,7 +116,12 @@ public final class BoatPhaseClient implements ClientModInitializer {
         vehicle.noPhysics = true;
         vehicle.setPos(next.x, next.y, next.z);
         player.setPos(next.x, next.y, next.z);
-        player.connection.send(new ServerboundMoveVehiclePacket(vehicle));
+        player.connection.send(new ServerboundMoveVehiclePacket(
+            next,
+            vehicle.getYRot(),
+            vehicle.getXRot(),
+            vehicle.onGround()
+        ));
 
         travelled += STEP;
         sentPackets++;
