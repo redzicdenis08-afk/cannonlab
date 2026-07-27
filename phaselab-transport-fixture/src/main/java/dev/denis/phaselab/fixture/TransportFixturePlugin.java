@@ -8,6 +8,7 @@ import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.util.Vector;
 
 import java.util.List;
 import java.util.Locale;
@@ -82,7 +83,7 @@ public final class TransportFixturePlugin extends JavaPlugin {
         Entity root = player.getWorld().spawnEntity(spawn, type);
         root.setInvulnerable(true);
         root.setGravity(false);
-        root.setVelocity(org.bukkit.util.Vector.getZero());
+        root.setVelocity(new Vector(0.0D, 0.0D, 0.0D));
         if (root instanceof LivingEntity living) {
             living.setAI(false);
             living.setSilent(true);
