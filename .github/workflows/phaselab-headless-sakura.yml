@@ -60,15 +60,20 @@ jobs:
           cp "$SERVER_JAR" ../phaselab-runtime/server.jar
           sha256sum ../phaselab-runtime/server.jar | tee ../phaselab-runtime/sakura-server.sha256
 
-      - name: Install ViaVersion 5.9.0
+      - name: Install ViaVersion and ViaBackwards 5.9.0
         shell: bash
         run: |
           set -euxo pipefail
-          VERSION_JSON="$(curl -fsSL https://api.modrinth.com/v2/version/I0mCQX6z)"
-          DOWNLOAD_URL="$(printf '%s' "$VERSION_JSON" | jq -r '.files[] | select(.primary == true) | .url' | head -n 1)"
-          test -n "$DOWNLOAD_URL"
-          curl -fL "$DOWNLOAD_URL" -o phaselab-runtime/plugins/ViaVersion.jar
+          VV_JSON="$(curl -fsSL https://api.modrinth.com/v2/version/I0mCQX6z)"
+          VV_URL="$(printf '%s' "$VV_JSON" | jq -r '.files[] | select(.primary == true) | .url' | head -n 1)"
+          VB_JSON="$(curl -fsSL https://api.modrinth.com/v2/version/HDbyDR7L)"
+          VB_URL="$(printf '%s' "$VB_JSON" | jq -r '.files[] | select(.primary == true) | .url' | head -n 1)"
+          test -n "$VV_URL"
+          test -n "$VB_URL"
+          curl -fL "$VV_URL" -o phaselab-runtime/plugins/ViaVersion.jar
+          curl -fL "$VB_URL" -o phaselab-runtime/plugins/ViaBackwards.jar
           sha256sum phaselab-runtime/plugins/ViaVersion.jar | tee phaselab-runtime/viaversion.sha256
+          sha256sum phaselab-runtime/plugins/ViaBackwards.jar | tee phaselab-runtime/viabackwards.sha256
 
       - name: Run exact Sakura movement matrix
         id: matrix
@@ -172,4 +177,5 @@ jobs:
             phaselab-runtime/sakura-build.log
             phaselab-runtime/sakura-server.sha256
             phaselab-runtime/viaversion.sha256
+            phaselab-runtime/viabackwards.sha256
           if-no-files-found: warn
