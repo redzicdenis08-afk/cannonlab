@@ -1,0 +1,9 @@
+mode: OBSERVE
+claim-zone:
+  minimum-x: 0.0
+  maximum-x: 15.999
+rollback:
+  repetitions: 3
+  spacing-ticks: 1
+telemetry:
+  enabled: true
