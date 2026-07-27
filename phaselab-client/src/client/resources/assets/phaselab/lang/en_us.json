@@ -1,0 +1,9 @@
+{
+  "key.categories.phaselab.main": "PhaseLab",
+  "key.phaselab.status": "Show PhaseLab status",
+  "key.phaselab.witness": "Set or clear witness block",
+  "key.phaselab.direction": "Cycle probe direction",
+  "key.phaselab.scan": "Scan collision layer",
+  "key.phaselab.apply": "Apply best candidate with witness proof",
+  "key.phaselab.abort": "Abort and restore"
+}
