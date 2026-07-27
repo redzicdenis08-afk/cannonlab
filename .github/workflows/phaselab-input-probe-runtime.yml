@@ -6,12 +6,12 @@ on:
       - research/phaselab-mixed-course
     paths:
       - 'phaselab-input-probe/**'
-      - 'phaselab-harness/input-dismount-probe.js'
+      - 'phaselab-harness/input-dismount-probe-v2.js'
       - '.github/workflows/phaselab-input-probe-runtime.yml'
   pull_request:
     paths:
       - 'phaselab-input-probe/**'
-      - 'phaselab-harness/input-dismount-probe.js'
+      - 'phaselab-harness/input-dismount-probe-v2.js'
       - '.github/workflows/phaselab-input-probe-runtime.yml'
   workflow_dispatch:
 
@@ -89,7 +89,7 @@ jobs:
           VB_URL="$(printf '%s' "$VB_JSON" | jq -r '.files[] | select(.primary == true) | .url' | head -n 1)"
           curl -fL "$VV_URL" -o phaselab-runtime/plugins/ViaVersion.jar
           curl -fL "$VB_URL" -o phaselab-runtime/plugins/ViaBackwards.jar
-      - name: Run input probe
+      - name: Run input probe v2
         shell: bash
         run: |
           set -o pipefail
@@ -112,7 +112,7 @@ jobs:
           view-distance=5
           simulation-distance=5
           max-players=4
-          motd=PhaseLab mounted input probe
+          motd=PhaseLab mounted input probe v2
           EOF
           cat > "$RUNTIME/ops.json" <<'EOF'
           [{"uuid":"0c88e2e5-4a6f-3398-adba-5d004a77e35d","name":"PhaseBot","level":4,"bypassesPlayerLimit":true}]
@@ -141,12 +141,12 @@ jobs:
           PHASELAB_PORT=25565 \
           PHASELAB_USERNAME=PhaseBot \
           PHASELAB_OUTPUT="$RUNTIME/output" \
-          PHASELAB_RUNNER=input-dismount-probe.js \
-          PHASELAB_HARD_TIMEOUT_MS=600000 \
-          npm test 2>&1 | tee "$RUNTIME/input-probe-harness.log"
+          PHASELAB_RUNNER=input-dismount-probe-v2.js \
+          PHASELAB_HARD_TIMEOUT_MS=720000 \
+          npm test 2>&1 | tee "$RUNTIME/input-probe-v2-harness.log"
           STATUS=${PIPESTATUS[0]}
-          echo '--- input-dismount-report.csv ---'
-          cat "$RUNTIME/output/input-dismount-report.csv" || true
+          echo '--- input-dismount-v2-report.csv ---'
+          cat "$RUNTIME/output/input-dismount-v2-report.csv" || true
           echo '--- server input telemetry ---'
           find "$RUNTIME/plugins/PhaseLabInputProbe" -name '*.csv' -type f -print -exec cat {} \; || true
           exit "$STATUS"
@@ -154,11 +154,11 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-input-probe-runtime
+          name: phaselab-input-probe-v2-runtime
           path: |
-            phaselab-runtime/output/input-dismount-report.json
-            phaselab-runtime/output/input-dismount-report.csv
-            phaselab-runtime/input-probe-harness.log
+            phaselab-runtime/output/input-dismount-v2-report.json
+            phaselab-runtime/output/input-dismount-v2-report.csv
+            phaselab-runtime/input-probe-v2-harness.log
             phaselab-runtime/server.log
             phaselab-runtime/plugins/PhaseLabInputProbe/*.csv
             phaselab-runtime/input-probe.sha256
