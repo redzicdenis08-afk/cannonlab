@@ -47,6 +47,8 @@ jobs:
         run: |
           set -euxo pipefail
           mkdir -p phaselab-runtime
+          git config --global user.name 'PhaseLab CI'
+          git config --global user.email 'phaselab-ci@users.noreply.github.com'
           git clone --filter=blob:none https://github.com/Samsuik/Sakura.git sakura-source
           cd sakura-source
           git checkout 63f35d74e0fbe6bcd76c58494c01c1632c83010d
