@@ -3,12 +3,7 @@ name: PhaseLab Mixed 15-Chunk Claim Course
 on:
   push:
     branches:
-      - feature/phaselab-client
-    paths:
-      - 'phaselab-defense-course/**'
-      - 'phaselab-harness/mixed-claim-course.js'
-      - '.github/workflows/phaselab-mixed-claim-course-runtime.yml'
-  pull_request:
+      - research/phaselab-mixed-course
     paths:
       - 'phaselab-defense-course/**'
       - 'phaselab-harness/mixed-claim-course.js'
