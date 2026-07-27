@@ -101,7 +101,7 @@ jobs:
           sha256sum phaselab-runtime/plugins/ViaVersion.jar | tee phaselab-runtime/viaversion.sha256
           sha256sum phaselab-runtime/plugins/ViaBackwards.jar | tee phaselab-runtime/viabackwards.sha256
 
-      - name: Run exact Sakura movement matrix
+      - name: Run exact Sakura pearl matrix
         id: matrix
         shell: bash
         run: |
@@ -182,12 +182,13 @@ jobs:
           PHASELAB_PORT=25565 \
           PHASELAB_USERNAME=PhaseBot \
           PHASELAB_OUTPUT="$RUNTIME/output" \
-          PHASELAB_HARD_TIMEOUT_MS=180000 \
-          npm test 2>&1 | tee "$RUNTIME/harness.log"
+          PHASELAB_RUNNER=pearl-matrix.js \
+          PHASELAB_HARD_TIMEOUT_MS=420000 \
+          npm test 2>&1 | tee "$RUNTIME/pearl-harness.log"
           HARNESS_STATUS=${PIPESTATUS[0]}
 
-          echo '--- report.csv ---'
-          cat "$RUNTIME/output/report.csv" || true
+          echo '--- pearl-report.csv ---'
+          cat "$RUNTIME/output/pearl-report.csv" || true
           exit "$HARNESS_STATUS"
 
       - name: Upload exact-runtime evidence
@@ -196,9 +197,9 @@ jobs:
         with:
           name: phaselab-headless-exact-sakura
           path: |
-            phaselab-runtime/output/report.json
-            phaselab-runtime/output/report.csv
-            phaselab-runtime/harness.log
+            phaselab-runtime/output/pearl-report.json
+            phaselab-runtime/output/pearl-report.csv
+            phaselab-runtime/pearl-harness.log
             phaselab-runtime/server.log
             phaselab-runtime/ops.json
             phaselab-runtime/sakura-apply-patches.log
