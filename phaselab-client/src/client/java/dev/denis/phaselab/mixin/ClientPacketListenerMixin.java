@@ -1,8 +1,10 @@
 package dev.denis.phaselab.mixin;
 
+import dev.denis.phaselab.BoatPhaseClient;
 import dev.denis.phaselab.PhaseLabClient;
 import dev.denis.phaselab.PhaseTelemetryClient;
 import net.minecraft.client.multiplayer.ClientPacketListener;
+import net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket;
 import net.minecraft.network.protocol.game.ClientboundOpenScreenPacket;
 import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import org.spongepowered.asm.mixin.Mixin;
@@ -21,6 +23,11 @@ public abstract class ClientPacketListenerMixin {
     @Inject(method = "handleMovePlayer", at = @At("TAIL"))
     private void phaselab$recordServerCorrectionTail(ClientboundPlayerPositionPacket packet, CallbackInfo ci) {
         PhaseTelemetryClient.onCorrectionTail();
+    }
+
+    @Inject(method = "handleMoveVehicle", at = @At("HEAD"))
+    private void phaselab$recordServerVehicleCorrection(ClientboundMoveVehiclePacket packet, CallbackInfo ci) {
+        BoatPhaseClient.onServerVehicleCorrection();
     }
 
     @Inject(method = "handleOpenScreen", at = @At("HEAD"))
