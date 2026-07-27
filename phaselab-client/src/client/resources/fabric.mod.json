@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "phaselab",
-  "version": "2.1.1",
+  "version": "3.0.0",
   "name": "PhaseLab Client",
-  "description": "Client-only wall-aware movement acceptance probe for an authorized Sakura test server.",
+  "description": "Client-only witness-verified position laboratory for authorized server testing.",
   "authors": ["Denis + OpenAI"],
   "license": "MIT",
   "environment": "client",
@@ -16,7 +16,7 @@
     "phaselab.client.mixins.json"
   ],
   "depends": {
-    "fabricloader": ">=0.19.3",
+    "fabricloader": ">=0.19.2",
     "minecraft": "~1.21.11",
     "java": ">=21",
     "fabric-api": "*"
