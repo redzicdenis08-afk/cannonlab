@@ -1,0 +1,17 @@
+{
+  "name": "phaselab-headless-harness",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Headless 1.21.11 client acceptance matrix for an authorized exact Sakura clone.",
+  "main": "runner.js",
+  "scripts": {
+    "test": "node runner.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "mineflayer": "4.37.1",
+    "vec3": "0.1.7"
+  }
+}
