@@ -133,6 +133,17 @@ jobs:
           motd=PhaseLab exact Sakura
           EOF
 
+          cat > "$RUNTIME/ops.json" <<'EOF'
+          [
+            {
+              "uuid": "0c88e2e5-4a6f-3398-adba-5d004a77e35d",
+              "name": "PhaseBot",
+              "level": 4,
+              "bypassesPlayerLimit": true
+            }
+          ]
+          EOF
+
           cd "$RUNTIME"
           rm -f server.in
           mkfifo server.in
@@ -166,17 +177,6 @@ jobs:
             exit 1
           fi
 
-          printf 'gamerule spawnRadius 0\n' >&3
-          printf 'gamerule doDaylightCycle false\n' >&3
-          printf 'time set day\n' >&3
-          printf 'setworldspawn 0 65 0\n' >&3
-          printf 'fill -2 64 -2 10 64 2 minecraft:stone\n' >&3
-          printf 'fill 1 65 -1 1 67 1 minecraft:obsidian\n' >&3
-          printf 'fill 2 65 -1 7 67 1 minecraft:air\n' >&3
-          printf 'setblock 8 65 0 minecraft:barrel[facing=west]\n' >&3
-          printf 'op PhaseBot\n' >&3
-          sleep 4
-
           cd "$HARNESS"
           PHASELAB_HOST=127.0.0.1 \
           PHASELAB_PORT=25565 \
@@ -200,6 +200,7 @@ jobs:
             phaselab-runtime/output/report.csv
             phaselab-runtime/harness.log
             phaselab-runtime/server.log
+            phaselab-runtime/ops.json
             phaselab-runtime/sakura-apply-patches.log
             phaselab-runtime/sakura-build.log
             phaselab-runtime/sakura-server.sha256
