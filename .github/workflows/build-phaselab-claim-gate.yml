@@ -1,0 +1,68 @@
+name: Build PhaseLab Claim Gate
+
+on:
+  push:
+    branches:
+      - feature/phaselab-client
+    paths:
+      - 'phaselab-claim-gate/**'
+      - '.github/workflows/build-phaselab-claim-gate.yml'
+  pull_request:
+    paths:
+      - 'phaselab-claim-gate/**'
+      - '.github/workflows/build-phaselab-claim-gate.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: phaselab-claim-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.1'
+
+      - name: Compile gate plugin
+        working-directory: phaselab-claim-gate
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle clean build --stacktrace --console=plain 2>&1 | tee build.log
+
+      - name: Verify plugin JAR
+        working-directory: phaselab-claim-gate
+        shell: bash
+        run: |
+          JAR='build/libs/PhaseLab-ClaimGate-1.0.0.jar'
+          test -f "$JAR"
+          jar tf "$JAR" | tee jar-contents.txt
+          jar tf "$JAR" | grep -F 'dev/denis/phaselab/claimgate/ClaimGatePlugin.class'
+          unzip -p "$JAR" plugin.yml | tee built-plugin.yml
+          grep -F 'name: PhaseLabClaimGate' built-plugin.yml
+          grep -F 'version: 1.0.0' built-plugin.yml
+          grep -F 'main: dev.denis.phaselab.claimgate.ClaimGatePlugin' built-plugin.yml
+
+      - name: Upload build evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phaselab-claim-gate-build
+          path: |
+            phaselab-claim-gate/build.log
+            phaselab-claim-gate/jar-contents.txt
+            phaselab-claim-gate/built-plugin.yml
+            phaselab-claim-gate/build/libs/PhaseLab-ClaimGate-1.0.0.jar
+          if-no-files-found: warn

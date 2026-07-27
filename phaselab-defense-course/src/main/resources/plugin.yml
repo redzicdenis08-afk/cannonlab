@@ -1,0 +1,14 @@
+name: PhaseLabDefenseCourse
+version: ${version}
+main: dev.denis.phaselab.course.DefenseCoursePlugin
+api-version: '1.21'
+authors: [Denis]
+description: Server-side mixed defense course and regeneration telemetry for authorized Sakura testing.
+commands:
+  courselab:
+    description: Build and control the PhaseLab mixed defense course.
+    usage: /courselab <status|build|start|stop|reset>
+    permission: phaselab.course.admin
+permissions:
+  phaselab.course.admin:
+    default: op

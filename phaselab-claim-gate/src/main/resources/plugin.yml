@@ -1,0 +1,14 @@
+name: PhaseLabClaimGate
+version: ${version}
+main: dev.denis.phaselab.claimgate.ClaimGatePlugin
+api-version: '1.21'
+authors: [Denis]
+description: Defensive hostile-claim vehicle gate laboratory for authorized Sakura testing.
+commands:
+  claimlab:
+    description: Configure the PhaseLab hostile claim gate.
+    usage: /claimlab <status|mode|relation|zone|reset>
+    permission: phaselab.claimlab.admin
+permissions:
+  phaselab.claimlab.admin:
+    default: op

@@ -1,0 +1,59 @@
+name: Build PhaseLab Dismount Lab
+
+on:
+  push:
+    branches:
+      - feature/phaselab-client
+    paths:
+      - 'phaselab-dismount-lab/**'
+      - '.github/workflows/build-phaselab-dismount-lab.yml'
+  pull_request:
+    paths:
+      - 'phaselab-dismount-lab/**'
+      - '.github/workflows/build-phaselab-dismount-lab.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: phaselab-dismount-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.1'
+      - name: Build
+        working-directory: phaselab-dismount-lab
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle clean build --stacktrace --console=plain 2>&1 | tee build.log
+      - name: Verify
+        working-directory: phaselab-dismount-lab
+        shell: bash
+        run: |
+          JAR='build/libs/PhaseLab-DismountLab-1.0.0.jar'
+          test -f "$JAR"
+          jar tf "$JAR" | tee jar-contents.txt
+          jar tf "$JAR" | grep -F 'dev/denis/phaselab/dismount/DismountLabPlugin.class'
+          unzip -p "$JAR" plugin.yml | tee built-plugin.yml
+          grep -F 'name: PhaseLabDismountLab' built-plugin.yml
+          grep -F 'version: 1.0.0' built-plugin.yml
+      - name: Upload
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phaselab-dismount-build
+          path: |
+            phaselab-dismount-lab/build.log
+            phaselab-dismount-lab/jar-contents.txt
+            phaselab-dismount-lab/built-plugin.yml
+            phaselab-dismount-lab/build/libs/PhaseLab-DismountLab-1.0.0.jar
+          if-no-files-found: warn

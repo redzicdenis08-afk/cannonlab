@@ -1,0 +1,10 @@
+mode: STRICT
+claim-zone:
+  minimum-x: 0.0
+  maximum-x: 255.999
+movement:
+  max-mounted-events-per-tick: 20
+  rollback-repetitions: 3
+  rollback-spacing-ticks: 1
+telemetry:
+  enabled: true

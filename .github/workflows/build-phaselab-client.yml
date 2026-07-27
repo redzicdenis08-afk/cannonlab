@@ -1,0 +1,88 @@
+name: Build PhaseLab Client
+
+on:
+  push:
+    branches:
+      - feature/phaselab-client
+    paths:
+      - 'phaselab-client/**'
+      - '.github/workflows/build-phaselab-client.yml'
+  pull_request:
+    paths:
+      - 'phaselab-client/**'
+      - '.github/workflows/build-phaselab-client.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: phaselab-client-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.1'
+
+      - name: Build client mod
+        id: build
+        working-directory: phaselab-client
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle clean build --stacktrace --console=plain 2>&1 | tee build.log
+
+      - name: Verify built JAR contents
+        if: success()
+        working-directory: phaselab-client
+        shell: bash
+        run: |
+          JAR='build/libs/phaselab-client-4.0.0.jar'
+          test -f "$JAR"
+          jar tf "$JAR" | tee jar-contents.txt
+          jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseLabClient.class'
+          jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseTelemetryClient.class'
+          jar tf "$JAR" | grep -F 'dev/denis/phaselab/BoatPhaseClient.class'
+          jar tf "$JAR" | grep -F 'dev/denis/phaselab/mixin/ClientPacketListenerMixin.class'
+          jar tf "$JAR" | grep -F 'phaselab.client.mixins.json'
+          jar tf "$JAR" | grep -F 'assets/phaselab/lang/en_us.json'
+          unzip -p "$JAR" fabric.mod.json | tee built-fabric.mod.json
+          grep -F '"version": "4.0.0"' built-fabric.mod.json
+          grep -F '"fabricloader": ">=0.19.2"' built-fabric.mod.json
+          grep -F 'dev.denis.phaselab.BoatPhaseClient' built-fabric.mod.json
+          javap -classpath "$JAR" -p -v dev.denis.phaselab.mixin.ClientPacketListenerMixin > mixin-javap.txt
+          grep -F 'onCorrectionHead' mixin-javap.txt
+          grep -F 'onCorrectionTail' mixin-javap.txt
+          grep -F 'onServerVehicleCorrection' mixin-javap.txt
+          grep -F 'onServerOpenScreen' mixin-javap.txt
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phaselab-build-log-v4.0
+          path: |
+            phaselab-client/build.log
+            phaselab-client/jar-contents.txt
+            phaselab-client/built-fabric.mod.json
+            phaselab-client/mixin-javap.txt
+          if-no-files-found: warn
+
+      - name: Upload JAR
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phaselab-client-4.0.0-mc1.21.11
+          path: phaselab-client/build/libs/phaselab-client-4.0.0.jar
+          if-no-files-found: error
