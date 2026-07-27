@@ -8,6 +8,11 @@ on:
       - 'phaselab-ratchet-guard/**'
       - 'phaselab-harness/ratchet-burst-v2.js'
       - '.github/workflows/phaselab-ratchet-guard-regression.yml'
+  pull_request:
+    paths:
+      - 'phaselab-ratchet-guard/**'
+      - 'phaselab-harness/ratchet-burst-v2.js'
+      - '.github/workflows/phaselab-ratchet-guard-regression.yml'
   workflow_dispatch:
 
 concurrency:
