@@ -1,0 +1,14 @@
+name: PhaseLabDismountLab
+version: ${version}
+main: dev.denis.phaselab.dismount.DismountLabPlugin
+api-version: '1.21'
+authors: [Denis]
+description: Defensive dismount-placement laboratory for authorized Sakura testing.
+commands:
+  dismountlab:
+    description: Configure the dismount laboratory.
+    usage: /dismountlab <status|mode|zone|reset>
+    permission: phaselab.dismount.admin
+permissions:
+  phaselab.dismount.admin:
+    default: op
