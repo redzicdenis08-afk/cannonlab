@@ -3,7 +3,8 @@
 const { spawn } = require('child_process')
 
 const TIMEOUT_MS = Number(process.env.PHASELAB_HARD_TIMEOUT_MS || 180000)
-const child = spawn(process.execPath, ['runner.js'], {
+const RUNNER = process.env.PHASELAB_RUNNER || 'runner.js'
+const child = spawn(process.execPath, [RUNNER], {
   cwd: __dirname,
   env: process.env,
   stdio: 'inherit'
@@ -19,7 +20,7 @@ function finish (code) {
 }
 
 const timer = setTimeout(() => {
-  console.error(`[PhaseLab supervisor] hard timeout after ${TIMEOUT_MS} ms; terminating bot process`)
+  console.error(`[PhaseLab supervisor] ${RUNNER} hard timeout after ${TIMEOUT_MS} ms; terminating bot process`)
   child.kill('SIGTERM')
   setTimeout(() => child.kill('SIGKILL'), 1500).unref()
   setTimeout(() => finish(124), 2500).unref()
@@ -27,7 +28,7 @@ const timer = setTimeout(() => {
 
 child.on('exit', (code, signal) => {
   if (signal) {
-    console.error(`[PhaseLab supervisor] child exited from signal ${signal}`)
+    console.error(`[PhaseLab supervisor] ${RUNNER} exited from signal ${signal}`)
     finish(code || 1)
     return
   }
@@ -35,7 +36,7 @@ child.on('exit', (code, signal) => {
 })
 
 child.on('error', error => {
-  console.error('[PhaseLab supervisor] failed to start runner:', error)
+  console.error(`[PhaseLab supervisor] failed to start ${RUNNER}:`, error)
   finish(1)
 })
 
