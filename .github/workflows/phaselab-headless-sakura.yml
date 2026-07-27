@@ -97,7 +97,7 @@ jobs:
           sha256sum phaselab-runtime/plugins/ViaVersion.jar | tee phaselab-runtime/viaversion.sha256
           sha256sum phaselab-runtime/plugins/ViaBackwards.jar | tee phaselab-runtime/viabackwards.sha256
 
-      - name: Run exact Sakura boat endurance matrix
+      - name: Run exact Sakura boat burst matrix
         id: matrix
         shell: bash
         run: |
@@ -178,13 +178,13 @@ jobs:
           PHASELAB_PORT=25565 \
           PHASELAB_USERNAME=PhaseBot \
           PHASELAB_OUTPUT="$RUNTIME/output" \
-          PHASELAB_RUNNER=vehicle-endurance-matrix.js \
+          PHASELAB_RUNNER=vehicle-burst-matrix.js \
           PHASELAB_HARD_TIMEOUT_MS=1800000 \
-          npm test 2>&1 | tee "$RUNTIME/vehicle-endurance-harness.log"
+          npm test 2>&1 | tee "$RUNTIME/vehicle-burst-harness.log"
           HARNESS_STATUS=${PIPESTATUS[0]}
 
-          echo '--- vehicle-endurance-report.csv ---'
-          cat "$RUNTIME/output/vehicle-endurance-report.csv" || true
+          echo '--- vehicle-burst-report.csv ---'
+          cat "$RUNTIME/output/vehicle-burst-report.csv" || true
           exit "$HARNESS_STATUS"
 
       - name: Upload exact-runtime evidence
@@ -193,9 +193,9 @@ jobs:
         with:
           name: phaselab-headless-exact-sakura
           path: |
-            phaselab-runtime/output/vehicle-endurance-report.json
-            phaselab-runtime/output/vehicle-endurance-report.csv
-            phaselab-runtime/vehicle-endurance-harness.log
+            phaselab-runtime/output/vehicle-burst-report.json
+            phaselab-runtime/output/vehicle-burst-report.csv
+            phaselab-runtime/vehicle-burst-harness.log
             phaselab-runtime/server.log
             phaselab-runtime/ops.json
             phaselab-runtime/sakura-apply-patches.log
