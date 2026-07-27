@@ -13,6 +13,10 @@ on:
       - '.github/workflows/phaselab-headless-sakura.yml'
   workflow_dispatch:
 
+concurrency:
+  group: phaselab-headless-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   exact-sakura-matrix:
     runs-on: ubuntu-latest
@@ -42,11 +46,19 @@ jobs:
         working-directory: phaselab-harness
         run: npm install --no-audit --no-fund
 
+      - name: Restore pinned Sakura paperclip
+        id: sakura-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: phaselab-cache/server.jar
+          key: sakura-paperclip-63f35d74e0fbe6bcd76c58494c01c1632c83010d-java25-v1
+
       - name: Build pinned Sakura 26.1.2
+        if: steps.sakura-cache.outputs.cache-hit != 'true'
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p phaselab-runtime
+          mkdir -p phaselab-runtime phaselab-cache
           git config --global user.name 'PhaseLab CI'
           git config --global user.email 'phaselab-ci@users.noreply.github.com'
           git clone --filter=blob:none https://github.com/Samsuik/Sakura.git sakura-source
@@ -54,11 +66,25 @@ jobs:
           git checkout 63f35d74e0fbe6bcd76c58494c01c1632c83010d
           ./gradlew applyAllPatches --no-daemon --stacktrace 2>&1 | tee ../phaselab-runtime/sakura-apply-patches.log
           ./gradlew createPaperclipJar --no-daemon --stacktrace 2>&1 | tee ../phaselab-runtime/sakura-build.log
-          mkdir -p ../phaselab-runtime/plugins
           SERVER_JAR="$(find . -path '*/build/libs/*paperclip*.jar' -type f | sort | tail -n 1)"
           test -n "$SERVER_JAR"
-          cp "$SERVER_JAR" ../phaselab-runtime/server.jar
-          sha256sum ../phaselab-runtime/server.jar | tee ../phaselab-runtime/sakura-server.sha256
+          cp "$SERVER_JAR" ../phaselab-cache/server.jar
+
+      - name: Save pinned Sakura paperclip
+        if: steps.sakura-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: phaselab-cache/server.jar
+          key: sakura-paperclip-63f35d74e0fbe6bcd76c58494c01c1632c83010d-java25-v1
+
+      - name: Prepare exact Sakura runtime
+        shell: bash
+        run: |
+          set -euxo pipefail
+          test -f phaselab-cache/server.jar
+          mkdir -p phaselab-runtime/plugins
+          cp phaselab-cache/server.jar phaselab-runtime/server.jar
+          sha256sum phaselab-runtime/server.jar | tee phaselab-runtime/sakura-server.sha256
 
       - name: Install ViaVersion and ViaBackwards 5.9.0
         shell: bash
@@ -156,6 +182,7 @@ jobs:
           PHASELAB_PORT=25565 \
           PHASELAB_USERNAME=PhaseBot \
           PHASELAB_OUTPUT="$RUNTIME/output" \
+          PHASELAB_HARD_TIMEOUT_MS=180000 \
           npm test 2>&1 | tee "$RUNTIME/harness.log"
           HARNESS_STATUS=${PIPESTATUS[0]}
 
