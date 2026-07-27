@@ -22,11 +22,11 @@ jobs:
       - name: Checkout CannonLab
         uses: actions/checkout@v4
 
-      - name: Set up Java 21
+      - name: Set up Java 25
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '25'
 
       - name: Set up Node 24
         uses: actions/setup-node@v4
@@ -46,11 +46,12 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
+          mkdir -p phaselab-runtime
           git clone --filter=blob:none https://github.com/Samsuik/Sakura.git sakura-source
           cd sakura-source
           git checkout 63f35d74e0fbe6bcd76c58494c01c1632c83010d
-          ./gradlew applyAllPatches --no-daemon --stacktrace
-          ./gradlew createMojmapPaperclipJar --no-daemon --stacktrace
+          ./gradlew applyAllPatches --no-daemon --stacktrace 2>&1 | tee ../phaselab-runtime/sakura-apply-patches.log
+          ./gradlew createMojmapPaperclipJar --no-daemon --stacktrace 2>&1 | tee ../phaselab-runtime/sakura-build.log
           mkdir -p ../phaselab-runtime/plugins
           SERVER_JAR="$(find . -path '*/build/libs/*.jar' -type f ! -name '*sources*' ! -name '*javadoc*' | sort | tail -n 1)"
           test -n "$SERVER_JAR"
@@ -165,6 +166,8 @@ jobs:
             phaselab-runtime/output/report.csv
             phaselab-runtime/harness.log
             phaselab-runtime/server.log
+            phaselab-runtime/sakura-apply-patches.log
+            phaselab-runtime/sakura-build.log
             phaselab-runtime/sakura-server.sha256
             phaselab-runtime/viaversion.sha256
           if-no-files-found: warn
