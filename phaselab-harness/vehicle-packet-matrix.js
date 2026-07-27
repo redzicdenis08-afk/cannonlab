@@ -74,9 +74,9 @@ async function setupArena (bot) {
 
 async function reset (bot, z) {
   if (bot.vehicle) {
-    bot._client.write('player_input', { inputs: { shift: true } })
-    await onceWithTimeout(bot, 'dismount', 1200)
-    bot._client.write('player_input', { inputs: { shift: false } })
+    const dismounted = onceWithTimeout(bot, 'dismount', 1800)
+    bot.chat('/ride @s dismount')
+    await dismounted
   }
   await command(bot, '/kill @e[type=minecraft:oak_boat]')
   const packetPromise = onceWithTimeout(bot._client, 'position', 2500)
@@ -93,15 +93,15 @@ async function summonAndMount (bot, z) {
   if (!boat) boat = bot.nearestEntity(match)
   if (!boat) throw new Error('Boat did not spawn')
 
-  const mounted = onceWithTimeout(bot, 'mount', 2500)
-  bot.mount(boat)
+  let mounted = onceWithTimeout(bot, 'mount', 2500)
+  bot.chat('/ride @s mount @e[type=minecraft:oak_boat,limit=1,sort=nearest]')
   await mounted
   if (!bot.vehicle) {
-    const retry = onceWithTimeout(bot, 'mount', 2500)
-    bot.mount(boat)
-    await retry
+    mounted = onceWithTimeout(bot, 'mount', 2500)
+    bot.chat('/ride @s mount @e[type=minecraft:oak_boat,limit=1,sort=nearest]')
+    await mounted
   }
-  if (!bot.vehicle) throw new Error('Boat mount failed')
+  if (!bot.vehicle) throw new Error('Boat ride fixture failed')
   await sleep(180)
   return boat
 }
