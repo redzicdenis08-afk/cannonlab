@@ -1,15 +1,16 @@
 {
   "schemaVersion": 1,
   "id": "phaselab",
-  "version": "3.0.0",
+  "version": "3.1.0",
   "name": "PhaseLab Client",
-  "description": "Client-only witness-verified position laboratory for authorized server testing.",
+  "description": "Client-only witness-verified position laboratory with correction-latency telemetry for authorized server testing.",
   "authors": ["Denis + OpenAI"],
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
     "client": [
-      "dev.denis.phaselab.PhaseLabClient"
+      "dev.denis.phaselab.PhaseLabClient",
+      "dev.denis.phaselab.PhaseTelemetryClient"
     ]
   },
   "mixins": [
