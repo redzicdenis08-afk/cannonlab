@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "phaselab",
-  "version": "${version}",
+  "version": "4.0.0",
   "name": "PhaseLab Client",
   "description": "Client-only exact-Sakura movement laboratory with witness telemetry and a verified 0.25-step BoatPhase mode for authorized testing.",
   "authors": ["Denis + OpenAI"],
