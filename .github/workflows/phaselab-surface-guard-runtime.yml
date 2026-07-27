@@ -1,0 +1,182 @@
+name: PhaseLab SurfaceGuard Exact Runtime
+
+on:
+  push:
+    branches:
+      - research/phaselab-mixed-course
+    paths:
+      - 'phaselab-surface-guard/**'
+      - 'phaselab-harness/surface-guard-regression.js'
+      - '.github/workflows/phaselab-surface-guard-runtime.yml'
+  pull_request:
+    paths:
+      - 'phaselab-surface-guard/**'
+      - 'phaselab-harness/surface-guard-regression.js'
+      - '.github/workflows/phaselab-surface-guard-runtime.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: phaselab-surface-guard-runtime-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-sakura-surface-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: phaselab-harness/package.json
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.1'
+
+      - name: Install headless client
+        working-directory: phaselab-harness
+        run: npm install --no-audit --no-fund
+
+      - name: Build SurfaceGuard
+        working-directory: phaselab-surface-guard
+        run: gradle clean build --stacktrace --console=plain
+
+      - name: Restore pinned Sakura paperclip
+        id: sakura-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: phaselab-cache/server.jar
+          key: sakura-paperclip-63f35d74e0fbe6bcd76c58494c01c1632c83010d-java25-v1
+
+      - name: Build pinned Sakura 26.1.2
+        if: steps.sakura-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p phaselab-cache
+          git config --global user.name 'PhaseLab CI'
+          git config --global user.email 'phaselab-ci@users.noreply.github.com'
+          git clone --filter=blob:none https://github.com/Samsuik/Sakura.git sakura-source
+          cd sakura-source
+          git checkout 63f35d74e0fbe6bcd76c58494c01c1632c83010d
+          ./gradlew applyAllPatches --no-daemon --stacktrace
+          ./gradlew createPaperclipJar --no-daemon --stacktrace
+          SERVER_JAR="$(find . -path '*/build/libs/*paperclip*.jar' -type f | sort | tail -n 1)"
+          test -n "$SERVER_JAR"
+          cp "$SERVER_JAR" ../phaselab-cache/server.jar
+
+      - name: Save pinned Sakura paperclip
+        if: steps.sakura-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: phaselab-cache/server.jar
+          key: sakura-paperclip-63f35d74e0fbe6bcd76c58494c01c1632c83010d-java25-v1
+
+      - name: Prepare exact runtime
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p phaselab-runtime/plugins phaselab-runtime/output
+          cp phaselab-cache/server.jar phaselab-runtime/server.jar
+          cp phaselab-surface-guard/build/libs/PhaseLab-SurfaceGuard-1.0.0.jar phaselab-runtime/plugins/
+          sha256sum phaselab-runtime/server.jar > phaselab-runtime/sakura-server.sha256
+          sha256sum phaselab-runtime/plugins/PhaseLab-SurfaceGuard-1.0.0.jar > phaselab-runtime/surface-guard.sha256
+
+      - name: Install ViaVersion and ViaBackwards 5.9.0
+        shell: bash
+        run: |
+          set -euxo pipefail
+          VV_JSON="$(curl -fsSL https://api.modrinth.com/v2/version/I0mCQX6z)"
+          VV_URL="$(printf '%s' "$VV_JSON" | jq -r '.files[] | select(.primary == true) | .url' | head -n 1)"
+          VB_JSON="$(curl -fsSL https://api.modrinth.com/v2/version/HDbyDR7L)"
+          VB_URL="$(printf '%s' "$VB_JSON" | jq -r '.files[] | select(.primary == true) | .url' | head -n 1)"
+          curl -fL "$VV_URL" -o phaselab-runtime/plugins/ViaVersion.jar
+          curl -fL "$VB_URL" -o phaselab-runtime/plugins/ViaBackwards.jar
+
+      - name: Run SurfaceGuard matrix
+        shell: bash
+        run: |
+          set -o pipefail
+          RUNTIME="$GITHUB_WORKSPACE/phaselab-runtime"
+          HARNESS="$GITHUB_WORKSPACE/phaselab-harness"
+
+          cat > "$RUNTIME/eula.txt" <<'EOF'
+          eula=true
+          EOF
+          cat > "$RUNTIME/server.properties" <<'EOF'
+          online-mode=false
+          enforce-secure-profile=false
+          server-port=25565
+          server-ip=127.0.0.1
+          gamemode=survival
+          difficulty=peaceful
+          spawn-protection=0
+          level-name=phaselab
+          level-type=minecraft:flat
+          generate-structures=false
+          view-distance=5
+          simulation-distance=5
+          max-players=4
+          allow-flight=false
+          motd=PhaseLab SurfaceGuard exact runtime
+          EOF
+          cat > "$RUNTIME/ops.json" <<'EOF'
+          [{"uuid":"0c88e2e5-4a6f-3398-adba-5d004a77e35d","name":"PhaseBot","level":4,"bypassesPlayerLimit":true}]
+          EOF
+
+          cd "$RUNTIME"
+          mkfifo server.in
+          tail -f server.in | java -Xms1G -Xmx4G -jar server.jar nogui > server.log 2>&1 &
+          SERVER_PIPE_PID=$!
+          exec 3>server.in
+          cleanup() {
+            printf 'stop\n' >&3 2>/dev/null || true
+            sleep 5
+            kill "$SERVER_PIPE_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          READY=0
+          for _ in $(seq 1 300); do
+            if grep -q 'Done (' server.log; then READY=1; break; fi
+            if ! kill -0 "$SERVER_PIPE_PID" 2>/dev/null; then cat server.log; exit 1; fi
+            sleep 2
+          done
+          test "$READY" -eq 1
+          grep -F 'PhaseLab SurfaceGuard enabled' server.log
+
+          cd "$HARNESS"
+          PHASELAB_HOST=127.0.0.1 \
+          PHASELAB_PORT=25565 \
+          PHASELAB_USERNAME=PhaseBot \
+          PHASELAB_OUTPUT="$RUNTIME/output" \
+          PHASELAB_RUNNER=surface-guard-regression.js \
+          PHASELAB_HARD_TIMEOUT_MS=900000 \
+          npm test 2>&1 | tee "$RUNTIME/surface-guard-harness.log"
+          STATUS=${PIPESTATUS[0]}
+
+          echo '--- SurfaceGuard report ---'
+          cat "$RUNTIME/output/surface-guard-report.csv" || true
+          echo '--- SurfaceGuard telemetry ---'
+          find "$RUNTIME/plugins/PhaseLabSurfaceGuard" -name '*.csv' -type f -print -exec cat {} \; || true
+          exit "$STATUS"
+
+      - name: Upload exact-runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phaselab-surface-guard-exact-runtime
+          path: |
+            phaselab-runtime/output/surface-guard-report.json
+            phaselab-runtime/output/surface-guard-report.csv
+            phaselab-runtime/surface-guard-harness.log
+            phaselab-runtime/server.log
+            phaselab-runtime/plugins/PhaseLabSurfaceGuard/*.csv
+            phaselab-runtime/surface-guard.sha256
+            phaselab-runtime/sakura-server.sha256
+          if-no-files-found: warn
