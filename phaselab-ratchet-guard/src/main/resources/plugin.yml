@@ -1,0 +1,14 @@
+name: PhaseLabRatchetGuard
+version: ${version}
+main: dev.denis.phaselab.guard.RatchetGuardPlugin
+api-version: '1.21'
+authors: [Denis]
+description: Atomic vehicle and rider rollback guard for hostile-claim cancellation-ratchet regression testing.
+commands:
+  ratchetguard:
+    description: Show or reset RatchetGuard state.
+    usage: /ratchetguard <status|reset>
+    permission: phaselab.ratchetguard.admin
+permissions:
+  phaselab.ratchetguard.admin:
+    default: op
