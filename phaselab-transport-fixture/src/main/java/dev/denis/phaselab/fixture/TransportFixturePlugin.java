@@ -5,6 +5,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityType;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -79,6 +80,13 @@ public final class TransportFixturePlugin extends JavaPlugin {
 
         Location spawn = new Location(player.getWorld(), -0.8D, 65.0D, 0.5D, -90.0F, 0.0F);
         Entity root = player.getWorld().spawnEntity(spawn, type);
+        root.setInvulnerable(true);
+        root.setGravity(false);
+        root.setVelocity(org.bukkit.util.Vector.getZero());
+        if (root instanceof LivingEntity living) {
+            living.setAI(false);
+            living.setSilent(true);
+        }
         boolean mounted = root.addPassenger(player);
         sender.sendMessage(String.format(Locale.ROOT,
             "TRANSPORT_FIXTURE type=%s entity=%s mounted=%s root=%.6f,%.6f,%.6f",
