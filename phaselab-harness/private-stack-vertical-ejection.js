@@ -11,7 +11,7 @@ const OUTPUT_DIR = path.resolve(process.env.PHASELAB_OUTPUT || 'output-private-v
 const STEP = 0.25
 const TOP_Y = 128.0
 const TARGET_Y = 59.5
-const PALETTE = ['minecraft:obsidian', 'minecraft:water', 'minecraft:obsidian', 'minecraft:lava']
+const PALETTE = ['minecraft:obsidian', 'minecraft:water']
 
 fs.mkdirSync(OUTPUT_DIR, { recursive: true })
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -548,13 +548,12 @@ async function main () {
   const attackerBot = await connect('AttackerBot')
   const bots = [phaseBot, victimBot, attackerBot]
 
-  report.scope = 'authorized exact private Sakura/Factions vertical ejection chain matrix'
+  report.scope = 'authorized exact private Sakura/Factions no-lava vertical remount chain matrix'
   const trialPlan = [
-    { id: 'boat-player-air-hcoll-fast', vehicle: 'boat', chain: 'player', onGround: false, horizontalCollision: true, packetDelayMs: 0, segmentLength: 4, pauseMs: 100, repeats: 3 },
-    { id: 'boat-player-air-hcoll-50ms', vehicle: 'boat', chain: 'player', onGround: false, horizontalCollision: true, packetDelayMs: 50, segmentLength: 4, pauseMs: 100, repeats: 2 },
-    { id: 'boat-player-ground-hcoll-fast', vehicle: 'boat', chain: 'player', onGround: true, horizontalCollision: true, packetDelayMs: 0, segmentLength: 4, pauseMs: 100, repeats: 2 },
-    { id: 'boat-remount-anchor4', vehicle: 'boat', chain: 'remount', onGround: false, horizontalCollision: true, packetDelayMs: 0, segmentLength: 4, pauseMs: 120, repeats: 2 }
+    { id: 'boat-remount-anchor4-nolava', vehicle: 'boat', chain: 'remount', onGround: false, horizontalCollision: true, packetDelayMs: 0, segmentLength: 4, pauseMs: 120, repeats: 3 },
+    { id: 'boat-player-air-hcoll-fast-nolava', vehicle: 'boat', chain: 'player', onGround: false, horizontalCollision: true, packetDelayMs: 0, segmentLength: 4, pauseMs: 100, repeats: 2 }
   ]
+
   try {
     await command(phaseBot, '/gamerule doDaylightCycle false')
     await command(phaseBot, '/gamerule doFireTick false')

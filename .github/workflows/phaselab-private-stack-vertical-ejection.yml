@@ -11,6 +11,7 @@ on:
       - research/phaselab-op-phase-dupe-v2
       - feat/phaselab-client-4.3-simple
       - feat/phaselab-client-4.5-smart
+      - research/phaselab-vertical-remount-nolava
     paths:
       - 'phaselab-private-stack-fixture/**'
       - 'phaselab-harness/private-stack-matrix.js'
