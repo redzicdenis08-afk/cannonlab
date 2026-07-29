@@ -428,7 +428,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             return true;
         }
         stand.getInventory().clear();
-        stand.getInventory().setItem(0, potion(PotionType.WATER));
+        stand.getInventory().setItem(1, potion(PotionType.WATER));
         writeEvent("alchemy_final_ready", alchemySnapshotMap(world, "final-ready"));
         sender.sendMessage("STACKLAB ALCHEMY FINAL READY");
         return true;
