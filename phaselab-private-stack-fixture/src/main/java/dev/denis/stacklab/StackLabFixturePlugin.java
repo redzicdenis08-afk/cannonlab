@@ -31,7 +31,9 @@ import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.event.vehicle.VehicleEnterEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -88,6 +90,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "give" -> give(sender, args);
                     case "boatuse" -> boatUse(sender, args);
                     case "unloadroute" -> unloadRoute(sender, args);
+                    case "vehiclecheck" -> vehicleCheck(sender, args);
                     case "grindstoneprep" -> grindstonePrep(sender, args);
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
@@ -546,6 +549,40 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return true;
     }
 
+    private boolean vehicleCheck(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab vehiclecheck <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("STACKLAB VEHICLE CHECK player=" + args[1] + " online=false");
+            return true;
+        }
+        var vehicle = player.getVehicle();
+        var nearby = player.getWorld().getEntities().stream()
+            .filter(entity -> entity.getType().name().contains("BOAT"))
+            .filter(entity -> entity.getLocation().distanceSquared(player.getLocation()) <= 100.0)
+            .map(entity -> Map.of(
+                "uuid", entity.getUniqueId().toString(),
+                "type", entity.getType().name(),
+                "x", entity.getLocation().getX(),
+                "y", entity.getLocation().getY(),
+                "z", entity.getLocation().getZ(),
+                "passengers", entity.getPassengers().stream().map(passenger -> passenger.getName()).toList()
+            ))
+            .toList();
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("mounted", vehicle != null);
+        evidence.put("vehicle_type", vehicle == null ? "NONE" : vehicle.getType().name());
+        evidence.put("vehicle_uuid", vehicle == null ? "NONE" : vehicle.getUniqueId().toString());
+        evidence.put("nearby", nearby);
+        writeEvent("server_vehicle_check", evidence);
+        sender.sendMessage("STACKLAB VEHICLE CHECK " + gson.toJson(evidence));
+        return true;
+    }
+
     private boolean grindstonePrep(org.bukkit.command.CommandSender sender, String[] args) {
         if (args.length < 2) {
             sender.sendMessage("Usage: /stacklab grindstoneprep <player>");
@@ -984,6 +1021,31 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             "amount", event.getEntity().getItemStack().getAmount(),
             "cancelled", event.isCancelled(),
             "x", event.getLocation().getX(), "y", event.getLocation().getY(), "z", event.getLocation().getZ()
+        ));
+    }
+
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onPlayerInteractEntityWitness(PlayerInteractEntityEvent event) {
+        if (!event.getRightClicked().getType().name().contains("BOAT")) return;
+        writeEvent("player_interact_boat", Map.of(
+            "player", event.getPlayer().getName(),
+            "target", event.getRightClicked().getUniqueId().toString(),
+            "target_type", event.getRightClicked().getType().name(),
+            "cancelled", event.isCancelled(),
+            "hand", event.getHand().name(),
+            "distance_squared", event.getPlayer().getLocation().distanceSquared(event.getRightClicked().getLocation())
+        ));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onVehicleEnterWitness(VehicleEnterEvent event) {
+        if (!event.getVehicle().getType().name().contains("BOAT")) return;
+        writeEvent("vehicle_enter", Map.of(
+            "vehicle", event.getVehicle().getUniqueId().toString(),
+            "vehicle_type", event.getVehicle().getType().name(),
+            "entered", event.getEntered().getName(),
+            "cancelled", event.isCancelled()
         ));
     }
 
