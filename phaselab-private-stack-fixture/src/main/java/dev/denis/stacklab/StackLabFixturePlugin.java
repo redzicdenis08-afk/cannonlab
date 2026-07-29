@@ -95,6 +95,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "boatinteract" -> boatInteract(sender, args);
                     case "horseprep" -> horsePrep(sender, args);
                     case "vehicleinteract" -> vehicleInteract(sender, args);
+                    case "vehicledismount" -> vehicleDismount(sender, args);
                     case "vehiclecheck" -> vehicleCheck(sender, args);
                     case "grindstoneprep" -> grindstonePrep(sender, args);
                     case "break" -> breakBlock(sender, args);
@@ -595,6 +596,43 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         evidence.put("vehicle_type", player.getVehicle() == null ? "NONE" : player.getVehicle().getType().name());
         writeEvent("server_vehicle_interact", evidence);
         sender.sendMessage("STACKLAB VEHICLE INTERACT " + gson.toJson(evidence));
+        return true;
+    }
+
+    private boolean vehicleDismount(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab vehicledismount <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", args[1]);
+        evidence.put("online", player != null);
+        evidence.put("mounted_before", player != null && player.getVehicle() != null);
+        try {
+            if (player == null) throw new IllegalStateException("Player offline");
+            Object serverPlayer = player.getClass().getMethod("getHandle").invoke(player);
+            Class<?> inputClass = Class.forName("net.minecraft.world.entity.player.Input");
+            Constructor<?> inputConstructor = inputClass.getConstructor(boolean.class, boolean.class, boolean.class, boolean.class, boolean.class, boolean.class, boolean.class);
+            Object input = inputConstructor.newInstance(false, false, false, false, false, true, false);
+            Class<?> packetClass = Class.forName("net.minecraft.network.protocol.game.ServerboundPlayerInputPacket");
+            Object packet = packetClass.getConstructor(inputClass).newInstance(input);
+            Object connection = serverPlayer.getClass().getField("connection").get(serverPlayer);
+            connection.getClass().getMethod("handlePlayerInput", packetClass).invoke(connection, packet);
+            evidence.put("invoked", true);
+            evidence.put("path", "ServerboundPlayerInputPacket(shift=true)->handlePlayerInput");
+        } catch (ReflectiveOperationException | IllegalStateException exception) {
+            evidence.put("invoked", false);
+            evidence.put("error", exception.toString());
+        }
+        evidence.put("mounted", player != null && player.getVehicle() != null);
+        if (player != null) {
+            evidence.put("x", player.getLocation().getX());
+            evidence.put("y", player.getLocation().getY());
+            evidence.put("z", player.getLocation().getZ());
+        }
+        writeEvent("server_vehicle_dismount", evidence);
+        sender.sendMessage("STACKLAB VEHICLE DISMOUNT " + gson.toJson(evidence));
         return true;
     }
 

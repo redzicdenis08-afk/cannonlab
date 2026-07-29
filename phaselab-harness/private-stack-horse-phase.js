@@ -177,7 +177,7 @@ async function setupFactions (phaseBot, victimBot, attackerBot) {
 async function buildCourse (phaseBot, trial) {
   const wallEnd = WALL_START + trial.thickness - 1
   const chamberX = wallEnd + 3
-  const clearEnd = Math.max(chamberX + 5, 270)
+  const clearEnd = Math.max(chamberX + 10, 270)
   await command(phaseBot, `/fill 10 63 -4 ${clearEnd} 71 4 minecraft:air`, 600)
   await command(phaseBot, `/fill 10 64 -4 ${clearEnd} 64 4 minecraft:stone`, 500)
 
@@ -198,11 +198,11 @@ async function buildCourse (phaseBot, trial) {
     throw new Error(`Unknown course kind ${trial.kind}`)
   }
 
-  // Sealed witness chamber. The only intended entry path is through the wall.
-  await command(phaseBot, `/fill ${chamberX - 1} 64 -2 ${chamberX + 2} 68 2 minecraft:obsidian`, 250)
-  await command(phaseBot, `/fill ${chamberX} 65 -1 ${chamberX + 1} 67 1 minecraft:air`, 200)
-  await command(phaseBot, `/summon minecraft:item ${chamberX + 0.5} 65 ${Z} {Item:{id:"minecraft:netherite_block",count:1}}`, 150)
-  return { wallEnd, chamberX, targetX: chamberX + 0.35 }
+  // Horse-sized sealed chamber. The only intended entry path is through the wall.
+  await command(phaseBot, `/fill ${chamberX - 1} 64 -4 ${chamberX + 7} 70 4 minecraft:obsidian`, 300)
+  await command(phaseBot, `/fill ${chamberX} 65 -3 ${chamberX + 6} 69 3 minecraft:air`, 250)
+  await command(phaseBot, `/summon minecraft:item ${chamberX + 3.0} 65 ${Z} {Item:{id:"minecraft:netherite_block",count:1}}`, 150)
+  return { wallEnd, chamberX, targetX: chamberX + 3.0 }
 }
 
 async function resetAttacker (phaseBot, attackerBot) {
@@ -368,18 +368,26 @@ async function runTrial (phaseBot, attackerBot, trial, run) {
   await sleep(350)
   clearInterval(correctionWatcher)
 
-  const playerSelector = `@a[name=AttackerBot,x=${course.chamberX},y=64,z=-2,dx=3,dy=5,dz=4,limit=1]`
-  const vehicleSelector = `@e[type=minecraft:horse,x=${course.chamberX},y=64,z=-2,dx=3,dy=5,dz=4,limit=1]`
+  const playerSelector = `@a[name=AttackerBot,x=${course.chamberX},y=64,z=-4,dx=6,dy=7,dz=8,limit=1]`
+  const vehicleSelector = `@e[type=minecraft:horse,x=${course.chamberX},y=64,z=-4,dx=6,dy=7,dz=8,limit=1]`
   const playerBeyondMounted = await serverWitness(phaseBot, playerSelector, `PLAYER_MOUNTED_${trial.id}_${run}`)
   const vehicleBeyond = await serverWitness(phaseBot, vehicleSelector, `BOAT_${trial.id}_${run}`)
 
   let dismountError = null
+  let dismountResponse = null
   try {
-    attackerBot.dismount()
+    dismountResponse = await commandExpect(
+      phaseBot,
+      '/stacklab vehicledismount AttackerBot',
+      /STACKLAB VEHICLE DISMOUNT .*"mounted":false/,
+      5000
+    )
+    attackerBot.vehicle = null
+    attackerBot.entity.vehicle = null
   } catch (error) {
     dismountError = String(error.stack || error)
   }
-  await sleep(650)
+  await sleep(1000)
   const playerBeyondDismounted = await serverWitness(phaseBot, playerSelector, `PLAYER_DISMOUNTED_${trial.id}_${run}`)
   const netheriteCount = attackerBot.inventory.items()
     .filter(item => item.name === 'netherite_block')
@@ -406,6 +414,7 @@ async function runTrial (phaseBot, attackerBot, trial, run) {
     netheriteCount,
     mountedAfter: Boolean(attackerBot.vehicle),
     dismountError,
+    dismountResponse,
     correctionCount: corrections.events.length,
     firstCorrection: corrections.events[0] || null,
     clientPlayerPosition: attackerBot.entity.position,
