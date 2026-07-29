@@ -1,0 +1,295 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-07-29T23:51:47.905Z",
+  "host": "127.0.0.1",
+  "port": 25566,
+  "version": "1.21.11",
+  "scope": "authorized exact private Sakura/Factions calibrated horse p4 all-cardinal matrix",
+  "claimsVerified": true,
+  "trials": [
+    {
+      "id": "horse-east-solid64",
+      "run": 1,
+      "direction": "east",
+      "vehicle": "horse",
+      "thickness": 64,
+      "start": {
+        "x": 14.75,
+        "z": 8.5
+      },
+      "fixedY": 65,
+      "target": {
+        "x": 83.5,
+        "z": 8.5
+      },
+      "targetDistance": 68.75,
+      "segmentLength": 4,
+      "packetsPerTick": 4,
+      "pauseMs": 350,
+      "step": 0.25,
+      "elapsedMs": 22121,
+      "packetCount": 256,
+      "segmentCount": 16,
+      "acceptedDistance": 60,
+      "allSegmentsAccepted": false,
+      "playerMounted": false,
+      "vehicleBeyond": false,
+      "playerDismounted": false,
+      "netheriteCount": 0,
+      "movementCorrectionCount": 0,
+      "firstMovementCorrection": null,
+      "playerSyncCount": 1,
+      "firstPlayerSync": {
+        "type": "player_position",
+        "elapsedMs": 9460.878164,
+        "packet": {
+          "teleportId": 6,
+          "x": 78.05,
+          "y": 65.99375002384187,
+          "z": 8.5,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        }
+      },
+      "dismountResponse": "STACKLAB VEHICLE DISMOUNT {\"player\":\"AttackerBot\",\"online\":true,\"mounted_before\":false,\"invoked\":true,\"path\":\"ServerboundPlayerInputPacket(shift\\u003dtrue)-\\u003ehandlePlayerInput\",\"mounted\":false,\"x\":78.05,\"y\":65.0,\"z\":8.5}",
+      "dismountError": null,
+      "clientPlayerPosition": {
+        "x": 78.05,
+        "y": 65,
+        "z": 8.5
+      },
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "horse-west-solid64",
+      "run": 1,
+      "direction": "west",
+      "vehicle": "horse",
+      "thickness": 64,
+      "start": {
+        "x": 1.25,
+        "z": 8.5
+      },
+      "fixedY": 65,
+      "target": {
+        "x": -67.5,
+        "z": 8.5
+      },
+      "targetDistance": 68.75,
+      "segmentLength": 4,
+      "packetsPerTick": 4,
+      "pauseMs": 350,
+      "step": 0.25,
+      "elapsedMs": 17064,
+      "packetCount": 275,
+      "segmentCount": 18,
+      "acceptedDistance": 68.75,
+      "allSegmentsAccepted": true,
+      "playerMounted": true,
+      "vehicleBeyond": true,
+      "playerDismounted": true,
+      "netheriteCount": 1,
+      "movementCorrectionCount": 0,
+      "firstMovementCorrection": null,
+      "playerSyncCount": 0,
+      "firstPlayerSync": null,
+      "dismountResponse": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-adaptive-horse-p4-directions.js:132:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "clientPlayerPosition": {
+        "x": 8.5,
+        "y": 65,
+        "z": 13.25
+      },
+      "serverAuthoritativeSuccess": true
+    },
+    {
+      "id": "horse-south-solid64",
+      "run": 1,
+      "direction": "south",
+      "vehicle": "horse",
+      "thickness": 64,
+      "start": {
+        "x": 8.5,
+        "z": 14.75
+      },
+      "fixedY": 65,
+      "target": {
+        "x": 8.5,
+        "z": 83.5
+      },
+      "targetDistance": 68.75,
+      "segmentLength": 4,
+      "packetsPerTick": 4,
+      "pauseMs": 350,
+      "step": 0.25,
+      "elapsedMs": 17051,
+      "packetCount": 275,
+      "segmentCount": 18,
+      "acceptedDistance": 68.75,
+      "allSegmentsAccepted": true,
+      "playerMounted": true,
+      "vehicleBeyond": true,
+      "playerDismounted": true,
+      "netheriteCount": 1,
+      "movementCorrectionCount": 0,
+      "firstMovementCorrection": null,
+      "playerSyncCount": 0,
+      "firstPlayerSync": null,
+      "dismountResponse": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-adaptive-horse-p4-directions.js:132:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "clientPlayerPosition": {
+        "x": 8.5,
+        "y": 65,
+        "z": 2.75
+      },
+      "serverAuthoritativeSuccess": true
+    },
+    {
+      "id": "horse-north-solid64",
+      "run": 1,
+      "direction": "north",
+      "vehicle": "horse",
+      "thickness": 64,
+      "start": {
+        "x": 8.5,
+        "z": 1.25
+      },
+      "fixedY": 65,
+      "target": {
+        "x": 8.5,
+        "z": -67.5
+      },
+      "targetDistance": 68.75,
+      "segmentLength": 4,
+      "packetsPerTick": 4,
+      "pauseMs": 350,
+      "step": 0.25,
+      "elapsedMs": 17052,
+      "packetCount": 275,
+      "segmentCount": 18,
+      "acceptedDistance": 68.75,
+      "allSegmentsAccepted": true,
+      "playerMounted": true,
+      "vehicleBeyond": true,
+      "playerDismounted": true,
+      "netheriteCount": 1,
+      "movementCorrectionCount": 0,
+      "firstMovementCorrection": null,
+      "playerSyncCount": 0,
+      "firstPlayerSync": null,
+      "dismountResponse": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-adaptive-horse-p4-directions.js:132:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "clientPlayerPosition": {
+        "x": 8.5,
+        "y": 65.84375002384186,
+        "z": 1.25
+      },
+      "serverAuthoritativeSuccess": true
+    }
+  ],
+  "fatal": null,
+  "claimWitness": {
+    "label": "direction-setup",
+    "center_chunk_x": 0,
+    "center_chunk_z": 0,
+    "center_tag": "Attackers",
+    "center_wilderness": false,
+    "east_near_chunk_x": 1,
+    "east_near_chunk_z": 0,
+    "east_near_tag": "Victims",
+    "east_near_wilderness": false,
+    "east_far_chunk_x": 5,
+    "east_far_chunk_z": 0,
+    "east_far_tag": "Victims",
+    "east_far_wilderness": false,
+    "west_near_chunk_x": -1,
+    "west_near_chunk_z": 0,
+    "west_near_tag": "Victims",
+    "west_near_wilderness": false,
+    "west_far_chunk_x": -5,
+    "west_far_chunk_z": 0,
+    "west_far_tag": "Victims",
+    "west_far_wilderness": false,
+    "south_near_chunk_x": 0,
+    "south_near_chunk_z": 1,
+    "south_near_tag": "Victims",
+    "south_near_wilderness": false,
+    "south_far_chunk_x": 0,
+    "south_far_chunk_z": 5,
+    "south_far_tag": "Victims",
+    "south_far_wilderness": false,
+    "north_near_chunk_x": 0,
+    "north_near_chunk_z": -1,
+    "north_near_tag": "Victims",
+    "north_near_wilderness": false,
+    "north_far_chunk_x": 0,
+    "north_far_chunk_z": -5,
+    "north_far_tag": "Victims",
+    "north_far_wilderness": false,
+    "verified": true
+  },
+  "finishedAt": "2026-07-29T23:53:23.419Z",
+  "successCount": 3,
+  "totalCount": 4,
+  "byFamily": {
+    "horse-east-solid64": {
+      "successes": 0,
+      "attempts": 1
+    },
+    "horse-west-solid64": {
+      "successes": 1,
+      "attempts": 1
+    },
+    "horse-south-solid64": {
+      "successes": 1,
+      "attempts": 1
+    },
+    "horse-north-solid64": {
+      "successes": 1,
+      "attempts": 1
+    }
+  },
+  "byVehicle": {
+    "boat": {
+      "successes": 0,
+      "attempts": 0
+    },
+    "horse": {
+      "successes": 3,
+      "attempts": 4
+    }
+  },
+  "byDirection": {
+    "east": {
+      "successes": 0,
+      "attempts": 1
+    },
+    "west": {
+      "successes": 1,
+      "attempts": 1
+    },
+    "south": {
+      "successes": 1,
+      "attempts": 1
+    },
+    "north": {
+      "successes": 1,
+      "attempts": 1
+    }
+  }
+}
