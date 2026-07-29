@@ -7,6 +7,7 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket;
 import net.minecraft.resources.Identifier;
@@ -39,6 +40,8 @@ public final class BoatPhaseClient implements ClientModInitializer {
     private static final int SEGMENT_PAUSE_TICKS = 2;
     private static final int REMOUNT_GRACE_TICKS = 100;
     private static final int AUTO_REMOUNT_INTERVAL_TICKS = 5;
+    private static final double SMART_EXIT_CLEAR_DISTANCE = 8.0D;
+    private static final double SMART_EXIT_MIN_TRAVEL = 16.0D;
     private static final double MAX_DISTANCE = 512.0D;
 
     private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
@@ -62,6 +65,8 @@ public final class BoatPhaseClient implements ClientModInitializer {
     private static int pauseTicksRemaining;
     private static int packetsPerSegment;
     private static int remountWaitTicks;
+    private static boolean wallCollisionSeen;
+    private static double clearDistanceAfterWall;
     private static double segmentLength;
     private static String vehicleLabel;
     private static BufferedWriter logWriter;
@@ -169,6 +174,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
         }
 
         log("SEGMENT_START", player, vehicle.position());
+        boolean interiorDetected = false;
         for (int packetIndex = 0; packetIndex < packetsThisSegment; packetIndex++) {
             Vec3 next = vehicle.position().add(direction.scale(STEP));
             vehicle.noPhysics = true;
@@ -184,6 +190,16 @@ public final class BoatPhaseClient implements ClientModInitializer {
             travelled += STEP;
             sentPackets++;
             log("SEND_0_25", player, next);
+            if (updateSmartExitState(player, vehicle)) {
+                interiorDetected = true;
+                break;
+            }
+        }
+
+        if (interiorDetected) {
+            stop(player, String.format(Locale.ROOT,
+                "Interior-sized clear space detected after %.1f blocks.", travelled), false);
+            return;
         }
 
         segmentsCompleted++;
@@ -233,14 +249,35 @@ public final class BoatPhaseClient implements ClientModInitializer {
         lockedY = vehicle.getY();
         activeVehicle = vehicle;
         remountWaitTicks = 0;
+        wallCollisionSeen = false;
+        clearDistanceAfterWall = 0.0D;
         vehicle.noPhysics = true;
         openLog();
         log("START", player, vehicle.position());
         message(player, String.format(Locale.ROOT,
-            "%s started toward %s. Natural 4.2 physics + smart remount. P stops; O aborts.",
+            "%s started toward %s. Natural 4.2 physics + smart remount + interior auto-stop. P stops; O aborts.",
             vehicleLabel,
             directionLabel(direction)
         ));
+    }
+
+    private static boolean updateSmartExitState(LocalPlayer player, Entity vehicle) {
+        BlockPos position = BlockPos.containing(vehicle.position());
+        if (!player.level().hasChunkAt(position)) {
+            return false;
+        }
+
+        boolean clear = player.level().noCollision(vehicle, vehicle.getBoundingBox().deflate(0.01D));
+        if (!clear) {
+            wallCollisionSeen = true;
+            clearDistanceAfterWall = 0.0D;
+            return false;
+        }
+
+        if (wallCollisionSeen && travelled >= SMART_EXIT_MIN_TRAVEL) {
+            clearDistanceAfterWall += STEP;
+        }
+        return wallCollisionSeen && clearDistanceAfterWall >= SMART_EXIT_CLEAR_DISTANCE;
     }
 
     private static String directionLabel(Vec3 vector) {
@@ -297,6 +334,8 @@ public final class BoatPhaseClient implements ClientModInitializer {
         segmentsCompleted = 0;
         pauseTicksRemaining = 0;
         remountWaitTicks = 0;
+        wallCollisionSeen = false;
+        clearDistanceAfterWall = 0.0D;
         activeVehicle = null;
         closeLog();
     }
