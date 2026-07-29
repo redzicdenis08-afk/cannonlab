@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "startedAt": "2026-07-29T15:36:52.817Z",
+  "startedAt": "2026-07-29T15:47:40.895Z",
   "scope": "authorized exact private Sakura/Factions no-lava vertical remount chain matrix",
   "claimsVerified": true,
   "trials": [
@@ -29,44 +29,22 @@
           "playerAccepted": true,
           "vehicleStayedTop": false,
           "vehicleLower": true,
-          "expectedRelocations": 0,
-          "setbacks": 1
+          "expectedRelocations": 1,
+          "setbacks": 0
         }
       ],
-      "remounts": [],
+      "remounts": [
+        {
+          "error": "Error: Timeout waiting for /STACKLAB VEHICLE INTERACT .*\"mounted\":true.*\"vehicle_type\":\"OAK_BOAT\"/ after /stacklab vehicleinteract AttackerBot OAK_BOAT\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vertical-ejection.js:78:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+        }
+      ],
       "telemetryCount": 1,
-      "expectedRelocationCount": 0,
-      "setbackCount": 1,
-      "firstSetback": {
-        "type": "player_position",
-        "packet": {
-          "teleportId": 5,
-          "x": 1.7722768119620016,
-          "y": 124,
-          "z": 2.4817862511898534,
-          "dx": 0,
-          "dy": 0,
-          "dz": 0,
-          "yaw": 0,
-          "pitch": 0,
-          "flags": {
-            "_value": 504,
-            "x": false,
-            "y": false,
-            "z": false,
-            "yaw": true,
-            "pitch": true,
-            "dx": true,
-            "dy": true,
-            "dz": true,
-            "yawDelta": true
-          }
-        },
-        "at": 1785339429148
-      },
+      "expectedRelocationCount": 1,
+      "setbackCount": 0,
+      "firstSetback": null,
       "playerBelow": false,
       "netheriteCount": 0,
-      "elapsedMs": 6958,
+      "elapsedMs": 13959,
       "serverAuthoritativeSuccess": false
     },
     {
@@ -82,7 +60,7 @@
       "start": {
         "x": 0.5000000000000003,
         "y": 128,
-        "z": 2.0251066958832666
+        "z": 2.4726045928666736
       },
       "firstY": 124,
       "acceptedY": 124,
@@ -94,44 +72,22 @@
           "playerAccepted": true,
           "vehicleStayedTop": false,
           "vehicleLower": true,
-          "expectedRelocations": 0,
-          "setbacks": 1
+          "expectedRelocations": 1,
+          "setbacks": 0
         }
       ],
-      "remounts": [],
+      "remounts": [
+        {
+          "error": "Error: Timeout waiting for /STACKLAB VEHICLE INTERACT .*\"mounted\":true.*\"vehicle_type\":\"OAK_BOAT\"/ after /stacklab vehicleinteract AttackerBot OAK_BOAT\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vertical-ejection.js:78:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+        }
+      ],
       "telemetryCount": 1,
-      "expectedRelocationCount": 0,
-      "setbackCount": 1,
-      "firstSetback": {
-        "type": "player_position",
-        "packet": {
-          "teleportId": 9,
-          "x": 1.7722768119620018,
-          "y": 124,
-          "z": 1.6842883303645886,
-          "dx": 0,
-          "dy": 0,
-          "dz": 0,
-          "yaw": 0,
-          "pitch": 0,
-          "flags": {
-            "_value": 504,
-            "x": false,
-            "y": false,
-            "z": false,
-            "yaw": true,
-            "pitch": true,
-            "dx": true,
-            "dy": true,
-            "dz": true,
-            "yawDelta": true
-          }
-        },
-        "at": 1785339440796
-      },
+      "expectedRelocationCount": 1,
+      "setbackCount": 0,
+      "firstSetback": null,
       "playerBelow": false,
       "netheriteCount": 0,
-      "elapsedMs": 6954,
+      "elapsedMs": 13955,
       "serverAuthoritativeSuccess": false
     },
     {
@@ -159,44 +115,22 @@
           "playerAccepted": true,
           "vehicleStayedTop": false,
           "vehicleLower": true,
-          "expectedRelocations": 0,
-          "setbacks": 1
+          "expectedRelocations": 1,
+          "setbacks": 0
         }
       ],
-      "remounts": [],
+      "remounts": [
+        {
+          "error": "Error: Timeout waiting for /STACKLAB VEHICLE INTERACT .*\"mounted\":true.*\"vehicle_type\":\"OAK_BOAT\"/ after /stacklab vehicleinteract AttackerBot OAK_BOAT\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vertical-ejection.js:78:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+        }
+      ],
       "telemetryCount": 1,
-      "expectedRelocationCount": 0,
-      "setbackCount": 1,
-      "firstSetback": {
-        "type": "player_position",
-        "packet": {
-          "teleportId": 12,
-          "x": 1.7722768119620018,
-          "y": 124,
-          "z": 2.1317862273479955,
-          "dx": 0,
-          "dy": 0,
-          "dz": 0,
-          "yaw": 0,
-          "pitch": 0,
-          "flags": {
-            "_value": 504,
-            "x": false,
-            "y": false,
-            "z": false,
-            "yaw": true,
-            "pitch": true,
-            "dx": true,
-            "dy": true,
-            "dz": true,
-            "yawDelta": true
-          }
-        },
-        "at": 1785339452446
-      },
+      "expectedRelocationCount": 1,
+      "setbackCount": 0,
+      "firstSetback": null,
       "playerBelow": false,
       "netheriteCount": 0,
-      "elapsedMs": 6954,
+      "elapsedMs": 13953,
       "serverAuthoritativeSuccess": false
     },
     {
@@ -216,7 +150,7 @@
       },
       "firstY": 124,
       "acceptedY": 124,
-      "packetCount": 16,
+      "packetCount": 32,
       "checkpoints": [
         {
           "stage": "first_eject",
@@ -224,44 +158,52 @@
           "playerAccepted": true,
           "vehicleStayedTop": false,
           "vehicleLower": true,
+          "expectedRelocations": 1,
+          "setbacks": 0
+        },
+        {
+          "stage": "player_chain",
+          "fromY": 124,
+          "targetY": 120,
+          "accepted": false,
           "expectedRelocations": 0,
           "setbacks": 1
         }
       ],
       "remounts": [],
-      "telemetryCount": 1,
-      "expectedRelocationCount": 0,
+      "telemetryCount": 2,
+      "expectedRelocationCount": 1,
       "setbackCount": 1,
       "firstSetback": {
         "type": "player_position",
         "packet": {
-          "teleportId": 15,
+          "teleportId": 16,
           "x": 1.7722768119620018,
           "y": 124,
           "z": 2.1317862273479955,
           "dx": 0,
           "dy": 0,
           "dz": 0,
-          "yaw": 0,
-          "pitch": 0,
+          "yaw": -180,
+          "pitch": 45,
           "flags": {
-            "_value": 504,
+            "_value": 0,
             "x": false,
             "y": false,
             "z": false,
-            "yaw": true,
-            "pitch": true,
-            "dx": true,
-            "dy": true,
-            "dz": true,
-            "yawDelta": true
+            "yaw": false,
+            "pitch": false,
+            "dx": false,
+            "dy": false,
+            "dz": false,
+            "yawDelta": false
           }
         },
-        "at": 1785339464095
+        "at": 1785340133453
       },
       "playerBelow": false,
       "netheriteCount": 0,
-      "elapsedMs": 6954,
+      "elapsedMs": 10056,
       "serverAuthoritativeSuccess": false
     },
     {
@@ -281,7 +223,7 @@
       },
       "firstY": 124,
       "acceptedY": 124,
-      "packetCount": 16,
+      "packetCount": 32,
       "checkpoints": [
         {
           "stage": "first_eject",
@@ -289,50 +231,58 @@
           "playerAccepted": true,
           "vehicleStayedTop": false,
           "vehicleLower": true,
+          "expectedRelocations": 1,
+          "setbacks": 0
+        },
+        {
+          "stage": "player_chain",
+          "fromY": 124,
+          "targetY": 120,
+          "accepted": false,
           "expectedRelocations": 0,
           "setbacks": 1
         }
       ],
       "remounts": [],
-      "telemetryCount": 1,
-      "expectedRelocationCount": 0,
+      "telemetryCount": 2,
+      "expectedRelocationCount": 1,
       "setbackCount": 1,
       "firstSetback": {
         "type": "player_position",
         "packet": {
-          "teleportId": 18,
+          "teleportId": 20,
           "x": 1.7722768119620018,
           "y": 124,
           "z": 2.1317862273479955,
           "dx": 0,
           "dy": 0,
           "dz": 0,
-          "yaw": 0,
-          "pitch": 0,
+          "yaw": -180,
+          "pitch": 45,
           "flags": {
-            "_value": 504,
+            "_value": 0,
             "x": false,
             "y": false,
             "z": false,
-            "yaw": true,
-            "pitch": true,
-            "dx": true,
-            "dy": true,
-            "dz": true,
-            "yawDelta": true
+            "yaw": false,
+            "pitch": false,
+            "dx": false,
+            "dy": false,
+            "dz": false,
+            "yawDelta": false
           }
         },
-        "at": 1785339475695
+        "at": 1785340148149
       },
       "playerBelow": false,
       "netheriteCount": 0,
-      "elapsedMs": 6953,
+      "elapsedMs": 10052,
       "serverAuthoritativeSuccess": false
     }
   ],
   "fatal": null,
   "claimWitness": "STACKLAB CLAIM SET {\"tag\":\"Victims\",\"chunk_x\":0,\"chunk_z\":0,\"actual_tag\":\"Victims\",\"verified\":true}",
-  "finishedAt": "2026-07-29T15:37:59.653Z",
+  "finishedAt": "2026-07-29T15:49:14.949Z",
   "successCount": 0,
   "totalCount": 5,
   "byFamily": {
