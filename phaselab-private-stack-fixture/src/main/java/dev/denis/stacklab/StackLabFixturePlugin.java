@@ -17,6 +17,7 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Ravager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -26,6 +27,7 @@ import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.entity.EntityChangeBlockEvent;
+import org.bukkit.event.entity.CreatureSpawnEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -58,9 +60,13 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     private static final int GENERATOR_X = 50;
     private static final int GENERATOR_Y = 65;
     private static final int GENERATOR_Z = 0;
+    private static final int THRIFTY_X = 70;
+    private static final int THRIFTY_Y = 65;
+    private static final int THRIFTY_Z = 0;
     private final Gson gson = new Gson();
     private Path evidencePath;
     private boolean cancelPortalMultiPlace;
+    private CreatureSpawnEvent.SpawnReason thriftySpawnReason = CreatureSpawnEvent.SpawnReason.CUSTOM;
 
     @Override
     public void onEnable() {
@@ -105,6 +111,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "generatorreset" -> generatorReset(sender, args);
                     case "generatorsnapshot" -> generatorSnapshot(sender, args);
                     case "generatorbreak" -> generatorBreak(sender, args);
+                    case "thriftyprep" -> thriftyPrep(sender, args);
+                    case "thriftyspawnkill" -> thriftySpawnKill(sender, args);
+                    case "thriftysnapshot" -> thriftySnapshot(sender, args);
                     default -> false;
                 };
             } catch (RuntimeException exception) {
@@ -168,6 +177,130 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         writeEvent("arena_build", snapshotMap(world, "build"));
         sender.sendMessage("STACKLAB BUILD OK boundary=15/16 y=" + Y);
         return true;
+    }
+
+    private boolean thriftyPrep(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("Usage: /stacklab thriftyprep <player> <custom|spawner>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        thriftySpawnReason = args[2].equalsIgnoreCase("spawner")
+            ? CreatureSpawnEvent.SpawnReason.SPAWNER
+            : CreatureSpawnEvent.SpawnReason.CUSTOM;
+
+        World world = requireWorld();
+        Location center = new Location(world, THRIFTY_X, THRIFTY_Y, THRIFTY_Z);
+        world.getEntitiesByClass(Ravager.class).stream()
+            .filter(entity -> entity.getLocation().distanceSquared(center) <= 1024.0)
+            .forEach(Ravager::remove);
+        world.getEntitiesByClass(Item.class).stream()
+            .filter(item -> item.getLocation().distanceSquared(center) <= 1024.0)
+            .forEach(Item::remove);
+        for (int x = THRIFTY_X - 4; x <= THRIFTY_X + 4; x++) {
+            for (int y = THRIFTY_Y - 1; y <= THRIFTY_Y + 4; y++) {
+                for (int z = THRIFTY_Z - 4; z <= THRIFTY_Z + 4; z++) {
+                    world.getBlockAt(x, y, z).setType(Material.AIR, false);
+                }
+            }
+        }
+        for (int x = THRIFTY_X - 4; x <= THRIFTY_X + 4; x++) {
+            for (int z = THRIFTY_Z - 4; z <= THRIFTY_Z + 4; z++) {
+                world.getBlockAt(x, THRIFTY_Y - 1, z).setType(Material.STONE, false);
+            }
+        }
+
+        Enchantment thrifty = Registry.ENCHANTMENT.get(NamespacedKey.fromString("excellentenchants:thrifty"));
+        if (thrifty == null) {
+            sender.sendMessage("STACKLAB THRIFTY PREP accepted=false reason=enchant_missing");
+            return true;
+        }
+        player.closeInventory();
+        player.getInventory().clear();
+        player.setItemOnCursor(null);
+        ItemStack sword = new ItemStack(Material.NETHERITE_SWORD, 1);
+        sword.addUnsafeEnchantment(thrifty, 100);
+        player.getInventory().setItem(0, sword);
+        player.getInventory().setHeldItemSlot(0);
+        player.teleport(new Location(world, THRIFTY_X - 2.5, THRIFTY_Y, THRIFTY_Z + 0.5, -90F, 0F));
+
+        Map<String, Object> snapshot = thriftySnapshotMap(world, player, "prepared");
+        snapshot.put("accepted", true);
+        writeEvent("thrifty_prepared", snapshot);
+        sender.sendMessage("STACKLAB THRIFTY PREP " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private boolean thriftySpawnKill(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab thriftyspawnkill <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        World world = requireWorld();
+        Location location = new Location(world, THRIFTY_X, THRIFTY_Y, THRIFTY_Z);
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("before", thriftySnapshotMap(world, player, "before-spawn-kill"));
+        Ravager ravager = world.spawn(location, Ravager.class, thriftySpawnReason, false, entity -> {
+            entity.setAI(false);
+            entity.setSilent(true);
+        });
+        evidence.put("entity_uuid", ravager.getUniqueId().toString());
+        evidence.put("spawn_reason", thriftySpawnReason.name());
+        ravager.setKiller(player);
+        ravager.setHealth(0.0);
+        evidence.put("immediate", thriftySnapshotMap(world, player, "immediate-after-kill"));
+        writeEvent("thrifty_spawn_kill", evidence);
+        sender.sendMessage("STACKLAB THRIFTY SPAWN KILL " + gson.toJson(evidence));
+        return true;
+    }
+
+    private boolean thriftySnapshot(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab thriftysnapshot <player> [label]");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        String label = args.length > 2 ? args[2] : "manual";
+        Map<String, Object> snapshot = thriftySnapshotMap(requireWorld(), player, label);
+        writeEvent("thrifty_snapshot", snapshot);
+        sender.sendMessage("STACKLAB THRIFTY SNAPSHOT " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private Map<String, Object> thriftySnapshotMap(World world, Player player, String label) {
+        Location center = new Location(world, THRIFTY_X, THRIFTY_Y, THRIFTY_Z);
+        int groundEggs = world.getEntitiesByClass(Item.class).stream()
+            .filter(item -> item.getLocation().distanceSquared(center) <= 1024.0)
+            .filter(item -> item.getItemStack().getType() == Material.RAVAGER_SPAWN_EGG)
+            .mapToInt(item -> item.getItemStack().getAmount())
+            .sum();
+        int inventoryEggs = player.getInventory().all(Material.RAVAGER_SPAWN_EGG).values().stream()
+            .mapToInt(ItemStack::getAmount)
+            .sum();
+        int ravagers = (int) world.getEntitiesByClass(Ravager.class).stream()
+            .filter(entity -> entity.getLocation().distanceSquared(center) <= 1024.0)
+            .count();
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("label", label);
+        result.put("spawn_reason", thriftySpawnReason.name());
+        result.put("inventory_eggs", inventoryEggs);
+        result.put("ground_eggs", groundEggs);
+        result.put("total_eggs", inventoryEggs + groundEggs);
+        result.put("ravagers", ravagers);
+        return result;
     }
 
 
