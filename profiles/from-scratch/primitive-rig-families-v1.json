@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "id": "primitive-rig-families-v1",
+  "mode": "from-scratch",
+  "data_version": 3465,
+  "chunk_limit": 160,
+  "families": [
+    {
+      "id": "protected-charge-cell",
+      "cell_counts": [1, 2, 3, 4]
+    },
+    {
+      "id": "payload-injector",
+      "repeater_delays": [1, 2, 3, 4]
+    },
+    {
+      "id": "guider",
+      "lengths": [4, 8, 12, 16],
+      "repeater_delay": 1
+    }
+  ]
+}

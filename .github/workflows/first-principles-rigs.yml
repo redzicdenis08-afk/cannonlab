@@ -1,0 +1,109 @@
+name: First-Principles Primitive Rigs
+
+on:
+  push:
+    branches:
+      - 'feat/first-principles-cannon-foundry'
+    paths:
+      - 'scripts/generate-first-principles-rigs.py'
+      - 'scripts/test-first-principles-rigs.py'
+      - 'profiles/from-scratch/primitive-rig-families-v1.json'
+      - 'scripts/schem-audit.py'
+      - '.github/workflows/first-principles-rigs.yml'
+  pull_request:
+    paths:
+      - 'scripts/generate-first-principles-rigs.py'
+      - 'scripts/test-first-principles-rigs.py'
+      - 'profiles/from-scratch/primitive-rig-families-v1.json'
+      - 'scripts/schem-audit.py'
+      - '.github/workflows/first-principles-rigs.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  primitive-rig-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONHASHSEED: '0'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Compile primitive rig tools
+        run: |
+          python -m py_compile \
+            scripts/generate-first-principles-rigs.py \
+            scripts/test-first-principles-rigs.py
+
+      - name: Run primitive rig regressions
+        run: python scripts/test-first-principles-rigs.py
+
+      - name: Generate deterministic rig family
+        run: |
+          mkdir -p lab-artifacts/primitive-rigs/audits
+          python scripts/generate-first-principles-rigs.py \
+            profiles/from-scratch/primitive-rig-families-v1.json \
+            --output-directory lab-artifacts/primitive-rigs/candidates \
+            --json-out lab-artifacts/primitive-rigs/manifest-copy.json \
+            > lab-artifacts/primitive-rigs/generator.stdout.json
+
+      - name: Audit every generated schematic
+        run: |
+          set -euo pipefail
+          for file in lab-artifacts/primitive-rigs/candidates/*.schem; do
+            name=$(basename "$file" .schem)
+            python scripts/schem-audit.py "$file" \
+              --chunk-limit 160 \
+              --expect-format sponge-v2 \
+              --require-all-alignments-safe \
+              --json-out "lab-artifacts/primitive-rigs/audits/$name.json" \
+              > /dev/null
+          done
+
+      - name: Verify family and truth contracts
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('lab-artifacts/primitive-rigs')
+          manifest = json.loads((root / 'candidates/manifest.json').read_text(encoding='utf-8'))
+          copy = json.loads((root / 'manifest-copy.json').read_text(encoding='utf-8'))
+          assert manifest == copy, (manifest, copy)
+          assert manifest['status'] == 'STATIC_EXPERIMENT_FAMILY_ONLY', manifest
+          assert manifest['source_schematic_used'] is False, manifest
+          assert manifest['candidate_count'] == 12, manifest
+          ids = {row['id'] for row in manifest['candidates']}
+          assert len(ids) == 12, ids
+          assert {row['family'] for row in manifest['candidates']} == {
+              'protected-charge-cell', 'payload-injector', 'guider'
+          }, manifest
+          assert all(row['chunk_pressure']['safe_alignment_count'] == 256 for row in manifest['candidates'])
+          assert all(row['status'] == 'STATIC_EXPERIMENT_RIG_ONLY' for row in manifest['candidates'])
+          assert manifest['truth_boundary']['static_rig_is_proven_primitive'] is False
+          assert manifest['truth_boundary']['static_rig_is_raid_cannon'] is False
+          audits = list((root / 'audits').glob('*.json'))
+          assert len(audits) == 12, audits
+          assert all(json.loads(path.read_text(encoding='utf-8'))['status'] == 'PASS' for path in audits)
+          print('All 12 source-free primitive rigs passed deterministic static and EC160 contracts.')
+          PY
+
+      - name: Upload primitive rig evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: first-principles-primitive-rigs
+          path: lab-artifacts/primitive-rigs
+          if-no-files-found: error
