@@ -33,8 +33,8 @@ import java.util.Locale;
  */
 public final class BoatPhaseClient implements ClientModInitializer {
     private static final double STEP = 0.25D;
-    private static final double SEGMENT_LENGTH = 19.0D;
-    private static final int PACKETS_PER_SEGMENT = (int) Math.round(SEGMENT_LENGTH / STEP);
+    private static final double BOAT_SEGMENT_LENGTH = 19.0D;
+    private static final double HORSE_SEGMENT_LENGTH = 10.0D;
     private static final int SEGMENT_PAUSE_TICKS = 2;
     private static final double MAX_DISTANCE = 512.0D;
 
@@ -53,6 +53,9 @@ public final class BoatPhaseClient implements ClientModInitializer {
     private static int activeTicks;
     private static int segmentsCompleted;
     private static int pauseTicksRemaining;
+    private static int packetsPerSegment;
+    private static double segmentLength;
+    private static String vehicleLabel;
     private static BufferedWriter logWriter;
 
     @Override
@@ -79,7 +82,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
         }
         LocalPlayer player = Minecraft.getInstance().player;
         log("SERVER_VEHICLE_SETBACK", player, null);
-        stop(player, "Server corrected the boat. Phase stopped.", true);
+        stop(player, "Server corrected the vehicle. Phase stopped.", true);
     }
 
     private static void onClientTick(Minecraft client) {
@@ -91,14 +94,14 @@ public final class BoatPhaseClient implements ClientModInitializer {
 
         while (toggleKey.consumeClick()) {
             if (active) {
-                stop(player, "Boat phase stopped.", false);
+                stop(player, "Vehicle phase stopped.", false);
             } else {
                 start(player);
             }
         }
         while (abortKey.consumeClick()) {
             if (active) {
-                stop(player, "Boat phase aborted.", false);
+                stop(player, "Vehicle phase aborted.", false);
             }
         }
 
@@ -124,7 +127,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
         }
 
         int packetsThisSegment = Math.min(
-            PACKETS_PER_SEGMENT,
+            packetsPerSegment,
             (int) Math.floor((MAX_DISTANCE - travelled) / STEP)
         );
         if (packetsThisSegment <= 0) {
@@ -165,13 +168,18 @@ public final class BoatPhaseClient implements ClientModInitializer {
     private static void start(LocalPlayer player) {
         Entity vehicle = controlledVehicle(player);
         if (vehicle == null) {
-            message(player, "Mount and control a boat first, then press F11.");
+            message(player, "Mount and control a boat or saddled horse first, then press F11.");
             return;
         }
-        if (!isBoat(vehicle)) {
-            message(player, "This build is verified for boats only.");
+        if (!isBoat(vehicle) && !isHorse(vehicle)) {
+            message(player, "This build is verified for boats and horses only.");
             return;
         }
+
+        boolean horse = isHorse(vehicle);
+        segmentLength = horse ? HORSE_SEGMENT_LENGTH : BOAT_SEGMENT_LENGTH;
+        packetsPerSegment = (int) Math.round(segmentLength / STEP);
+        vehicleLabel = horse ? "Horse" : "Boat";
 
         double radians = Math.toRadians(player.getYRot());
         direction = new Vec3(-Math.sin(radians), 0.0D, Math.cos(radians)).normalize();
@@ -190,7 +198,11 @@ public final class BoatPhaseClient implements ClientModInitializer {
         vehicle.noPhysics = true;
         openLog();
         log("START", player, vehicle.position());
-        message(player, "Boat ratchet started: 19-block bursts, 0.25 steps, 100 ms pauses. F11 stops; F12 aborts.");
+        message(player, String.format(Locale.ROOT,
+            "%s ratchet started: %.0f-block bursts, 0.25 steps, 100 ms pauses. F11 stops; F12 aborts.",
+            vehicleLabel,
+            segmentLength
+        ));
     }
 
     private static Entity controlledVehicle(LocalPlayer player) {
@@ -203,6 +215,10 @@ public final class BoatPhaseClient implements ClientModInitializer {
 
     private static boolean isBoat(Entity vehicle) {
         return vehicle.getType().toString().toLowerCase(Locale.ROOT).contains("boat");
+    }
+
+    private static boolean isHorse(Entity vehicle) {
+        return vehicle.getType().toString().toLowerCase(Locale.ROOT).contains("horse");
     }
 
     private static void stop(LocalPlayer player, String reason, boolean setback) {

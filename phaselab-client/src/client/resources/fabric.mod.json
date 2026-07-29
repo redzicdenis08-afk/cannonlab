@@ -3,7 +3,7 @@
   "id": "phaselab",
   "version": "${version}",
   "name": "PhaseLab Client",
-  "description": "Client-only exact-Sakura movement laboratory with witness telemetry and a verified 19-block ratchet BoatPhase mode for authorized testing.",
+  "description": "Client-only exact-Sakura movement laboratory with witness telemetry and a verified boat and horse ratchet modes for authorized testing.",
   "authors": ["Denis + OpenAI"],
   "license": "MIT",
   "environment": "client",
