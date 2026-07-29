@@ -17,6 +17,9 @@ import org.bukkit.block.data.type.EndPortalFrame;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Arrow;
+import org.bukkit.entity.AreaEffectCloud;
+import org.bukkit.entity.ThrownPotion;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -26,6 +29,7 @@ import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
+import org.bukkit.event.entity.LingeringPotionSplashEvent;
 import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
@@ -46,12 +50,15 @@ import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Collection;
 
 public final class StackLabFixturePlugin extends JavaPlugin implements Listener {
     private static final int Y = 65;
     private final Gson gson = new Gson();
     private Path evidencePath;
     private boolean cancelPortalMultiPlace;
+    private int syntheticLingeringEvents;
+    private String arrowEnchantId;
 
     @Override
     public void onEnable() {
@@ -81,6 +88,8 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "claimsnapshot" -> claimSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "give" -> give(sender, args);
                     case "grindstoneprep" -> grindstonePrep(sender, args);
+                    case "arrowxpprep" -> arrowXpPrep(sender, args);
+                    case "arrowxpsnapshot" -> arrowXpSnapshot(sender, args);
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
                     case "alchemyfinal" -> alchemyFinal(sender);
@@ -156,6 +165,118 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         writeEvent("arena_build", snapshotMap(world, "build"));
         sender.sendMessage("STACKLAB BUILD OK boundary=15/16 y=" + Y);
         return true;
+    }
+
+    private boolean arrowXpPrep(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab arrowxpprep <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        World world = requireWorld();
+        world.getEntitiesByClass(Arrow.class).forEach(Arrow::remove);
+        world.getEntitiesByClass(AreaEffectCloud.class).forEach(AreaEffectCloud::remove);
+        world.getEntitiesByClass(ThrownPotion.class).forEach(ThrownPotion::remove);
+        for (int y = Y - 1; y <= Y + 4; y++) {
+            for (int z = 27; z <= 33; z++) {
+                world.getBlockAt(14, y, z).setType(Material.OBSIDIAN, false);
+            }
+        }
+        player.teleport(new Location(world, 5.5, Y, 30.5, -90F, 0F));
+        player.getInventory().clear();
+        player.setItemOnCursor(null);
+        setAuraSkillXp(player, "ALCHEMY", 0D);
+        syntheticLingeringEvents = 0;
+
+        ItemStack bow = new ItemStack(Material.BOW, 1);
+        arrowEnchantId = addArrowCloudEnchant(bow);
+        player.getInventory().setItem(0, bow);
+        player.getInventory().setItem(1, new ItemStack(Material.ARROW, 32));
+        player.getInventory().setHeldItemSlot(0);
+
+        Map<String, Object> snapshot = arrowXpSnapshotMap(player, "prep");
+        writeEvent("arrow_alchemy_prep", snapshot);
+        sender.sendMessage("STACKLAB ARROW XP PREP " + gson.toJson(snapshot));
+        return true;
+    }
+
+    @SuppressWarnings("unchecked")
+    private String addArrowCloudEnchant(ItemStack bow) {
+        org.bukkit.plugin.Plugin plugin = Bukkit.getPluginManager().getPlugin("ExcellentEnchants");
+        if (plugin == null || !plugin.isEnabled()) throw new IllegalStateException("ExcellentEnchants is not enabled");
+        try {
+            ClassLoader loader = plugin.getClass().getClassLoader();
+            Class<?> registryClass = Class.forName(
+                "su.nightexpress.excellentenchants.enchantment.EnchantRegistry", true, loader);
+            Object enchant = registryClass.getMethod("getById", String.class).invoke(null, "dragonfire_arrows");
+            if (enchant == null) {
+                Collection<Object> registered = (Collection<Object>) registryClass.getMethod("getRegistered").invoke(null);
+                enchant = registered.stream().filter(candidate -> {
+                    try {
+                        String id = String.valueOf(candidate.getClass().getMethod("getId").invoke(candidate));
+                        return id.contains("dragonfire") || id.equals("lingering");
+                    } catch (ReflectiveOperationException ignored) {
+                        return false;
+                    }
+                }).findFirst().orElseThrow(() -> new IllegalStateException("No arrow cloud enchantment registered"));
+            }
+            Enchantment bukkitEnchant = (Enchantment) enchant.getClass().getMethod("getBukkitEnchantment").invoke(enchant);
+            bow.addUnsafeEnchantment(bukkitEnchant, 32);
+            return String.valueOf(enchant.getClass().getMethod("getId").invoke(enchant));
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("Could not prepare arrow cloud enchantment", exception);
+        }
+    }
+
+    private boolean arrowXpSnapshot(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab arrowxpsnapshot <player> [label]");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        String label = args.length > 2 ? args[2] : "manual";
+        Map<String, Object> snapshot = arrowXpSnapshotMap(player, label);
+        writeEvent("arrow_alchemy_snapshot", snapshot);
+        sender.sendMessage("STACKLAB ARROW XP SNAPSHOT " + label + " " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private Map<String, Object> arrowXpSnapshotMap(Player player, String label) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("label", label);
+        result.put("player", player.getName());
+        result.put("enchant_id", arrowEnchantId == null ? "MISSING" : arrowEnchantId);
+        result.put("alchemy_xp", auraSkillXp(player, "ALCHEMY"));
+        result.put("arrows", player.getInventory().all(Material.ARROW).values().stream().mapToInt(ItemStack::getAmount).sum());
+        result.put("bow", itemSummary(player.getInventory().getItem(0)));
+        result.put("synthetic_lingering_events", syntheticLingeringEvents);
+        result.put("arrow_entities", player.getWorld().getEntitiesByClass(Arrow.class).size());
+        result.put("cloud_entities", player.getWorld().getEntitiesByClass(AreaEffectCloud.class).size());
+        return result;
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void setAuraSkillXp(Player player, String skillName, double value) {
+        try {
+            Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
+            Object api = apiClass.getMethod("get").invoke(null);
+            Object user = apiClass.getMethod("getUser", java.util.UUID.class).invoke(api, player.getUniqueId());
+            Class<? extends Enum> skillsClass = (Class<? extends Enum>) Class.forName("dev.aurelium.auraskills.api.skill.Skills");
+            Object skill = Enum.valueOf(skillsClass, skillName);
+            Class<?> skillClass = Class.forName("dev.aurelium.auraskills.api.skill.Skill");
+            Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
+            skillsUserClass.getMethod("setSkillXp", skillClass, double.class).invoke(user, skill, value);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            throw new IllegalStateException("Could not reset AuraSkills " + skillName + " XP", exception);
+        }
     }
 
     private boolean reset(org.bukkit.command.CommandSender sender) {
@@ -687,6 +808,20 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         data.put("item", itemSummary(event.getCurrentItem()));
         data.put("alchemy_xp_monitor", auraSkillXp(player, "ALCHEMY"));
         writeEvent("alchemy_result_click", data);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onSyntheticLingering(LingeringPotionSplashEvent event) {
+        if (!(event.getEntity().getShooter() instanceof Player player)) return;
+        syntheticLingeringEvents++;
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("player", player.getName());
+        data.put("cancelled", event.isCancelled());
+        data.put("item", itemSummary(event.getEntity().getItem()));
+        data.put("effects", event.getEntity().getEffects().size());
+        data.put("alchemy_xp_monitor", auraSkillXp(player, "ALCHEMY"));
+        data.put("event_count", syntheticLingeringEvents);
+        writeEvent("synthetic_lingering_splash", data);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)

@@ -1,0 +1,273 @@
+name: PhaseLab Arrow Alchemy XP Lab
+
+on:
+  push:
+    branches:
+      - feat/phaselab-private-exploit-lab
+      - research/phaselab-op-exploit-hunt
+      - research/phaselab-alchemy-xp
+      - research/phaselab-deep-hunt
+      - research/phaselab-arrow-alchemy-xp
+    paths:
+      - 'phaselab-private-stack-fixture/**'
+      - 'phaselab-harness/arrow-alchemy-xp.js'
+      - 'phaselab-harness/package.json'
+      - 'phaselab-stack-probe/**'
+      - 'scripts/evaluate_private_stack_evidence.py'
+      - 'scripts/test_evaluate_private_stack_evidence.py'
+      - '.github/workflows/phaselab-arrow-alchemy-xp.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: phaselab-arrow-alchemy-xp-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  exact-sakura-arrow-alchemy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout CannonLab
+        uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: phaselab-harness/package.json
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.1'
+
+      - name: Install headless client
+        working-directory: phaselab-harness
+        run: npm install --no-audit --no-fund
+
+      - name: Test server-side evidence evaluator
+        shell: bash
+        run: python scripts/test_evaluate_private_stack_evidence.py
+
+      - name: Build StackLab fixture and stack probe
+        shell: bash
+        run: |
+          set -euxo pipefail
+          gradle -p phaselab-private-stack-fixture clean build --stacktrace --console=plain
+          gradle -p phaselab-stack-probe clean build --stacktrace --console=plain
+
+      - name: Build FactionsUUID 4.6.1 candidate
+        shell: bash
+        run: |
+          set -euxo pipefail
+          git clone --depth 1 --branch 4.6.1 https://github.com/FactionsU/UID.git phaselab-factionsuuid
+          chmod +x phaselab-factionsuuid/gradlew
+          ./phaselab-factionsuuid/gradlew -p phaselab-factionsuuid clean build --no-daemon --stacktrace --console=plain
+          test -f phaselab-factionsuuid/paper/build/libs/factionsuuid.jar
+
+      - name: Restore pinned Sakura paperclip
+        id: sakura-cache
+        uses: actions/cache/restore@v4
+        with:
+          path: phaselab-cache/server.jar
+          key: sakura-paperclip-63f35d74e0fbe6bcd76c58494c01c1632c83010d-java25-v1
+
+      - name: Build pinned Sakura 26.1.2
+        if: steps.sakura-cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p phaselab-cache
+          git config --global user.name 'PhaseLab CI'
+          git config --global user.email 'phaselab@example.invalid'
+          git clone --filter=blob:none https://github.com/Samsuik/Sakura.git sakura-source
+          cd sakura-source
+          git checkout 63f35d74e0fbe6bcd76c58494c01c1632c83010d
+          ./gradlew applyAllPatches --no-daemon --stacktrace --console=plain
+          ./gradlew createPaperclipJar --no-daemon --stacktrace --console=plain
+          SERVER_JAR="$(find . -path '*/build/libs/*paperclip*.jar' -type f | sort | tail -n 1)"
+          test -n "$SERVER_JAR"
+          cp "$SERVER_JAR" ../phaselab-cache/server.jar
+
+      - name: Save pinned Sakura paperclip
+        if: steps.sakura-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: phaselab-cache/server.jar
+          key: sakura-paperclip-63f35d74e0fbe6bcd76c58494c01c1632c83010d-java25-v1
+
+      - name: Assemble isolated private-stack approximation
+        shell: bash
+        run: |
+          set -euxo pipefail
+          mkdir -p phaselab-private-runtime/plugins phaselab-private-runtime/output
+          cp phaselab-cache/server.jar phaselab-private-runtime/server.jar
+          cp phaselab-factionsuuid/paper/build/libs/factionsuuid.jar phaselab-private-runtime/plugins/FactionsUUID-4.6.1.jar
+          cp phaselab-private-stack-fixture/build/libs/StackLab-Fixture-1.0.0.jar phaselab-private-runtime/plugins/
+          cp phaselab-stack-probe/build/libs/PhaseLab-StackProbe-1.0.0.jar phaselab-private-runtime/plugins/
+
+          download_modrinth() {
+            local version_id="$1"
+            local output="$2"
+            local json url
+            json="$(curl -fsSL "https://api.modrinth.com/v2/version/${version_id}")"
+            url="$(printf '%s' "$json" | jq -r '.files[] | select(.primary == true) | .url' | head -n 1)"
+            if [ -z "$url" ] || [ "$url" = "null" ]; then
+              url="$(printf '%s' "$json" | jq -r '.files[0].url')"
+            fi
+            test -n "$url"
+            test "$url" != "null"
+            curl -fL "$url" -o "$output"
+          }
+
+          download_modrinth QOb8ZzmE phaselab-private-runtime/plugins/AuraSkills-2.3.12.jar
+          download_modrinth AT68K28Z phaselab-private-runtime/plugins/ExcellentEnchants-5.4.3.jar
+          download_modrinth Pgcu4VkO phaselab-private-runtime/plugins/NightCore-2.15.2.jar
+          download_modrinth I0mCQX6z phaselab-private-runtime/plugins/ViaVersion-5.9.0.jar
+          download_modrinth HDbyDR7L phaselab-private-runtime/plugins/ViaBackwards-5.9.0.jar
+          curl -fL https://github.com/MilkBowl/Vault/releases/download/1.7.3/Vault.jar \
+            -o phaselab-private-runtime/plugins/Vault-1.7.3.jar
+
+          sha256sum phaselab-private-runtime/server.jar | tee phaselab-private-runtime/sakura-server.sha256
+          sha256sum phaselab-private-runtime/plugins/*.jar | sort | tee phaselab-private-runtime/plugin-jars.sha256
+
+          cat > phaselab-private-runtime/eula.txt <<'EOF'
+          eula=true
+          EOF
+          cat > phaselab-private-runtime/server.properties <<'EOF'
+          online-mode=false
+          enforce-secure-profile=false
+          server-ip=127.0.0.1
+          server-port=25566
+          gamemode=survival
+          difficulty=peaceful
+          spawn-protection=0
+          level-name=world
+          level-type=minecraft:flat
+          generate-structures=false
+          view-distance=6
+          simulation-distance=6
+          max-players=8
+          allow-flight=true
+          enable-rcon=false
+          enable-query=false
+          white-list=false
+          motd=PhaseLab private stack exploit lab
+          EOF
+          cat > phaselab-private-runtime/ops.json <<'EOF'
+          [
+            {
+              "uuid": "0c88e2e5-4a6f-3398-adba-5d004a77e35d",
+              "name": "PhaseBot",
+              "level": 4,
+              "bypassesPlayerLimit": true
+            }
+          ]
+          EOF
+
+      - name: Run exact arrow alchemy XP matrix
+        id: matrix
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -o pipefail
+          RUNTIME="$GITHUB_WORKSPACE/phaselab-private-runtime"
+          HARNESS="$GITHUB_WORKSPACE/phaselab-harness"
+          cd "$RUNTIME"
+          rm -f server.in
+          mkfifo server.in
+          tail -f server.in | java -Xms1G -Xmx4G -jar server.jar nogui > server.log 2>&1 &
+          SERVER_PIPE_PID=$!
+          exec 3>server.in
+
+          cleanup() {
+            printf 'phasestack export\n' >&3 2>/dev/null || true
+            sleep 2
+            printf 'stop\n' >&3 2>/dev/null || true
+            sleep 5
+            kill "$SERVER_PIPE_PID" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          READY=0
+          for _ in $(seq 1 360); do
+            if grep -q 'Done (' server.log; then
+              READY=1
+              break
+            fi
+            if ! kill -0 "$SERVER_PIPE_PID" 2>/dev/null; then
+              echo 'Server process exited before startup completed'
+              cat server.log
+              exit 1
+            fi
+            sleep 2
+          done
+          if [ "$READY" -ne 1 ]; then
+            echo 'Timed out waiting for exact Sakura startup'
+            cat server.log
+            exit 1
+          fi
+
+          cd "$HARNESS"
+          rm -rf output-arrow-alchemy-xp
+          PHASELAB_HOST=127.0.0.1 \
+          PHASELAB_PORT=25566 \
+          PHASELAB_OUTPUT="$HARNESS/output-arrow-alchemy-xp" \
+            node arrow-alchemy-xp.js 2>&1 | tee "$RUNTIME/harness.log"
+          MATRIX_EXIT=${PIPESTATUS[0]}
+          printf '%s\n' "$MATRIX_EXIT" > "$RUNTIME/matrix.exit"
+          printf 'phasestack export\n' >&3
+          sleep 3
+          exit "$MATRIX_EXIT"
+
+      - name: Summarize arrow alchemy evidence
+        if: always()
+        shell: bash
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result_path = Path('phaselab-harness/output-arrow-alchemy-xp/arrow-alchemy-xp-report.json')
+          if not result_path.exists():
+              print({'result': 'missing', 'path': str(result_path)})
+              raise SystemExit(1)
+          result = json.loads(result_path.read_text(encoding='utf-8'))
+          print({
+              'confirmed': result.get('confirmed'),
+              'enchant': result.get('prep', {}).get('enchant_id'),
+              'trials': [
+                  {'index': t.get('index'), 'xp_gain': t.get('xpGain'), 'event_gain': t.get('eventGain'),
+                   'arrows_used': t.get('arrowsUsed'), 'exploited': t.get('exploited'), 'error': t.get('shotError')}
+                  for t in result.get('trials', [])
+              ],
+              'fatal': result.get('fatal'),
+          })
+          if result.get('fatal'):
+              raise SystemExit(1)
+          PY
+
+      - name: Upload arrow alchemy evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phaselab-arrow-alchemy-xp-evidence
+          if-no-files-found: warn
+          path: |
+            phaselab-private-runtime/server.log
+            phaselab-private-runtime/harness.log
+            phaselab-private-runtime/matrix.exit
+            phaselab-private-runtime/sakura-server.sha256
+            phaselab-private-runtime/plugin-jars.sha256
+            phaselab-private-runtime/plugins/StackLabFixture/evidence.jsonl
+            phaselab-harness/output-arrow-alchemy-xp/arrow-alchemy-xp-report.json
+            phaselab-harness/output-arrow-alchemy-xp/arrow-alchemy-xp-transcript.jsonl
