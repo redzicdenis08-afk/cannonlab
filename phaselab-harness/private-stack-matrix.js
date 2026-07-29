@@ -264,6 +264,51 @@ async function main () {
       return { victim: victimBot.entity.position, attacker: attackerBot.entity.position, witness }
     })
 
+    await phase('factions_enemy_bamboo_chest_raft_theft', async () => {
+      await command(phaseBot, '/stacklab build', 650)
+      await command(phaseBot, '/clear AttackerBot', 300)
+      await command(phaseBot, '/stacklab snapshot chest-raft-before', 300)
+      await command(phaseBot, '/tp AttackerBot 14.5 65 14.0 -90 0', 500)
+
+      const deadline = Date.now() + 5000
+      let raft = null
+      while (Date.now() < deadline && !raft) {
+        raft = attackerBot.nearestEntity(entity => entity.name === 'bamboo_chest_raft')
+        if (!raft) await sleep(100)
+      }
+      if (!raft) throw new Error('Victim bamboo chest raft missing')
+
+      let window = null
+      let openError = null
+      let clickError = null
+      let visibleNetherite = 0
+      try {
+        window = await attackerBot.openEntity(raft)
+        await sleep(700)
+        visibleNetherite = window.slots
+          .slice(0, window.inventoryStart)
+          .filter(item => item?.name === 'netherite_block')
+          .reduce((sum, item) => sum + item.count, 0)
+        if (visibleNetherite > 0) {
+          const slot = window.slots
+            .slice(0, window.inventoryStart)
+            .findIndex(item => item?.name === 'netherite_block')
+          await attackerBot.clickWindow(slot, 0, 1)
+          await sleep(900)
+        }
+      } catch (error) {
+        if (window) clickError = String(error.stack || error)
+        else openError = String(error.stack || error)
+      } finally {
+        if (window) {
+          try { attackerBot.closeWindow(window) } catch {}
+        }
+      }
+
+      await command(phaseBot, '/stacklab snapshot chest-raft-after', 300)
+      return { entity: raft.name, visibleNetherite, openError, clickError }
+    })
+
     await phase('auraskills_excellentenchants_infinite_grindstone_xp', async () => {
       await command(phaseBot, '/stacklab build', 650)
       await command(phaseBot, '/clear AttackerBot')

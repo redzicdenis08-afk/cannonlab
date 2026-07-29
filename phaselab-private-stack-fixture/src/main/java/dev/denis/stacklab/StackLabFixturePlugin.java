@@ -17,6 +17,7 @@ import org.bukkit.block.data.type.EndPortalFrame;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.boat.BambooChestRaft;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -31,6 +32,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -152,6 +154,17 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         set(world, 13, Y + 1, 9, Material.HOPPER);
         set(world, 13, Y, 9, Material.CHEST);
         set(world, 14, Y + 1, 9, Material.REDSTONE_BLOCK);
+
+        world.getEntitiesByClass(BambooChestRaft.class).stream()
+            .filter(entity -> inArena(entity.getLocation()))
+            .forEach(BambooChestRaft::remove);
+        BambooChestRaft raft = world.spawn(new Location(world, 16.5, Y, 14.0), BambooChestRaft.class, entity -> {
+            entity.setGravity(false);
+            entity.setInvulnerable(true);
+            entity.addScoreboardTag("stacklab_victim_chest_raft");
+        });
+        raft.getInventory().clear();
+        raft.getInventory().setItem(0, new ItemStack(Material.NETHERITE_BLOCK, 27));
 
         writeEvent("arena_build", snapshotMap(world, "build"));
         sender.sendMessage("STACKLAB BUILD OK boundary=15/16 y=" + Y);
@@ -444,11 +457,17 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         result.put("piston_payload_target", type(world, 16, Y, 12));
         result.put("hopper_count", inventoryCount(world.getBlockAt(15, Y, 8), Material.DIAMOND));
         result.put("target_chest_count", inventoryCount(world.getBlockAt(16, Y, 8), Material.DIAMOND));
+        BambooChestRaft raft = victimChestRaft(world);
+        result.put("victim_chest_raft_present", raft != null);
+        result.put("victim_chest_raft_netherite_count", raft == null ? -1 : raft.getInventory().all(Material.NETHERITE_BLOCK)
+            .values().stream().mapToInt(ItemStack::getAmount).sum());
 
         Player attacker = Bukkit.getPlayerExact("AttackerBot");
         if (attacker != null) {
             result.put("attacker_enchanting_xp", auraEnchantingXp(attacker));
             result.put("attacker_alchemy_xp", auraSkillXp(attacker, "ALCHEMY"));
+            result.put("attacker_netherite_count", attacker.getInventory().all(Material.NETHERITE_BLOCK)
+                .values().stream().mapToInt(ItemStack::getAmount).sum());
             var top = attacker.getOpenInventory().getTopInventory();
             result.put("attacker_open_inventory", top.getType().name());
             if (top.getType() == InventoryType.GRINDSTONE) {
@@ -606,6 +625,13 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return world;
     }
 
+    private BambooChestRaft victimChestRaft(World world) {
+        return world.getEntitiesByClass(BambooChestRaft.class).stream()
+            .filter(entity -> entity.getScoreboardTags().contains("stacklab_victim_chest_raft"))
+            .findFirst()
+            .orElse(null);
+    }
+
     private void writeEvent(String type, Map<String, ?> fields) {
         JsonObject object = new JsonObject();
         object.addProperty("ts", Instant.now().toString());
@@ -756,6 +782,20 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         writeEvent("teleport", Map.of(
             "player", event.getPlayer().getName(), "cause", event.getCause().name(), "cancelled", event.isCancelled(),
             "to_x", to == null ? Double.NaN : to.getX(), "to_y", to == null ? Double.NaN : to.getY(), "to_z", to == null ? Double.NaN : to.getZ()
+        ));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onChestRaftInteract(PlayerInteractEntityEvent event) {
+        if (!(event.getRightClicked() instanceof BambooChestRaft raft)) return;
+        if (!raft.getScoreboardTags().contains("stacklab_victim_chest_raft")) return;
+        writeEvent("chest_raft_interact", Map.of(
+            "player", event.getPlayer().getName(),
+            "cancelled", event.isCancelled(),
+            "entity_type", raft.getType().name(),
+            "netherite_count", raft.getInventory().all(Material.NETHERITE_BLOCK)
+                .values().stream().mapToInt(ItemStack::getAmount).sum(),
+            "x", raft.getLocation().getX(), "y", raft.getLocation().getY(), "z", raft.getLocation().getZ()
         ));
     }
 
