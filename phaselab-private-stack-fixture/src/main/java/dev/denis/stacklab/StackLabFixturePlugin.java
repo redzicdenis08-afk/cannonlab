@@ -15,6 +15,7 @@ import org.bukkit.block.Hopper;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.EndPortalFrame;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -32,7 +33,12 @@ import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionType;
 
@@ -45,13 +51,18 @@ import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.Collection;
 import java.util.Map;
+import java.util.UUID;
 
 public final class StackLabFixturePlugin extends JavaPlugin implements Listener {
     private static final int Y = 65;
     private final Gson gson = new Gson();
     private Path evidencePath;
     private boolean cancelPortalMultiPlace;
+    private NamespacedKey anvilTokenKey;
+    private String anvilToken;
+    private String anvilEnchantId;
 
     @Override
     public void onEnable() {
@@ -62,6 +73,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             throw new IllegalStateException("Unable to prepare StackLab evidence directory", exception);
         }
         Bukkit.getPluginManager().registerEvents(this, this);
+        anvilTokenKey = new NamespacedKey(this, "anvil_dupe_token");
         var command = getCommand("stacklab");
         if (command == null) {
             throw new IllegalStateException("stacklab command missing from plugin.yml");
@@ -81,6 +93,8 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "claimsnapshot" -> claimSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "give" -> give(sender, args);
                     case "grindstoneprep" -> grindstonePrep(sender, args);
+                    case "anvilprep" -> anvilPrep(sender, args);
+                    case "anvilsnapshot" -> anvilSnapshot(sender, args);
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
                     case "alchemyfinal" -> alchemyFinal(sender);
@@ -156,6 +170,164 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         writeEvent("arena_build", snapshotMap(world, "build"));
         sender.sendMessage("STACKLAB BUILD OK boundary=15/16 y=" + Y);
         return true;
+    }
+
+    private boolean anvilPrep(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab anvilprep <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+
+        World world = requireWorld();
+        Location location = new Location(world, 13, Y, 6);
+        location.getBlock().setType(Material.ANVIL, false);
+        world.getEntitiesByClass(Item.class).stream()
+            .filter(item -> item.getLocation().distanceSquared(location) <= 64.0)
+            .forEach(Entity::remove);
+
+        player.closeInventory();
+        player.getInventory().clear();
+        player.setItemOnCursor(null);
+        player.setLevel(100);
+
+        ItemStack tool = new ItemStack(Material.DIAMOND_PICKAXE, 1);
+        anvilToken = UUID.randomUUID().toString();
+        ItemMeta meta = tool.getItemMeta();
+        meta.getPersistentDataContainer().set(anvilTokenKey, PersistentDataType.STRING, anvilToken);
+        tool.setItemMeta(meta);
+
+        Map<String, Object> preparation = configureChargeableEnchant(tool);
+        ItemStack fuel = (ItemStack) preparation.remove("fuel");
+        anvilEnchantId = String.valueOf(preparation.get("enchant_id"));
+        fuel.setAmount(Math.min(8, fuel.getMaxStackSize()));
+
+        InventoryView view = player.openAnvil(location, true);
+        if (view == null) throw new IllegalStateException("Could not open anvil for " + player.getName());
+        Inventory top = view.getTopInventory();
+        top.setItem(0, tool);
+        top.setItem(1, fuel);
+
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("token", anvilToken);
+        evidence.putAll(preparation);
+        evidence.put("fuel", itemSummary(fuel));
+        evidence.put("snapshot", anvilSnapshotMap(player, "prep-immediate"));
+        writeEvent("anvil_dupe_prep", evidence);
+        Bukkit.getScheduler().runTaskLater(this, () -> writeEvent(
+            "anvil_dupe_ready", anvilSnapshotMap(player, "prep-after-5-ticks")), 5L);
+        sender.sendMessage("STACKLAB ANVIL PREP " + gson.toJson(evidence));
+        return true;
+    }
+
+    private Map<String, Object> configureChargeableEnchant(ItemStack tool) {
+        Plugin plugin = Bukkit.getPluginManager().getPlugin("ExcellentEnchants");
+        if (plugin == null || !plugin.isEnabled()) {
+            throw new IllegalStateException("ExcellentEnchants is not enabled");
+        }
+        try {
+            ClassLoader loader = plugin.getClass().getClassLoader();
+            Class<?> registryClass = Class.forName(
+                "su.nightexpress.excellentenchants.enchantment.EnchantRegistry", true, loader);
+            Object enchant = registryClass.getMethod("getById", String.class).invoke(null, "telekinesis");
+            if (enchant == null || !Boolean.TRUE.equals(enchant.getClass().getMethod("isChargeable").invoke(enchant))) {
+                @SuppressWarnings("unchecked")
+                Collection<Object> registered = (Collection<Object>) registryClass.getMethod("getRegistered").invoke(null);
+                enchant = registered.stream().filter(candidate -> {
+                    try {
+                        return Boolean.TRUE.equals(candidate.getClass().getMethod("isChargeable").invoke(candidate))
+                            && !Boolean.TRUE.equals(candidate.getClass().getMethod("isCurse").invoke(candidate));
+                    } catch (ReflectiveOperationException ignored) {
+                        return false;
+                    }
+                }).findFirst().orElseThrow(() -> new IllegalStateException("No chargeable enchantment registered"));
+            }
+
+            Enchantment bukkitEnchant = (Enchantment) enchant.getClass().getMethod("getBukkitEnchantment").invoke(enchant);
+            tool.addUnsafeEnchantment(bukkitEnchant, 1);
+            enchant.getClass().getMethod("setCharges", ItemStack.class, int.class, int.class)
+                .invoke(enchant, tool, 1, 0);
+            ItemStack fuel = ((ItemStack) enchant.getClass().getMethod("getFuel").invoke(enchant)).clone();
+
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("enchant_id", String.valueOf(enchant.getClass().getMethod("getId").invoke(enchant)));
+            result.put("chargeable", true);
+            result.put("charges", enchant.getClass().getMethod("getCharges", ItemStack.class).invoke(enchant, tool));
+            result.put("max_charges", enchant.getClass().getMethod("getMaxCharges", int.class).invoke(enchant, 1));
+            result.put("fuel", fuel);
+            return result;
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("Could not prepare ExcellentEnchants charge item", exception);
+        }
+    }
+
+    private boolean anvilSnapshot(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab anvilsnapshot <player> [label]");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        String label = args.length > 2 ? args[2] : "manual";
+        Map<String, Object> snapshot = anvilSnapshotMap(player, label);
+        writeEvent("anvil_dupe_snapshot", snapshot);
+        sender.sendMessage("STACKLAB ANVIL SNAPSHOT " + label + " " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private Map<String, Object> anvilSnapshotMap(Player player, String label) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("label", label);
+        result.put("player", player.getName());
+        result.put("token", anvilToken == null ? "MISSING" : anvilToken);
+        result.put("enchant_id", anvilEnchantId == null ? "MISSING" : anvilEnchantId);
+        result.put("level", player.getLevel());
+        result.put("open_type", player.getOpenInventory().getTopInventory().getType().name());
+
+        int inventory = countToken(player.getInventory().getContents());
+        int cursor = isToken(player.getItemOnCursor()) ? player.getItemOnCursor().getAmount() : 0;
+        Inventory top = player.getOpenInventory().getTopInventory();
+        int input = top.getSize() > 0 && isToken(top.getItem(0)) ? top.getItem(0).getAmount() : 0;
+        int resultPreview = top.getSize() > 2 && isToken(top.getItem(2)) ? top.getItem(2).getAmount() : 0;
+        int dropped = player.getWorld().getEntitiesByClass(Item.class).stream()
+            .filter(item -> isToken(item.getItemStack()))
+            .mapToInt(item -> item.getItemStack().getAmount())
+            .sum();
+        int fuel = top.getSize() > 1 && top.getItem(1) != null ? top.getItem(1).getAmount() : 0;
+
+        result.put("inventory_token", inventory);
+        result.put("cursor_token", cursor);
+        result.put("input_token", input);
+        result.put("result_preview_token", resultPreview);
+        result.put("dropped_token", dropped);
+        result.put("committed_token_total", inventory + cursor + input + dropped);
+        result.put("fuel_remaining", fuel);
+        result.put("input", top.getSize() > 0 ? itemSummary(top.getItem(0)) : "MISSING");
+        result.put("result", top.getSize() > 2 ? itemSummary(top.getItem(2)) : "MISSING");
+        return result;
+    }
+
+    private int countToken(ItemStack[] items) {
+        int count = 0;
+        for (ItemStack item : items) {
+            if (isToken(item)) count += item.getAmount();
+        }
+        return count;
+    }
+
+    private boolean isToken(ItemStack item) {
+        if (item == null || item.getType().isAir() || anvilToken == null) return false;
+        ItemMeta meta = item.getItemMeta();
+        if (meta == null) return false;
+        return anvilToken.equals(meta.getPersistentDataContainer().get(anvilTokenKey, PersistentDataType.STRING));
     }
 
     private boolean reset(org.bukkit.command.CommandSender sender) {
@@ -658,6 +830,25 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         data.put("input_fragility", enchantLevel(event.getView().getTopInventory().getItem(0), "excellentenchants:curse_of_fragility"));
         data.put("enchanting_xp_monitor", auraEnchantingXp(player));
         writeEvent("grindstone_result_click", data);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onAnvilResultClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (event.getView().getTopInventory().getType() != InventoryType.ANVIL) return;
+        if (event.getRawSlot() != 2) return;
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("player", player.getName());
+        data.put("cancelled", event.isCancelled());
+        data.put("action", event.getAction().name());
+        data.put("click", event.getClick().name());
+        data.put("current", itemSummary(event.getCurrentItem()));
+        data.put("token_current", isToken(event.getCurrentItem()));
+        data.put("snapshot_monitor", anvilSnapshotMap(player, "click-monitor"));
+        writeEvent("anvil_result_click", data);
+        Bukkit.getScheduler().runTask(this, () -> writeEvent(
+            "anvil_result_after_tick", anvilSnapshotMap(player, "click-after-tick")));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
