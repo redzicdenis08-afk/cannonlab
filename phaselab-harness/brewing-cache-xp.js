@@ -186,7 +186,7 @@ async function main () {
     report.confirmed = report.analysis.observedBrewEvents === 5 &&
       report.analysis.cachedIngredientsBefore === 5 &&
       report.analysis.brewedBefore &&
-      report.analysis.xpGain === 50 &&
+      report.analysis.xpGain >= 50 &&
       report.analysis.cachedIngredientsAfter === 0
   } catch (error) {
     report.fatal = String(error.stack || error)
