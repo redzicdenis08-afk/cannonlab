@@ -1,0 +1,638 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-07-29T15:31:06.780Z",
+  "scope": "authorized exact private Sakura/Factions vertical ejection chain matrix",
+  "claimsVerified": true,
+  "trials": [
+    {
+      "id": "boat-player-air-hcoll-fast",
+      "run": 1,
+      "vehicle": "boat",
+      "chain": "player",
+      "onGround": false,
+      "horizontalCollision": true,
+      "packetDelayMs": 0,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "start": {
+        "x": 0.5000000000000002,
+        "y": 128,
+        "z": 2.8226046167085315
+      },
+      "firstY": 124,
+      "acceptedY": 124,
+      "packetCount": 32,
+      "checkpoints": [
+        {
+          "stage": "first_eject",
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleStayedTop": false,
+          "vehicleLower": false,
+          "expectedRelocations": 1,
+          "setbacks": 0
+        },
+        {
+          "stage": "player_chain",
+          "fromY": 124,
+          "targetY": 120,
+          "accepted": false,
+          "expectedRelocations": 0,
+          "setbacks": 1
+        }
+      ],
+      "remounts": [],
+      "telemetryCount": 2,
+      "expectedRelocationCount": 1,
+      "setbackCount": 1,
+      "firstSetback": {
+        "type": "player_position",
+        "packet": {
+          "teleportId": 6,
+          "x": 0.5000000000000002,
+          "y": 124,
+          "z": 2.8226046167085315,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": -180,
+          "pitch": 45,
+          "flags": {
+            "_value": 0,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": false,
+            "pitch": false,
+            "dx": false,
+            "dy": false,
+            "dz": false,
+            "yawDelta": false
+          }
+        },
+        "at": 1785339085763
+      },
+      "playerBelow": false,
+      "netheriteCount": 0,
+      "elapsedMs": 13055,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "boat-player-air-hcoll-fast",
+      "run": 2,
+      "vehicle": "boat",
+      "chain": "player",
+      "onGround": false,
+      "horizontalCollision": true,
+      "packetDelayMs": 0,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "start": {
+        "x": 0.5000000000000003,
+        "y": 128,
+        "z": 2.4726045928666736
+      },
+      "firstY": 124,
+      "acceptedY": 124,
+      "packetCount": 32,
+      "checkpoints": [
+        {
+          "stage": "first_eject",
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleStayedTop": false,
+          "vehicleLower": false,
+          "expectedRelocations": 1,
+          "setbacks": 0
+        },
+        {
+          "stage": "player_chain",
+          "fromY": 124,
+          "targetY": 120,
+          "accepted": false,
+          "expectedRelocations": 0,
+          "setbacks": 1
+        }
+      ],
+      "remounts": [],
+      "telemetryCount": 2,
+      "expectedRelocationCount": 1,
+      "setbackCount": 1,
+      "firstSetback": {
+        "type": "player_position",
+        "packet": {
+          "teleportId": 11,
+          "x": 0.5000000000000003,
+          "y": 124,
+          "z": 2.4726045928666736,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": -180,
+          "pitch": 45,
+          "flags": {
+            "_value": 0,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": false,
+            "pitch": false,
+            "dx": false,
+            "dy": false,
+            "dz": false,
+            "yawDelta": false
+          }
+        },
+        "at": 1785339103498
+      },
+      "playerBelow": false,
+      "netheriteCount": 0,
+      "elapsedMs": 13054,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "boat-player-air-hcoll-fast",
+      "run": 3,
+      "vehicle": "boat",
+      "chain": "player",
+      "onGround": false,
+      "horizontalCollision": true,
+      "packetDelayMs": 0,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "start": {
+        "x": 0.5000000000000003,
+        "y": 128,
+        "z": 2.4726045928666736
+      },
+      "firstY": 124,
+      "acceptedY": 124,
+      "packetCount": 32,
+      "checkpoints": [
+        {
+          "stage": "first_eject",
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleStayedTop": false,
+          "vehicleLower": false,
+          "expectedRelocations": 1,
+          "setbacks": 0
+        },
+        {
+          "stage": "player_chain",
+          "fromY": 124,
+          "targetY": 120,
+          "accepted": false,
+          "expectedRelocations": 0,
+          "setbacks": 1
+        }
+      ],
+      "remounts": [],
+      "telemetryCount": 2,
+      "expectedRelocationCount": 1,
+      "setbackCount": 1,
+      "firstSetback": {
+        "type": "player_position",
+        "packet": {
+          "teleportId": 15,
+          "x": 0.5000000000000003,
+          "y": 124,
+          "z": 2.4726045928666736,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": -180,
+          "pitch": 45,
+          "flags": {
+            "_value": 0,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": false,
+            "pitch": false,
+            "dx": false,
+            "dy": false,
+            "dz": false,
+            "yawDelta": false
+          }
+        },
+        "at": 1785339121201
+      },
+      "playerBelow": false,
+      "netheriteCount": 0,
+      "elapsedMs": 13053,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "boat-player-air-hcoll-50ms",
+      "run": 1,
+      "vehicle": "boat",
+      "chain": "player",
+      "onGround": false,
+      "horizontalCollision": true,
+      "packetDelayMs": 50,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "start": {
+        "x": 0.5000000000000003,
+        "y": 128,
+        "z": 2.4726045928666736
+      },
+      "firstY": 124,
+      "acceptedY": 124,
+      "packetCount": 32,
+      "checkpoints": [
+        {
+          "stage": "first_eject",
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleStayedTop": false,
+          "vehicleLower": false,
+          "expectedRelocations": 1,
+          "setbacks": 0
+        },
+        {
+          "stage": "player_chain",
+          "fromY": 124,
+          "targetY": 120,
+          "accepted": true,
+          "expectedRelocations": 0,
+          "setbacks": 12
+        }
+      ],
+      "remounts": [],
+      "telemetryCount": 13,
+      "expectedRelocationCount": 1,
+      "setbackCount": 12,
+      "firstSetback": {
+        "type": "player_position",
+        "packet": {
+          "teleportId": 19,
+          "x": 0.5000000000000003,
+          "y": 124,
+          "z": 2.4726045928666736,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": -180,
+          "pitch": 45,
+          "flags": {
+            "_value": 0,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": false,
+            "pitch": false,
+            "dx": false,
+            "dy": false,
+            "dz": false,
+            "yawDelta": false
+          }
+        },
+        "at": 1785339138900
+      },
+      "playerBelow": false,
+      "netheriteCount": 0,
+      "elapsedMs": 10809,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "boat-player-air-hcoll-50ms",
+      "run": 2,
+      "vehicle": "boat",
+      "chain": "player",
+      "onGround": false,
+      "horizontalCollision": true,
+      "packetDelayMs": 50,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "start": {
+        "x": 0.5000000000000003,
+        "y": 128,
+        "z": 2.4726045928666736
+      },
+      "firstY": 124,
+      "acceptedY": 124,
+      "packetCount": 32,
+      "checkpoints": [
+        {
+          "stage": "first_eject",
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleStayedTop": false,
+          "vehicleLower": false,
+          "expectedRelocations": 1,
+          "setbacks": 0
+        },
+        {
+          "stage": "player_chain",
+          "fromY": 124,
+          "targetY": 120,
+          "accepted": true,
+          "expectedRelocations": 0,
+          "setbacks": 12
+        }
+      ],
+      "remounts": [],
+      "telemetryCount": 13,
+      "expectedRelocationCount": 1,
+      "setbackCount": 12,
+      "firstSetback": {
+        "type": "player_position",
+        "packet": {
+          "teleportId": 34,
+          "x": 0.5000000000000003,
+          "y": 124,
+          "z": 2.4726045928666736,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": -180,
+          "pitch": 45,
+          "flags": {
+            "_value": 0,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": false,
+            "pitch": false,
+            "dx": false,
+            "dy": false,
+            "dz": false,
+            "yawDelta": false
+          }
+        },
+        "at": 1785339154397
+      },
+      "playerBelow": false,
+      "netheriteCount": 0,
+      "elapsedMs": 10813,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "boat-player-ground-hcoll-fast",
+      "run": 1,
+      "vehicle": "boat",
+      "chain": "player",
+      "onGround": true,
+      "horizontalCollision": true,
+      "packetDelayMs": 0,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "start": {
+        "x": 0.5000000000000003,
+        "y": 128,
+        "z": 2.0251066958832666
+      },
+      "firstY": 124,
+      "acceptedY": 124,
+      "packetCount": 32,
+      "checkpoints": [
+        {
+          "stage": "first_eject",
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleStayedTop": false,
+          "vehicleLower": false,
+          "expectedRelocations": 1,
+          "setbacks": 0
+        },
+        {
+          "stage": "player_chain",
+          "fromY": 124,
+          "targetY": 120,
+          "accepted": false,
+          "expectedRelocations": 0,
+          "setbacks": 1
+        }
+      ],
+      "remounts": [],
+      "telemetryCount": 2,
+      "expectedRelocationCount": 1,
+      "setbackCount": 1,
+      "firstSetback": {
+        "type": "player_position",
+        "packet": {
+          "teleportId": 49,
+          "x": 0.5000000000000003,
+          "y": 124,
+          "z": 2.0251066958832666,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": -180,
+          "pitch": 45,
+          "flags": {
+            "_value": 0,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": false,
+            "pitch": false,
+            "dx": false,
+            "dy": false,
+            "dz": false,
+            "yawDelta": false
+          }
+        },
+        "at": 1785339169850
+      },
+      "playerBelow": false,
+      "netheriteCount": 0,
+      "elapsedMs": 13054,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "boat-player-ground-hcoll-fast",
+      "run": 2,
+      "vehicle": "boat",
+      "chain": "player",
+      "onGround": true,
+      "horizontalCollision": true,
+      "packetDelayMs": 0,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "start": {
+        "x": 0.5000000000000003,
+        "y": 128,
+        "z": 2.4726045928666736
+      },
+      "firstY": 124,
+      "acceptedY": 124,
+      "packetCount": 32,
+      "checkpoints": [
+        {
+          "stage": "first_eject",
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleStayedTop": false,
+          "vehicleLower": false,
+          "expectedRelocations": 1,
+          "setbacks": 0
+        },
+        {
+          "stage": "player_chain",
+          "fromY": 124,
+          "targetY": 120,
+          "accepted": false,
+          "expectedRelocations": 0,
+          "setbacks": 1
+        }
+      ],
+      "remounts": [],
+      "telemetryCount": 2,
+      "expectedRelocationCount": 1,
+      "setbackCount": 1,
+      "firstSetback": {
+        "type": "player_position",
+        "packet": {
+          "teleportId": 53,
+          "x": 0.5000000000000003,
+          "y": 124,
+          "z": 2.4726045928666736,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": -180,
+          "pitch": 45,
+          "flags": {
+            "_value": 0,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": false,
+            "pitch": false,
+            "dx": false,
+            "dy": false,
+            "dz": false,
+            "yawDelta": false
+          }
+        },
+        "at": 1785339187598
+      },
+      "playerBelow": false,
+      "netheriteCount": 0,
+      "elapsedMs": 13052,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "boat-remount-anchor4",
+      "run": 1,
+      "vehicle": "boat",
+      "chain": "remount",
+      "onGround": false,
+      "horizontalCollision": true,
+      "packetDelayMs": 0,
+      "segmentLength": 4,
+      "pauseMs": 120,
+      "start": {
+        "x": 0.5000000000000003,
+        "y": 128,
+        "z": 2.4726045928666736
+      },
+      "firstY": 124,
+      "acceptedY": 124,
+      "packetCount": 16,
+      "checkpoints": [
+        {
+          "stage": "first_eject",
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleStayedTop": false,
+          "vehicleLower": false,
+          "expectedRelocations": 1,
+          "setbacks": 0
+        }
+      ],
+      "remounts": [
+        {
+          "error": "Error: Timeout waiting for /STACKLAB VEHICLE INTERACT .*\"mounted\":true.*\"vehicle_type\":\"OAK_BOAT\"/ after /stacklab vehicleinteract AttackerBot OAK_BOAT\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vertical-ejection.js:78:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+        }
+      ],
+      "telemetryCount": 1,
+      "expectedRelocationCount": 1,
+      "setbackCount": 0,
+      "firstSetback": null,
+      "playerBelow": false,
+      "netheriteCount": 0,
+      "elapsedMs": 16954,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "boat-remount-anchor4",
+      "run": 2,
+      "vehicle": "boat",
+      "chain": "remount",
+      "onGround": false,
+      "horizontalCollision": true,
+      "packetDelayMs": 0,
+      "segmentLength": 4,
+      "pauseMs": 120,
+      "start": {
+        "x": 0.5000000000000003,
+        "y": 128,
+        "z": 2.4726045928666736
+      },
+      "firstY": 124,
+      "acceptedY": 124,
+      "packetCount": 16,
+      "checkpoints": [
+        {
+          "stage": "first_eject",
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleStayedTop": false,
+          "vehicleLower": false,
+          "expectedRelocations": 1,
+          "setbacks": 0
+        }
+      ],
+      "remounts": [
+        {
+          "error": "Error: Timeout waiting for /STACKLAB VEHICLE INTERACT .*\"mounted\":true.*\"vehicle_type\":\"OAK_BOAT\"/ after /stacklab vehicleinteract AttackerBot OAK_BOAT\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vertical-ejection.js:78:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+        }
+      ],
+      "telemetryCount": 1,
+      "expectedRelocationCount": 1,
+      "setbackCount": 0,
+      "firstSetback": null,
+      "playerBelow": false,
+      "netheriteCount": 0,
+      "elapsedMs": 16957,
+      "serverAuthoritativeSuccess": false
+    }
+  ],
+  "fatal": null,
+  "claimWitness": "STACKLAB CLAIM SET {\"tag\":\"Victims\",\"chunk_x\":0,\"chunk_z\":0,\"actual_tag\":\"Victims\",\"verified\":true}",
+  "finishedAt": "2026-07-29T15:33:57.703Z",
+  "successCount": 0,
+  "totalCount": 9,
+  "byFamily": {
+    "boat-player-air-hcoll-fast": {
+      "successes": 0,
+      "attempts": 3
+    },
+    "boat-player-air-hcoll-50ms": {
+      "successes": 0,
+      "attempts": 2
+    },
+    "boat-player-ground-hcoll-fast": {
+      "successes": 0,
+      "attempts": 2
+    },
+    "boat-remount-anchor4": {
+      "successes": 0,
+      "attempts": 2
+    }
+  },
+  "byVehicle": {
+    "boat": {
+      "successes": 0,
+      "attempts": 9
+    },
+    "horse": {
+      "successes": 0,
+      "attempts": 0
+    }
+  }
+}
