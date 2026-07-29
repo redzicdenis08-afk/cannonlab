@@ -9,6 +9,7 @@ const HOST = process.env.PHASELAB_HOST || '127.0.0.1'
 const PORT = Number(process.env.PHASELAB_PORT || 25566)
 const OUTPUT_DIR = path.resolve(process.env.PHASELAB_OUTPUT || 'output-private-stack')
 const VERSION = '1.21.11'
+const ONLY_CRAFTER = process.env.PHASELAB_ONLY_CRAFTER === '1'
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 fs.mkdirSync(OUTPUT_DIR, { recursive: true })
@@ -304,6 +305,8 @@ async function main () {
       await command(phaseBot, '/stacklab snapshot crafter-after', 300)
       return { block: block.name, visibleNetherite, openError, clickError }
     })
+
+    if (ONLY_CRAFTER) return
 
     await phase('auraskills_excellentenchants_infinite_grindstone_xp', async () => {
       await command(phaseBot, '/stacklab build', 650)
