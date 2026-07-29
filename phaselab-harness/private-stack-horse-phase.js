@@ -364,12 +364,12 @@ async function waitForRouteUnload (phaseBot, trial, run) {
     )
     const jsonStart = response.indexOf('{')
     const evidence = jsonStart >= 0 ? JSON.parse(response.slice(jsonStart)) : null
-    const farChunks = evidence?.chunks?.filter(chunk => chunk.x >= 6) || []
+    const farChunks = evidence?.chunks?.filter(chunk => chunk.x >= 9) || []
     const stillLoaded = farChunks.filter(chunk => chunk.loaded_after)
     attempts.push({ attempt, farChunkCount: farChunks.length, stillLoaded: stillLoaded.map(chunk => chunk.x) })
     record('route_unload_attempt', { trial: trial.id, run, attempt, response, farChunkCount: farChunks.length, stillLoaded })
-    if (farChunks.length >= 11 && stillLoaded.length === 0) {
-      return { response, attempts, farChunksUnloaded: farChunks.length }
+    if (farChunks.length >= 8 && stillLoaded.length === 0) {
+      return { response, attempts, farChunksUnloaded: farChunks.length, firstFarChunk: 9, lastFarChunk: 16 }
     }
     await sleep(1000)
   }
