@@ -16,14 +16,14 @@ on:
       - 'cannons/perfectone-v2-watered.schem.b64'
       - 'scenarios/perfectone-live.yml'
       - 'scenarios/perfectone-v2-watered.yml'
+      - 'cannons/basic-cannon-d2.schem.b64'
+      - 'scenarios/basic-cannon-d2.yml'
       - 'cannons/basic-cannon-d4.schem.b64'
       - 'scenarios/basic-cannon-d4.yml'
       - 'cannons/basic-cannon-d8.schem.b64'
       - 'scenarios/basic-cannon-d8.yml'
       - 'cannons/basic-cannon-d12.schem.b64'
       - 'scenarios/basic-cannon-d12.yml'
-      - 'cannons/basic-cannon-d16.schem.b64'
-      - 'scenarios/basic-cannon-d16.yml'
       - '.github/workflows/perfectone-live.yml'
 
 concurrency:
@@ -45,14 +45,14 @@ jobs:
             fixture: perfectone-loaded
           - scenario: perfectone-v2-watered.yml
             fixture: perfectone-v2-watered
+          - scenario: basic-cannon-d2.yml
+            fixture: basic-cannon-d2
           - scenario: basic-cannon-d4.yml
             fixture: basic-cannon-d4
           - scenario: basic-cannon-d8.yml
             fixture: basic-cannon-d8
           - scenario: basic-cannon-d12.yml
             fixture: basic-cannon-d12
-          - scenario: basic-cannon-d16.yml
-            fixture: basic-cannon-d16
     steps:
       - name: Checkout
         uses: actions/checkout@v4

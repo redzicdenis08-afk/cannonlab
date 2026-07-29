@@ -1,12 +1,12 @@
-name: basic-cannon-d16
+name: basic-cannon-d2
 # Minimal from-scratch cannon: 6 charges detonating in water, payload one block
-# above the barrel cap, fired 16 redstone ticks (32 game ticks) later so it still
+# above the barrel cap, fired 2 redstone ticks (4 game ticks) later so it still
 # has fuse remaining when the charges go off.
 #
 # Sweeping the payload lag is the whole point of this variant set. Gates stay
 # loose: the question is whether anything travels forward at all.
 cannon:
-  file: basic-cannon-d16.schem
+  file: basic-cannon-d2.schem
   origin:
     x: 0
     y: 0
