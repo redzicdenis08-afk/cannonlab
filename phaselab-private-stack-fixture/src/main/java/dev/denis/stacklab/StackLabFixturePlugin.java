@@ -32,6 +32,8 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -70,7 +72,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "reset" -> reset(sender);
                     case "snapshot" -> snapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "portalsnapshot" -> portalSnapshot(sender, args.length > 1 ? args[1] : "manual");
+                    case "claimsnapshot" -> claimSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "give" -> give(sender, args);
+                    case "break" -> breakBlock(sender, args);
                     case "tick" -> tick(sender, args);
                     case "cancelportal" -> cancelPortal(sender, args);
                     default -> false;
@@ -110,11 +114,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         Block chestBlock = set(world, 16, Y, 8, Material.CHEST);
         Hopper hopper = (Hopper) hopperBlock.getState();
         hopper.getInventory().clear();
-        hopper.getInventory().addItem(new ItemStack(Material.DIAMOND, 32));
-        hopper.update(true, false);
+        hopper.getInventory().setItem(0, new ItemStack(Material.DIAMOND, 32));
         Chest chest = (Chest) chestBlock.getState();
         chest.getInventory().clear();
-        chest.update(true, false);
 
         // Sticky-piston boundary fixture: piston at X=14 pushes attacker-side block at X=15 into X=16.
         Block piston = set(world, 14, Y, 12, Material.STICKY_PISTON);
@@ -154,8 +156,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         Block barrelBlock = set(world, 17, Y, 21, Material.BARREL);
         org.bukkit.block.Barrel barrel = (org.bukkit.block.Barrel) barrelBlock.getState();
         barrel.getInventory().clear();
-        barrel.getInventory().addItem(new ItemStack(Material.NETHERITE_BLOCK, 27));
-        barrel.update(true, false);
+        barrel.getInventory().setItem(0, new ItemStack(Material.NETHERITE_BLOCK, 27));
 
         writeEvent("portal_build", portalSnapshotMap(world, "build"));
         sender.sendMessage("STACKLAB PORTAL BUILD OK final_frame=15," + Y + ",21 interior_claim_x=16..18");
@@ -167,6 +168,50 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         Map<String, Object> snapshot = portalSnapshotMap(world, label);
         writeEvent("portal_snapshot", snapshot);
         sender.sendMessage("STACKLAB PORTAL SNAPSHOT " + label + " " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private boolean claimSnapshot(org.bukkit.command.CommandSender sender, String label) {
+        Map<String, Object> witness = new LinkedHashMap<>();
+        witness.put("label", label);
+        witness.put("attacker_chunk_x", 0);
+        witness.put("attacker_chunk_z", 0);
+        witness.put("victim_chunk_x", 1);
+        witness.put("victim_chunk_z", 0);
+        try {
+            Class<?> locationClass = Class.forName("dev.kitteh.factions.FLocation");
+            Constructor<?> locationConstructor = locationClass.getConstructor(String.class, int.class, int.class);
+            Class<?> boardClass = Class.forName("dev.kitteh.factions.Board");
+            Method boardFactory = boardClass.getMethod("board");
+            Object board = boardFactory.invoke(null);
+            Method factionAt = boardClass.getMethod("factionAt", locationClass);
+
+            Object attackerLocation = locationConstructor.newInstance("world", 0, 0);
+            Object victimLocation = locationConstructor.newInstance("world", 1, 0);
+            Object attackerPortalLocation = locationConstructor.newInstance("world", 0, 1);
+            Object victimPortalLocation = locationConstructor.newInstance("world", 1, 1);
+            Object attackerFaction = factionAt.invoke(board, attackerLocation);
+            Object victimFaction = factionAt.invoke(board, victimLocation);
+            Object attackerPortalFaction = factionAt.invoke(board, attackerPortalLocation);
+            Object victimPortalFaction = factionAt.invoke(board, victimPortalLocation);
+
+            Method tag = attackerFaction.getClass().getMethod("tag");
+            Method isWilderness = attackerFaction.getClass().getMethod("isWilderness");
+            witness.put("attacker_tag", String.valueOf(tag.invoke(attackerFaction)));
+            witness.put("victim_tag", String.valueOf(tag.invoke(victimFaction)));
+            witness.put("attacker_portal_tag", String.valueOf(tag.invoke(attackerPortalFaction)));
+            witness.put("victim_portal_tag", String.valueOf(tag.invoke(victimPortalFaction)));
+            witness.put("attacker_wilderness", Boolean.TRUE.equals(isWilderness.invoke(attackerFaction)));
+            witness.put("victim_wilderness", Boolean.TRUE.equals(isWilderness.invoke(victimFaction)));
+            witness.put("attacker_portal_wilderness", Boolean.TRUE.equals(isWilderness.invoke(attackerPortalFaction)));
+            witness.put("victim_portal_wilderness", Boolean.TRUE.equals(isWilderness.invoke(victimPortalFaction)));
+            witness.put("verified", true);
+        } catch (ReflectiveOperationException exception) {
+            witness.put("verified", false);
+            witness.put("error", exception.toString());
+        }
+        writeEvent("claim_witness", witness);
+        sender.sendMessage("STACKLAB CLAIM WITNESS " + gson.toJson(witness));
         return true;
     }
 
@@ -233,6 +278,33 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         player.getInventory().setItemInMainHand(item);
         writeEvent("give", Map.of("player", player.getName(), "material", material.name(), "enchant", key.toString(), "level", level));
         sender.sendMessage("STACKLAB GIVE OK player=" + player.getName() + " enchant=" + key + " level=" + level);
+        return true;
+    }
+
+    private boolean breakBlock(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 5) {
+            sender.sendMessage("Usage: /stacklab break <player> <x> <y> <z>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        int x = Integer.parseInt(args[2]);
+        int y = Integer.parseInt(args[3]);
+        int z = Integer.parseInt(args[4]);
+        Block block = requireWorld().getBlockAt(x, y, z);
+        Material before = block.getType();
+        boolean accepted = player.breakBlock(block);
+        writeEvent("server_break_request", Map.of(
+            "player", player.getName(),
+            "x", x, "y", y, "z", z,
+            "before", before.name(),
+            "accepted", accepted,
+            "after", block.getType().name()
+        ));
+        sender.sendMessage("STACKLAB BREAK player=" + player.getName() + " accepted=" + accepted + " before=" + before + " after=" + block.getType());
         return true;
     }
 

@@ -67,6 +67,28 @@ async function command (bot, text, delay = 450) {
   await sleep(delay)
 }
 
+async function commandExpect (bot, text, pattern, timeoutMs = 5000) {
+  record('command', { username: bot.username, text, expect: String(pattern) })
+  return await new Promise((resolve, reject) => {
+    let settled = false
+    const timer = setTimeout(() => finish(new Error(`Timeout waiting for ${pattern} after ${text}`)), timeoutMs)
+    const handler = message => {
+      const rendered = String(message)
+      if (pattern.test(rendered)) finish(null, rendered)
+    }
+    function finish (error, value) {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      bot.removeListener('messagestr', handler)
+      if (error) reject(error)
+      else resolve(value)
+    }
+    bot.on('messagestr', handler)
+    bot.chat(text)
+  })
+}
+
 async function waitForInventoryItem (bot, itemName, timeoutMs = 4000) {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
@@ -105,6 +127,32 @@ async function equipAndDig (bot, itemName, blockPos) {
   return { target: block.name }
 }
 
+async function equipAndServerBreak (phaseBot, playerBot, itemName, blockPos) {
+  const item = await waitForInventoryItem(playerBot, itemName)
+  if (!item) throw new Error(`${playerBot.username} missing ${itemName}`)
+  await playerBot.equip(item, 'hand')
+  await sleep(200)
+  const response = await commandExpect(
+    phaseBot,
+    `/stacklab break ${playerBot.username} ${blockPos.x} ${blockPos.y} ${blockPos.z}`,
+    /STACKLAB BREAK .*accepted=true/,
+    5000
+  )
+  await sleep(1300)
+  return { response }
+}
+
+async function readyAuraAbility (bot, itemName) {
+  const item = await waitForInventoryItem(bot, itemName)
+  if (!item) throw new Error(`${bot.username} missing ${itemName}`)
+  await bot.equip(item, 'hand')
+  await sleep(150)
+  bot.activateItem()
+  await sleep(650)
+  bot.deactivateItem()
+  return { held: bot.heldItem ? bot.heldItem.name : null }
+}
+
 async function phase (name, fn) {
   const started = Date.now()
   try {
@@ -136,15 +184,29 @@ async function main () {
     await command(phaseBot, '/effect give AttackerBot minecraft:resistance infinite 255 true')
 
     await phase('factions_setup', async () => {
-      await command(phaseBot, '/tp VictimBot 17.5 65 21.5')
+      await command(phaseBot, '/stacklab build', 700)
+      await command(phaseBot, '/stacklab portalbuild', 700)
+      await command(phaseBot, '/tp VictimBot 17.5 65 0.5')
       await command(victimBot, '/f create Victims', 900)
+      await command(phaseBot, '/fa power set VictimBot 100', 600)
       await command(victimBot, '/f claim', 900)
-      await command(phaseBot, '/tp AttackerBot 14.5 65 21.5')
+      await command(phaseBot, '/tp VictimBot 17.5 65 21.5')
+      await command(victimBot, '/f claim', 900)
+      await command(phaseBot, '/tp AttackerBot 14.5 65 0.5')
       await command(attackerBot, '/f create Attackers', 900)
+      await command(phaseBot, '/fa power set AttackerBot 100', 600)
       await command(attackerBot, '/f claim', 900)
+      await command(phaseBot, '/tp AttackerBot 14.5 65 21.5')
+      await command(attackerBot, '/f claim', 900)
+      const witness = await commandExpect(
+        phaseBot,
+        '/stacklab claimsnapshot setup',
+        /STACKLAB CLAIM WITNESS .*"attacker_tag":"Attackers".*"victim_tag":"Victims".*"attacker_portal_tag":"Attackers".*"victim_portal_tag":"Victims".*"verified":true/,
+        6000
+      )
       await command(victimBot, '/f show', 400)
       await command(attackerBot, '/f show', 400)
-      return { victim: victimBot.entity.position, attacker: attackerBot.entity.position }
+      return { victim: victimBot.entity.position, attacker: attackerBot.entity.position, witness }
     })
 
     for (let run = 1; run <= 3; run++) {
@@ -176,12 +238,29 @@ async function main () {
     }
     await command(phaseBot, '/stacklab cancelportal false')
 
+    for (let run = 1; run <= 3; run++) {
+      await phase(`auraskills_treecapitator_claim_boundary_${run}`, async () => {
+        await command(phaseBot, '/stacklab build', 650)
+        await command(phaseBot, `/stacklab snapshot aura-tree-before-${run}`)
+        await command(phaseBot, '/clear AttackerBot')
+        await command(phaseBot, '/give AttackerBot minecraft:diamond_axe 1')
+        await command(phaseBot, '/skills skill setlevel AttackerBot foraging 100', 750)
+        await command(phaseBot, '/skills manaability resetcooldown AttackerBot treecapitator true', 750)
+        await command(phaseBot, '/tp AttackerBot 14.25 65 0.5 -90 0', 500)
+        const ready = await readyAuraAbility(attackerBot, 'diamond_axe')
+        const dig = await equipAndServerBreak(phaseBot, attackerBot, 'diamond_axe', new Vec3(15, 65, 0))
+        await sleep(1800)
+        await command(phaseBot, `/stacklab snapshot aura-tree-after-${run}`)
+        return { ready, dig }
+      })
+    }
+
     await phase('treefeller_claim_boundary', async () => {
       await command(phaseBot, '/stacklab build', 650)
       await command(phaseBot, '/stacklab snapshot tree-before')
       await command(phaseBot, '/stacklab give AttackerBot diamond_axe excellentenchants:treefeller 1', 500)
       await command(phaseBot, '/tp AttackerBot 14.25 65 0.5 -90 0', 500)
-      const dig = await equipAndDig(attackerBot, 'diamond_axe', new Vec3(15, 65, 0))
+      const dig = await equipAndServerBreak(phaseBot, attackerBot, 'diamond_axe', new Vec3(15, 65, 0))
       await command(phaseBot, '/stacklab snapshot tree-after')
       return dig
     })
@@ -191,7 +270,7 @@ async function main () {
       await command(phaseBot, '/stacklab snapshot tunnel-before')
       await command(phaseBot, '/stacklab give AttackerBot diamond_pickaxe excellentenchants:tunnel 3', 500)
       await command(phaseBot, '/tp AttackerBot 14.25 66 4.5 -90 0', 500)
-      const dig = await equipAndDig(attackerBot, 'diamond_pickaxe', new Vec3(15, 66, 4))
+      const dig = await equipAndServerBreak(phaseBot, attackerBot, 'diamond_pickaxe', new Vec3(15, 66, 4))
       await command(phaseBot, '/stacklab snapshot tunnel-after')
       return dig
     })
@@ -201,7 +280,7 @@ async function main () {
       await command(phaseBot, '/stacklab snapshot blast-before')
       await command(phaseBot, '/stacklab give AttackerBot diamond_pickaxe excellentenchants:blast_mining 10', 500)
       await command(phaseBot, '/tp AttackerBot 14.25 66 4.5 -90 0', 500)
-      const dig = await equipAndDig(attackerBot, 'diamond_pickaxe', new Vec3(15, 66, 4))
+      const dig = await equipAndServerBreak(phaseBot, attackerBot, 'diamond_pickaxe', new Vec3(15, 66, 4))
       await command(phaseBot, '/stacklab snapshot blast-after')
       return dig
     })
