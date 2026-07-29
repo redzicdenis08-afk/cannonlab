@@ -219,6 +219,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             }
         }
         world.getBlockAt(WEB_X, WEB_SUPPORT_Y, WEB_Z).setType(Material.STONE, false);
+        world.getBlockAt(WEB_X - 1, WEB_SUPPORT_Y, WEB_Z).setType(Material.STONE, false);
         if (webMode) world.getBlockAt(WEB_X, WEB_Y, WEB_Z).setType(Material.COBWEB, false);
         if (resetPlayer) {
             player.getInventory().clear();
@@ -227,7 +228,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             player.getInventory().setHeldItemSlot(0);
             setAuraSkillState(player, "EXCAVATION", 50, 0.0);
         }
-        player.teleport(new Location(world, WEB_X + 2.5, WEB_SUPPORT_Y + 1.0, WEB_Z + 0.5, 90F, 0F));
+        player.teleport(new Location(world, WEB_X - 0.5, WEB_SUPPORT_Y + 1.0, WEB_Z + 0.5, -90F, 0F));
     }
 
     private boolean webLaunderDrop(org.bukkit.command.CommandSender sender) {
