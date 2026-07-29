@@ -3,14 +3,12 @@
   "id": "phaselab",
   "version": "${version}",
   "name": "PhaseLab Client",
-  "description": "Client-only exact-Sakura movement laboratory with witness telemetry and a verified boat and horse ratchet modes for authorized testing.",
+  "description": "Client-only bounded vehicle movement verifier for authorized server testing. It rejects setbacks and dismounts and never labels client-only movement as success.",
   "authors": ["Denis + OpenAI"],
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
     "client": [
-      "dev.denis.phaselab.PhaseLabClient",
-      "dev.denis.phaselab.PhaseTelemetryClient",
       "dev.denis.phaselab.BoatPhaseClient"
     ]
   },

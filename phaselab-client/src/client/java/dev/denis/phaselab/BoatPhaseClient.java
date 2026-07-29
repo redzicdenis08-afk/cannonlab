@@ -7,11 +7,9 @@ import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
-import net.minecraft.core.BlockPos;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket;
 import net.minecraft.resources.Identifier;
-import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
@@ -26,23 +24,16 @@ import java.time.Instant;
 import java.util.Locale;
 
 /**
- * Exact-Sakura vehicle-movement phase prototype.
- *
- * The server lab established that one large vehicle jump and 0.50-block steps
- * are corrected, while horizontal 0.25-block steps are accepted through
- * collision. This entrypoint implements only that verified packet grammar and
- * stops immediately on a real server vehicle setback.
+ * Bounded vehicle-movement verifier for servers the user owns or is authorized
+ * to test. It performs one finite packet attempt, stops on any player/vehicle
+ * correction or dismount, and never treats client-only movement as success.
  */
 public final class BoatPhaseClient implements ClientModInitializer {
     private static final double STEP = 0.25D;
     private static final double BOAT_SEGMENT_LENGTH = 19.0D;
     private static final double HORSE_SEGMENT_LENGTH = 10.0D;
-    private static final int SEGMENT_PAUSE_TICKS = 2;
-    private static final int REMOUNT_GRACE_TICKS = 100;
-    private static final int AUTO_REMOUNT_INTERVAL_TICKS = 5;
-    private static final double SMART_EXIT_CLEAR_DISTANCE = 8.0D;
-    private static final double SMART_EXIT_MIN_TRAVEL = 16.0D;
-    private static final double MAX_DISTANCE = 512.0D;
+    private static final int SETTLE_TICKS = 20;
+
 
     private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
         Identifier.fromNamespaceAndPath("phaselab", "boat_phase")
@@ -56,17 +47,13 @@ public final class BoatPhaseClient implements ClientModInitializer {
     private static double travelled;
     private static boolean originalVehicleNoPhysics;
     private static boolean originalVehicleNoGravity;
-    private static double lockedY;
     private static boolean readyMessageShown;
     private static Entity activeVehicle;
     private static int sentPackets;
     private static int activeTicks;
     private static int segmentsCompleted;
-    private static int pauseTicksRemaining;
     private static int packetsPerSegment;
-    private static int remountWaitTicks;
-    private static boolean wallCollisionSeen;
-    private static double clearDistanceAfterWall;
+    private static int settleTicksRemaining;
     private static double segmentLength;
     private static String vehicleLabel;
     private static BufferedWriter logWriter;
@@ -88,6 +75,16 @@ public final class BoatPhaseClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(BoatPhaseClient::onClientTick);
     }
 
+    /** Called by the packet-listener mixin for a real server player correction. */
+    public static void onServerPlayerCorrection() {
+        if (!active) {
+            return;
+        }
+        LocalPlayer player = Minecraft.getInstance().player;
+        log("SERVER_PLAYER_SETBACK", player, null);
+        stop(player, "REJECTED: the server corrected your player position.", true);
+    }
+
     /** Called by the packet-listener mixin for a real server vehicle correction. */
     public static void onServerVehicleCorrection() {
         if (!active) {
@@ -95,7 +92,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
         }
         LocalPlayer player = Minecraft.getInstance().player;
         log("SERVER_VEHICLE_SETBACK", player, null);
-        stop(player, "Server corrected the vehicle. Phase stopped.", true);
+        stop(player, "REJECTED: the server corrected the vehicle position.", true);
     }
 
     private static void onClientTick(Minecraft client) {
@@ -108,7 +105,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
 
         if (!readyMessageShown) {
             readyMessageShown = true;
-            message(player, "Loaded. Mount a boat or horse, face the base, press P. Natural drop + smart remount enabled.");
+            message(player, "Verifier loaded. Mount one boat/horse, face the test wall, press P once. No auto-remount or fake interior claims.");
         }
 
         while (toggleKey.consumeClick()) {
@@ -129,53 +126,35 @@ public final class BoatPhaseClient implements ClientModInitializer {
         }
 
         Entity vehicle = controlledVehicle(player);
-        if (vehicle == null) {
-            if (activeVehicle != null && !activeVehicle.isRemoved() && remountWaitTicks < REMOUNT_GRACE_TICKS) {
-                remountWaitTicks++;
-                if (client.gameMode != null
-                    && player.distanceToSqr(activeVehicle) <= 64.0D
-                    && remountWaitTicks % AUTO_REMOUNT_INTERVAL_TICKS == 1) {
-                    client.gameMode.interact(player, activeVehicle, InteractionHand.MAIN_HAND);
-                }
+        if (vehicle == null || vehicle != activeVehicle) {
+            stop(player, "DISMOUNTED: the server removed or changed your controlled vehicle.", true);
+            return;
+        }
+
+        if (settleTicksRemaining > 0) {
+            settleTicksRemaining--;
+            activeTicks++;
+            if (settleTicksRemaining == 0) {
+                stop(player,
+                    "UNVERIFIED: no correction arrived during the settle window. Check server-side player and vehicle coordinates before counting this as a phase.",
+                    false
+                );
+            } else {
                 actionbar(player, String.format(Locale.ROOT,
-                    "Remounting %s... %d/%d | O abort",
-                    vehicleLabel,
-                    remountWaitTicks,
-                    REMOUNT_GRACE_TICKS
+                    "Waiting for delayed server verdict... %d/%d",
+                    SETTLE_TICKS - settleTicksRemaining,
+                    SETTLE_TICKS
                 ));
-                activeTicks++;
+            }
+            return;
+        }
+
+        log("ATTEMPT_START", player, vehicle.position());
+        for (int packetIndex = 0; packetIndex < packetsPerSegment; packetIndex++) {
+            if (controlledVehicle(player) != activeVehicle) {
+                stop(player, "DISMOUNTED during packet segment.", true);
                 return;
             }
-            stop(player, "Vehicle was lost or moved out of remount range.", true);
-            return;
-        }
-
-        activeVehicle = vehicle;
-        remountWaitTicks = 0;
-
-        if (pauseTicksRemaining > 0) {
-            pauseTicksRemaining--;
-            activeTicks++;
-            return;
-        }
-
-        if (travelled + STEP > MAX_DISTANCE) {
-            stop(player, String.format(Locale.ROOT, "Safety limit reached at %.1f blocks.", travelled), false);
-            return;
-        }
-
-        int packetsThisSegment = Math.min(
-            packetsPerSegment,
-            (int) Math.floor((MAX_DISTANCE - travelled) / STEP)
-        );
-        if (packetsThisSegment <= 0) {
-            stop(player, String.format(Locale.ROOT, "Safety limit reached at %.1f blocks.", travelled), false);
-            return;
-        }
-
-        log("SEGMENT_START", player, vehicle.position());
-        boolean interiorDetected = false;
-        for (int packetIndex = 0; packetIndex < packetsThisSegment; packetIndex++) {
             Vec3 next = vehicle.position().add(direction.scale(STEP));
             vehicle.noPhysics = true;
             vehicle.setPos(next.x, next.y, next.z);
@@ -186,33 +165,21 @@ public final class BoatPhaseClient implements ClientModInitializer {
                 vehicle.getXRot(),
                 vehicle.onGround()
             ));
-
             travelled += STEP;
             sentPackets++;
             log("SEND_0_25", player, next);
-            if (updateSmartExitState(player, vehicle)) {
-                interiorDetected = true;
-                break;
-            }
         }
 
-        if (interiorDetected) {
-            stop(player, String.format(Locale.ROOT,
-                "Interior-sized clear space detected after %.1f blocks.", travelled), false);
-            return;
-        }
-
-        segmentsCompleted++;
-        pauseTicksRemaining = SEGMENT_PAUSE_TICKS;
+        segmentsCompleted = 1;
+        settleTicksRemaining = SETTLE_TICKS;
         activeTicks++;
-        log("SEGMENT_END", player, vehicle.position());
+        log("ATTEMPT_SENT", player, vehicle.position());
         actionbar(player, String.format(Locale.ROOT,
-            "%s segment %d | %.1f blocks | P stop | O abort",
+            "%s attempt sent: %.1f blocks / %d packets. Waiting for server verdict.",
             vehicleLabel,
-            segmentsCompleted,
-            travelled
+            travelled,
+            sentPackets
         ));
-    }
 
     private static void start(LocalPlayer player) {
         Entity vehicle = controlledVehicle(player);
@@ -243,41 +210,18 @@ public final class BoatPhaseClient implements ClientModInitializer {
         sentPackets = 0;
         activeTicks = 0;
         segmentsCompleted = 0;
-        pauseTicksRemaining = 0;
+        settleTicksRemaining = 0;
         originalVehicleNoPhysics = vehicle.noPhysics;
         originalVehicleNoGravity = vehicle.isNoGravity();
-        lockedY = vehicle.getY();
         activeVehicle = vehicle;
-        remountWaitTicks = 0;
-        wallCollisionSeen = false;
-        clearDistanceAfterWall = 0.0D;
         vehicle.noPhysics = true;
         openLog();
         log("START", player, vehicle.position());
         message(player, String.format(Locale.ROOT,
-            "%s started toward %s. Natural 4.2 physics + smart remount + interior auto-stop. P stops; O aborts.",
+            "%s verifier started toward %s. One bounded attempt only; P/O abort.",
             vehicleLabel,
             directionLabel(direction)
         ));
-    }
-
-    private static boolean updateSmartExitState(LocalPlayer player, Entity vehicle) {
-        BlockPos position = BlockPos.containing(vehicle.position());
-        if (!player.level().hasChunkAt(position)) {
-            return false;
-        }
-
-        boolean clear = player.level().noCollision(vehicle, vehicle.getBoundingBox().deflate(0.01D));
-        if (!clear) {
-            wallCollisionSeen = true;
-            clearDistanceAfterWall = 0.0D;
-            return false;
-        }
-
-        if (wallCollisionSeen && travelled >= SMART_EXIT_MIN_TRAVEL) {
-            clearDistanceAfterWall += STEP;
-        }
-        return wallCollisionSeen && clearDistanceAfterWall >= SMART_EXIT_CLEAR_DISTANCE;
     }
 
     private static String directionLabel(Vec3 vector) {
@@ -332,10 +276,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
         sentPackets = 0;
         activeTicks = 0;
         segmentsCompleted = 0;
-        pauseTicksRemaining = 0;
-        remountWaitTicks = 0;
-        wallCollisionSeen = false;
-        clearDistanceAfterWall = 0.0D;
+        settleTicksRemaining = 0;
         activeVehicle = null;
         closeLog();
     }
@@ -347,7 +288,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
                 .resolve("config")
                 .resolve("phaselab");
             Files.createDirectories(directory);
-            Path logPath = directory.resolve("boat-phase-v4-" + Instant.now().toString().replace(':', '-') + ".csv");
+            Path logPath = directory.resolve("vehicle-verifier-v4.7-" + Instant.now().toString().replace(':', '-') + ".csv");
             logWriter = Files.newBufferedWriter(
                 logPath,
                 StandardCharsets.UTF_8,
