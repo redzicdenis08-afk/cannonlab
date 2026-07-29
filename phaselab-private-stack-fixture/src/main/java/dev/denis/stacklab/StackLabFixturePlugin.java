@@ -40,6 +40,8 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 
 import java.io.BufferedWriter;
@@ -61,6 +63,8 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     private boolean cancelPortalMultiPlace;
     private int syntheticLingeringEvents;
     private String arrowEnchantId;
+    private String arrowEnchantSecondaryId;
+    private boolean arrowEnchantsConflict;
 
     @Override
     public void onEnable() {
@@ -196,7 +200,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         syntheticLingeringEvents = 0;
 
         ItemStack bow = new ItemStack(Material.BOW, 1);
-        arrowEnchantId = addArrowCloudEnchant(bow);
+        addArrowCloudEnchants(bow);
         player.getInventory().setItem(0, bow);
         player.getInventory().setItem(1, new ItemStack(Material.ARROW, 32));
         player.getInventory().setHeldItemSlot(0);
@@ -207,31 +211,27 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return true;
     }
 
-    @SuppressWarnings("unchecked")
-    private String addArrowCloudEnchant(ItemStack bow) {
+    private void addArrowCloudEnchants(ItemStack bow) {
         org.bukkit.plugin.Plugin plugin = Bukkit.getPluginManager().getPlugin("ExcellentEnchants");
         if (plugin == null || !plugin.isEnabled()) throw new IllegalStateException("ExcellentEnchants is not enabled");
         try {
             ClassLoader loader = plugin.getClass().getClassLoader();
             Class<?> registryClass = Class.forName(
                 "su.nightexpress.excellentenchants.enchantment.EnchantRegistry", true, loader);
-            Object enchant = registryClass.getMethod("getById", String.class).invoke(null, "dragonfire_arrows");
-            if (enchant == null) {
-                Collection<Object> registered = (Collection<Object>) registryClass.getMethod("getRegistered").invoke(null);
-                enchant = registered.stream().filter(candidate -> {
-                    try {
-                        String id = String.valueOf(candidate.getClass().getMethod("getId").invoke(candidate));
-                        return id.contains("dragonfire") || id.equals("lingering");
-                    } catch (ReflectiveOperationException ignored) {
-                        return false;
-                    }
-                }).findFirst().orElseThrow(() -> new IllegalStateException("No arrow cloud enchantment registered"));
+            Object dragonfire = registryClass.getMethod("getById", String.class).invoke(null, "dragonfire_arrows");
+            Object lingering = registryClass.getMethod("getById", String.class).invoke(null, "lingering");
+            if (dragonfire == null || lingering == null) {
+                throw new IllegalStateException("Dragonfire Arrows or Lingering is not registered");
             }
-            Enchantment bukkitEnchant = (Enchantment) enchant.getClass().getMethod("getBukkitEnchantment").invoke(enchant);
-            bow.addUnsafeEnchantment(bukkitEnchant, 32);
-            return String.valueOf(enchant.getClass().getMethod("getId").invoke(enchant));
+            Enchantment dragonfireBukkit = (Enchantment) dragonfire.getClass().getMethod("getBukkitEnchantment").invoke(dragonfire);
+            Enchantment lingeringBukkit = (Enchantment) lingering.getClass().getMethod("getBukkitEnchantment").invoke(lingering);
+            arrowEnchantId = String.valueOf(dragonfire.getClass().getMethod("getId").invoke(dragonfire));
+            arrowEnchantSecondaryId = String.valueOf(lingering.getClass().getMethod("getId").invoke(lingering));
+            arrowEnchantsConflict = dragonfireBukkit.conflictsWith(lingeringBukkit) || lingeringBukkit.conflictsWith(dragonfireBukkit);
+            bow.addUnsafeEnchantment(dragonfireBukkit, 32);
+            bow.addUnsafeEnchantment(lingeringBukkit, 32);
         } catch (ReflectiveOperationException exception) {
-            throw new IllegalStateException("Could not prepare arrow cloud enchantment", exception);
+            throw new IllegalStateException("Could not prepare stacked arrow cloud enchantments", exception);
         }
     }
 
@@ -269,9 +269,14 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             ClassLoader loader = plugin.getClass().getClassLoader();
             Class<?> registryClass = Class.forName(
                 "su.nightexpress.excellentenchants.enchantment.EnchantRegistry", true, loader);
-            Object enchant = registryClass.getMethod("getById", String.class).invoke(null, arrowEnchantId);
-            if (enchant == null) throw new IllegalStateException("Arrow enchant not found: " + arrowEnchantId);
-            Method onHit = enchant.getClass().getMethod(
+            Object primaryEnchant = registryClass.getMethod("getById", String.class).invoke(null, arrowEnchantId);
+            Object secondaryEnchant = registryClass.getMethod("getById", String.class).invoke(null, arrowEnchantSecondaryId);
+            if (primaryEnchant == null || secondaryEnchant == null) {
+                throw new IllegalStateException("Stacked arrow enchant not found: " + arrowEnchantId + ", " + arrowEnchantSecondaryId);
+            }
+            Method primaryOnHit = primaryEnchant.getClass().getMethod(
+                "onHit", ProjectileHitEvent.class, LivingEntity.class, Arrow.class, int.class);
+            Method secondaryOnHit = secondaryEnchant.getClass().getMethod(
                 "onHit", ProjectileHitEvent.class, LivingEntity.class, Arrow.class, int.class);
             Block target = player.getWorld().getBlockAt(14, Y, 30);
             target.setType(Material.OBSIDIAN, false);
@@ -280,16 +285,20 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             int beforeEvents = syntheticLingeringEvents;
             for (int index = 0; index < count; index++) {
                 Arrow arrow = player.launchProjectile(Arrow.class);
+                arrow.addCustomEffect(new PotionEffect(PotionEffectType.POISON, 100, 0), true);
                 arrow.teleport(target.getLocation().add(-0.2, 1.0, 0.5));
                 ProjectileHitEvent hit = new ProjectileHitEvent(
                     arrow, null, target, org.bukkit.block.BlockFace.WEST);
-                onHit.invoke(enchant, hit, player, arrow, 1);
+                primaryOnHit.invoke(primaryEnchant, hit, player, arrow, 1);
+                secondaryOnHit.invoke(secondaryEnchant, hit, player, arrow, 1);
                 arrow.remove();
             }
             double afterXp = ((Number) auraSkillXp(player, "ALCHEMY")).doubleValue();
             Map<String, Object> result = new LinkedHashMap<>();
             result.put("player", player.getName());
-            result.put("enchant_id", arrowEnchantId);
+            result.put("primary_enchant_id", arrowEnchantId);
+            result.put("secondary_enchant_id", arrowEnchantSecondaryId);
+            result.put("enchants_conflict", arrowEnchantsConflict);
             result.put("invocations", count);
             result.put("xp_before", beforeXp);
             result.put("xp_after", afterXp);
@@ -308,7 +317,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("label", label);
         result.put("player", player.getName());
-        result.put("enchant_id", arrowEnchantId == null ? "MISSING" : arrowEnchantId);
+        result.put("primary_enchant_id", arrowEnchantId == null ? "MISSING" : arrowEnchantId);
+        result.put("secondary_enchant_id", arrowEnchantSecondaryId == null ? "MISSING" : arrowEnchantSecondaryId);
+        result.put("enchants_conflict", arrowEnchantsConflict);
         result.put("alchemy_level", auraSkillLevel(player, "ALCHEMY"));
         result.put("alchemy_xp", auraSkillXp(player, "ALCHEMY"));
         result.put("arrows", player.getInventory().all(Material.ARROW).values().stream().mapToInt(ItemStack::getAmount).sum());
