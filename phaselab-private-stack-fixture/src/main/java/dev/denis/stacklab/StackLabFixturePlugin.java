@@ -55,6 +55,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     private boolean cancelPortalMultiPlace;
     private boolean cancelTreecapSecondary;
     private int treecapCancelledEvents;
+    private int treecapSyntheticCancelledEvents;
+    private int treecapRegularCancelledEvents;
+    private String treefellerEnchantId;
 
     @Override
     public void onEnable() {
@@ -189,16 +192,40 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             set(world, TREE_X + 1, TREE_Y + 1, z, Material.OAK_LOG);
         }
         player.getInventory().clear();
-        player.getInventory().setItem(0, new ItemStack(Material.DIAMOND_AXE, 1));
+        ItemStack axe = new ItemStack(Material.DIAMOND_AXE, 1);
+        treefellerEnchantId = addTreefellerEnchant(axe);
+        player.getInventory().setItem(0, axe);
         player.getInventory().setHeldItemSlot(0);
         setAuraSkillState(player, "FORAGING", 50, 0.0);
         cancelTreecapSecondary = true;
         treecapCancelledEvents = 0;
+        treecapSyntheticCancelledEvents = 0;
+        treecapRegularCancelledEvents = 0;
         player.teleport(new Location(world, TREE_X - 1.5, TREE_Y, TREE_Z + 0.5, -90F, 0F));
         Map<String, Object> snapshot = treecapSnapshotMap(world, player, "build");
         writeEvent("treecap_build", snapshot);
         sender.sendMessage("STACKLAB TREECAP BUILD " + gson.toJson(snapshot));
         return true;
+    }
+
+
+    private String addTreefellerEnchant(ItemStack axe) {
+        org.bukkit.plugin.Plugin plugin = Bukkit.getPluginManager().getPlugin("ExcellentEnchants");
+        if (plugin == null || !plugin.isEnabled()) {
+            throw new IllegalStateException("ExcellentEnchants is not enabled");
+        }
+        try {
+            ClassLoader loader = plugin.getClass().getClassLoader();
+            Class<?> registryClass = Class.forName(
+                "su.nightexpress.excellentenchants.enchantment.EnchantRegistry", true, loader);
+            Object enchant = registryClass.getMethod("getById", String.class).invoke(null, "treefeller");
+            if (enchant == null) throw new IllegalStateException("Treefeller enchant is not registered");
+            Enchantment bukkitEnchant = (Enchantment) enchant.getClass().getMethod("getBukkitEnchantment").invoke(enchant);
+            axe.addUnsafeEnchantment(bukkitEnchant, 1);
+            return String.valueOf(enchant.getClass().getMethod("getId").invoke(enchant));
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("Could not prepare Treefeller axe", exception);
+        }
     }
 
     private boolean treecapInvoke(org.bukkit.command.CommandSender sender, String[] args) {
@@ -292,7 +319,12 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         result.put("protected_logs", protectedLogs);
         result.put("cancel_mode", cancelTreecapSecondary);
         result.put("cancelled_events", treecapCancelledEvents);
+        result.put("synthetic_cancelled_events", treecapSyntheticCancelledEvents);
+        result.put("regular_cancelled_events", treecapRegularCancelledEvents);
+        result.put("treefeller_enchant_id", treefellerEnchantId == null ? "MISSING" : treefellerEnchantId);
         if (player != null) {
+            result.put("held_item", player.getInventory().getItemInMainHand().getType().name());
+            result.put("treefeller_level", enchantLevel(player.getInventory().getItemInMainHand(), "excellentenchants:treefeller"));
             result.put("foraging_level", auraSkillLevel(player, "FORAGING"));
             result.put("foraging_xp", auraSkillXp(player, "FORAGING"));
         }
@@ -831,20 +863,29 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onTreecapProtectedBreak(BlockBreakEvent event) {
         if (!cancelTreecapSecondary) return;
-        if (!event.getClass().getName().endsWith("ManaAbilityBlockBreakEvent")) return;
         Block block = event.getBlock();
         if (block.getWorld().getName().equals("world")
             && block.getX() >= TREE_X + 1 && block.getX() <= TREE_X + 2
             && block.getY() >= TREE_Y && block.getY() <= TREE_Y + 2
             && Math.abs(block.getZ() - TREE_Z) <= 1) {
+            String eventClass = event.getClass().getName();
+            boolean synthetic = eventClass.endsWith("ManaAbilityBlockBreakEvent");
             event.setCancelled(true);
             treecapCancelledEvents++;
-            writeEvent("treecap_secondary_cancel", Map.of(
-                "player", event.getPlayer().getName(),
-                "block", block.getType().name(),
-                "x", block.getX(), "y", block.getY(), "z", block.getZ(),
-                "cancelled_events", treecapCancelledEvents
-            ));
+            if (synthetic) treecapSyntheticCancelledEvents++;
+            else treecapRegularCancelledEvents++;
+            Map<String, Object> evidence = new LinkedHashMap<>();
+            evidence.put("player", event.getPlayer().getName());
+            evidence.put("block", block.getType().name());
+            evidence.put("x", block.getX());
+            evidence.put("y", block.getY());
+            evidence.put("z", block.getZ());
+            evidence.put("event_class", eventClass);
+            evidence.put("synthetic", synthetic);
+            evidence.put("cancelled_events", treecapCancelledEvents);
+            evidence.put("synthetic_cancelled_events", treecapSyntheticCancelledEvents);
+            evidence.put("regular_cancelled_events", treecapRegularCancelledEvents);
+            writeEvent("treecap_protected_cancel", evidence);
         }
     }
 
