@@ -233,6 +233,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         if (!generated) player.getInventory().setItem(1, new ItemStack(Material.ANCIENT_DEBRIS, 1));
         player.getInventory().setHeldItemSlot(generated ? 0 : 1);
         setAuraSkillState(player, "MINING", 50, 0.0);
+        setAuraTraitModifier(player, "MINING_LUCK", 500.0);
         Block target = world.getBlockAt(GENERATOR_X, GENERATOR_Y, GENERATOR_Z);
         target.setType(generated ? Material.ANCIENT_DEBRIS : Material.AIR, false);
         player.teleport(new Location(world, GENERATOR_X - 1.5, GENERATOR_Y, GENERATOR_Z + 0.5, -90F, 0F));
@@ -360,6 +361,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         result.put("total_debris", blockCount + dropped + inventory);
         result.put("mining_level", auraSkillLevel(player, "MINING"));
         result.put("mining_xp", auraSkillXp(player, "MINING"));
+        result.put("mining_luck", auraTraitLevel(player, "MINING_LUCK"));
         return result;
     }
 
@@ -620,6 +622,45 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             skillsUserClass.getMethod("setSkillXp", skillClass, double.class).invoke(user, skill, value);
         } catch (ReflectiveOperationException | RuntimeException exception) {
             throw new IllegalStateException("Could not reset AuraSkills " + skillName + " state", exception);
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void setAuraTraitModifier(Player player, String traitName, double value) {
+        try {
+            Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
+            Object api = apiClass.getMethod("get").invoke(null);
+            Object user = apiClass.getMethod("getUser", java.util.UUID.class).invoke(api, player.getUniqueId());
+            Class<? extends Enum> traitsClass = (Class<? extends Enum>) Class.forName("dev.aurelium.auraskills.api.trait.Traits");
+            Object trait = Enum.valueOf(traitsClass, traitName);
+            Class<?> traitClass = Class.forName("dev.aurelium.auraskills.api.trait.Trait");
+            Class<? extends Enum> operationClass = (Class<? extends Enum>) Class.forName("dev.aurelium.auraskills.api.util.AuraSkillsModifier$Operation");
+            Object add = Enum.valueOf(operationClass, "ADD");
+            Class<?> modifierClass = Class.forName("dev.aurelium.auraskills.api.trait.TraitModifier");
+            Object modifier = modifierClass
+                .getConstructor(String.class, traitClass, double.class, operationClass)
+                .newInstance("phaselab-generator-item", trait, value, add);
+            Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
+            skillsUserClass.getMethod("removeTraitModifier", String.class).invoke(user, "phaselab-generator-item");
+            skillsUserClass.getMethod("addTraitModifier", modifierClass).invoke(user, modifier);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            throw new IllegalStateException("Could not set AuraSkills " + traitName + " modifier", exception);
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Object auraTraitLevel(Player player, String traitName) {
+        try {
+            Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
+            Object api = apiClass.getMethod("get").invoke(null);
+            Object user = apiClass.getMethod("getUser", java.util.UUID.class).invoke(api, player.getUniqueId());
+            Class<? extends Enum> traitsClass = (Class<? extends Enum>) Class.forName("dev.aurelium.auraskills.api.trait.Traits");
+            Object trait = Enum.valueOf(traitsClass, traitName);
+            Class<?> traitClass = Class.forName("dev.aurelium.auraskills.api.trait.Trait");
+            Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
+            return skillsUserClass.getMethod("getEffectiveTraitLevel", traitClass).invoke(user, trait);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            return "reflection-error:" + exception.getClass().getSimpleName();
         }
     }
 

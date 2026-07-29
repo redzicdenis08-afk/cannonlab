@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - research/phaselab-generator-block-xp
+      - research/phaselab-generator-item-dupe
     paths:
       - 'phaselab-private-stack-fixture/**'
       - 'phaselab-harness/generator-block-xp.js'
@@ -242,7 +243,7 @@ jobs:
           control = result.get('modes', {}).get('control', {})
           generated = result.get('modes', {}).get('generated', {})
           control = result.get('modes', {}).get('control', {})
-          print({
+          summary = {
               'confirmed': result.get('confirmed'),
               'generated_total_xp': generated.get('totalXpGain'),
               'generated_total_debris_gain': generated.get('totalDebrisGain'),
@@ -258,7 +259,11 @@ jobs:
                   for c in control.get('cycles', [])
               ],
               'fatal': result.get('fatal'),
-          })
+          }
+          print(summary)
+          generated_outputs = ','.join(str(c.get('after', {}).get('total_debris')) for c in generated.get('cycles', []))
+          control_outputs = ','.join(str(c.get('after', {}).get('total_debris')) for c in control.get('cycles', []))
+          print('::notice title=GeneratorItemResult::confirmed=' + str(result.get('confirmed')) + '; generated_outputs=' + generated_outputs + '; control_outputs=' + control_outputs + '; generated_debris_gain=' + str(generated.get('totalDebrisGain')) + '; fatal=' + str(result.get('fatal')))
           if result.get('fatal') or not result.get('confirmed'):
               raise SystemExit(1)
           PY
