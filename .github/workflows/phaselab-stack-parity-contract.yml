@@ -1,0 +1,65 @@
+name: PhaseLab Stack Parity Contract
+
+on:
+  push:
+    paths:
+      - 'profiles/phaselab/**'
+      - 'scripts/phaselab_stack_audit.py'
+      - 'scripts/test_phaselab_stack_audit.py'
+      - 'scripts/prepare_phaselab_private_runtime.py'
+      - 'scripts/test_prepare_phaselab_private_runtime.py'
+      - 'phaselab-stack-probe/**'
+      - 'docs/PHASELAB_STACK_PARITY.md'
+      - '.github/workflows/phaselab-stack-parity-contract.yml'
+  pull_request:
+    paths:
+      - 'profiles/phaselab/**'
+      - 'scripts/phaselab_stack_audit.py'
+      - 'scripts/test_phaselab_stack_audit.py'
+      - 'scripts/prepare_phaselab_private_runtime.py'
+      - 'scripts/test_prepare_phaselab_private_runtime.py'
+      - 'phaselab-stack-probe/**'
+      - 'docs/PHASELAB_STACK_PARITY.md'
+      - '.github/workflows/phaselab-stack-parity-contract.yml'
+  workflow_dispatch:
+
+jobs:
+  stack-parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.1'
+      - name: Run fail-closed stack audit regressions
+        run: |
+          python scripts/test_phaselab_stack_audit.py
+          python scripts/test_prepare_phaselab_private_runtime.py
+      - name: Build OP-only stack probe
+        run: gradle -p phaselab-stack-probe clean build --stacktrace --console=plain
+      - name: Upload stack probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: phaselab-stack-probe
+          path: phaselab-stack-probe/build/libs/PhaseLab-StackProbe-1.0.0.jar
+          if-no-files-found: error
+      - name: Verify profile remains unlocked for unknown private components
+        run: |
+          python - <<'PY'
+          import json
+          profile = json.load(open('profiles/phaselab/extremecraft-plugin-stack-observed-v1.json', encoding='utf-8'))
+          unknown = [p['id'] for p in profile['plugins'] if p['version']['exact'] is None]
+          assert 'factionsuuid' in unknown
+          assert 'auraskills' in unknown
+          assert 'excellentenchants' in unknown
+          assert profile['proxy']['version'] is None
+          print({'unknown_private_components': len(unknown)})
+          PY

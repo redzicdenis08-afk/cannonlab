@@ -5,5 +5,7 @@ lab-artifacts/
 .idea/
 *.iml
 server/
+phaselab-runtime-local/
+plugin-stack-export/
 __pycache__/
 *.pyc

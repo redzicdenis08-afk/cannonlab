@@ -1,0 +1,140 @@
+{
+  "schema_version": 1,
+  "profile_id": "extremecraft-plugin-stack-observed-2026-07-29",
+  "evidence_level": "field-reported",
+  "truth_boundary": "Names are operator-observed. Unknown versions and hashes must not be guessed or promoted to exact parity.",
+  "backend": {
+    "name": "Sakura",
+    "version": "26.1.2",
+    "jar_sha256": null,
+    "status": "version-identified-live-hash-unknown",
+    "required_for_full_parity": true,
+    "reference_runtime": {
+      "source_commit": "63f35d74e0fbe6bcd76c58494c01c1632c83010d",
+      "jar_sha256": "88cba5c98e3f31990e8219738ba4f743d3d75aebf1de2770797cb30b81710ed2",
+      "status": "pinned-public-lab-runtime-not-live-server-proof"
+    }
+  },
+  "proxy": {
+    "name": "Velocity",
+    "version": null,
+    "jar_sha256": null,
+    "required_for_full_parity": true,
+    "status": "unknown"
+  },
+  "configuration": {
+    "required_for_full_parity": true,
+    "tree_sha256": null,
+    "file_count": null,
+    "status": "unknown",
+    "included_extensions": [".yml", ".yaml", ".json", ".conf", ".toml", ".properties"],
+    "excluded_directories": ["logs", "cache", ".cache", "backups", "world", "playerdata", "stats", "advancements"]
+  },
+  "translation_plugins": [
+    {
+      "id": "viaversion",
+      "aliases": ["ViaVersion"],
+      "required": true,
+      "version": {"exact": null, "candidate": "5.9.0", "status": "pinned-lab-runtime-not-live-server-proof"},
+      "sha256": null
+    },
+    {
+      "id": "viabackwards",
+      "aliases": ["ViaBackwards"],
+      "required": true,
+      "version": {"exact": null, "candidate": "5.9.0", "status": "pinned-lab-runtime-not-live-server-proof"},
+      "sha256": null
+    }
+  ],
+  "plugins": [
+    {
+      "id": "factionsuuid",
+      "aliases": ["FactionsUUID"],
+      "required": true,
+      "version": {"exact": null, "candidate": "4.6.1", "status": "documentation-version-only-not-server-proof"},
+      "sha256": null
+    },
+    {
+      "id": "factionsuuidplus",
+      "aliases": ["FactionsUUIDPlus"],
+      "required": true,
+      "version": {"exact": null, "status": "unknown"},
+      "sha256": null
+    },
+    {
+      "id": "vault",
+      "aliases": ["Vault"],
+      "required": true,
+      "version": {"exact": null, "status": "unknown"},
+      "sha256": null
+    },
+    {
+      "id": "auraskills",
+      "aliases": ["AuraSkills", "AureliumSkills"],
+      "required": true,
+      "version": {"exact": null, "status": "unknown"},
+      "sha256": null
+    },
+    {
+      "id": "excellentenchants",
+      "aliases": ["ExcellentEnchants", "ExcellentEnchant"],
+      "required": true,
+      "version": {"exact": null, "candidate": "5.4.3", "status": "strongly-suspected-not-confirmed"},
+      "sha256": null
+    },
+    {
+      "id": "nocheatenforcer",
+      "aliases": ["NoCheatEnforcer"],
+      "required": true,
+      "version": {"exact": null, "status": "unknown-custom-plugin"},
+      "sha256": null
+    },
+    {
+      "id": "customenchantshook",
+      "aliases": ["CustomEnchantsHook"],
+      "required": true,
+      "version": {"exact": null, "status": "unknown-custom-plugin"},
+      "sha256": null
+    },
+    {
+      "id": "additionalfeatures",
+      "aliases": ["AdditionalFeatures"],
+      "required": true,
+      "version": {"exact": null, "status": "unknown-custom-plugin"},
+      "sha256": null
+    },
+    {
+      "id": "usermanager",
+      "aliases": ["UserManager"],
+      "required": true,
+      "version": {"exact": null, "status": "unknown-custom-plugin"},
+      "sha256": null
+    },
+    {
+      "id": "paperintegration",
+      "aliases": ["PaperIntegration"],
+      "required": true,
+      "version": {"exact": null, "status": "unknown-custom-plugin"},
+      "sha256": null
+    },
+    {
+      "id": "servermanager",
+      "aliases": ["ServerManager"],
+      "required": true,
+      "version": {"exact": null, "status": "unknown-custom-plugin"},
+      "sha256": null
+    }
+  ],
+  "lock_policy": {
+    "required_source_label": "live-server-export",
+    "require_exact_version": true,
+    "require_sha256": true,
+    "reject_missing_required_plugins": true,
+    "reject_ambiguous_alias_matches": true,
+    "reject_unlocked_targets": true,
+    "require_proxy_for_full_parity": true,
+    "require_backend_hash_for_full_parity": true,
+    "require_configuration_fingerprint": true,
+    "ignored_plugin_aliases": ["PhaseLabStackProbe"]
+  }
+}
