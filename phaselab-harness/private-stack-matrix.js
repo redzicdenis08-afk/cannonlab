@@ -265,6 +265,8 @@ async function main () {
     })
 
     await phase('factions_enemy_mannequin_gear_theft', async () => {
+      // Exact retry marker: the prior run failed while building Sakura and
+      // never reached this phase.
       await command(phaseBot, '/stacklab build', 650)
       await command(phaseBot, '/clear AttackerBot', 300)
       await command(phaseBot, '/stacklab snapshot mannequin-before', 300)
