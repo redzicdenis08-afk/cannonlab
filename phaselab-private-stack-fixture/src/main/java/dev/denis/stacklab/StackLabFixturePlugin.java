@@ -30,11 +30,13 @@ import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.plugin.RegisteredListener;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -45,9 +47,14 @@ import java.util.Map;
 
 public final class StackLabFixturePlugin extends JavaPlugin implements Listener {
     private static final int Y = 65;
+    private static final int TREE_X = 30;
+    private static final int TREE_Y = 65;
+    private static final int TREE_Z = 0;
     private final Gson gson = new Gson();
     private Path evidencePath;
     private boolean cancelPortalMultiPlace;
+    private boolean cancelTreecapSecondary;
+    private int treecapCancelledEvents;
 
     @Override
     public void onEnable() {
@@ -80,6 +87,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "break" -> breakBlock(sender, args);
                     case "tick" -> tick(sender, args);
                     case "cancelportal" -> cancelPortal(sender, args);
+                    case "treecapbuild" -> treecapBuild(sender, args);
+                    case "treecapinvoke" -> treecapInvoke(sender, args);
+                    case "treecapsnapshot" -> treecapSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     default -> false;
                 };
             } catch (RuntimeException exception) {
@@ -143,6 +153,193 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         writeEvent("arena_build", snapshotMap(world, "build"));
         sender.sendMessage("STACKLAB BUILD OK boundary=15/16 y=" + Y);
         return true;
+    }
+
+
+    private boolean treecapBuild(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab treecapbuild <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        World world = requireWorld();
+        for (int x = TREE_X - 2; x <= TREE_X + 4; x++) {
+            for (int y = TREE_Y - 1; y <= TREE_Y + 5; y++) {
+                for (int z = TREE_Z - 3; z <= TREE_Z + 3; z++) {
+                    world.getBlockAt(x, y, z).setType(Material.AIR, false);
+                }
+            }
+        }
+        for (int x = TREE_X - 2; x <= TREE_X + 4; x++) {
+            for (int z = TREE_Z - 3; z <= TREE_Z + 3; z++) {
+                world.getBlockAt(x, TREE_Y - 1, z).setType(Material.BEDROCK, false);
+            }
+        }
+        set(world, TREE_X, TREE_Y, TREE_Z, Material.OAK_LOG);
+        for (int x = TREE_X + 1; x <= TREE_X + 2; x++) {
+            for (int y = TREE_Y; y <= TREE_Y + 2; y++) {
+                set(world, x, y, TREE_Z, Material.OAK_LOG);
+            }
+        }
+        for (int z = TREE_Z - 1; z <= TREE_Z + 1; z += 2) {
+            set(world, TREE_X + 1, TREE_Y + 1, z, Material.OAK_LOG);
+        }
+        player.getInventory().clear();
+        player.getInventory().setItem(0, new ItemStack(Material.DIAMOND_AXE, 1));
+        player.getInventory().setHeldItemSlot(0);
+        setAuraSkillState(player, "FORAGING", 50, 0.0);
+        cancelTreecapSecondary = true;
+        treecapCancelledEvents = 0;
+        player.teleport(new Location(world, TREE_X - 1.5, TREE_Y, TREE_Z + 0.5, -90F, 0F));
+        Map<String, Object> snapshot = treecapSnapshotMap(world, player, "build");
+        writeEvent("treecap_build", snapshot);
+        sender.sendMessage("STACKLAB TREECAP BUILD " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private boolean treecapInvoke(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab treecapinvoke <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        World world = requireWorld();
+        Block sourceBlock = world.getBlockAt(TREE_X, TREE_Y, TREE_Z);
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("before", treecapSnapshotMap(world, player, "before-invoke"));
+        try {
+            Object treecapitator = findTreecapitatorListener();
+            Object auraPlugin = Bukkit.getPluginManager().getPlugin("AuraSkills");
+            if (auraPlugin == null) throw new IllegalStateException("AuraSkills is not enabled");
+            Method getUser = auraPlugin.getClass().getMethod("getUser", Player.class);
+            Object user = getUser.invoke(auraPlugin, player);
+
+            Method getSource = treecapitator.getClass().getDeclaredMethod("getNonStrippedSource", Block.class);
+            getSource.setAccessible(true);
+            Object source = getSource.invoke(treecapitator, sourceBlock);
+            if (source == null) throw new IllegalStateException("Oak log Foraging source was not resolved");
+
+            Method breakTree = null;
+            for (Method method : treecapitator.getClass().getMethods()) {
+                if (method.getName().equals("breakTree") && method.getParameterCount() == 4) {
+                    breakTree = method;
+                    break;
+                }
+            }
+            if (breakTree == null) throw new NoSuchMethodException("Treecapitator.breakTree");
+            breakTree.invoke(treecapitator, player, user, sourceBlock, source);
+            evidence.put("invoked", true);
+            evidence.put("listener", treecapitator.getClass().getName());
+            evidence.put("source", String.valueOf(source));
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            evidence.put("invoked", false);
+            evidence.put("error", exception.toString());
+        }
+        evidence.put("immediate", treecapSnapshotMap(world, player, "immediate-after-invoke"));
+        writeEvent("treecap_invoke", evidence);
+        Bukkit.getScheduler().runTaskLater(this, () -> writeEvent("treecap_delayed_snapshot", treecapSnapshotMap(world, player, "after-20-ticks")), 20L);
+        Bukkit.getScheduler().runTaskLater(this, () -> writeEvent("treecap_delayed_snapshot", treecapSnapshotMap(world, player, "after-80-ticks")), 80L);
+        sender.sendMessage("STACKLAB TREECAP INVOKE " + gson.toJson(evidence));
+        return true;
+    }
+
+    private Object findTreecapitatorListener() {
+        for (RegisteredListener registered : BlockBreakEvent.getHandlerList().getRegisteredListeners()) {
+            Object listener = registered.getListener();
+            if (listener.getClass().getName().equals("dev.aurelium.auraskills.bukkit.skills.foraging.Treecapitator")) {
+                return listener;
+            }
+        }
+        throw new IllegalStateException("AuraSkills Treecapitator listener not found");
+    }
+
+    private boolean treecapSnapshot(org.bukkit.command.CommandSender sender, String label) {
+        Player player = Bukkit.getPlayerExact("AttackerBot");
+        Map<String, Object> snapshot = treecapSnapshotMap(requireWorld(), player, label);
+        writeEvent("treecap_snapshot", snapshot);
+        sender.sendMessage("STACKLAB TREECAP SNAPSHOT " + label + " " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private Map<String, Object> treecapSnapshotMap(World world, Player player, String label) {
+        int protectedLogs = 0;
+        for (int x = TREE_X + 1; x <= TREE_X + 2; x++) {
+            for (int y = TREE_Y; y <= TREE_Y + 2; y++) {
+                if (world.getBlockAt(x, y, TREE_Z).getType() == Material.OAK_LOG) protectedLogs++;
+            }
+        }
+        for (int z = TREE_Z - 1; z <= TREE_Z + 1; z += 2) {
+            if (world.getBlockAt(TREE_X + 1, TREE_Y + 1, z).getType() == Material.OAK_LOG) protectedLogs++;
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("label", label);
+        result.put("source_type", world.getBlockAt(TREE_X, TREE_Y, TREE_Z).getType().name());
+        result.put("protected_logs", protectedLogs);
+        result.put("cancel_mode", cancelTreecapSecondary);
+        result.put("cancelled_events", treecapCancelledEvents);
+        if (player != null) {
+            result.put("foraging_level", auraSkillLevel(player, "FORAGING"));
+            result.put("foraging_xp", auraSkillXp(player, "FORAGING"));
+        }
+        return result;
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void setAuraSkillState(Player player, String skillName, int level, double value) {
+        try {
+            Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
+            Object api = apiClass.getMethod("get").invoke(null);
+            Object user = apiClass.getMethod("getUser", java.util.UUID.class).invoke(api, player.getUniqueId());
+            Class<? extends Enum> skillsClass = (Class<? extends Enum>) Class.forName("dev.aurelium.auraskills.api.skill.Skills");
+            Object skill = Enum.valueOf(skillsClass, skillName);
+            Class<?> skillClass = Class.forName("dev.aurelium.auraskills.api.skill.Skill");
+            Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
+            skillsUserClass.getMethod("setSkillLevel", skillClass, int.class, boolean.class).invoke(user, skill, level, true);
+            skillsUserClass.getMethod("setSkillXp", skillClass, double.class).invoke(user, skill, value);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            throw new IllegalStateException("Could not reset AuraSkills " + skillName + " state", exception);
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Object auraSkillXp(Player player, String skillName) {
+        try {
+            Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
+            Object api = apiClass.getMethod("get").invoke(null);
+            Object user = apiClass.getMethod("getUser", java.util.UUID.class).invoke(api, player.getUniqueId());
+            Class<? extends Enum> skillsClass = (Class<? extends Enum>) Class.forName("dev.aurelium.auraskills.api.skill.Skills");
+            Object skill = Enum.valueOf(skillsClass, skillName);
+            Class<?> skillClass = Class.forName("dev.aurelium.auraskills.api.skill.Skill");
+            Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
+            return skillsUserClass.getMethod("getSkillXp", skillClass).invoke(user, skill);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            return "reflection-error:" + exception.getClass().getSimpleName();
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Object auraSkillLevel(Player player, String skillName) {
+        try {
+            Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
+            Object api = apiClass.getMethod("get").invoke(null);
+            Object user = apiClass.getMethod("getUser", java.util.UUID.class).invoke(api, player.getUniqueId());
+            Class<? extends Enum> skillsClass = (Class<? extends Enum>) Class.forName("dev.aurelium.auraskills.api.skill.Skills");
+            Object skill = Enum.valueOf(skillsClass, skillName);
+            Class<?> skillClass = Class.forName("dev.aurelium.auraskills.api.skill.Skill");
+            Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
+            return skillsUserClass.getMethod("getSkillLevel", skillClass).invoke(user, skill);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            return "reflection-error:" + exception.getClass().getSimpleName();
+        }
     }
 
     private boolean reset(org.bukkit.command.CommandSender sender) {
@@ -622,6 +819,27 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             "cancelled", event.isCancelled(),
             "x", event.getLocation().getX(), "y", event.getLocation().getY(), "z", event.getLocation().getZ()
         ));
+    }
+
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    public void onTreecapProtectedBreak(BlockBreakEvent event) {
+        if (!cancelTreecapSecondary) return;
+        if (!event.getClass().getName().endsWith("ManaAbilityBlockBreakEvent")) return;
+        Block block = event.getBlock();
+        if (block.getWorld().getName().equals("world")
+            && block.getX() >= TREE_X + 1 && block.getX() <= TREE_X + 2
+            && block.getY() >= TREE_Y && block.getY() <= TREE_Y + 2
+            && Math.abs(block.getZ() - TREE_Z) <= 1) {
+            event.setCancelled(true);
+            treecapCancelledEvents++;
+            writeEvent("treecap_secondary_cancel", Map.of(
+                "player", event.getPlayer().getName(),
+                "block", block.getType().name(),
+                "x", block.getX(), "y", block.getY(), "z", block.getZ(),
+                "cancelled_events", treecapCancelledEvents
+            ));
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
