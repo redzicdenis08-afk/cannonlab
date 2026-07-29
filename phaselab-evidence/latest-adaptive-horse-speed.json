@@ -1,0 +1,237 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-07-29T23:42:26.965Z",
+  "host": "127.0.0.1",
+  "port": 25566,
+  "version": "1.21.11",
+  "scope": "authorized exact private Sakura/Factions horse packet-rate speed matrix",
+  "claimsVerified": true,
+  "trials": [
+    {
+      "id": "horse-p2-seg3-east-solid64",
+      "run": 1,
+      "direction": "east",
+      "vehicle": "horse",
+      "thickness": 64,
+      "start": {
+        "x": 14.75,
+        "z": 8.5
+      },
+      "fixedY": 65,
+      "target": {
+        "x": 83.5,
+        "z": 8.5
+      },
+      "targetDistance": 68.75,
+      "segmentLength": 3,
+      "packetsPerTick": 2,
+      "pauseMs": 350,
+      "step": 0.25,
+      "elapsedMs": 25001,
+      "packetCount": 216,
+      "segmentCount": 18,
+      "acceptedDistance": 51,
+      "allSegmentsAccepted": false,
+      "playerMounted": false,
+      "vehicleBeyond": false,
+      "playerDismounted": false,
+      "netheriteCount": 0,
+      "movementCorrectionCount": 0,
+      "firstMovementCorrection": null,
+      "playerSyncCount": 1,
+      "firstPlayerSync": {
+        "type": "player_position",
+        "elapsedMs": 12514.49265,
+        "packet": {
+          "teleportId": 6,
+          "x": 68.05,
+          "y": 65.99375002384187,
+          "z": 8.5,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        }
+      },
+      "dismountResponse": "STACKLAB VEHICLE DISMOUNT {\"player\":\"AttackerBot\",\"online\":true,\"mounted_before\":false,\"invoked\":true,\"path\":\"ServerboundPlayerInputPacket(shift\\u003dtrue)-\\u003ehandlePlayerInput\",\"mounted\":false,\"x\":68.05,\"y\":65.0,\"z\":8.5}",
+      "dismountError": null,
+      "clientPlayerPosition": {
+        "x": 68.05,
+        "y": 65,
+        "z": 8.5
+      },
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "horse-p4-seg4-east-solid64",
+      "run": 1,
+      "direction": "east",
+      "vehicle": "horse",
+      "thickness": 64,
+      "start": {
+        "x": 14.75,
+        "z": 8.5
+      },
+      "fixedY": 65,
+      "target": {
+        "x": 83.5,
+        "z": 8.5
+      },
+      "targetDistance": 68.75,
+      "segmentLength": 4,
+      "packetsPerTick": 4,
+      "pauseMs": 350,
+      "step": 0.25,
+      "elapsedMs": 17049,
+      "packetCount": 275,
+      "segmentCount": 18,
+      "acceptedDistance": 68.75,
+      "allSegmentsAccepted": true,
+      "playerMounted": true,
+      "vehicleBeyond": true,
+      "playerDismounted": true,
+      "netheriteCount": 1,
+      "movementCorrectionCount": 0,
+      "firstMovementCorrection": null,
+      "playerSyncCount": 0,
+      "firstPlayerSync": null,
+      "dismountResponse": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-adaptive-horse-speed.js:114:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "clientPlayerPosition": {
+        "x": 13.25,
+        "y": 65,
+        "z": 8.5
+      },
+      "serverAuthoritativeSuccess": true
+    },
+    {
+      "id": "horse-p8-seg8-east-solid64",
+      "run": 1,
+      "direction": "east",
+      "vehicle": "horse",
+      "thickness": 64,
+      "start": {
+        "x": 14.75,
+        "z": 8.5
+      },
+      "fixedY": 65,
+      "target": {
+        "x": 83.5,
+        "z": 8.5
+      },
+      "targetDistance": 68.75,
+      "segmentLength": 8,
+      "packetsPerTick": 8,
+      "pauseMs": 350,
+      "step": 0.25,
+      "elapsedMs": 12173,
+      "packetCount": 275,
+      "segmentCount": 9,
+      "acceptedDistance": 68.75,
+      "allSegmentsAccepted": true,
+      "playerMounted": true,
+      "vehicleBeyond": true,
+      "playerDismounted": true,
+      "netheriteCount": 1,
+      "movementCorrectionCount": 0,
+      "firstMovementCorrection": null,
+      "playerSyncCount": 0,
+      "firstPlayerSync": null,
+      "dismountResponse": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-adaptive-horse-speed.js:114:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "clientPlayerPosition": {
+        "x": 14.75,
+        "y": 65.84375002384186,
+        "z": 8.5
+      },
+      "serverAuthoritativeSuccess": true
+    }
+  ],
+  "fatal": null,
+  "claimWitness": {
+    "label": "direction-setup",
+    "center_chunk_x": 0,
+    "center_chunk_z": 0,
+    "center_tag": "Attackers",
+    "center_wilderness": false,
+    "east_near_chunk_x": 1,
+    "east_near_chunk_z": 0,
+    "east_near_tag": "Victims",
+    "east_near_wilderness": false,
+    "east_far_chunk_x": 5,
+    "east_far_chunk_z": 0,
+    "east_far_tag": "Victims",
+    "east_far_wilderness": false,
+    "west_near_chunk_x": -1,
+    "west_near_chunk_z": 0,
+    "west_near_tag": "Victims",
+    "west_near_wilderness": false,
+    "west_far_chunk_x": -5,
+    "west_far_chunk_z": 0,
+    "west_far_tag": "Victims",
+    "west_far_wilderness": false,
+    "south_near_chunk_x": 0,
+    "south_near_chunk_z": 1,
+    "south_near_tag": "Victims",
+    "south_near_wilderness": false,
+    "south_far_chunk_x": 0,
+    "south_far_chunk_z": 5,
+    "south_far_tag": "Victims",
+    "south_far_wilderness": false,
+    "north_near_chunk_x": 0,
+    "north_near_chunk_z": -1,
+    "north_near_tag": "Victims",
+    "north_near_wilderness": false,
+    "north_far_chunk_x": 0,
+    "north_far_chunk_z": -5,
+    "north_far_tag": "Victims",
+    "north_far_wilderness": false,
+    "verified": true
+  },
+  "finishedAt": "2026-07-29T23:43:38.644Z",
+  "successCount": 2,
+  "totalCount": 3,
+  "byFamily": {
+    "horse-p2-seg3-east-solid64": {
+      "successes": 0,
+      "attempts": 1
+    },
+    "horse-p4-seg4-east-solid64": {
+      "successes": 1,
+      "attempts": 1
+    },
+    "horse-p8-seg8-east-solid64": {
+      "successes": 1,
+      "attempts": 1
+    }
+  },
+  "byVehicle": {
+    "boat": {
+      "successes": 0,
+      "attempts": 0
+    },
+    "horse": {
+      "successes": 2,
+      "attempts": 3
+    }
+  },
+  "byDirection": {
+    "east": {
+      "successes": 2,
+      "attempts": 3
+    }
+  }
+}
