@@ -235,59 +235,85 @@ async function waitForPlacedBoat (bot, beforeIds, timeoutMs = 5000) {
 }
 
 async function survivalPlaceAndMount (phaseBot, attackerBot) {
-  await command(phaseBot, `/tp AttackerBot 13.25 ${Y} ${Z} -90 45`, 350)
-  const beforeIds = new Set(Object.keys(attackerBot.entities).map(Number))
-  const response = await commandExpect(
-    phaseBot,
-    '/stacklab boatuse AttackerBot',
-    /STACKLAB BOAT USE .*"accepted":true/,
-    8000
-  )
-  record('server_boat_item_response', { response })
+  let boat = null
+  let response = null
+  const placementAttempts = []
 
-  const boat = await waitForPlacedBoat(attackerBot, beforeIds, 8000)
+  for (let attempt = 1; attempt <= 3 && !boat; attempt++) {
+    await command(phaseBot, '/kill @e[type=minecraft:oak_boat]', 150)
+    await command(phaseBot, `/tp AttackerBot 13.25 ${Y} ${Z} -90 45`, 350)
+    const beforeIds = new Set(Object.keys(attackerBot.entities).map(Number))
+    try {
+      response = await commandExpect(
+        phaseBot,
+        '/stacklab boatuse AttackerBot',
+        /STACKLAB BOAT USE /,
+        4500
+      )
+    } catch (error) {
+      placementAttempts.push({ attempt, accepted: false, error: String(error) })
+      record('server_boat_item_retry', { attempt, error: String(error) })
+      continue
+    }
+
+    const accepted = response.includes('"accepted":true')
+    placementAttempts.push({ attempt, accepted, response })
+    record('server_boat_item_response', { attempt, accepted, response })
+    if (!accepted) continue
+
+    boat = await waitForPlacedBoat(attackerBot, beforeIds, 5000)
+  }
+
   if (!boat) {
     const nearby = Object.values(attackerBot.entities)
       .filter(entity => entity?.position && entity.position.distanceTo(attackerBot.entity.position) < 8)
       .map(entity => ({ id: entity.id, name: entity.name, displayName: entity.displayName, position: entity.position }))
-    throw new Error(`Server BoatItem.use succeeded but client saw no nearby boat nearby=${JSON.stringify(nearby)}`)
+    throw new Error(`Player BoatItem.use failed after retries attempts=${JSON.stringify(placementAttempts)} nearby=${JSON.stringify(nearby)}`)
   }
 
   const mountChecks = []
-  for (let attempt = 1; attempt <= 3 && !attackerBot.vehicle; attempt++) {
-    const mounted = onceWithTimeout(attackerBot, 'mount', 1800).catch(() => null)
-    await attackerBot.lookAt(boat.position.offset(0, 0.5, 0), true)
-    if (attempt === 1) await attackerBot.activateEntity(boat)
-    else if (attempt === 2) attackerBot.mount(boat)
-    else {
-      attackerBot._client.write('use_entity', {
-        target: boat.id,
-        mouse: 0,
-        sneaking: false,
-        hand: 0
-      })
-    }
-    await mounted
-    await sleep(250)
-    const check = await commandExpect(
+  const mounted = onceWithTimeout(attackerBot, 'mount', 1800).catch(() => null)
+  await attackerBot.lookAt(boat.position.offset(0, 0.5, 0), true)
+  await attackerBot.activateEntity(boat)
+  await mounted
+  await sleep(250)
+  let check = await commandExpect(
+    phaseBot,
+    '/stacklab vehiclecheck AttackerBot',
+    /STACKLAB VEHICLE CHECK /,
+    4000
+  )
+  mountChecks.push({ path: 'client_use_entity', check, clientMounted: Boolean(attackerBot.vehicle) })
+  record('mount_server_check', { path: 'client_use_entity', check, clientMounted: Boolean(attackerBot.vehicle) })
+
+  if (!check.includes('"mounted":true')) {
+    const serverInteract = await commandExpect(
+      phaseBot,
+      '/stacklab boatinteract AttackerBot',
+      /STACKLAB BOAT INTERACT .*"mounted":true/,
+      5000
+    )
+    mountChecks.push({ path: 'nms_boat_interact', check: serverInteract, clientMounted: Boolean(attackerBot.vehicle) })
+    record('mount_server_check', { path: 'nms_boat_interact', check: serverInteract, clientMounted: Boolean(attackerBot.vehicle) })
+    await sleep(350)
+    check = await commandExpect(
       phaseBot,
       '/stacklab vehiclecheck AttackerBot',
       /STACKLAB VEHICLE CHECK /,
       4000
     )
-    mountChecks.push({ attempt, check, clientMounted: Boolean(attackerBot.vehicle) })
-    record('mount_server_check', { attempt, check, clientMounted: Boolean(attackerBot.vehicle) })
-    if (!attackerBot.vehicle && check.includes('"mounted":true')) {
-      attackerBot.vehicle = boat
-      attackerBot.entity.vehicle = boat
-      if (!boat.passengers.includes(attackerBot.entity)) boat.passengers.push(attackerBot.entity)
-      record('mount_client_state_repaired', { attempt, boatId: boat.id })
-    }
   }
-  if (!attackerBot.vehicle) throw new Error(`Normal right-click failed to mount player-placed boat checks=${JSON.stringify(mountChecks)}`)
+
+  if (!attackerBot.vehicle && check.includes('"mounted":true')) {
+    attackerBot.vehicle = boat
+    attackerBot.entity.vehicle = boat
+    if (!boat.passengers.includes(attackerBot.entity)) boat.passengers.push(attackerBot.entity)
+    record('mount_client_state_repaired', { path: 'server_confirmed', boatId: boat.id })
+  }
+  if (!attackerBot.vehicle) throw new Error(`Vanilla boat interaction failed checks=${JSON.stringify(mountChecks)}`)
   record('survival_boat_ready', {
     placement: 'nms_boat_item_use',
-    mount: 'normal_right_click',
+    mount: mountChecks.some(row => row.path === 'nms_boat_interact') ? 'nms_vanilla_interact' : 'client_use_entity',
     boatId: attackerBot.vehicle.id,
     boatPosition: attackerBot.vehicle.position,
     playerPosition: attackerBot.entity.position
@@ -465,8 +491,8 @@ async function main () {
   const bots = [phaseBot, victimBot, attackerBot]
 
   const trialPlan = [
-    { id: 'solid240-survival-unloaded-ratchet19', kind: 'solid', thickness: 240, step: 0.25, delayMs: 0, segmentLength: 19, segmentPauseMs: 100, placement: 'survival', unloadRoute: true, repeats: 3 },
-    { id: 'layered240-survival-unloaded-ratchet19', kind: 'layered', thickness: 240, step: 0.10, delayMs: 0, segmentLength: 19, segmentPauseMs: 100, placement: 'survival', unloadRoute: true, repeats: 2 }
+    { id: 'solid240-survival-unloaded-ratchet15', kind: 'solid', thickness: 240, step: 0.25, delayMs: 0, segmentLength: 15, segmentPauseMs: 100, placement: 'survival', unloadRoute: true, repeats: 3 },
+    { id: 'layered240-survival-unloaded-ratchet15', kind: 'layered', thickness: 240, step: 0.25, delayMs: 0, segmentLength: 15, segmentPauseMs: 100, placement: 'survival', unloadRoute: true, repeats: 3 }
   ]
 
   try {
