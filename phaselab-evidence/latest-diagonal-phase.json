@@ -1,43 +1,547 @@
 {
   "schemaVersion": 1,
-  "startedAt": "2026-07-29T14:05:46.583Z",
+  "startedAt": "2026-07-29T14:15:54.630Z",
   "host": "127.0.0.1",
   "port": 25566,
   "version": "1.21.11",
   "scope": "authorized exact private Sakura/Factions four-diagonal vehicle phase",
-  "claimsVerified": false,
-  "trials": [],
-  "fatal": "Error: Diagonal claim witness failed: {\"label\":\"northeast_near\",\"chunk_x\":1,\"chunk_z\":-1,\"tag\":\"Wilderness\",\"wilderness\":true,\"verified\":true}\n    at setupFactions (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:254:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async main (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:609:5)",
-  "finishedAt": "2026-07-29T14:07:11.094Z",
-  "successCount": 0,
-  "totalCount": 0,
-  "byFamily": {},
+  "claimsVerified": true,
+  "trials": [
+    {
+      "id": "boat-northeast-solid64",
+      "run": 1,
+      "direction": "northeast",
+      "vehicle": "boat",
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB BOAT USE .*\"accepted\":true/ after /stacklab boatuse AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:131:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    },
+    {
+      "id": "boat-northeast-solid64",
+      "run": 2,
+      "direction": "northeast",
+      "vehicle": "boat",
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB BOAT USE .*\"accepted\":true/ after /stacklab boatuse AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:131:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    },
+    {
+      "id": "boat-northwest-solid64",
+      "run": 1,
+      "direction": "northwest",
+      "vehicle": "boat",
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB BOAT USE .*\"accepted\":true/ after /stacklab boatuse AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:131:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    },
+    {
+      "id": "boat-northwest-solid64",
+      "run": 2,
+      "direction": "northwest",
+      "vehicle": "boat",
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB BOAT USE .*\"accepted\":true/ after /stacklab boatuse AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:131:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    },
+    {
+      "id": "boat-southeast-solid64",
+      "run": 1,
+      "direction": "southeast",
+      "vehicle": "boat",
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB BOAT USE .*\"accepted\":true/ after /stacklab boatuse AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:131:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    },
+    {
+      "id": "boat-southeast-solid64",
+      "run": 2,
+      "direction": "southeast",
+      "vehicle": "boat",
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB BOAT USE .*\"accepted\":true/ after /stacklab boatuse AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:131:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    },
+    {
+      "id": "boat-southwest-solid64",
+      "run": 1,
+      "direction": "southwest",
+      "vehicle": "boat",
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB BOAT USE .*\"accepted\":true/ after /stacklab boatuse AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:131:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    },
+    {
+      "id": "boat-southwest-solid64",
+      "run": 2,
+      "direction": "southwest",
+      "vehicle": "boat",
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB BOAT USE .*\"accepted\":true/ after /stacklab boatuse AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:131:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    },
+    {
+      "id": "horse-northeast-solid64",
+      "run": 1,
+      "direction": "northeast",
+      "vehicle": "horse",
+      "thickness": 64,
+      "start": {
+        "x": 14.560660171779821,
+        "z": 2.439339828220179
+      },
+      "fixedY": 65,
+      "target": {
+        "x": 82.5,
+        "z": -66.5
+      },
+      "targetDistance": 96.78784258493013,
+      "segmentLength": 10,
+      "pauseMs": 100,
+      "step": 0.25,
+      "elapsedMs": 8301,
+      "packetCount": 388,
+      "segmentCount": 10,
+      "acceptedDistance": 96.78784258493013,
+      "allSegmentsAccepted": true,
+      "playerMounted": true,
+      "vehicleBeyond": true,
+      "playerDismounted": true,
+      "netheriteCount": 1,
+      "movementCorrectionCount": 0,
+      "firstMovementCorrection": null,
+      "dismountResponse": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:131:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "clientPlayerPosition": {
+        "x": 13.5,
+        "y": 65,
+        "z": 3.5
+      },
+      "serverAuthoritativeSuccess": true
+    },
+    {
+      "id": "horse-northeast-solid64",
+      "run": 2,
+      "direction": "northeast",
+      "vehicle": "horse",
+      "thickness": 64,
+      "start": {
+        "x": 14.560660171779821,
+        "z": 2.439339828220179
+      },
+      "fixedY": 65,
+      "target": {
+        "x": 82.5,
+        "z": -66.5
+      },
+      "targetDistance": 96.78784258493013,
+      "segmentLength": 10,
+      "pauseMs": 100,
+      "step": 0.25,
+      "elapsedMs": 8287,
+      "packetCount": 388,
+      "segmentCount": 10,
+      "acceptedDistance": 96.78784258493013,
+      "allSegmentsAccepted": true,
+      "playerMounted": true,
+      "vehicleBeyond": true,
+      "playerDismounted": true,
+      "netheriteCount": 1,
+      "movementCorrectionCount": 0,
+      "firstMovementCorrection": null,
+      "dismountResponse": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:131:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "clientPlayerPosition": {
+        "x": 3.5,
+        "y": 65,
+        "z": 3.5
+      },
+      "serverAuthoritativeSuccess": true
+    },
+    {
+      "id": "horse-northwest-solid64",
+      "run": 1,
+      "direction": "northwest",
+      "vehicle": "horse",
+      "thickness": 64,
+      "start": {
+        "x": 2.4393398282201786,
+        "z": 2.439339828220179
+      },
+      "fixedY": 65,
+      "target": {
+        "x": -66.5,
+        "z": -66.5
+      },
+      "targetDistance": 97.49494936611667,
+      "segmentLength": 10,
+      "pauseMs": 100,
+      "step": 0.25,
+      "elapsedMs": 16353,
+      "packetCount": 40,
+      "segmentCount": 1,
+      "acceptedDistance": 0,
+      "allSegmentsAccepted": true,
+      "playerMounted": false,
+      "vehicleBeyond": false,
+      "playerDismounted": false,
+      "netheriteCount": 0,
+      "movementCorrectionCount": 7,
+      "firstMovementCorrection": {
+        "type": "vehicle_move",
+        "elapsedMs": 1.440798,
+        "packet": {
+          "x": 2.2625631329235416,
+          "y": 65,
+          "z": 2.262563132923542,
+          "yaw": 135,
+          "pitch": 0
+        }
+      },
+      "dismountResponse": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:131:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "clientPlayerPosition": {
+        "x": -4.6317279836452965,
+        "y": 65,
+        "z": -4.6317279836452965
+      },
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "horse-northwest-solid64",
+      "run": 2,
+      "direction": "northwest",
+      "vehicle": "horse",
+      "thickness": 64,
+      "start": {
+        "x": 2.4393398282201786,
+        "z": 2.439339828220179
+      },
+      "fixedY": 65,
+      "target": {
+        "x": -66.5,
+        "z": -66.5
+      },
+      "targetDistance": 97.49494936611667,
+      "segmentLength": 10,
+      "pauseMs": 100,
+      "step": 0.25,
+      "elapsedMs": 16354,
+      "packetCount": 40,
+      "segmentCount": 1,
+      "acceptedDistance": 0,
+      "allSegmentsAccepted": true,
+      "playerMounted": false,
+      "vehicleBeyond": false,
+      "playerDismounted": false,
+      "netheriteCount": 0,
+      "movementCorrectionCount": 7,
+      "firstMovementCorrection": {
+        "type": "vehicle_move",
+        "elapsedMs": 0.743008,
+        "packet": {
+          "x": 2.2625631329235416,
+          "y": 65,
+          "z": 2.262563132923542,
+          "yaw": 135,
+          "pitch": 0
+        }
+      },
+      "dismountResponse": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:131:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "clientPlayerPosition": {
+        "x": -4.1367532452858455,
+        "y": 65,
+        "z": -4.1367532452858455
+      },
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "horse-southeast-solid64",
+      "run": 1,
+      "direction": "southeast",
+      "vehicle": "horse",
+      "thickness": 64,
+      "start": {
+        "x": 14.560660171779821,
+        "z": 14.560660171779821
+      },
+      "fixedY": 65,
+      "target": {
+        "x": 82.5,
+        "z": 82.5
+      },
+      "targetDistance": 96.08073580374358,
+      "segmentLength": 10,
+      "pauseMs": 100,
+      "step": 0.25,
+      "elapsedMs": 8277,
+      "packetCount": 385,
+      "segmentCount": 10,
+      "acceptedDistance": 96.08073580374358,
+      "allSegmentsAccepted": true,
+      "playerMounted": true,
+      "vehicleBeyond": true,
+      "playerDismounted": true,
+      "netheriteCount": 1,
+      "movementCorrectionCount": 0,
+      "firstMovementCorrection": null,
+      "dismountResponse": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:131:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "clientPlayerPosition": {
+        "x": 13.5,
+        "y": 65,
+        "z": 13.5
+      },
+      "serverAuthoritativeSuccess": true
+    },
+    {
+      "id": "horse-southeast-solid64",
+      "run": 2,
+      "direction": "southeast",
+      "vehicle": "horse",
+      "thickness": 64,
+      "start": {
+        "x": 14.560660171779821,
+        "z": 14.560660171779821
+      },
+      "fixedY": 65,
+      "target": {
+        "x": 82.5,
+        "z": 82.5
+      },
+      "targetDistance": 96.08073580374358,
+      "segmentLength": 10,
+      "pauseMs": 100,
+      "step": 0.25,
+      "elapsedMs": 8287,
+      "packetCount": 385,
+      "segmentCount": 10,
+      "acceptedDistance": 96.08073580374358,
+      "allSegmentsAccepted": true,
+      "playerMounted": true,
+      "vehicleBeyond": true,
+      "playerDismounted": true,
+      "netheriteCount": 1,
+      "movementCorrectionCount": 0,
+      "firstMovementCorrection": null,
+      "dismountResponse": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:131:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "clientPlayerPosition": {
+        "x": 3.5,
+        "y": 65,
+        "z": 13.5
+      },
+      "serverAuthoritativeSuccess": true
+    },
+    {
+      "id": "horse-southwest-solid64",
+      "run": 1,
+      "direction": "southwest",
+      "vehicle": "horse",
+      "thickness": 64,
+      "start": {
+        "x": 2.439339828220179,
+        "z": 14.560660171779821
+      },
+      "fixedY": 65,
+      "target": {
+        "x": -66.5,
+        "z": 82.5
+      },
+      "targetDistance": 96.78784258493013,
+      "segmentLength": 10,
+      "pauseMs": 100,
+      "step": 0.25,
+      "elapsedMs": 8285,
+      "packetCount": 388,
+      "segmentCount": 10,
+      "acceptedDistance": 96.78784258493013,
+      "allSegmentsAccepted": true,
+      "playerMounted": true,
+      "vehicleBeyond": true,
+      "playerDismounted": true,
+      "netheriteCount": 1,
+      "movementCorrectionCount": 0,
+      "firstMovementCorrection": null,
+      "dismountResponse": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:131:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "clientPlayerPosition": {
+        "x": 3.5,
+        "y": 65,
+        "z": 13.5
+      },
+      "serverAuthoritativeSuccess": true
+    },
+    {
+      "id": "horse-southwest-solid64",
+      "run": 2,
+      "direction": "southwest",
+      "vehicle": "horse",
+      "thickness": 64,
+      "start": {
+        "x": 2.439339828220179,
+        "z": 14.560660171779821
+      },
+      "fixedY": 65,
+      "target": {
+        "x": -66.5,
+        "z": 82.5
+      },
+      "targetDistance": 96.78784258493013,
+      "segmentLength": 10,
+      "pauseMs": 100,
+      "step": 0.25,
+      "elapsedMs": 8285,
+      "packetCount": 388,
+      "segmentCount": 10,
+      "acceptedDistance": 96.78784258493013,
+      "allSegmentsAccepted": true,
+      "playerMounted": true,
+      "vehicleBeyond": true,
+      "playerDismounted": true,
+      "netheriteCount": 1,
+      "movementCorrectionCount": 0,
+      "firstMovementCorrection": null,
+      "dismountResponse": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:131:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "clientPlayerPosition": {
+        "x": -66.00000000000001,
+        "y": 65,
+        "z": 83.00000000000001
+      },
+      "serverAuthoritativeSuccess": true
+    }
+  ],
+  "fatal": null,
+  "claimWitness": [
+    {
+      "label": "center",
+      "chunk_x": 0,
+      "chunk_z": 0,
+      "tag": "Attackers",
+      "wilderness": false,
+      "verified": true
+    },
+    {
+      "label": "northeast_near",
+      "chunk_x": 1,
+      "chunk_z": -1,
+      "tag": "Victims",
+      "wilderness": false,
+      "verified": true
+    },
+    {
+      "label": "northeast_far",
+      "chunk_x": 5,
+      "chunk_z": -5,
+      "tag": "Victims",
+      "wilderness": false,
+      "verified": true
+    },
+    {
+      "label": "northwest_near",
+      "chunk_x": -1,
+      "chunk_z": -1,
+      "tag": "Victims",
+      "wilderness": false,
+      "verified": true
+    },
+    {
+      "label": "northwest_far",
+      "chunk_x": -5,
+      "chunk_z": -5,
+      "tag": "Victims",
+      "wilderness": false,
+      "verified": true
+    },
+    {
+      "label": "southeast_near",
+      "chunk_x": 1,
+      "chunk_z": 1,
+      "tag": "Victims",
+      "wilderness": false,
+      "verified": true
+    },
+    {
+      "label": "southeast_far",
+      "chunk_x": 5,
+      "chunk_z": 5,
+      "tag": "Victims",
+      "wilderness": false,
+      "verified": true
+    },
+    {
+      "label": "southwest_near",
+      "chunk_x": -1,
+      "chunk_z": 1,
+      "tag": "Victims",
+      "wilderness": false,
+      "verified": true
+    },
+    {
+      "label": "southwest_far",
+      "chunk_x": -5,
+      "chunk_z": 5,
+      "tag": "Victims",
+      "wilderness": false,
+      "verified": true
+    }
+  ],
+  "finishedAt": "2026-07-29T14:18:50.241Z",
+  "successCount": 6,
+  "totalCount": 16,
+  "byFamily": {
+    "boat-northeast-solid64": {
+      "successes": 0,
+      "attempts": 2
+    },
+    "boat-northwest-solid64": {
+      "successes": 0,
+      "attempts": 2
+    },
+    "boat-southeast-solid64": {
+      "successes": 0,
+      "attempts": 2
+    },
+    "boat-southwest-solid64": {
+      "successes": 0,
+      "attempts": 2
+    },
+    "horse-northeast-solid64": {
+      "successes": 2,
+      "attempts": 2
+    },
+    "horse-northwest-solid64": {
+      "successes": 0,
+      "attempts": 2
+    },
+    "horse-southeast-solid64": {
+      "successes": 2,
+      "attempts": 2
+    },
+    "horse-southwest-solid64": {
+      "successes": 2,
+      "attempts": 2
+    }
+  },
   "byVehicle": {
     "boat": {
       "successes": 0,
-      "attempts": 0
+      "attempts": 8
     },
     "horse": {
-      "successes": 0,
-      "attempts": 0
+      "successes": 6,
+      "attempts": 8
     }
   },
   "byDirection": {
     "northeast": {
-      "successes": 0,
-      "attempts": 0
+      "successes": 2,
+      "attempts": 4
     },
     "northwest": {
       "successes": 0,
-      "attempts": 0
+      "attempts": 4
     },
     "southeast": {
-      "successes": 0,
-      "attempts": 0
+      "successes": 2,
+      "attempts": 4
     },
     "southwest": {
-      "successes": 0,
-      "attempts": 0
+      "successes": 2,
+      "attempts": 4
     }
   }
 }
