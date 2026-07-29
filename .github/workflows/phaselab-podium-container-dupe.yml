@@ -33,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        mode: [factions, control]
+        mode: [factions, factions_cancel, control]
 
     steps:
       - name: Checkout CannonLab

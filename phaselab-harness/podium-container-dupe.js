@@ -151,13 +151,14 @@ async function main () {
     await command(phaseBot, '/gamemode creative PhaseBot')
     await command(phaseBot, '/gamemode survival VictimBot')
     await command(phaseBot, '/gamemode survival AttackerBot')
-    await command(phaseBot, `/stacklab cancelportal ${MODE === 'control' ? 'true' : 'false'}`)
+    const cancelGeneration = MODE === 'factions_cancel'
+    await command(phaseBot, `/stacklab cancelportal ${cancelGeneration ? 'true' : 'false'}`)
 
     const buildMessage = await commandExpect(phaseBot, '/stacklab podiumbuild', /STACKLAB PODIUM BUILD \{/, 15000)
     const build = parseJsonMessage(buildMessage)
     record('podium_build_client', build)
 
-    if (MODE === 'factions') {
+    if (MODE === 'factions' || MODE === 'factions_cancel') {
       await setupFactions(phaseBot, victimBot, attackerBot, build)
     }
 
