@@ -149,7 +149,10 @@ async function openGrindstoneAndLoadSword (bot, blockPos) {
     input1: window.slots[1]?.name || null,
     result: window.slots[2]?.name || null
   })
-  if (!window.slots[2]) throw new Error('Grindstone result slot did not populate')
+  if (!window.slots[2]) {
+    try { bot.closeWindow(window) } catch {}
+    throw new Error('Grindstone result slot did not populate')
+  }
   return window
 }
 
@@ -257,6 +260,10 @@ async function main () {
       await command(phaseBot, '/stacklab build', 650)
       await command(phaseBot, '/clear AttackerBot')
       await command(phaseBot, '/stacklab give AttackerBot diamond_sword excellentenchants:curse_of_fragility 1', 650)
+      // A curse-only item has no removable enchant and vanilla leaves the
+      // result empty. Sharpness supplies the removable layer while the custom
+      // curse remains on the result and triggers ExcellentEnchants' cancel.
+      await command(phaseBot, '/enchant AttackerBot minecraft:sharpness 5', 650)
       await command(phaseBot, '/tp AttackerBot 12.5 65 5.5 -90 0', 500)
       const window = await openGrindstoneAndLoadSword(attackerBot, new Vec3(13, 65, 5))
       const clicks = []
@@ -268,6 +275,11 @@ async function main () {
       try { window.close() } catch {}
       return { clicks }
     })
+
+    if (attackerBot.currentWindow) {
+      try { attackerBot.closeWindow(attackerBot.currentWindow) } catch {}
+      await sleep(250)
+    }
 
     for (let run = 1; run <= 3; run++) {
       await phase(`portal_factions_run_${run}`, async () => {
@@ -297,6 +309,23 @@ async function main () {
       })
     }
     await command(phaseBot, '/stacklab cancelportal false')
+
+    for (let run = 1; run <= 3; run++) {
+      await phase(`auraskills_terraform_claim_boundary_${run}`, async () => {
+        await command(phaseBot, '/stacklab build', 650)
+        await command(phaseBot, `/stacklab snapshot aura-terraform-before-${run}`)
+        await command(phaseBot, '/clear AttackerBot')
+        await command(phaseBot, '/give AttackerBot minecraft:diamond_shovel 1')
+        await command(phaseBot, '/skills skill setlevel AttackerBot excavation 100', 750)
+        await command(phaseBot, '/skills manaability resetcooldown AttackerBot terraform true', 750)
+        await command(phaseBot, '/tp AttackerBot 14.25 65 2.5 -90 0', 500)
+        const ready = await readyAuraAbility(attackerBot, 'diamond_shovel')
+        const dig = await equipAndServerBreak(phaseBot, attackerBot, 'diamond_shovel', new Vec3(15, 65, 2))
+        await sleep(1800)
+        await command(phaseBot, `/stacklab snapshot aura-terraform-after-${run}`)
+        return { ready, dig }
+      })
+    }
 
     for (let run = 1; run <= 3; run++) {
       await phase(`auraskills_treecapitator_claim_boundary_${run}`, async () => {
