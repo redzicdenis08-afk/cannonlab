@@ -55,6 +55,12 @@ import java.util.Map;
 
 public final class StackLabFixturePlugin extends JavaPlugin implements Listener {
     private static final int Y = 65;
+    private static final Material[] NIMBLE_ARMOR = {
+        Material.NETHERITE_HELMET,
+        Material.NETHERITE_CHESTPLATE,
+        Material.NETHERITE_LEGGINGS,
+        Material.NETHERITE_BOOTS
+    };
     private final Gson gson = new Gson();
     private Path evidencePath;
     private boolean cancelPortalMultiPlace;
@@ -91,6 +97,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "give" -> give(sender, args);
                     case "soulboundprep" -> soulboundPrep(sender, args);
                     case "soulboundsnapshot" -> soulboundSnapshot(sender, args);
+                    case "nimbleprep" -> nimblePrep(sender, args);
+                    case "nimblekill" -> nimbleKill(sender, args);
+                    case "nimblesnapshot" -> nimbleSnapshot(sender, args);
                     case "grindstoneprep" -> grindstonePrep(sender, args);
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
@@ -569,6 +578,154 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             if (nested != null && nested.getType() == Material.NETHERITE_BLOCK) total += nested.getAmount();
         }
         return total;
+    }
+
+    private boolean nimblePrep(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("Usage: /stacklab nimbleprep <victim> <killer>");
+            return true;
+        }
+        Player victim = Bukkit.getPlayerExact(args[1]);
+        Player killer = Bukkit.getPlayerExact(args[2]);
+        if (victim == null || killer == null) {
+            sender.sendMessage("STACKLAB NIMBLE PREP accepted=false reason=offline");
+            return true;
+        }
+        Enchantment soulbound = Registry.ENCHANTMENT.get(NamespacedKey.fromString("excellentenchants:soulbound"));
+        Enchantment nimble = Registry.ENCHANTMENT.get(NamespacedKey.fromString("excellentenchants:nimble"));
+        if (soulbound == null || nimble == null) {
+            sender.sendMessage("STACKLAB NIMBLE PREP accepted=false reason=enchant_missing");
+            return true;
+        }
+
+        victim.getInventory().clear();
+        killer.getInventory().clear();
+        victim.setItemOnCursor(null);
+        killer.setItemOnCursor(null);
+
+        ItemStack helmet = new ItemStack(Material.NETHERITE_HELMET);
+        ItemStack chestplate = new ItemStack(Material.NETHERITE_CHESTPLATE);
+        ItemStack leggings = new ItemStack(Material.NETHERITE_LEGGINGS);
+        ItemStack boots = new ItemStack(Material.NETHERITE_BOOTS);
+        for (ItemStack armor : new ItemStack[]{helmet, chestplate, leggings, boots}) {
+            armor.addUnsafeEnchantment(soulbound, 1);
+        }
+        victim.getInventory().setHelmet(helmet);
+        victim.getInventory().setChestplate(chestplate);
+        victim.getInventory().setLeggings(leggings);
+        victim.getInventory().setBoots(boots);
+
+        ItemStack sword = new ItemStack(Material.NETHERITE_SWORD);
+        sword.addUnsafeEnchantment(nimble, 1);
+        killer.getInventory().setItem(0, sword);
+        killer.getInventory().setHeldItemSlot(0);
+
+        World world = requireWorld();
+        Location center = new Location(world, 13.5, Y, 30.5);
+        for (Item item : world.getEntitiesByClass(Item.class)) {
+            if (item.getLocation().distanceSquared(center) <= 1024.0) item.remove();
+        }
+        victim.teleport(center);
+        killer.teleport(center.clone().add(2.0, 0.0, 0.0));
+        victim.setHealth(victim.getMaxHealth());
+        killer.setHealth(killer.getMaxHealth());
+
+        Map<String, Object> snapshot = nimbleSnapshotMap(victim, killer, "prepared");
+        snapshot.put("accepted", true);
+        writeEvent("nimble_soulbound_prepared", snapshot);
+        sender.sendMessage("STACKLAB NIMBLE PREP " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private boolean nimbleKill(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("Usage: /stacklab nimblekill <victim> <killer>");
+            return true;
+        }
+        Player victim = Bukkit.getPlayerExact(args[1]);
+        Player killer = Bukkit.getPlayerExact(args[2]);
+        if (victim == null || killer == null) {
+            sender.sendMessage("STACKLAB NIMBLE KILL accepted=false reason=offline");
+            return true;
+        }
+        Map<String, Object> before = nimbleSnapshotMap(victim, killer, "before-kill");
+        victim.damage(1000.0, killer);
+        Map<String, Object> immediate = nimbleSnapshotMap(victim, killer, "immediate-after-kill");
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("accepted", victim.isDead());
+        evidence.put("before", before);
+        evidence.put("immediate", immediate);
+        writeEvent("nimble_soulbound_kill", evidence);
+        sender.sendMessage("STACKLAB NIMBLE KILL " + gson.toJson(evidence));
+        return true;
+    }
+
+    private boolean nimbleSnapshot(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("Usage: /stacklab nimblesnapshot <victim> <killer> [label]");
+            return true;
+        }
+        Player victim = Bukkit.getPlayerExact(args[1]);
+        Player killer = Bukkit.getPlayerExact(args[2]);
+        if (victim == null || killer == null) {
+            sender.sendMessage("STACKLAB NIMBLE SNAPSHOT accepted=false reason=offline");
+            return true;
+        }
+        String label = args.length > 3 ? args[3] : "manual";
+        Map<String, Object> snapshot = nimbleSnapshotMap(victim, killer, label);
+        writeEvent("nimble_soulbound_snapshot", snapshot);
+        sender.sendMessage("STACKLAB NIMBLE SNAPSHOT " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private Map<String, Object> nimbleSnapshotMap(Player victim, Player killer, String label) {
+        int victimArmor = countNimbleArmor(victim.getInventory().getContents());
+        int killerArmor = countNimbleArmor(killer.getInventory().getContents());
+        int groundArmor = 0;
+        Map<String, Integer> perMaterial = new LinkedHashMap<>();
+        for (Material material : NIMBLE_ARMOR) perMaterial.put(material.name(), 0);
+        addNimbleArmorCounts(perMaterial, victim.getInventory().getContents());
+        addNimbleArmorCounts(perMaterial, killer.getInventory().getContents());
+        for (Item item : victim.getWorld().getEntitiesByClass(Item.class)) {
+            if (item.getLocation().distanceSquared(victim.getLocation()) > 1024.0) continue;
+            ItemStack stack = item.getItemStack();
+            if (!isNimbleArmor(stack.getType())) continue;
+            groundArmor += stack.getAmount();
+            perMaterial.computeIfPresent(stack.getType().name(), (ignored, amount) -> amount + stack.getAmount());
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("label", label);
+        result.put("victim", victim.getName());
+        result.put("killer", killer.getName());
+        result.put("victim_dead", victim.isDead());
+        result.put("victim_armor", victimArmor);
+        result.put("killer_armor", killerArmor);
+        result.put("ground_armor", groundArmor);
+        result.put("total_armor", victimArmor + killerArmor + groundArmor);
+        result.put("per_material", perMaterial);
+        return result;
+    }
+
+    private int countNimbleArmor(ItemStack[] contents) {
+        int total = 0;
+        for (ItemStack stack : contents) {
+            if (stack != null && isNimbleArmor(stack.getType())) total += stack.getAmount();
+        }
+        return total;
+    }
+
+    private void addNimbleArmorCounts(Map<String, Integer> counts, ItemStack[] contents) {
+        for (ItemStack stack : contents) {
+            if (stack == null || !isNimbleArmor(stack.getType())) continue;
+            counts.computeIfPresent(stack.getType().name(), (ignored, amount) -> amount + stack.getAmount());
+        }
+    }
+
+    private boolean isNimbleArmor(Material material) {
+        for (Material candidate : NIMBLE_ARMOR) {
+            if (candidate == material) return true;
+        }
+        return false;
     }
 
     private boolean grindstonePrep(org.bukkit.command.CommandSender sender, String[] args) {
