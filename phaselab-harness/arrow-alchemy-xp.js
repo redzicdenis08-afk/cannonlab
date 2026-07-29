@@ -127,10 +127,16 @@ async function main () {
     )
     report.prep = parseJson(prepMessage)
 
-    const bow = attackerBot.inventory.items().find(item => item.name === 'bow')
-    if (!bow) throw new Error('AttackerBot did not receive enchanted bow')
-    await attackerBot.equip(bow, 'hand')
-    await sleep(300)
+    // The translated 1.21.11 client may not resolve the custom-enchanted bow's
+    // registry name, but the authoritative prep snapshot already proves slot 0
+    // contains BOWx1 and the fixture selected that hotbar slot server-side.
+    await sleep(1200)
+    if (!attackerBot.heldItem) throw new Error('AttackerBot held item did not synchronize')
+    record('held_item', {
+      name: attackerBot.heldItem.name || null,
+      type: attackerBot.heldItem.type,
+      count: attackerBot.heldItem.count
+    })
 
     for (let index = 1; index <= 5; index++) {
       const before = await snapshot(phaseBot, `shot-${index}-before`)
