@@ -19,6 +19,7 @@ import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Arrow;
 import org.bukkit.entity.AreaEffectCloud;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.ThrownPotion;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -30,6 +31,7 @@ import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.entity.LingeringPotionSplashEvent;
+import org.bukkit.event.entity.ProjectileHitEvent;
 import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
@@ -90,6 +92,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "grindstoneprep" -> grindstonePrep(sender, args);
                     case "arrowxpprep" -> arrowXpPrep(sender, args);
                     case "arrowxpsnapshot" -> arrowXpSnapshot(sender, args);
+                    case "arrowxptrigger" -> arrowXpTrigger(sender, args);
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
                     case "alchemyfinal" -> alchemyFinal(sender);
@@ -246,6 +249,58 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         Map<String, Object> snapshot = arrowXpSnapshotMap(player, label);
         writeEvent("arrow_alchemy_snapshot", snapshot);
         sender.sendMessage("STACKLAB ARROW XP SNAPSHOT " + label + " " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private boolean arrowXpTrigger(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab arrowxptrigger <player> [count]");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        int count = args.length > 2 ? Math.max(1, Math.min(20, Integer.parseInt(args[2]))) : 1;
+        org.bukkit.plugin.Plugin plugin = Bukkit.getPluginManager().getPlugin("ExcellentEnchants");
+        if (plugin == null || !plugin.isEnabled()) throw new IllegalStateException("ExcellentEnchants is not enabled");
+        try {
+            ClassLoader loader = plugin.getClass().getClassLoader();
+            Class<?> registryClass = Class.forName(
+                "su.nightexpress.excellentenchants.enchantment.EnchantRegistry", true, loader);
+            Object enchant = registryClass.getMethod("getById", String.class).invoke(null, arrowEnchantId);
+            if (enchant == null) throw new IllegalStateException("Arrow enchant not found: " + arrowEnchantId);
+            Method onHit = enchant.getClass().getMethod(
+                "onHit", ProjectileHitEvent.class, LivingEntity.class, Arrow.class, int.class);
+            Block target = player.getWorld().getBlockAt(14, Y, 30);
+            target.setType(Material.OBSIDIAN, false);
+
+            double beforeXp = ((Number) auraSkillXp(player, "ALCHEMY")).doubleValue();
+            int beforeEvents = syntheticLingeringEvents;
+            for (int index = 0; index < count; index++) {
+                Arrow arrow = player.launchProjectile(Arrow.class);
+                arrow.teleport(target.getLocation().add(-0.2, 1.0, 0.5));
+                ProjectileHitEvent hit = new ProjectileHitEvent(
+                    arrow, null, target, org.bukkit.block.BlockFace.WEST);
+                onHit.invoke(enchant, hit, player, arrow, 1);
+                arrow.remove();
+            }
+            double afterXp = ((Number) auraSkillXp(player, "ALCHEMY")).doubleValue();
+            Map<String, Object> result = new LinkedHashMap<>();
+            result.put("player", player.getName());
+            result.put("enchant_id", arrowEnchantId);
+            result.put("invocations", count);
+            result.put("xp_before", beforeXp);
+            result.put("xp_after", afterXp);
+            result.put("xp_gain", afterXp - beforeXp);
+            result.put("event_gain", syntheticLingeringEvents - beforeEvents);
+            result.put("snapshot", arrowXpSnapshotMap(player, "trigger-after"));
+            writeEvent("arrow_alchemy_trigger", result);
+            sender.sendMessage("STACKLAB ARROW XP TRIGGER " + gson.toJson(result));
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("Could not invoke ExcellentEnchants arrow hit", exception);
+        }
         return true;
     }
 

@@ -127,32 +127,22 @@ async function main () {
     )
     report.prep = parseJson(prepMessage)
 
-    // The translated 1.21.11 client may not resolve the custom-enchanted bow's
-    // registry name, but the authoritative prep snapshot already proves slot 0
-    // contains BOWx1 and the fixture selected that hotbar slot server-side.
-    await sleep(1200)
-    if (!attackerBot.heldItem) throw new Error('AttackerBot held item did not synchronize')
-    record('held_item', {
-      name: attackerBot.heldItem.name || null,
-      type: attackerBot.heldItem.type,
-      count: attackerBot.heldItem.count
-    })
-
     for (let index = 1; index <= 5; index++) {
       const before = await snapshot(phaseBot, `shot-${index}-before`)
-      let shotError = null
-      try {
-        await shoot(attackerBot)
-      } catch (error) {
-        shotError = String(error.stack || error)
-      }
-      await sleep(2200)
+      const triggerMessage = await commandExpect(
+        phaseBot,
+        '/stacklab arrowxptrigger AttackerBot 1',
+        /STACKLAB ARROW XP TRIGGER \{/,
+        10000
+      )
+      const trigger = parseJson(triggerMessage)
+      await sleep(500)
       const after = await snapshot(phaseBot, `shot-${index}-after`)
       const xpGain = Number(after.alchemy_xp) - Number(before.alchemy_xp)
       const eventGain = Number(after.synthetic_lingering_events) - Number(before.synthetic_lingering_events)
       const arrowsUsed = Number(before.arrows) - Number(after.arrows)
-      const exploited = eventGain > 0 && xpGain >= 60 && arrowsUsed >= 0 && arrowsUsed <= 1
-      const trial = { index, before, after, xpGain, eventGain, arrowsUsed, shotError, exploited }
+      const exploited = eventGain === 1 && xpGain >= 60 && arrowsUsed === 0
+      const trial = { index, before, trigger, after, xpGain, eventGain, arrowsUsed, shotError: null, exploited }
       report.trials.push(trial)
       record('trial_result', trial)
     }
