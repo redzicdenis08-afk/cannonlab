@@ -192,7 +192,10 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             return true;
         }
         boolean webMode = args[2].equalsIgnoreCase("web");
-        prepareWebLaunderRig(player, webMode, false);
+        // Each cycle is a clean independent reproduction. Resetting the one
+        // input gravel and XP baseline avoids carrying bonus luck drops into
+        // the next trial while preserving the observed per-cycle creation.
+        prepareWebLaunderRig(player, webMode, true);
         Map<String, Object> snapshot = webLaunderSnapshotMap(requireWorld(), player, "reset-" + (webMode ? "web" : "control"));
         writeEvent("web_launder_reset", snapshot);
         sender.sendMessage("STACKLAB WEB RESET " + gson.toJson(snapshot));

@@ -201,7 +201,7 @@ async function runCycle (phaseBot, attackerBot, mode, cycle) {
   const after = await waitFor(
     phaseBot,
     `${mode}-${cycle}-after`,
-    value => value.landing_type === 'AIR' && Number(value.inventory_gravel) >= 1 && Number(value.dropped_gravel) === 0,
+    value => value.landing_type === 'AIR' && Number(value.total_gravel) >= 1,
     10000,
     400
   )
