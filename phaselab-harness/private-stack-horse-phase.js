@@ -351,9 +351,35 @@ async function sendVehicleSequence (phaseBot, bot, startX, targetX, trial, corre
   return { packetCount, segmentWitnesses }
 }
 
+async function waitForRouteUnload (phaseBot, trial, run) {
+  await command(phaseBot, '/tp PhaseBot 1000 80 1000', 250)
+  await command(phaseBot, '/tp VictimBot 1000 80 1000', 250)
+  const attempts = []
+  for (let attempt = 1; attempt <= 10; attempt++) {
+    const response = await commandExpect(
+      phaseBot,
+      '/stacklab unloadroute 3 16 0',
+      /STACKLAB UNLOAD ROUTE /,
+      10000
+    )
+    const jsonStart = response.indexOf('{')
+    const evidence = jsonStart >= 0 ? JSON.parse(response.slice(jsonStart)) : null
+    const farChunks = evidence?.chunks?.filter(chunk => chunk.x >= 6) || []
+    const stillLoaded = farChunks.filter(chunk => chunk.loaded_after)
+    attempts.push({ attempt, farChunkCount: farChunks.length, stillLoaded: stillLoaded.map(chunk => chunk.x) })
+    record('route_unload_attempt', { trial: trial.id, run, attempt, response, farChunkCount: farChunks.length, stillLoaded })
+    if (farChunks.length >= 11 && stillLoaded.length === 0) {
+      return { response, attempts, farChunksUnloaded: farChunks.length }
+    }
+    await sleep(1000)
+  }
+  throw new Error(`Route did not fully unload after retries attempts=${JSON.stringify(attempts)}`)
+}
+
 async function runTrial (phaseBot, attackerBot, trial, run) {
   await resetAttacker(phaseBot, attackerBot)
   const course = await buildCourse(phaseBot, trial)
+  const unloadEvidence = trial.unloadRoute ? await waitForRouteUnload(phaseBot, trial, run) : null
   const boat = await spawnAndMount(phaseBot, attackerBot, trial)
   const startX = boat.position.x
   const corrections = captureCorrections(attackerBot, boat.id)
@@ -402,6 +428,8 @@ async function runTrial (phaseBot, attackerBot, trial, run) {
     step: trial.step,
     delayMs: trial.delayMs,
     placement: trial.placement || 'fixture',
+    unloadRoute: Boolean(trial.unloadRoute),
+    unloadEvidence,
     startX,
     segmentLength: trial.segmentLength || null,
     segmentPauseMs: trial.segmentPauseMs || null,
@@ -435,9 +463,7 @@ async function main () {
   const bots = [phaseBot, victimBot, attackerBot]
 
   const trialPlan = [
-    { id: 'solid240-horse-control', kind: 'solid', vehicle: 'horse', thickness: 240, step: 0.25, delayMs: 0, segmentLength: 15, segmentPauseMs: 100, repeats: 1 },
-    { id: 'mixed64-horse-ratchet10', kind: 'mixed', vehicle: 'horse', thickness: 64, step: 0.25, delayMs: 0, segmentLength: 10, segmentPauseMs: 100, repeats: 3 },
-    { id: 'mixed240-horse-ratchet10', kind: 'mixed', vehicle: 'horse', thickness: 240, step: 0.25, delayMs: 0, segmentLength: 10, segmentPauseMs: 100, repeats: 2 }
+    { id: 'mixed240-horse-unloaded-ratchet10', kind: 'mixed', vehicle: 'horse', thickness: 240, step: 0.25, delayMs: 0, segmentLength: 10, segmentPauseMs: 100, unloadRoute: true, repeats: 3 }
   ]
 
   try {

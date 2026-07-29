@@ -97,6 +97,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "vehicleinteract" -> vehicleInteract(sender, args);
                     case "vehicledismount" -> vehicleDismount(sender, args);
                     case "vehiclecheck" -> vehicleCheck(sender, args);
+                    case "unloadroute" -> unloadRoute(sender, args);
                     case "grindstoneprep" -> grindstonePrep(sender, args);
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
@@ -633,6 +634,103 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         }
         writeEvent("server_vehicle_dismount", evidence);
         sender.sendMessage("STACKLAB VEHICLE DISMOUNT " + gson.toJson(evidence));
+        return true;
+    }
+
+    private boolean boatInteract(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab boatinteract <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("STACKLAB BOAT INTERACT player=" + args[1] + " accepted=false reason=offline");
+            return true;
+        }
+        var boat = player.getWorld().getEntities().stream()
+            .filter(entity -> entity.getType().name().contains("BOAT"))
+            .min(java.util.Comparator.comparingDouble(entity -> entity.getLocation().distanceSquared(player.getLocation())))
+            .orElse(null);
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("boat_found", boat != null);
+        evidence.put("distance_squared", boat == null ? -1.0 : boat.getLocation().distanceSquared(player.getLocation()));
+        if (boat != null) {
+            evidence.put("boat_uuid", boat.getUniqueId().toString());
+            evidence.put("boat_type", boat.getType().name());
+        }
+        try {
+            if (boat == null) throw new IllegalStateException("No nearby boat");
+            Object serverPlayer = player.getClass().getMethod("getHandle").invoke(player);
+            Object serverBoat = boat.getClass().getMethod("getHandle").invoke(boat);
+            Class<?> handClass = Class.forName("net.minecraft.world.InteractionHand");
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Object mainHand = Enum.valueOf((Class<? extends Enum>) handClass, "MAIN_HAND");
+            Class<?> vec3Class = Class.forName("net.minecraft.world.phys.Vec3");
+            Object hitVector = serverBoat.getClass().getMethod("position").invoke(serverBoat);
+            int entityId = (Integer) serverBoat.getClass().getMethod("getId").invoke(serverBoat);
+
+            Class<?> packetClass = Class.forName("net.minecraft.network.protocol.game.ServerboundInteractPacket");
+            Constructor<?> packetConstructor = packetClass.getConstructor(int.class, handClass, vec3Class, boolean.class);
+            Object packet = packetConstructor.newInstance(entityId, mainHand, hitVector, false);
+
+            Object connection = serverPlayer.getClass().getField("connection").get(serverPlayer);
+            Method handleInteract = connection.getClass().getMethod("handleInteract", packetClass);
+            handleInteract.invoke(connection, packet);
+            evidence.put("invoked", true);
+            evidence.put("path", "ServerboundInteractPacket->handleInteract");
+            evidence.put("entity_id", entityId);
+            evidence.put("result", "handled");
+        } catch (ReflectiveOperationException | IllegalStateException exception) {
+            evidence.put("invoked", false);
+            evidence.put("error", exception.toString());
+        }
+        evidence.put("mounted", player.getVehicle() != null);
+        evidence.put("vehicle_type", player.getVehicle() == null ? "NONE" : player.getVehicle().getType().name());
+        writeEvent("server_boat_interact", evidence);
+        sender.sendMessage("STACKLAB BOAT INTERACT " + gson.toJson(evidence));
+        return true;
+    }
+
+    private boolean unloadRoute(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 4) {
+            sender.sendMessage("Usage: /stacklab unloadroute <chunk-x-min> <chunk-x-max> <chunk-z>");
+            return true;
+        }
+        int minX = Integer.parseInt(args[1]);
+        int maxX = Integer.parseInt(args[2]);
+        int z = Integer.parseInt(args[3]);
+        if (maxX < minX) {
+            int swap = minX;
+            minX = maxX;
+            maxX = swap;
+        }
+        minX = Math.max(-128, minX);
+        maxX = Math.min(128, maxX);
+        World world = requireWorld();
+        List<Map<String, Object>> chunks = new ArrayList<>();
+        int unloadedCount = 0;
+        for (int x = minX; x <= maxX; x++) {
+            boolean before = world.isChunkLoaded(x, z);
+            boolean requested = before && world.unloadChunk(x, z, true);
+            boolean after = world.isChunkLoaded(x, z);
+            if (before && !after) unloadedCount++;
+            chunks.add(Map.of(
+                "x", x,
+                "z", z,
+                "loaded_before", before,
+                "unload_return", requested,
+                "loaded_after", after
+            ));
+        }
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("min_x", minX);
+        evidence.put("max_x", maxX);
+        evidence.put("z", z);
+        evidence.put("unloaded_count", unloadedCount);
+        evidence.put("chunks", chunks);
+        writeEvent("route_chunk_unload", evidence);
+        sender.sendMessage("STACKLAB UNLOAD ROUTE " + gson.toJson(evidence));
         return true;
     }
 

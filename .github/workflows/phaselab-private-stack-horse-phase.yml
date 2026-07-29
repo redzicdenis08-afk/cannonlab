@@ -10,6 +10,7 @@ on:
       - research/phaselab-ability-witness
       - research/phaselab-op-phase-dupe-v2
       - research/phaselab-lava-horse-phase
+      - research/phaselab-horse-unloaded-lava
     paths:
       - 'phaselab-private-stack-fixture/**'
       - 'phaselab-harness/private-stack-matrix.js'
