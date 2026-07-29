@@ -12,6 +12,7 @@ import org.bukkit.block.Block;
 import org.bukkit.block.BrewingStand;
 import org.bukkit.block.Chest;
 import org.bukkit.block.Hopper;
+import org.bukkit.block.ShulkerBox;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.EndPortalFrame;
 import org.bukkit.enchantments.Enchantment;
@@ -27,12 +28,14 @@ import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.BlockStateMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionType;
@@ -45,6 +48,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -84,6 +89,8 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "portalsnapshot" -> portalSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "claimsnapshot" -> claimSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "give" -> give(sender, args);
+                    case "soulboundprep" -> soulboundPrep(sender, args);
+                    case "soulboundsnapshot" -> soulboundSnapshot(sender, args);
                     case "grindstoneprep" -> grindstonePrep(sender, args);
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
@@ -429,6 +436,139 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         writeEvent("give", Map.of("player", player.getName(), "material", material.name(), "enchant", key.toString(), "level", level));
         sender.sendMessage("STACKLAB GIVE OK player=" + player.getName() + " enchant=" + key + " level=" + level);
         return true;
+    }
+
+
+    private boolean soulboundPrep(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab soulboundprep <player> [copies]");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("STACKLAB SOULBOUND PREP player=" + args[1] + " accepted=false reason=offline");
+            return true;
+        }
+        int copies = args.length > 2 ? Integer.parseInt(args[2]) : 1;
+        copies = Math.max(1, Math.min(copies, 9));
+        NamespacedKey key = NamespacedKey.fromString("excellentenchants:soulbound");
+        Enchantment soulbound = key == null ? null : Registry.ENCHANTMENT.get(key);
+        if (soulbound == null) {
+            sender.sendMessage("STACKLAB SOULBOUND PREP player=" + player.getName() + " accepted=false reason=enchant_missing");
+            return true;
+        }
+
+        player.getInventory().clear();
+        for (int copy = 0; copy < copies; copy++) {
+            ItemStack stack = createValuableSoulboundShulker(soulbound, 1);
+            player.getInventory().setItem(copy, stack);
+        }
+        Map<String, Object> evidence = soulboundSnapshotMap(player, "prepared");
+        evidence.put("requested_copies", copies);
+        evidence.put("accepted", true);
+        writeEvent("soulbound_prepared", evidence);
+        sender.sendMessage("STACKLAB SOULBOUND PREP " + gson.toJson(evidence));
+        return true;
+    }
+
+    private ItemStack createValuableSoulboundShulker(Enchantment soulbound, int serial) {
+        ItemStack stack = new ItemStack(Material.SHULKER_BOX, 1);
+        BlockStateMeta meta = (BlockStateMeta) stack.getItemMeta();
+        if (!(meta.getBlockState() instanceof ShulkerBox box)) {
+            throw new IllegalStateException("Shulker BlockStateMeta did not contain ShulkerBox");
+        }
+        for (int slot = 0; slot < box.getInventory().getSize(); slot++) {
+            box.getInventory().setItem(slot, new ItemStack(Material.NETHERITE_BLOCK, 64));
+        }
+        box.update(true);
+        meta.setBlockState(box);
+        meta.setDisplayName("PhaseLab Soulbound Vault #" + serial);
+        stack.setItemMeta(meta);
+        stack.addUnsafeEnchantment(soulbound, 1);
+        return stack;
+    }
+
+    private boolean soulboundSnapshot(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab soulboundsnapshot <player> [label]");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("STACKLAB SOULBOUND SNAPSHOT player=" + args[1] + " online=false");
+            return true;
+        }
+        String label = args.length > 2 ? args[2] : "manual";
+        Map<String, Object> snapshot = soulboundSnapshotMap(player, label);
+        writeEvent("soulbound_snapshot", snapshot);
+        sender.sendMessage("STACKLAB SOULBOUND SNAPSHOT " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private Map<String, Object> soulboundSnapshotMap(Player player, String label) {
+        List<Map<String, Object>> inventoryCopies = new ArrayList<>();
+        int inventoryNested = 0;
+        for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
+            ItemStack stack = player.getInventory().getItem(slot);
+            if (!isShulker(stack)) continue;
+            int nested = nestedNetherite(stack);
+            inventoryNested += nested;
+            inventoryCopies.add(Map.of(
+                "slot", slot,
+                "amount", stack.getAmount(),
+                "nested_netherite", nested,
+                "summary", itemSummary(stack)
+            ));
+        }
+
+        List<Map<String, Object>> groundCopies = new ArrayList<>();
+        int groundNested = 0;
+        for (Item item : player.getWorld().getEntitiesByClass(Item.class)) {
+            if (item.getLocation().distanceSquared(player.getLocation()) > 1024.0) continue;
+            ItemStack stack = item.getItemStack();
+            if (!isShulker(stack)) continue;
+            int nested = nestedNetherite(stack);
+            groundNested += nested * stack.getAmount();
+            groundCopies.add(Map.of(
+                "uuid", item.getUniqueId().toString(),
+                "amount", stack.getAmount(),
+                "nested_netherite_each", nested,
+                "x", item.getLocation().getX(),
+                "y", item.getLocation().getY(),
+                "z", item.getLocation().getZ(),
+                "summary", itemSummary(stack)
+            ));
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("label", label);
+        result.put("player", player.getName());
+        result.put("online", player.isOnline());
+        result.put("dead", player.isDead());
+        result.put("inventory_copies", inventoryCopies.size());
+        result.put("ground_copies", groundCopies.stream().mapToInt(copy -> ((Number) copy.get("amount")).intValue()).sum());
+        result.put("inventory_nested_netherite", inventoryNested);
+        result.put("ground_nested_netherite", groundNested);
+        result.put("total_copies", inventoryCopies.size() + groundCopies.stream().mapToInt(copy -> ((Number) copy.get("amount")).intValue()).sum());
+        result.put("total_nested_netherite", inventoryNested + groundNested);
+        result.put("inventory", inventoryCopies);
+        result.put("ground", groundCopies);
+        return result;
+    }
+
+    private boolean isShulker(ItemStack stack) {
+        return stack != null && stack.getType().name().endsWith("SHULKER_BOX") && stack.getItemMeta() instanceof BlockStateMeta;
+    }
+
+    private int nestedNetherite(ItemStack stack) {
+        if (!isShulker(stack)) return 0;
+        BlockStateMeta meta = (BlockStateMeta) stack.getItemMeta();
+        if (!(meta.getBlockState() instanceof ShulkerBox box)) return 0;
+        int total = 0;
+        for (ItemStack nested : box.getInventory().getContents()) {
+            if (nested != null && nested.getType() == Material.NETHERITE_BLOCK) total += nested.getAmount();
+        }
+        return total;
     }
 
     private boolean grindstonePrep(org.bukkit.command.CommandSender sender, String[] args) {
@@ -870,6 +1010,46 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             "cancelled", event.isCancelled(),
             "x", event.getLocation().getX(), "y", event.getLocation().getY(), "z", event.getLocation().getZ()
         ));
+    }
+
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onSoulboundDeathWitness(PlayerDeathEvent event) {
+        Player player = event.getPlayer();
+        List<Map<String, Object>> drops = new ArrayList<>();
+        int dropNested = 0;
+        for (ItemStack stack : event.getDrops()) {
+            if (!isShulker(stack)) continue;
+            int nested = nestedNetherite(stack);
+            dropNested += nested * stack.getAmount();
+            drops.add(Map.of(
+                "amount", stack.getAmount(),
+                "nested_netherite_each", nested,
+                "summary", itemSummary(stack)
+            ));
+        }
+        List<Map<String, Object>> kept = new ArrayList<>();
+        int keptNested = 0;
+        for (ItemStack stack : event.getItemsToKeep()) {
+            if (!isShulker(stack)) continue;
+            int nested = nestedNetherite(stack);
+            keptNested += nested * stack.getAmount();
+            kept.add(Map.of(
+                "amount", stack.getAmount(),
+                "nested_netherite_each", nested,
+                "summary", itemSummary(stack)
+            ));
+        }
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("keep_inventory", event.getKeepInventory());
+        evidence.put("drop_shulker_copies", drops.stream().mapToInt(drop -> ((Number) drop.get("amount")).intValue()).sum());
+        evidence.put("keep_shulker_copies", kept.stream().mapToInt(copy -> ((Number) copy.get("amount")).intValue()).sum());
+        evidence.put("drop_nested_netherite", dropNested);
+        evidence.put("keep_nested_netherite", keptNested);
+        evidence.put("drops", drops);
+        evidence.put("items_to_keep", kept);
+        writeEvent("soulbound_death_final", evidence);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
