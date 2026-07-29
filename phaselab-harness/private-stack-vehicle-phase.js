@@ -373,10 +373,23 @@ async function runTrial (phaseBot, attackerBot, trial, run) {
     unloadResponse = await commandExpect(
       phaseBot,
       '/stacklab unloadroute 3 16 0',
-      /STACKLAB UNLOAD ROUTE .*"unloaded_count":[1-9][0-9]*/,
+      /STACKLAB UNLOAD ROUTE /,
       10000
     )
-    record('route_unload_response', { trial: trial.id, run, response: unloadResponse })
+    const jsonStart = unloadResponse.indexOf('{')
+    const unloadEvidence = jsonStart >= 0 ? JSON.parse(unloadResponse.slice(jsonStart)) : null
+    const farChunks = unloadEvidence?.chunks?.filter(chunk => chunk.x >= 6) || []
+    const stillLoaded = farChunks.filter(chunk => chunk.loaded_after)
+    record('route_unload_response', {
+      trial: trial.id,
+      run,
+      response: unloadResponse,
+      farChunkCount: farChunks.length,
+      stillLoaded
+    })
+    if (farChunks.length < 11 || stillLoaded.length > 0) {
+      throw new Error(`Route did not unload chunks 6..16 evidence=${JSON.stringify(unloadEvidence)}`)
+    }
   }
   const boat = await spawnAndMount(phaseBot, attackerBot, trial)
   const startX = boat.position.x
