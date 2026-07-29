@@ -536,8 +536,10 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             @SuppressWarnings({"unchecked", "rawtypes"})
             Object mainHand = Enum.valueOf((Class<? extends Enum>) handClass, "MAIN_HAND");
             Class<?> nmsPlayerClass = Class.forName("net.minecraft.world.entity.player.Player");
-            Method interact = serverBoat.getClass().getMethod("interact", nmsPlayerClass, handClass);
-            Object result = interact.invoke(serverBoat, serverPlayer, mainHand);
+            Class<?> vec3Class = Class.forName("net.minecraft.world.phys.Vec3");
+            Object hitVector = serverBoat.getClass().getMethod("position").invoke(serverBoat);
+            Method interact = serverBoat.getClass().getMethod("interact", nmsPlayerClass, handClass, vec3Class);
+            Object result = interact.invoke(serverBoat, serverPlayer, mainHand, hitVector);
             evidence.put("invoked", true);
             evidence.put("result", String.valueOf(result));
         } catch (ReflectiveOperationException | IllegalStateException exception) {
