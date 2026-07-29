@@ -218,9 +218,9 @@ async function spawnAndMount (phaseBot, attackerBot) {
   return attackerBot.vehicle
 }
 
-async function sendVehicleSequence (bot, targetX, step, delayMs, correctionRef) {
+async function sendVehicleRange (bot, startX, targetX, step, delayMs, correctionRef) {
   let packets = 0
-  for (let x = BOAT_START + step; x < targetX && bot.vehicle && !correctionRef.value; x += step) {
+  for (let x = startX + step; x < targetX && bot.vehicle && !correctionRef.value; x += step) {
     bot.vehicle.position.set(x, Y, Z)
     bot.entity.position.set(x, Y, Z)
     bot._client.write('vehicle_move', { x, y: Y, z: Z, yaw: -90, pitch: 0, onGround: true })
@@ -237,6 +237,45 @@ async function sendVehicleSequence (bot, targetX, step, delayMs, correctionRef) 
   return packets
 }
 
+async function sendVehicleSequence (phaseBot, bot, targetX, trial, correctionRef) {
+  if (!trial.segmentLength) {
+    return {
+      packetCount: await sendVehicleRange(bot, BOAT_START, targetX, trial.step, trial.delayMs, correctionRef),
+      segmentWitnesses: []
+    }
+  }
+
+  let packetCount = 0
+  let acceptedX = BOAT_START
+  const segmentWitnesses = []
+  let segment = 0
+  while (acceptedX < targetX - 1e-9 && bot.vehicle && !correctionRef.value) {
+    segment++
+    const segmentTarget = Math.min(targetX, acceptedX + trial.segmentLength)
+    packetCount += await sendVehicleRange(bot, acceptedX, segmentTarget, trial.step, trial.delayMs, correctionRef)
+    await sleep(trial.segmentPauseMs || 100)
+
+    const minX = segmentTarget - 0.9
+    const playerSelector = `@a[name=AttackerBot,x=${minX},y=64,z=-2,dx=2,dy=5,dz=4,limit=1]`
+    const boatSelector = `@e[type=minecraft:oak_boat,x=${minX},y=64,z=-2,dx=2,dy=5,dz=4,limit=1]`
+    const playerAccepted = await serverWitness(phaseBot, playerSelector, `SEG_PLAYER_${trial.id}_${segment}`)
+    const boatAccepted = await serverWitness(phaseBot, boatSelector, `SEG_BOAT_${trial.id}_${segment}`)
+    const witness = {
+      segment,
+      fromX: acceptedX,
+      targetX: segmentTarget,
+      playerAccepted,
+      boatAccepted,
+      correctionsSoFar: correctionRef.value
+    }
+    segmentWitnesses.push(witness)
+    record('vehicle_segment_witness', { trial: trial.id, ...witness })
+    if (!playerAccepted || !boatAccepted || correctionRef.value) break
+    acceptedX = segmentTarget
+  }
+  return { packetCount, segmentWitnesses }
+}
+
 async function runTrial (phaseBot, attackerBot, trial, run) {
   await resetAttacker(phaseBot, attackerBot)
   const course = await buildCourse(phaseBot, trial)
@@ -248,7 +287,8 @@ async function runTrial (phaseBot, attackerBot, trial, run) {
   }, 1)
 
   const started = Date.now()
-  const packetCount = await sendVehicleSequence(attackerBot, course.targetX, trial.step, trial.delayMs, correctionRef)
+  const sequence = await sendVehicleSequence(phaseBot, attackerBot, course.targetX, trial, correctionRef)
+  const packetCount = sequence.packetCount
   await sleep(350)
   clearInterval(correctionWatcher)
 
@@ -305,10 +345,10 @@ async function main () {
   const bots = [phaseBot, victimBot, attackerBot]
 
   const trialPlan = [
-    { id: 'solid16-fast025', kind: 'solid', thickness: 16, step: 0.25, delayMs: 0, repeats: 3 },
-    { id: 'solid64-fast025', kind: 'solid', thickness: 64, step: 0.25, delayMs: 0, repeats: 3 },
-    { id: 'layered16-fast010', kind: 'layered', thickness: 16, step: 0.10, delayMs: 0, repeats: 3 },
-    { id: 'solid240-fast025', kind: 'solid', thickness: 240, step: 0.25, delayMs: 0, repeats: 2 }
+    { id: 'solid16-fast025', kind: 'solid', thickness: 16, step: 0.25, delayMs: 0, repeats: 2 },
+    { id: 'solid64-ratchet19', kind: 'solid', thickness: 64, step: 0.25, delayMs: 0, segmentLength: 19, segmentPauseMs: 100, repeats: 3 },
+    { id: 'layered64-ratchet19', kind: 'layered', thickness: 64, step: 0.10, delayMs: 0, segmentLength: 19, segmentPauseMs: 100, repeats: 3 },
+    { id: 'solid240-ratchet19', kind: 'solid', thickness: 240, step: 0.25, delayMs: 0, segmentLength: 19, segmentPauseMs: 100, repeats: 2 }
   ]
 
   try {
