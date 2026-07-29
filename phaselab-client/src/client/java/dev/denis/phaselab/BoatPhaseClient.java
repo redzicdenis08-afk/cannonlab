@@ -49,6 +49,10 @@ public final class BoatPhaseClient implements ClientModInitializer {
     private static Vec3 direction;
     private static double travelled;
     private static boolean originalVehicleNoPhysics;
+    private static boolean originalVehicleNoGravity;
+    private static double lockedY;
+    private static boolean readyMessageShown;
+    private static Entity activeVehicle;
     private static int sentPackets;
     private static int activeTicks;
     private static int segmentsCompleted;
@@ -63,13 +67,13 @@ public final class BoatPhaseClient implements ClientModInitializer {
         toggleKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
             "key.phaselab.boat_toggle",
             InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_F11,
+            GLFW.GLFW_KEY_P,
             CATEGORY
         ));
         abortKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
             "key.phaselab.boat_abort",
             InputConstants.Type.KEYSYM,
-            GLFW.GLFW_KEY_F12,
+            GLFW.GLFW_KEY_O,
             CATEGORY
         ));
         ClientTickEvents.END_CLIENT_TICK.register(BoatPhaseClient::onClientTick);
@@ -88,8 +92,14 @@ public final class BoatPhaseClient implements ClientModInitializer {
     private static void onClientTick(Minecraft client) {
         LocalPlayer player = client.player;
         if (player == null || client.level == null) {
+            readyMessageShown = false;
             stop(null, null, false);
             return;
+        }
+
+        if (!readyMessageShown) {
+            readyMessageShown = true;
+            message(player, "Loaded. Mount a boat or horse, look where you want to go, press P. Press O to abort.");
         }
 
         while (toggleKey.consumeClick()) {
@@ -116,6 +126,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
         }
 
         if (pauseTicksRemaining > 0) {
+            holdHeight(player, vehicle);
             pauseTicksRemaining--;
             activeTicks++;
             return;
@@ -137,8 +148,16 @@ public final class BoatPhaseClient implements ClientModInitializer {
 
         log("SEGMENT_START", player, vehicle.position());
         for (int packetIndex = 0; packetIndex < packetsThisSegment; packetIndex++) {
-            Vec3 next = vehicle.position().add(direction.scale(STEP));
+            Vec3 current = vehicle.position();
+            Vec3 next = new Vec3(
+                current.x + direction.x * STEP,
+                lockedY,
+                current.z + direction.z * STEP
+            );
             vehicle.noPhysics = true;
+            vehicle.setNoGravity(true);
+            vehicle.setDeltaMovement(Vec3.ZERO);
+            player.setDeltaMovement(Vec3.ZERO);
             vehicle.setPos(next.x, next.y, next.z);
             player.setPos(next.x, next.y, next.z);
             player.connection.send(new ServerboundMoveVehiclePacket(
@@ -157,18 +176,18 @@ public final class BoatPhaseClient implements ClientModInitializer {
         pauseTicksRemaining = SEGMENT_PAUSE_TICKS;
         activeTicks++;
         log("SEGMENT_END", player, vehicle.position());
-        message(player, String.format(Locale.ROOT,
-            "Ratchet segment %d accepted locally: %.1f blocks | %d packets | F11 stop | F12 abort",
+        actionbar(player, String.format(Locale.ROOT,
+            "%s segment %d | %.1f blocks | P stop | O abort",
+            vehicleLabel,
             segmentsCompleted,
-            travelled,
-            sentPackets
+            travelled
         ));
     }
 
     private static void start(LocalPlayer player) {
         Entity vehicle = controlledVehicle(player);
         if (vehicle == null) {
-            message(player, "Mount and control a boat or saddled horse first, then press F11.");
+            message(player, "Mount and control a boat or saddled horse first, then press P.");
             return;
         }
         if (!isBoat(vehicle) && !isHorse(vehicle)) {
@@ -195,14 +214,40 @@ public final class BoatPhaseClient implements ClientModInitializer {
         segmentsCompleted = 0;
         pauseTicksRemaining = 0;
         originalVehicleNoPhysics = vehicle.noPhysics;
+        originalVehicleNoGravity = vehicle.isNoGravity();
+        lockedY = vehicle.getY();
+        activeVehicle = vehicle;
         vehicle.noPhysics = true;
+        vehicle.setNoGravity(true);
+        vehicle.setDeltaMovement(Vec3.ZERO);
+        player.setDeltaMovement(Vec3.ZERO);
         openLog();
         log("START", player, vehicle.position());
         message(player, String.format(Locale.ROOT,
-            "%s ratchet started: %.0f-block bursts, 0.25 steps, 100 ms pauses. F11 stops; F12 aborts.",
+            "%s started toward %s. Direction locked. P stops; O aborts.",
             vehicleLabel,
-            segmentLength
+            directionLabel(direction)
         ));
+    }
+
+    private static void holdHeight(LocalPlayer player, Entity vehicle) {
+        Vec3 current = vehicle.position();
+        vehicle.noPhysics = true;
+        vehicle.setNoGravity(true);
+        vehicle.setDeltaMovement(Vec3.ZERO);
+        player.setDeltaMovement(Vec3.ZERO);
+        vehicle.setPos(current.x, lockedY, current.z);
+        player.setPos(current.x, lockedY, current.z);
+    }
+
+    private static String directionLabel(Vec3 vector) {
+        double degrees = Math.toDegrees(Math.atan2(-vector.x, vector.z));
+        if (degrees < 0.0D) {
+            degrees += 360.0D;
+        }
+        String[] labels = {"S", "SW", "W", "NW", "N", "NE", "E", "SE"};
+        int index = (int) Math.round(degrees / 45.0D) & 7;
+        return labels[index];
     }
 
     private static Entity controlledVehicle(LocalPlayer player) {
@@ -226,11 +271,14 @@ public final class BoatPhaseClient implements ClientModInitializer {
             return;
         }
 
+        if (activeVehicle != null) {
+            activeVehicle.noPhysics = originalVehicleNoPhysics;
+            activeVehicle.setNoGravity(originalVehicleNoGravity);
+            activeVehicle.setDeltaMovement(Vec3.ZERO);
+        }
+
         if (player != null) {
             Entity vehicle = controlledVehicle(player);
-            if (vehicle != null) {
-                vehicle.noPhysics = originalVehicleNoPhysics;
-            }
             log(setback ? "STOP_SETBACK" : "STOP", player, vehicle == null ? null : vehicle.position());
             if (reason != null) {
                 message(player, reason + String.format(Locale.ROOT,
@@ -245,6 +293,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
         activeTicks = 0;
         segmentsCompleted = 0;
         pauseTicksRemaining = 0;
+        activeVehicle = null;
         closeLog();
     }
 
@@ -302,5 +351,9 @@ public final class BoatPhaseClient implements ClientModInitializer {
 
     private static void message(LocalPlayer player, String text) {
         player.displayClientMessage(Component.literal("[PhaseLab] " + text), false);
+    }
+
+    private static void actionbar(LocalPlayer player, String text) {
+        player.displayClientMessage(Component.literal("[PhaseLab] " + text), true);
     }
 }

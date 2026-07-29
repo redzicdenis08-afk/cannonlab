@@ -1,10 +1,10 @@
-# PhaseLab Client 3.0
+# PhaseLab Client 4.3
 
 Client-only Fabric 1.21.11 position laboratory for servers you own or are explicitly authorized to test.
 
 ## Why V3 exists
 
-V2 treated “no correction packet” as evidence that the server accepted a move. That was too weak: a server or proxy can silently ignore movement while leaving the client visually displaced.
+V2 treated â€œno correction packetâ€ as evidence that the server accepted a move. That was too weak: a server or proxy can silently ignore movement while leaving the client visually displaced.
 
 V3 has three labels:
 
@@ -18,12 +18,24 @@ Only the third result is called server-verified.
 
 The controls are registered under the **PhaseLab** category and can be rebound normally:
 
+- `P`: start or stop the verified vehicle ratchet
+- `O`: emergency stop
+
 - `F5`: status
 - `F6`: set or clear the block under the crosshair as the witness
 - `F7`: cycle forward, right, backward, left, down, up
 - `F8`: scan the first complete collision layer and clear exit gap
 - `F9`: apply the best geometry point and run witness verification
 - `F10`: abort and restore
+
+## One-button vehicle mode
+
+1. Mount and control a normal boat or a tamed saddled horse.
+2. Look horizontally in the direction you want to travel.
+3. Press `P` once. The direction and starting height are locked immediately.
+4. Press `P` again to stop, or `O` to emergency stop.
+
+Boat mode automatically uses 19-block bursts. Horse mode automatically uses 10-block bursts. Both use 0.25-block packet steps and 100 ms pauses. Horse mode still needs normal survival precautions such as Fire Resistance for lava courses.
 
 ## Witness test rig
 

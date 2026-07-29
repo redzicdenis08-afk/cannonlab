@@ -5,6 +5,7 @@ on:
     branches:
       - feature/phaselab-client
       - research/phaselab-op-phase-dupe-v2
+      - feat/phaselab-client-4.3-simple
     paths:
       - 'phaselab-client/**'
       - '.github/workflows/build-phaselab-client.yml'
@@ -52,7 +53,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          JAR="$(find build/libs -maxdepth 1 -type f -name 'phaselab-client-4.2.0.jar' -print -quit)"
+          JAR="$(find build/libs -maxdepth 1 -type f -name 'phaselab-client-4.3.0.jar' -print -quit)"
           test -n "$JAR"
           jar tf "$JAR" | tee jar-contents.txt
           python - "$JAR" <<'PY'
@@ -76,7 +77,7 @@ jobs:
               if missing:
                   raise SystemExit(f'missing JAR entries: {missing}')
               mod = json.loads(zf.read('fabric.mod.json'))
-          if mod.get('version') != '4.2.0':
+          if mod.get('version') != '4.3.0':
               raise SystemExit(f"wrong mod version: {mod.get('version')!r}")
           if 'dev.denis.phaselab.BoatPhaseClient' not in mod.get('entrypoints', {}).get('client', []):
               raise SystemExit('BoatPhaseClient entrypoint missing')
@@ -96,12 +97,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          JAR='build/libs/phaselab-client-4.2.0.jar'
+          JAR='build/libs/phaselab-client-4.3.0.jar'
           SHA="$(sha256sum "$JAR" | awk '{print $1}')"
           SIZE="$(stat -c '%s' "$JAR")"
           mkdir -p ../phaselab-evidence
           cat > ../phaselab-evidence/latest-client-build.json <<EOF
-          {"version":"4.2.0","minecraft":"1.21.11","artifact":"phaselab-client-4.2.0.jar","sha256":"$SHA","bytes":$SIZE,"step":0.25,"boat_segment_blocks":19.0,"horse_segment_blocks":10.0,"pause_ticks":2,"verified":true}
+          {"version":"4.3.0","minecraft":"1.21.11","artifact":"phaselab-client-4.3.0.jar","sha256":"$SHA","bytes":$SIZE,"step":0.25,"boat_segment_blocks":19.0,"horse_segment_blocks":10.0,"pause_ticks":2,"height_lock":true,"default_toggle":"P","default_abort":"O","verified":true}
           EOF
           cd ..
           git config user.name 'phaselab-bot'
@@ -115,7 +116,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-build-log-v4.2
+          name: phaselab-build-log-v4.3
           path: |
             phaselab-client/build.log
             phaselab-client/jar-contents.txt
@@ -127,6 +128,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-client-4.2.0-mc1.21.11
-          path: phaselab-client/build/libs/phaselab-client-4.2.0.jar
+          name: phaselab-client-4.3.0-mc1.21.11
+          path: phaselab-client/build/libs/phaselab-client-4.3.0.jar
           if-no-files-found: error
