@@ -19,6 +19,7 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.Event;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
@@ -65,6 +66,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             throw new IllegalStateException("Unable to prepare StackLab evidence directory", exception);
         }
         Bukkit.getPluginManager().registerEvents(this, this);
+        registerOptionalAuraEvent("dev.aurelium.auraskills.api.event.mana.ManaAbilityActivateEvent", "mana_ability_activate");
+        registerOptionalAuraEvent("dev.aurelium.auraskills.api.event.mana.ManaAbilityBlockBreakEvent", "mana_ability_break");
+        registerOptionalAuraEvent("dev.aurelium.auraskills.api.event.mana.TerraformBlockBreakEvent", "terraform_break");
         var command = getCommand("stacklab");
         if (command == null) {
             throw new IllegalStateException("stacklab command missing from plugin.yml");
@@ -99,6 +103,49 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             }
         });
         writeEvent("plugin_enable", Map.of("version", getPluginMeta().getVersion()));
+    }
+
+    private void registerOptionalAuraEvent(String className, String evidenceType) {
+        try {
+            Class<? extends Event> eventClass = Class.forName(className).asSubclass(Event.class);
+            Bukkit.getPluginManager().registerEvent(eventClass, this, EventPriority.MONITOR, (listener, event) -> {
+                Map<String, Object> data = new LinkedHashMap<>();
+                data.put("event_class", event.getClass().getName());
+                try {
+                    Method cancelled = event.getClass().getMethod("isCancelled");
+                    data.put("cancelled", Boolean.TRUE.equals(cancelled.invoke(event)));
+                } catch (ReflectiveOperationException ignored) {
+                    data.put("cancelled", false);
+                }
+                try {
+                    if (evidenceType.equals("mana_ability_activate")) {
+                        Player player = (Player) event.getClass().getMethod("getPlayer").invoke(event);
+                        Object ability = event.getClass().getMethod("getManaAbility").invoke(event);
+                        data.put("player", player.getName());
+                        data.put("ability", String.valueOf(ability));
+                        try {
+                            data.put("ability_id", String.valueOf(ability.getClass().getMethod("getId").invoke(ability)));
+                        } catch (ReflectiveOperationException ignored) {
+                            data.put("ability_id", String.valueOf(ability));
+                        }
+                        data.put("duration", event.getClass().getMethod("getDuration").invoke(event));
+                        data.put("mana_used", event.getClass().getMethod("getManaUsed").invoke(event));
+                    } else if (event instanceof BlockBreakEvent breakEvent) {
+                        Block block = breakEvent.getBlock();
+                        data.put("player", breakEvent.getPlayer().getName());
+                        data.put("x", block.getX());
+                        data.put("y", block.getY());
+                        data.put("z", block.getZ());
+                        data.put("material", block.getType().name());
+                    }
+                } catch (ReflectiveOperationException exception) {
+                    data.put("decode_error", exception.toString());
+                }
+                writeEvent(evidenceType, data);
+            }, this, false);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            writeEvent("optional_event_registration_failed", Map.of("class", className, "error", exception.toString()));
+        }
     }
 
     private boolean build(org.bukkit.command.CommandSender sender) {

@@ -48,6 +48,12 @@ def confirmed_terraform_rows():
             "terraform_target_3": "DIRT",
         })
         rows.append({
+            "type": "mana_ability_activate",
+            "player": "AttackerBot",
+            "ability_id": "auraskills:terraform",
+            "cancelled": False,
+        })
+        rows.append({
             "type": "snapshot",
             "label": f"aura-terraform-after-{run}",
             "terraform_target_1": "AIR",

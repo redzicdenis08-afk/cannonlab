@@ -86,11 +86,18 @@ def aura_tree(rows):
             attempts.append({"run": n, "missing": True})
             continue
         before, after, events = w
+        activations = [
+            e for e in events
+            if e.get("type") == "mana_ability_activate"
+            and e.get("player") == "AttackerBot"
+            and "treecapitator" in (str(e.get("ability_id", "")) + str(e.get("ability", ""))).lower()
+            and e.get("cancelled") is False
+        ]
         enemy_events = [e for e in events if e.get("type") == "block_break" and isinstance(e.get("x"), int) and e["x"] >= 16]
         removed = before.get("tree_target_1") == before.get("tree_target_2") == "OAK_LOG" and after.get("tree_target_1") == after.get("tree_target_2") == "AIR"
-        attempts.append({"run": n, "bypass": removed and not enemy_events, "removed": removed, "enemy_break_events": enemy_events})
+        attempts.append({"run": n, "activated": bool(activations), "activation_events": activations, "bypass": bool(activations) and removed and not enemy_events, "removed": removed, "enemy_break_events": enemy_events})
     hits = sum(a.get("bypass") is True for a in attempts)
-    completed = [a for a in attempts if "removed" in a]
+    completed = [a for a in attempts if a.get("activated") is True]
     status = "confirmed" if hits == 3 else "rejected" if len(completed) == 3 and all(a["removed"] is False for a in completed) else "inconclusive"
     return result(status, "AuraSkills Treecapitator removed enemy-claim blocks without BlockBreakEvent", attempts=attempts, confirmed_attempts=hits)
 
@@ -103,14 +110,22 @@ def aura_terraform(rows):
             attempts.append({"run": n, "missing": True})
             continue
         before, after, events = w
+        activations = [
+            e for e in events
+            if e.get("type") == "mana_ability_activate"
+            and e.get("player") == "AttackerBot"
+            and "terraform" in (str(e.get("ability_id", "")) + str(e.get("ability", ""))).lower()
+            and e.get("cancelled") is False
+        ]
         enemy_events = [e for e in events if e.get("type") == "block_break" and isinstance(e.get("x"), int) and e["x"] >= 16]
         removed = (
             before.get("terraform_target_1") == before.get("terraform_target_2") == before.get("terraform_target_3") == "DIRT"
             and after.get("terraform_target_1") == after.get("terraform_target_2") == after.get("terraform_target_3") == "AIR"
         )
-        attempts.append({"run": n, "bypass": removed and not enemy_events, "removed": removed, "enemy_break_events": enemy_events})
+        custom_events = [e for e in events if e.get("type") in {"mana_ability_break", "terraform_break"}]
+        attempts.append({"run": n, "activated": bool(activations), "activation_events": activations, "bypass": bool(activations) and removed and not enemy_events, "removed": removed, "enemy_break_events": enemy_events, "custom_break_events": custom_events})
     hits = sum(a.get("bypass") is True for a in attempts)
-    completed = [a for a in attempts if "removed" in a]
+    completed = [a for a in attempts if a.get("activated") is True]
     status = "confirmed" if hits == 3 else "rejected" if len(completed) == 3 and all(a["removed"] is False for a in completed) else "inconclusive"
     return result(status, "AuraSkills Terraform removed enemy-claim blocks without BlockBreakEvent", attempts=attempts, confirmed_attempts=hits)
 
