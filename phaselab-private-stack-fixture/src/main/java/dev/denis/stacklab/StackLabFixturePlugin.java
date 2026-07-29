@@ -39,12 +39,15 @@ import org.bukkit.potion.PotionType;
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public final class StackLabFixturePlugin extends JavaPlugin implements Listener {
@@ -84,6 +87,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
                     case "alchemyfinal" -> alchemyFinal(sender);
+                    case "alchemystate" -> alchemyState(sender, args.length > 1 ? args[1] : "manual");
                     case "tick" -> tick(sender, args);
                     case "cancelportal" -> cancelPortal(sender, args);
                     default -> false;
@@ -417,6 +421,58 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         inventory.setItem(0, potion(PotionType.AWKWARD));
         writeEvent("alchemy_final_ready", alchemySnapshotMap(world, "final-ready"));
         sender.sendMessage("STACKLAB ALCHEMY FINAL READY");
+        return true;
+    }
+
+    private boolean alchemyState(org.bukkit.command.CommandSender sender, String label) {
+        Map<String, Object> state = new LinkedHashMap<>();
+        state.put("label", label);
+        try {
+            Object aura = Bukkit.getPluginManager().getPlugin("AuraSkills");
+            if (aura == null) throw new IllegalStateException("AuraSkills not loaded");
+            Object levelManager = aura.getClass().getMethod("getLevelManager").invoke(aura);
+            Class<?> brewingLevelerClass = Class.forName("dev.aurelium.auraskills.bukkit.source.BrewingLeveler");
+            Object brewingLeveler = levelManager.getClass().getMethod("getLeveler", Class.class)
+                .invoke(levelManager, brewingLevelerClass);
+            Field standsField = brewingLevelerClass.getDeclaredField("brewingStands");
+            standsField.setAccessible(true);
+            Map<?, ?> stands = (Map<?, ?>) standsField.get(brewingLeveler);
+            state.put("stand_count", stands.size());
+
+            List<Map<String, Object>> standStates = new ArrayList<>();
+            for (Map.Entry<?, ?> entry : stands.entrySet()) {
+                Object standData = entry.getValue();
+                Field slotsField = standData.getClass().getDeclaredField("slots");
+                slotsField.setAccessible(true);
+                Map<?, ?> slots = (Map<?, ?>) slotsField.get(standData);
+                Map<String, Object> standState = new LinkedHashMap<>();
+                standState.put("position", String.valueOf(entry.getKey()));
+                List<Map<String, Object>> slotStates = new ArrayList<>();
+                for (Map.Entry<?, ?> slotEntry : slots.entrySet()) {
+                    Object slotData = slotEntry.getValue();
+                    Field brewedField = slotData.getClass().getDeclaredField("brewed");
+                    brewedField.setAccessible(true);
+                    Field ingredientsField = slotData.getClass().getDeclaredField("ingredients");
+                    ingredientsField.setAccessible(true);
+                    List<?> ingredients = (List<?>) ingredientsField.get(slotData);
+                    Map<String, Object> slotState = new LinkedHashMap<>();
+                    slotState.put("slot", String.valueOf(slotEntry.getKey()));
+                    slotState.put("brewed", brewedField.getBoolean(slotData));
+                    slotState.put("ingredient_count", ingredients.size());
+                    slotState.put("ingredients", ingredients.stream().map(String::valueOf).toList());
+                    slotStates.add(slotState);
+                }
+                standState.put("slots", slotStates);
+                standStates.add(standState);
+            }
+            state.put("stands", standStates);
+            state.put("ok", true);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            state.put("ok", false);
+            state.put("error", exception.toString());
+        }
+        writeEvent("alchemy_internal_state", state);
+        sender.sendMessage("STACKLAB ALCHEMY STATE " + gson.toJson(state));
         return true;
     }
 

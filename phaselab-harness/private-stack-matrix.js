@@ -301,10 +301,12 @@ async function main () {
       for (let run = 1; run <= 5; run++) {
         await command(phaseBot, `/stacklab alchemycycle ${run}`, 250)
         await sleep(2300)
+        await command(phaseBot, `/stacklab alchemystate cycle-${run}`, 300)
         await command(phaseBot, `/stacklab snapshot alchemy-cycle-${run}`, 300)
       }
 
       await command(phaseBot, '/stacklab alchemyfinal', 500)
+      await command(phaseBot, '/stacklab alchemystate before-final-take', 300)
       window = await openBrewingStand(attackerBot, new Vec3(13, 67, 9))
       await command(phaseBot, '/stacklab snapshot alchemy-before-take', 300)
       let clickError = null
@@ -314,6 +316,7 @@ async function main () {
         clickError = String(error.stack || error)
       }
       await sleep(700)
+      await command(phaseBot, '/stacklab alchemystate after-final-take', 300)
       await command(phaseBot, '/stacklab snapshot alchemy-after-take', 300)
       try { attackerBot.closeWindow(window) } catch {}
       return { clickError }
