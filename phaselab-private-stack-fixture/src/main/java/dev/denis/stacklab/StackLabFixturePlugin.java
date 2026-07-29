@@ -91,6 +91,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "portalsnapshot" -> portalSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "claimsnapshot" -> claimSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "directionclaimsnapshot" -> directionClaimSnapshot(sender, args.length > 1 ? args[1] : "manual");
+                    case "claimpoint" -> claimPoint(sender, args);
                     case "give" -> give(sender, args);
                     case "boatuse" -> boatUse(sender, args);
                     case "boatinteract" -> boatInteract(sender, args);
@@ -423,6 +424,41 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         }
         writeEvent("direction_claim_witness", witness);
         sender.sendMessage("STACKLAB DIRECTION CLAIM WITNESS " + gson.toJson(witness));
+        return true;
+    }
+
+    private boolean claimPoint(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 4) {
+            sender.sendMessage("Usage: /stacklab claimpoint <label> <chunk-x> <chunk-z>");
+            return true;
+        }
+        Map<String, Object> witness = new LinkedHashMap<>();
+        witness.put("label", args[1]);
+        try {
+            int chunkX = Integer.parseInt(args[2]);
+            int chunkZ = Integer.parseInt(args[3]);
+            witness.put("chunk_x", chunkX);
+            witness.put("chunk_z", chunkZ);
+
+            Class<?> locationClass = Class.forName("dev.kitteh.factions.FLocation");
+            Constructor<?> locationConstructor = locationClass.getConstructor(String.class, int.class, int.class);
+            Class<?> boardClass = Class.forName("dev.kitteh.factions.Board");
+            Method boardFactory = boardClass.getMethod("board");
+            Object board = boardFactory.invoke(null);
+            Method factionAt = boardClass.getMethod("factionAt", locationClass);
+            Object location = locationConstructor.newInstance("world", chunkX, chunkZ);
+            Object faction = factionAt.invoke(board, location);
+            Method tag = faction.getClass().getMethod("tag");
+            Method isWilderness = faction.getClass().getMethod("isWilderness");
+            witness.put("tag", String.valueOf(tag.invoke(faction)));
+            witness.put("wilderness", Boolean.TRUE.equals(isWilderness.invoke(faction)));
+            witness.put("verified", true);
+        } catch (NumberFormatException | ReflectiveOperationException exception) {
+            witness.put("verified", false);
+            witness.put("error", exception.toString());
+        }
+        writeEvent("claim_point_witness", witness);
+        sender.sendMessage("STACKLAB CLAIM POINT " + gson.toJson(witness));
         return true;
     }
 
