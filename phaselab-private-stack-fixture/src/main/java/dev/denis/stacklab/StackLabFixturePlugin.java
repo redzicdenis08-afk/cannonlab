@@ -11,6 +11,7 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BrewingStand;
 import org.bukkit.block.Chest;
+import org.bukkit.block.Dispenser;
 import org.bukkit.block.Hopper;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.EndPortalFrame;
@@ -21,6 +22,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
+import org.bukkit.event.block.BlockDispenseEvent;
 import org.bukkit.event.block.BlockMultiPlaceEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
@@ -84,6 +86,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
                     case "alchemyfinal" -> alchemyFinal(sender);
+                    case "dispenser" -> dispenserProbe(sender, args);
                     case "tick" -> tick(sender, args);
                     case "cancelportal" -> cancelPortal(sender, args);
                     default -> false;
@@ -152,6 +155,14 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         set(world, 13, Y + 1, 9, Material.HOPPER);
         set(world, 13, Y, 9, Material.CHEST);
         set(world, 14, Y + 1, 9, Material.REDSTONE_BLOCK);
+
+        Block dispenserBlock = set(world, 15, Y, 16, Material.DISPENSER);
+        Directional dispenserData = (Directional) dispenserBlock.getBlockData();
+        dispenserData.setFacing(org.bukkit.block.BlockFace.EAST);
+        dispenserBlock.setBlockData(dispenserData, false);
+        ((Dispenser) dispenserBlock.getState()).getInventory().clear();
+        world.getBlockAt(16, Y, 16).setType(Material.AIR, false);
+        world.getBlockAt(14, Y, 16).setType(Material.AIR, false);
 
         writeEvent("arena_build", snapshotMap(world, "build"));
         sender.sendMessage("STACKLAB BUILD OK boundary=15/16 y=" + Y);
@@ -420,6 +431,51 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return true;
     }
 
+    private boolean dispenserProbe(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab dispenser <lava|water>");
+            return true;
+        }
+        String mode = args[1].toLowerCase();
+        Material payload = switch (mode) {
+            case "lava" -> Material.LAVA_BUCKET;
+            case "water" -> Material.WATER_BUCKET;
+            default -> null;
+        };
+        if (payload == null) {
+            sender.sendMessage("STACKLAB DISPENSER invalid mode=" + mode);
+            return true;
+        }
+        World world = requireWorld();
+        Block dispenserBlock = world.getBlockAt(15, Y, 16);
+        if (!(dispenserBlock.getState() instanceof Dispenser dispenser)) {
+            sender.sendMessage("STACKLAB DISPENSER missing dispenser");
+            return true;
+        }
+        world.getBlockAt(16, Y, 16).setType(Material.AIR, false);
+        world.getBlockAt(14, Y, 16).setType(Material.AIR, false);
+        dispenser.getInventory().clear();
+        dispenser.getInventory().setItem(0, new ItemStack(payload, 1));
+        writeEvent("dispenser_probe_start", Map.of(
+            "mode", mode,
+            "payload", payload.name(),
+            "target_before", type(world, 16, Y, 16)
+        ));
+        Bukkit.getScheduler().runTaskLater(this, () -> world.getBlockAt(14, Y, 16).setType(Material.REDSTONE_BLOCK, false), 1L);
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            writeEvent("dispenser_probe_end", Map.of(
+                "mode", mode,
+                "target_after", type(world, 16, Y, 16),
+                "inventory_lava_buckets", inventoryCount(dispenserBlock, Material.LAVA_BUCKET),
+                "inventory_water_buckets", inventoryCount(dispenserBlock, Material.WATER_BUCKET),
+                "inventory_empty_buckets", inventoryCount(dispenserBlock, Material.BUCKET)
+            ));
+            world.getBlockAt(14, Y, 16).setType(Material.AIR, false);
+        }, 12L);
+        sender.sendMessage("STACKLAB DISPENSER START mode=" + mode);
+        return true;
+    }
+
     private ItemStack potion(PotionType type) {
         ItemStack item = new ItemStack(Material.POTION);
         PotionMeta meta = (PotionMeta) item.getItemMeta();
@@ -444,6 +500,10 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         result.put("piston_payload_target", type(world, 16, Y, 12));
         result.put("hopper_count", inventoryCount(world.getBlockAt(15, Y, 8), Material.DIAMOND));
         result.put("target_chest_count", inventoryCount(world.getBlockAt(16, Y, 8), Material.DIAMOND));
+        result.put("dispenser_target", type(world, 16, Y, 16));
+        result.put("dispenser_lava_buckets", inventoryCount(world.getBlockAt(15, Y, 16), Material.LAVA_BUCKET));
+        result.put("dispenser_water_buckets", inventoryCount(world.getBlockAt(15, Y, 16), Material.WATER_BUCKET));
+        result.put("dispenser_empty_buckets", inventoryCount(world.getBlockAt(15, Y, 16), Material.BUCKET));
 
         Player attacker = Bukkit.getPlayerExact("AttackerBot");
         if (attacker != null) {
@@ -552,13 +612,13 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     private void clearArena(World world) {
         for (int x = 12; x <= 19; x++) {
             for (int y = Y - 1; y <= Y + 4; y++) {
-                for (int z = -2; z <= 14; z++) {
+                for (int z = -2; z <= 18; z++) {
                     world.getBlockAt(x, y, z).setType(Material.AIR, false);
                 }
             }
         }
         for (int x = 12; x <= 19; x++) {
-            for (int z = -2; z <= 14; z++) {
+            for (int z = -2; z <= 18; z++) {
                 world.getBlockAt(x, Y - 1, z).setType(Material.BEDROCK, false);
             }
         }
@@ -658,6 +718,18 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         data.put("input_fragility", enchantLevel(event.getView().getTopInventory().getItem(0), "excellentenchants:curse_of_fragility"));
         data.put("enchanting_xp_monitor", auraEnchantingXp(player));
         writeEvent("grindstone_result_click", data);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onBoundaryDispense(BlockDispenseEvent event) {
+        Block block = event.getBlock();
+        if (block.getX() != 15 || block.getY() != Y || block.getZ() != 16) return;
+        writeEvent("boundary_dispense", Map.of(
+            "cancelled", event.isCancelled(),
+            "item", event.getItem().getType().name(),
+            "amount", event.getItem().getAmount(),
+            "velocity", event.getVelocity().toString()
+        ));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)

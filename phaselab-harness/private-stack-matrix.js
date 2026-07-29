@@ -284,6 +284,19 @@ async function main () {
       return { clicks }
     })
 
+    for (const mode of ['lava', 'water']) {
+      for (let run = 1; run <= 3; run++) {
+        await phase(`factions_cross_claim_dispenser_${mode}_${run}`, async () => {
+          await command(phaseBot, '/stacklab build', 650)
+          await command(phaseBot, `/stacklab snapshot dispenser-${mode}-before-${run}`, 300)
+          await command(phaseBot, `/stacklab dispenser ${mode}`, 300)
+          await sleep(1200)
+          await command(phaseBot, `/stacklab snapshot dispenser-${mode}-after-${run}`, 300)
+          return { mode, run }
+        })
+      }
+    }
+
     if (attackerBot.currentWindow) {
       try { attackerBot.closeWindow(attackerBot.currentWindow) } catch {}
       await sleep(250)

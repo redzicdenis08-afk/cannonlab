@@ -207,6 +207,29 @@ def hopper(rows):
     return result("observed_low_impact" if moved else "rejected", "Cross-claim hopper transfer", before=before, after=after, move_events=[e for e in events if e.get("type") == "inventory_move"])
 
 
+def boundary_dispenser(rows, mode: str):
+    attempts = []
+    target_material = "LAVA" if mode == "lava" else "WATER"
+    item_material = "LAVA_BUCKET" if mode == "lava" else "WATER_BUCKET"
+    for run in range(1, 4):
+        w = window(rows, f"dispenser-{mode}-before-{run}", f"dispenser-{mode}-after-{run}")
+        if not w:
+            attempts.append({"run": run, "missing": True})
+            continue
+        before, after, events = w
+        dispenses = [e for e in events if e.get("type") == "boundary_dispense" and e.get("item") == item_material]
+        placed = before.get("dispenser_target") == "AIR" and after.get("dispenser_target") == target_material
+        attempts.append({"run": run, "placed": placed, "dispense_events": dispenses})
+    hits = sum(
+        a.get("placed") is True
+        and any(e.get("cancelled") is False for e in a.get("dispense_events", []))
+        for a in attempts
+    )
+    completed = [a for a in attempts if "placed" in a]
+    status = "confirmed" if hits == 3 else "rejected" if len(completed) == 3 and all(a["placed"] is False for a in completed) else "inconclusive"
+    return result(status, f"Attacker dispenser placed {mode} inside enemy claim", attempts=attempts, confirmed_attempts=hits)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("evidence", type=Path)
@@ -235,6 +258,8 @@ def main() -> int:
             "excellentenchants_blast": simple(rows, "blast-before", "blast-after", "tunnel_target", "AIR", "ExcellentEnchants Blast Mining crossed enemy claim") if claims_ok else blocked("ExcellentEnchants Blast Mining crossed enemy claim"),
             "factions_piston": simple(rows, "piston-before", "piston-after", "piston_payload_target", "DIAMOND_BLOCK", "Piston moved block into enemy claim") if claims_ok else blocked("Piston moved block into enemy claim"),
             "factions_hopper": hopper(rows) if claims_ok else blocked("Cross-claim hopper transfer"),
+            "factions_dispenser_lava": boundary_dispenser(rows, "lava") if claims_ok else blocked("Attacker dispenser placed lava inside enemy claim"),
+            "factions_dispenser_water": boundary_dispenser(rows, "water") if claims_ok else blocked("Attacker dispenser placed water inside enemy claim"),
         },
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
