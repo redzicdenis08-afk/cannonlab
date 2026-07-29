@@ -1,0 +1,358 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-07-29T15:36:52.817Z",
+  "scope": "authorized exact private Sakura/Factions no-lava vertical remount chain matrix",
+  "claimsVerified": true,
+  "trials": [
+    {
+      "id": "boat-remount-anchor4-nolava",
+      "run": 1,
+      "vehicle": "boat",
+      "chain": "remount",
+      "onGround": false,
+      "horizontalCollision": true,
+      "packetDelayMs": 0,
+      "segmentLength": 4,
+      "pauseMs": 120,
+      "start": {
+        "x": 0.5000000000000002,
+        "y": 128,
+        "z": 2.8226046167085315
+      },
+      "firstY": 124,
+      "acceptedY": 124,
+      "packetCount": 16,
+      "checkpoints": [
+        {
+          "stage": "first_eject",
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleStayedTop": false,
+          "vehicleLower": true,
+          "expectedRelocations": 0,
+          "setbacks": 1
+        }
+      ],
+      "remounts": [],
+      "telemetryCount": 1,
+      "expectedRelocationCount": 0,
+      "setbackCount": 1,
+      "firstSetback": {
+        "type": "player_position",
+        "packet": {
+          "teleportId": 5,
+          "x": 1.7722768119620016,
+          "y": 124,
+          "z": 2.4817862511898534,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        },
+        "at": 1785339429148
+      },
+      "playerBelow": false,
+      "netheriteCount": 0,
+      "elapsedMs": 6958,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "boat-remount-anchor4-nolava",
+      "run": 2,
+      "vehicle": "boat",
+      "chain": "remount",
+      "onGround": false,
+      "horizontalCollision": true,
+      "packetDelayMs": 0,
+      "segmentLength": 4,
+      "pauseMs": 120,
+      "start": {
+        "x": 0.5000000000000003,
+        "y": 128,
+        "z": 2.0251066958832666
+      },
+      "firstY": 124,
+      "acceptedY": 124,
+      "packetCount": 16,
+      "checkpoints": [
+        {
+          "stage": "first_eject",
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleStayedTop": false,
+          "vehicleLower": true,
+          "expectedRelocations": 0,
+          "setbacks": 1
+        }
+      ],
+      "remounts": [],
+      "telemetryCount": 1,
+      "expectedRelocationCount": 0,
+      "setbackCount": 1,
+      "firstSetback": {
+        "type": "player_position",
+        "packet": {
+          "teleportId": 9,
+          "x": 1.7722768119620018,
+          "y": 124,
+          "z": 1.6842883303645886,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        },
+        "at": 1785339440796
+      },
+      "playerBelow": false,
+      "netheriteCount": 0,
+      "elapsedMs": 6954,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "boat-remount-anchor4-nolava",
+      "run": 3,
+      "vehicle": "boat",
+      "chain": "remount",
+      "onGround": false,
+      "horizontalCollision": true,
+      "packetDelayMs": 0,
+      "segmentLength": 4,
+      "pauseMs": 120,
+      "start": {
+        "x": 0.5000000000000003,
+        "y": 128,
+        "z": 2.4726045928666736
+      },
+      "firstY": 124,
+      "acceptedY": 124,
+      "packetCount": 16,
+      "checkpoints": [
+        {
+          "stage": "first_eject",
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleStayedTop": false,
+          "vehicleLower": true,
+          "expectedRelocations": 0,
+          "setbacks": 1
+        }
+      ],
+      "remounts": [],
+      "telemetryCount": 1,
+      "expectedRelocationCount": 0,
+      "setbackCount": 1,
+      "firstSetback": {
+        "type": "player_position",
+        "packet": {
+          "teleportId": 12,
+          "x": 1.7722768119620018,
+          "y": 124,
+          "z": 2.1317862273479955,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        },
+        "at": 1785339452446
+      },
+      "playerBelow": false,
+      "netheriteCount": 0,
+      "elapsedMs": 6954,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "boat-player-air-hcoll-fast-nolava",
+      "run": 1,
+      "vehicle": "boat",
+      "chain": "player",
+      "onGround": false,
+      "horizontalCollision": true,
+      "packetDelayMs": 0,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "start": {
+        "x": 0.5000000000000003,
+        "y": 128,
+        "z": 2.4726045928666736
+      },
+      "firstY": 124,
+      "acceptedY": 124,
+      "packetCount": 16,
+      "checkpoints": [
+        {
+          "stage": "first_eject",
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleStayedTop": false,
+          "vehicleLower": true,
+          "expectedRelocations": 0,
+          "setbacks": 1
+        }
+      ],
+      "remounts": [],
+      "telemetryCount": 1,
+      "expectedRelocationCount": 0,
+      "setbackCount": 1,
+      "firstSetback": {
+        "type": "player_position",
+        "packet": {
+          "teleportId": 15,
+          "x": 1.7722768119620018,
+          "y": 124,
+          "z": 2.1317862273479955,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        },
+        "at": 1785339464095
+      },
+      "playerBelow": false,
+      "netheriteCount": 0,
+      "elapsedMs": 6954,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "boat-player-air-hcoll-fast-nolava",
+      "run": 2,
+      "vehicle": "boat",
+      "chain": "player",
+      "onGround": false,
+      "horizontalCollision": true,
+      "packetDelayMs": 0,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "start": {
+        "x": 0.5000000000000003,
+        "y": 128,
+        "z": 2.4726045928666736
+      },
+      "firstY": 124,
+      "acceptedY": 124,
+      "packetCount": 16,
+      "checkpoints": [
+        {
+          "stage": "first_eject",
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleStayedTop": false,
+          "vehicleLower": true,
+          "expectedRelocations": 0,
+          "setbacks": 1
+        }
+      ],
+      "remounts": [],
+      "telemetryCount": 1,
+      "expectedRelocationCount": 0,
+      "setbackCount": 1,
+      "firstSetback": {
+        "type": "player_position",
+        "packet": {
+          "teleportId": 18,
+          "x": 1.7722768119620018,
+          "y": 124,
+          "z": 2.1317862273479955,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        },
+        "at": 1785339475695
+      },
+      "playerBelow": false,
+      "netheriteCount": 0,
+      "elapsedMs": 6953,
+      "serverAuthoritativeSuccess": false
+    }
+  ],
+  "fatal": null,
+  "claimWitness": "STACKLAB CLAIM SET {\"tag\":\"Victims\",\"chunk_x\":0,\"chunk_z\":0,\"actual_tag\":\"Victims\",\"verified\":true}",
+  "finishedAt": "2026-07-29T15:37:59.653Z",
+  "successCount": 0,
+  "totalCount": 5,
+  "byFamily": {
+    "boat-remount-anchor4-nolava": {
+      "successes": 0,
+      "attempts": 3
+    },
+    "boat-player-air-hcoll-fast-nolava": {
+      "successes": 0,
+      "attempts": 2
+    }
+  },
+  "byVehicle": {
+    "boat": {
+      "successes": 0,
+      "attempts": 5
+    },
+    "horse": {
+      "successes": 0,
+      "attempts": 0
+    }
+  }
+}
