@@ -131,6 +131,10 @@ async function main () {
       15000
     )
     report.initial = parseJsonMessage(prepMessage)
+    // Allow the server-set hotbar item to reach the client before the first
+    // use sequence. Without this settle, the first activation can occur while
+    // the client still believes the slot is empty and no consume event fires.
+    await sleep(1800)
 
     for (let run = 1; run <= 3; run++) {
       const before = await snapshot(phaseBot, `run-${run}-before`)
