@@ -9,6 +9,7 @@ on:
       - research/phaselab-deep-hunt
       - research/phaselab-ability-witness
       - research/phaselab-soulbound-dupe
+      - research/phaselab-soulbound-full-inventory
     paths:
       - 'phaselab-private-stack-fixture/**'
       - 'phaselab-harness/private-stack-matrix.js'

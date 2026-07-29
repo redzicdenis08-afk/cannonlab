@@ -121,7 +121,7 @@ async function runAttempt (phaseBot, attackerBot, copies, run) {
 
   const prepMessage = await commandExpect(
     phaseBot,
-    `/stacklab soulboundprep AttackerBot ${copies}`,
+    `/stacklab soulboundprep AttackerBot ${copies} full`,
     /STACKLAB SOULBOUND PREP .*"accepted":true/,
     8000
   )
@@ -142,6 +142,7 @@ async function runAttempt (phaseBot, attackerBot, copies, run) {
   const after = await snapshot(phaseBot, 'AttackerBot', `after-${copies}-${run}`)
 
   const expectedNested = copies * 1728
+  const expectedFillerDiamonds = (36 - copies) * 64
   const result = {
     copies,
     run,
@@ -151,9 +152,10 @@ async function runAttempt (phaseBot, attackerBot, copies, run) {
     after,
     expectedCopies: copies,
     expectedNested,
-    duplicated: Number(after.total_copies) > copies || Number(after.total_nested_netherite) > expectedNested,
-    preservedExactly: Number(after.total_copies) === copies && Number(after.total_nested_netherite) === expectedNested,
-    lost: Number(after.total_copies) < copies || Number(after.total_nested_netherite) < expectedNested
+    expectedFillerDiamonds,
+    duplicated: Number(after.total_copies) > copies || Number(after.total_nested_netherite) > expectedNested || Number(after.total_filler_diamonds) > expectedFillerDiamonds,
+    preservedExactly: Number(after.total_copies) === copies && Number(after.total_nested_netherite) === expectedNested && Number(after.total_filler_diamonds) === expectedFillerDiamonds,
+    lost: Number(after.total_copies) < copies || Number(after.total_nested_netherite) < expectedNested || Number(after.total_filler_diamonds) < expectedFillerDiamonds
   }
   record('soulbound_attempt', result)
   return result

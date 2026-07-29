@@ -441,7 +441,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
 
     private boolean soulboundPrep(org.bukkit.command.CommandSender sender, String[] args) {
         if (args.length < 2) {
-            sender.sendMessage("Usage: /stacklab soulboundprep <player> [copies]");
+            sender.sendMessage("Usage: /stacklab soulboundprep <player> [copies] [full]");
             return true;
         }
         Player player = Bukkit.getPlayerExact(args[1]);
@@ -451,6 +451,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         }
         int copies = args.length > 2 ? Integer.parseInt(args[2]) : 1;
         copies = Math.max(1, Math.min(copies, 9));
+        boolean fullInventory = args.length > 3 && args[3].equalsIgnoreCase("full");
         NamespacedKey key = NamespacedKey.fromString("excellentenchants:soulbound");
         Enchantment soulbound = key == null ? null : Registry.ENCHANTMENT.get(key);
         if (soulbound == null) {
@@ -463,8 +464,16 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             ItemStack stack = createValuableSoulboundShulker(soulbound, 1);
             player.getInventory().setItem(copy, stack);
         }
+        if (fullInventory) {
+            for (int slot = copies; slot < 36; slot++) {
+                ItemStack filler = new ItemStack(Material.DIAMOND_BLOCK, 64);
+                filler.addUnsafeEnchantment(soulbound, 1);
+                player.getInventory().setItem(slot, filler);
+            }
+        }
         Map<String, Object> evidence = soulboundSnapshotMap(player, "prepared");
         evidence.put("requested_copies", copies);
+        evidence.put("full_inventory", fullInventory);
         evidence.put("accepted", true);
         writeEvent("soulbound_prepared", evidence);
         sender.sendMessage("STACKLAB SOULBOUND PREP " + gson.toJson(evidence));
@@ -549,6 +558,20 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         result.put("ground_copies", groundCopies.stream().mapToInt(copy -> ((Number) copy.get("amount")).intValue()).sum());
         result.put("inventory_nested_netherite", inventoryNested);
         result.put("ground_nested_netherite", groundNested);
+        int inventoryFillerDiamonds = 0;
+        for (ItemStack stack : player.getInventory().getStorageContents()) {
+            if (stack != null && stack.getType() == Material.DIAMOND_BLOCK) {
+                inventoryFillerDiamonds += stack.getAmount();
+            }
+        }
+        int groundFillerDiamonds = player.getWorld().getEntitiesByClass(Item.class).stream()
+            .filter(item -> item.getLocation().distanceSquared(player.getLocation()) <= 1024.0)
+            .filter(item -> item.getItemStack().getType() == Material.DIAMOND_BLOCK)
+            .mapToInt(item -> item.getItemStack().getAmount())
+            .sum();
+        result.put("inventory_filler_diamonds", inventoryFillerDiamonds);
+        result.put("ground_filler_diamonds", groundFillerDiamonds);
+        result.put("total_filler_diamonds", inventoryFillerDiamonds + groundFillerDiamonds);
         result.put("total_copies", inventoryCopies.size() + groundCopies.stream().mapToInt(copy -> ((Number) copy.get("amount")).intValue()).sum());
         result.put("total_nested_netherite", inventoryNested + groundNested);
         result.put("inventory", inventoryCopies);
