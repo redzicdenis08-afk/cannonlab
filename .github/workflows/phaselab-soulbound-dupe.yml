@@ -245,13 +245,15 @@ jobs:
               print({'result': 'missing', 'path': str(result_path)})
               raise SystemExit(1)
           result = json.loads(result_path.read_text(encoding='utf-8'))
-          print({
+          summary = {
               'confirmed': result.get('confirmed'),
               'confirmed_attempts': result.get('confirmedAttempts'),
               'exact_preservation_attempts': result.get('exactPreservationAttempts'),
               'total_attempts': result.get('totalAttempts'),
               'fatal': result.get('fatal'),
-          })
+          }
+          print(summary)
+          print('::notice title=SoulboundResult::' + '; '.join(f'{key}={value}' for key, value in summary.items()))
           if result.get('fatal'):
               raise SystemExit(1)
           PY
