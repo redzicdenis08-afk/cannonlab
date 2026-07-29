@@ -285,14 +285,14 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         Block top = world.getBlockAt(WEB_X, WEB_PLACE_Y, WEB_Z);
         Block landing = world.getBlockAt(WEB_X, WEB_LANDING_Y, WEB_Z);
         int fallingGravel = 0;
-        double fallingMinY = Double.NaN;
+        Double fallingMinY = null;
         boolean fallingInWeb = false;
         for (FallingBlock falling : world.getEntitiesByClass(FallingBlock.class)) {
             if (!inWebLaunderArena(falling.getLocation())) continue;
             if (falling.getBlockData().getMaterial() != Material.GRAVEL) continue;
             fallingGravel++;
             double fallingY = falling.getLocation().getY();
-            fallingMinY = Double.isNaN(fallingMinY) ? fallingY : Math.min(fallingMinY, fallingY);
+            fallingMinY = fallingMinY == null ? fallingY : Math.min(fallingMinY, fallingY);
             if (falling.getLocation().getBlock().getType().toString().contains("WEB")) fallingInWeb = true;
         }
         int droppedGravel = world.getEntitiesByClass(Item.class).stream()
