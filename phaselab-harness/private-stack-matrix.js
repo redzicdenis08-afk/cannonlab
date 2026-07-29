@@ -264,6 +264,42 @@ async function main () {
       return { victim: victimBot.entity.position, attacker: attackerBot.entity.position, witness }
     })
 
+    await phase('factions_enemy_mannequin_gear_theft', async () => {
+      await command(phaseBot, '/stacklab build', 650)
+      await command(phaseBot, '/clear AttackerBot', 300)
+      await command(phaseBot, '/stacklab snapshot mannequin-before', 300)
+      await command(phaseBot, '/tp AttackerBot 14.8 65 14.0 -90 0', 500)
+
+      const deadline = Date.now() + 5000
+      let mannequin = null
+      while (Date.now() < deadline && !mannequin) {
+        mannequin = attackerBot.nearestEntity(entity => entity.name === 'mannequin')
+        if (!mannequin) await sleep(100)
+      }
+      if (!mannequin) throw new Error('Victim mannequin missing')
+
+      const attempts = []
+      for (const hit of [
+        new Vec3(0.35, 1.05, 0),
+        new Vec3(0, 1.75, 0),
+        new Vec3(0, 1.25, 0),
+        new Vec3(0, 0.75, 0),
+        new Vec3(0, 0.25, 0)
+      ]) {
+        let error = null
+        try {
+          await attackerBot.activateEntityAt(mannequin, hit)
+        } catch (caught) {
+          error = String(caught.stack || caught)
+        }
+        await sleep(500)
+        attempts.push({ hit, error })
+      }
+
+      await command(phaseBot, '/stacklab snapshot mannequin-after', 300)
+      return { entity: mannequin.name, attempts }
+    })
+
     await phase('auraskills_excellentenchants_infinite_grindstone_xp', async () => {
       await command(phaseBot, '/stacklab build', 650)
       await command(phaseBot, '/clear AttackerBot')

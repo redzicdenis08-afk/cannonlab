@@ -207,6 +207,30 @@ def hopper(rows):
     return result("observed_low_impact" if moved else "rejected", "Cross-claim hopper transfer", before=before, after=after, move_events=[e for e in events if e.get("type") == "inventory_move"])
 
 
+def mannequin_theft(rows):
+    w = window(rows, "mannequin-before", "mannequin-after")
+    if not w:
+        return result("inconclusive", "Attacker removed equipment from an enemy-claim mannequin", reason="missing_window")
+    before, after, events = w
+    interactions = [e for e in events if e.get("type") == "mannequin_interact"]
+    before_count = int(before.get("victim_mannequin_netherite_gear_count", 0))
+    after_count = int(after.get("victim_mannequin_netherite_gear_count", 0))
+    attacker_count = int(after.get("attacker_netherite_gear_count", 0))
+    allowed = any(e.get("cancelled") is False for e in interactions)
+    stolen = before_count >= 5 and after_count < before_count and attacker_count > 0
+    denied = before_count >= 5 and after_count == before_count and attacker_count == 0 and any(e.get("cancelled") is True for e in interactions)
+    status = "confirmed" if allowed and stolen else "rejected" if denied else "inconclusive"
+    return result(
+        status,
+        "Attacker removed equipment from an enemy-claim mannequin",
+        before=before,
+        after=after,
+        interaction_events=interactions,
+        allowed=allowed,
+        stolen=stolen,
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("evidence", type=Path)
@@ -233,6 +257,7 @@ def main() -> int:
             "excellentenchants_treefeller": simple(rows, "tree-before", "tree-after", "tree_target_1", "AIR", "ExcellentEnchants Treefeller crossed enemy claim") if claims_ok else blocked("ExcellentEnchants Treefeller crossed enemy claim"),
             "excellentenchants_tunnel": simple(rows, "tunnel-before", "tunnel-after", "tunnel_target", "AIR", "ExcellentEnchants Tunnel crossed enemy claim") if claims_ok else blocked("ExcellentEnchants Tunnel crossed enemy claim"),
             "excellentenchants_blast": simple(rows, "blast-before", "blast-after", "tunnel_target", "AIR", "ExcellentEnchants Blast Mining crossed enemy claim") if claims_ok else blocked("ExcellentEnchants Blast Mining crossed enemy claim"),
+            "factions_enemy_mannequin_gear_theft": mannequin_theft(rows) if claims_ok else blocked("Attacker removed equipment from an enemy-claim mannequin"),
             "factions_piston": simple(rows, "piston-before", "piston-after", "piston_payload_target", "DIAMOND_BLOCK", "Piston moved block into enemy claim") if claims_ok else blocked("Piston moved block into enemy claim"),
             "factions_hopper": hopper(rows) if claims_ok else blocked("Cross-claim hopper transfer"),
         },

@@ -110,12 +110,35 @@ def main() -> int:
     assert finding["status"] == "confirmed", finding
     assert finding["evidence"]["xp_gain"] == 50.0, finding
 
+    mannequin_rows = [
+        {
+            "type": "snapshot",
+            "label": "mannequin-before",
+            "victim_mannequin_netherite_gear_count": 5,
+            "attacker_netherite_gear_count": 0,
+        },
+        {
+            "type": "mannequin_interact",
+            "cancelled": False,
+            "gear_count": 5,
+        },
+        {
+            "type": "snapshot",
+            "label": "mannequin-after",
+            "victim_mannequin_netherite_gear_count": 0,
+            "attacker_netherite_gear_count": 5,
+        },
+    ]
+    finding = evaluator.mannequin_theft(mannequin_rows)
+    assert finding["status"] == "confirmed", finding
+    assert finding["evidence"]["stolen"] is True, finding
+
     with tempfile.TemporaryDirectory() as temporary:
         path = Path(temporary) / "evidence.jsonl"
         path.write_text("\n".join(json.dumps(row) for row in confirmed_rows()) + "\n", encoding="utf-8")
         assert len(evaluator.read_rows(path)) == 9
 
-    print("Private-stack evidence evaluator regressions passed: 6")
+    print("Private-stack evidence evaluator regressions passed: 7")
     return 0
 
 

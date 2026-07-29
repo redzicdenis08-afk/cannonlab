@@ -16,6 +16,7 @@ import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.EndPortalFrame;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Item;
+import org.bukkit.entity.Mannequin;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -31,6 +32,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -152,6 +154,20 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         set(world, 13, Y + 1, 9, Material.HOPPER);
         set(world, 13, Y, 9, Material.CHEST);
         set(world, 14, Y + 1, 9, Material.REDSTONE_BLOCK);
+
+        world.getEntitiesByClass(Mannequin.class).stream()
+            .filter(entity -> inArena(entity.getLocation()))
+            .forEach(Mannequin::remove);
+        Mannequin mannequin = world.spawn(new Location(world, 16.5, Y, 14.0), Mannequin.class, entity -> {
+            entity.setImmovable(true);
+            entity.setInvulnerable(true);
+            entity.addScoreboardTag("stacklab_victim_mannequin");
+        });
+        mannequin.getEquipment().setHelmet(new ItemStack(Material.NETHERITE_HELMET));
+        mannequin.getEquipment().setChestplate(new ItemStack(Material.NETHERITE_CHESTPLATE));
+        mannequin.getEquipment().setLeggings(new ItemStack(Material.NETHERITE_LEGGINGS));
+        mannequin.getEquipment().setBoots(new ItemStack(Material.NETHERITE_BOOTS));
+        mannequin.getEquipment().setItemInMainHand(new ItemStack(Material.NETHERITE_SWORD));
 
         writeEvent("arena_build", snapshotMap(world, "build"));
         sender.sendMessage("STACKLAB BUILD OK boundary=15/16 y=" + Y);
@@ -444,11 +460,18 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         result.put("piston_payload_target", type(world, 16, Y, 12));
         result.put("hopper_count", inventoryCount(world.getBlockAt(15, Y, 8), Material.DIAMOND));
         result.put("target_chest_count", inventoryCount(world.getBlockAt(16, Y, 8), Material.DIAMOND));
+        Mannequin mannequin = victimMannequin(world);
+        result.put("victim_mannequin_present", mannequin != null);
+        result.put("victim_mannequin_netherite_gear_count", mannequin == null ? -1 : netheriteGearCount(mannequin.getEquipment()));
 
         Player attacker = Bukkit.getPlayerExact("AttackerBot");
         if (attacker != null) {
             result.put("attacker_enchanting_xp", auraEnchantingXp(attacker));
             result.put("attacker_alchemy_xp", auraSkillXp(attacker, "ALCHEMY"));
+            result.put("attacker_netherite_gear_count", java.util.Arrays.stream(attacker.getInventory().getContents())
+                .filter(java.util.Objects::nonNull)
+                .mapToInt(item -> isNetheriteGear(item) ? item.getAmount() : 0)
+                .sum());
             var top = attacker.getOpenInventory().getTopInventory();
             result.put("attacker_open_inventory", top.getType().name());
             if (top.getType() == InventoryType.GRINDSTONE) {
@@ -606,6 +629,26 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return world;
     }
 
+    private Mannequin victimMannequin(World world) {
+        return world.getEntitiesByClass(Mannequin.class).stream()
+            .filter(entity -> entity.getScoreboardTags().contains("stacklab_victim_mannequin"))
+            .findFirst()
+            .orElse(null);
+    }
+
+    private int netheriteGearCount(org.bukkit.inventory.EntityEquipment equipment) {
+        return java.util.stream.Stream.of(
+                equipment.getHelmet(), equipment.getChestplate(), equipment.getLeggings(),
+                equipment.getBoots(), equipment.getItemInMainHand(), equipment.getItemInOffHand())
+            .filter(java.util.Objects::nonNull)
+            .mapToInt(item -> isNetheriteGear(item) ? item.getAmount() : 0)
+            .sum();
+    }
+
+    private boolean isNetheriteGear(ItemStack item) {
+        return item != null && item.getType().name().startsWith("NETHERITE_");
+    }
+
     private void writeEvent(String type, Map<String, ?> fields) {
         JsonObject object = new JsonObject();
         object.addProperty("ts", Instant.now().toString());
@@ -756,6 +799,19 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         writeEvent("teleport", Map.of(
             "player", event.getPlayer().getName(), "cause", event.getCause().name(), "cancelled", event.isCancelled(),
             "to_x", to == null ? Double.NaN : to.getX(), "to_y", to == null ? Double.NaN : to.getY(), "to_z", to == null ? Double.NaN : to.getZ()
+        ));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onMannequinInteract(PlayerInteractEntityEvent event) {
+        if (!(event.getRightClicked() instanceof Mannequin mannequin)) return;
+        if (!mannequin.getScoreboardTags().contains("stacklab_victim_mannequin")) return;
+        writeEvent("mannequin_interact", Map.of(
+            "player", event.getPlayer().getName(),
+            "cancelled", event.isCancelled(),
+            "event_class", event.getClass().getSimpleName(),
+            "gear_count", netheriteGearCount(mannequin.getEquipment()),
+            "x", mannequin.getLocation().getX(), "y", mannequin.getLocation().getY(), "z", mannequin.getLocation().getZ()
         ));
     }
 
