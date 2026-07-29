@@ -14,6 +14,7 @@ import org.bukkit.block.Hopper;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.EndPortalFrame;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -21,8 +22,10 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockMultiPlaceEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -45,6 +48,13 @@ import java.util.Map;
 
 public final class StackLabFixturePlugin extends JavaPlugin implements Listener {
     private static final int Y = 65;
+    private static final int WEB_X = 30;
+    private static final int WEB_Z = 0;
+    private static final int WEB_FLOOR_Y = 64;
+    private static final int WEB_LANDING_Y = 65;
+    private static final int WEB_Y = 68;
+    private static final int WEB_SUPPORT_Y = 72;
+    private static final int WEB_PLACE_Y = 73;
     private final Gson gson = new Gson();
     private Path evidencePath;
     private boolean cancelPortalMultiPlace;
@@ -80,6 +90,12 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "break" -> breakBlock(sender, args);
                     case "tick" -> tick(sender, args);
                     case "cancelportal" -> cancelPortal(sender, args);
+                    case "weblaunderbuild" -> webLaunderBuild(sender, args);
+                    case "weblaunderreset" -> webLaunderReset(sender, args);
+                    case "weblaunderdrop" -> webLaunderDrop(sender);
+                    case "weblaunderrelease" -> webLaunderRelease(sender);
+                    case "weblaundersnapshot" -> webLaunderSnapshot(sender, args.length > 1 ? args[1] : "manual");
+                    case "weblaunderbreak" -> webLaunderBreak(sender, args);
                     default -> false;
                 };
             } catch (RuntimeException exception) {
@@ -143,6 +159,237 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         writeEvent("arena_build", snapshotMap(world, "build"));
         sender.sendMessage("STACKLAB BUILD OK boundary=15/16 y=" + Y);
         return true;
+    }
+
+
+    private boolean webLaunderBuild(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("Usage: /stacklab weblaunderbuild <player> <web|control>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        boolean webMode = args[2].equalsIgnoreCase("web");
+        prepareWebLaunderRig(player, webMode, true);
+        Map<String, Object> snapshot = webLaunderSnapshotMap(requireWorld(), player, "build-" + (webMode ? "web" : "control"));
+        writeEvent("web_launder_build", snapshot);
+        sender.sendMessage("STACKLAB WEB BUILD " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private boolean webLaunderReset(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("Usage: /stacklab weblaunderreset <player> <web|control>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        boolean webMode = args[2].equalsIgnoreCase("web");
+        prepareWebLaunderRig(player, webMode, false);
+        Map<String, Object> snapshot = webLaunderSnapshotMap(requireWorld(), player, "reset-" + (webMode ? "web" : "control"));
+        writeEvent("web_launder_reset", snapshot);
+        sender.sendMessage("STACKLAB WEB RESET " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private void prepareWebLaunderRig(Player player, boolean webMode, boolean resetPlayer) {
+        World world = requireWorld();
+        for (FallingBlock falling : world.getEntitiesByClass(FallingBlock.class)) {
+            if (inWebLaunderArena(falling.getLocation())) falling.remove();
+        }
+        for (Item item : world.getEntitiesByClass(Item.class)) {
+            if (inWebLaunderArena(item.getLocation())) item.remove();
+        }
+        for (int x = WEB_X - 1; x <= WEB_X + 1; x++) {
+            for (int y = WEB_FLOOR_Y; y <= WEB_PLACE_Y + 1; y++) {
+                for (int z = WEB_Z - 1; z <= WEB_Z + 1; z++) {
+                    world.getBlockAt(x, y, z).setType(Material.AIR, false);
+                }
+            }
+        }
+        for (int x = WEB_X - 1; x <= WEB_X + 1; x++) {
+            for (int z = WEB_Z - 1; z <= WEB_Z + 1; z++) {
+                world.getBlockAt(x, WEB_FLOOR_Y, z).setType(Material.BEDROCK, false);
+            }
+        }
+        world.getBlockAt(WEB_X, WEB_SUPPORT_Y, WEB_Z).setType(Material.STONE, false);
+        if (webMode) world.getBlockAt(WEB_X, WEB_Y, WEB_Z).setType(Material.COBWEB, false);
+        if (resetPlayer) {
+            player.getInventory().clear();
+            player.getInventory().setItem(0, new ItemStack(Material.GRAVEL, 1));
+            player.getInventory().setItem(1, new ItemStack(Material.DIAMOND_SHOVEL, 1));
+            player.getInventory().setHeldItemSlot(0);
+            setAuraSkillState(player, "EXCAVATION", 50, 0.0);
+        }
+        player.teleport(new Location(world, WEB_X + 2.5, WEB_SUPPORT_Y + 1.0, WEB_Z + 0.5, 90F, 0F));
+    }
+
+    private boolean webLaunderDrop(org.bukkit.command.CommandSender sender) {
+        World world = requireWorld();
+        world.getBlockAt(WEB_X, WEB_SUPPORT_Y, WEB_Z).setType(Material.AIR, true);
+        Map<String, Object> snapshot = webLaunderSnapshotMap(world, null, "drop");
+        writeEvent("web_launder_drop", snapshot);
+        sender.sendMessage("STACKLAB WEB DROP " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private boolean webLaunderRelease(org.bukkit.command.CommandSender sender) {
+        World world = requireWorld();
+        world.getBlockAt(WEB_X, WEB_Y, WEB_Z).setType(Material.AIR, false);
+        Map<String, Object> snapshot = webLaunderSnapshotMap(world, null, "release");
+        writeEvent("web_launder_release", snapshot);
+        sender.sendMessage("STACKLAB WEB RELEASE " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private boolean webLaunderSnapshot(org.bukkit.command.CommandSender sender, String label) {
+        Player player = Bukkit.getPlayerExact("AttackerBot");
+        Map<String, Object> snapshot = webLaunderSnapshotMap(requireWorld(), player, label);
+        writeEvent("web_launder_snapshot", snapshot);
+        sender.sendMessage("STACKLAB WEB SNAPSHOT " + label + " " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private boolean webLaunderBreak(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab weblaunderbreak <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        World world = requireWorld();
+        Block block = world.getBlockAt(WEB_X, WEB_LANDING_Y, WEB_Z);
+        player.getInventory().setHeldItemSlot(1);
+        Map<String, Object> before = webLaunderSnapshotMap(world, player, "before-break");
+        boolean accepted = player.breakBlock(block);
+        Map<String, Object> immediate = webLaunderSnapshotMap(world, player, "immediate-after-break");
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("accepted", accepted);
+        evidence.put("before", before);
+        evidence.put("immediate", immediate);
+        writeEvent("web_launder_break_request", evidence);
+        sender.sendMessage("STACKLAB WEB BREAK " + gson.toJson(evidence));
+        return true;
+    }
+
+    private Map<String, Object> webLaunderSnapshotMap(World world, Player player, String label) {
+        Block top = world.getBlockAt(WEB_X, WEB_PLACE_Y, WEB_Z);
+        Block landing = world.getBlockAt(WEB_X, WEB_LANDING_Y, WEB_Z);
+        int fallingGravel = 0;
+        double fallingMinY = Double.NaN;
+        boolean fallingInWeb = false;
+        for (FallingBlock falling : world.getEntitiesByClass(FallingBlock.class)) {
+            if (!inWebLaunderArena(falling.getLocation())) continue;
+            if (falling.getBlockData().getMaterial() != Material.GRAVEL) continue;
+            fallingGravel++;
+            double fallingY = falling.getLocation().getY();
+            fallingMinY = Double.isNaN(fallingMinY) ? fallingY : Math.min(fallingMinY, fallingY);
+            if (falling.getLocation().getBlock().getType().toString().contains("WEB")) fallingInWeb = true;
+        }
+        int droppedGravel = world.getEntitiesByClass(Item.class).stream()
+            .filter(item -> inWebLaunderArena(item.getLocation()))
+            .filter(item -> item.getItemStack().getType() == Material.GRAVEL)
+            .mapToInt(item -> item.getItemStack().getAmount()).sum();
+        int inventoryGravel = player == null ? -1 : countMaterial(player, Material.GRAVEL);
+        int blockGravel = (top.getType() == Material.GRAVEL ? 1 : 0) + (landing.getType() == Material.GRAVEL ? 1 : 0);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("label", label);
+        result.put("top_type", top.getType().name());
+        result.put("top_placed", auraPlaced(top));
+        result.put("web_type", world.getBlockAt(WEB_X, WEB_Y, WEB_Z).getType().name());
+        result.put("landing_type", landing.getType().name());
+        result.put("landing_placed", auraPlaced(landing));
+        result.put("falling_gravel", fallingGravel);
+        result.put("falling_min_y", fallingMinY);
+        result.put("falling_in_web", fallingInWeb);
+        result.put("dropped_gravel", droppedGravel);
+        result.put("inventory_gravel", inventoryGravel);
+        result.put("total_gravel", blockGravel + fallingGravel + droppedGravel + Math.max(0, inventoryGravel));
+        if (player != null) {
+            result.put("excavation_level", auraSkillLevel(player, "EXCAVATION"));
+            result.put("excavation_xp", auraSkillXp(player, "EXCAVATION"));
+        }
+        return result;
+    }
+
+    private boolean auraPlaced(Block block) {
+        try {
+            Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsBukkit");
+            Object api = apiClass.getMethod("get").invoke(null);
+            Object regions = apiClass.getMethod("getRegions").invoke(api);
+            return (boolean) regions.getClass().getMethod("isPlacedBlock", Block.class).invoke(regions, block);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            throw new IllegalStateException("Could not read AuraSkills placed-block state", exception);
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void setAuraSkillState(Player player, String skillName, int level, double value) {
+        try {
+            Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
+            Object api = apiClass.getMethod("get").invoke(null);
+            Object user = apiClass.getMethod("getUser", java.util.UUID.class).invoke(api, player.getUniqueId());
+            Class<? extends Enum> skillsClass = (Class<? extends Enum>) Class.forName("dev.aurelium.auraskills.api.skill.Skills");
+            Object skill = Enum.valueOf(skillsClass, skillName);
+            Class<?> skillClass = Class.forName("dev.aurelium.auraskills.api.skill.Skill");
+            Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
+            skillsUserClass.getMethod("setSkillLevel", skillClass, int.class, boolean.class).invoke(user, skill, level, true);
+            skillsUserClass.getMethod("setSkillXp", skillClass, double.class).invoke(user, skill, value);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            throw new IllegalStateException("Could not reset AuraSkills " + skillName + " state", exception);
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Object auraSkillXp(Player player, String skillName) {
+        try {
+            Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
+            Object api = apiClass.getMethod("get").invoke(null);
+            Object user = apiClass.getMethod("getUser", java.util.UUID.class).invoke(api, player.getUniqueId());
+            Class<? extends Enum> skillsClass = (Class<? extends Enum>) Class.forName("dev.aurelium.auraskills.api.skill.Skills");
+            Object skill = Enum.valueOf(skillsClass, skillName);
+            Class<?> skillClass = Class.forName("dev.aurelium.auraskills.api.skill.Skill");
+            Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
+            return skillsUserClass.getMethod("getSkillXp", skillClass).invoke(user, skill);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            return "reflection-error:" + exception.getClass().getSimpleName();
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Object auraSkillLevel(Player player, String skillName) {
+        try {
+            Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
+            Object api = apiClass.getMethod("get").invoke(null);
+            Object user = apiClass.getMethod("getUser", java.util.UUID.class).invoke(api, player.getUniqueId());
+            Class<? extends Enum> skillsClass = (Class<? extends Enum>) Class.forName("dev.aurelium.auraskills.api.skill.Skills");
+            Object skill = Enum.valueOf(skillsClass, skillName);
+            Class<?> skillClass = Class.forName("dev.aurelium.auraskills.api.skill.Skill");
+            Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
+            return skillsUserClass.getMethod("getSkillLevel", skillClass).invoke(user, skill);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            return "reflection-error:" + exception.getClass().getSimpleName();
+        }
+    }
+
+    private int countMaterial(Player player, Material material) {
+        return player.getInventory().all(material).values().stream().mapToInt(ItemStack::getAmount).sum();
+    }
+
+    private boolean inWebLaunderArena(Location location) {
+        if (location == null || !location.getWorld().getName().equals("world")) return false;
+        return Math.abs(location.getX() - (WEB_X + 0.5)) <= 4.0
+            && location.getY() >= WEB_FLOOR_Y - 1 && location.getY() <= WEB_PLACE_Y + 3
+            && Math.abs(location.getZ() - (WEB_Z + 0.5)) <= 4.0;
     }
 
     private boolean reset(org.bukkit.command.CommandSender sender) {
@@ -622,6 +869,47 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             "cancelled", event.isCancelled(),
             "x", event.getLocation().getX(), "y", event.getLocation().getY(), "z", event.getLocation().getZ()
         ));
+    }
+
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onWebLaunderPlace(BlockPlaceEvent event) {
+        if (!inWebLaunderArena(event.getBlock().getLocation())) return;
+        writeEvent("web_launder_place_event", Map.of(
+            "player", event.getPlayer().getName(),
+            "cancelled", event.isCancelled(),
+            "block", event.getBlock().getType().name(),
+            "x", event.getBlock().getX(), "y", event.getBlock().getY(), "z", event.getBlock().getZ(),
+            "placed_state", auraPlaced(event.getBlock())
+        ));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onWebLaunderEntityChange(EntityChangeBlockEvent event) {
+        if (!inWebLaunderArena(event.getBlock().getLocation())) return;
+        if (event.getEntityType() != org.bukkit.entity.EntityType.FALLING_BLOCK) return;
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("cancelled", event.isCancelled());
+        data.put("from", event.getBlock().getType().name());
+        data.put("to", event.getTo().name());
+        data.put("x", event.getBlock().getX());
+        data.put("y", event.getBlock().getY());
+        data.put("z", event.getBlock().getZ());
+        data.put("placed_state", auraPlaced(event.getBlock()));
+        writeEvent("web_launder_entity_change", data);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onWebLaunderBreakEvent(BlockBreakEvent event) {
+        if (!inWebLaunderArena(event.getBlock().getLocation())) return;
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("player", event.getPlayer().getName());
+        data.put("cancelled", event.isCancelled());
+        data.put("block", event.getBlock().getType().name());
+        data.put("placed_state", auraPlaced(event.getBlock()));
+        data.put("excavation_level", auraSkillLevel(event.getPlayer(), "EXCAVATION"));
+        data.put("excavation_xp", auraSkillXp(event.getPlayer(), "EXCAVATION"));
+        writeEvent("web_launder_break_event", data);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
