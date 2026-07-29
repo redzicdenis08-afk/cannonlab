@@ -370,8 +370,69 @@ async function runTrial (bot, plan, id) {
     resetOk: resetState.ok,
     resetReason: resetState.reason,
     resetAttempts: resetState.attempt,
-    verified: resetState.ok && snapshot.ok && beyondCourse && alive && didDismount && witness.opened
+    kickedDuringTrial: isDead(bot),
+    kickReason: lastKick,
+    verified: resetState.ok && !isDead(bot) && snapshot.ok && beyondCourse && alive &&
+      didDismount && witness.opened
   }
+}
+
+let lastKick = null
+
+function isDead (bot) {
+  return !bot || !bot._client || bot._client.ended
+}
+
+function describeKick (reason) {
+  try {
+    const translate = reason?.value?.translate?.value
+    if (translate) return translate
+    return JSON.stringify(reason).slice(0, 200)
+  } catch (_) {
+    return String(reason).slice(0, 200)
+  }
+}
+
+async function connect () {
+  const bot = mineflayer.createBot({
+    host: HOST,
+    port: PORT,
+    username: USERNAME,
+    auth: 'offline',
+    version: '1.21.11',
+    physicsEnabled: false,
+    hideErrors: false
+  })
+  bot.on('kicked', reason => {
+    lastKick = describeKick(reason)
+    console.error('[MixedCourse kicked]', lastKick)
+  })
+  bot.on('error', error => console.error('[MixedCourse error]', error?.message ?? error))
+  bot.on('end', why => console.warn('[MixedCourse end]', why))
+  const spawned = await onceWithTimeout(bot, 'spawn', 30000)
+  if (!spawned) throw new Error('Mixed course bot did not spawn')
+  bot.physicsEnabled = false
+  await sleep(900)
+  return bot
+}
+
+// allow-flight stays false so the lab keeps production fidelity. A vanilla
+// anti-fly kick is therefore a real outcome for that trial, not a harness
+// defect, so record it and reconnect instead of running the rest of the
+// matrix against a dead socket.
+async function reconnect (attempts = 3) {
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const bot = await connect()
+      await setup(bot)
+      console.warn(`[MixedCourse] reconnected on attempt ${attempt}`)
+      return bot
+    } catch (error) {
+      console.error(`[MixedCourse] reconnect attempt ${attempt}/${attempts} failed: ${error.message}`)
+      await sleep(2000)
+    }
+  }
+  return null
 }
 
 function writeReport (results, bot) {
@@ -388,7 +449,7 @@ function writeReport (results, bot) {
     results
   }, null, 2))
 
-  const rows = ['id,profile,mode,batch,invulnerable,mounted,packets,ticks,send_ms,max_requested_x,player_corrections,vehicle_corrections,boat_teleports,dismount_events,boat_gone,still_mounted,boat_exists,did_dismount,snapshot_ok,server_x,server_y,server_z,server_health,server_fire,beyond,witness,reset_ok,reset_reason,trial_error,verified']
+  const rows = ['id,profile,mode,batch,invulnerable,mounted,packets,ticks,send_ms,max_requested_x,player_corrections,vehicle_corrections,boat_teleports,dismount_events,boat_gone,still_mounted,boat_exists,did_dismount,snapshot_ok,server_x,server_y,server_z,server_health,server_fire,beyond,witness,reset_ok,reset_reason,kicked,kick_reason,trial_error,verified']
   for (const result of results) {
     rows.push([
       result.id,
@@ -419,6 +480,8 @@ function writeReport (results, bot) {
       result.witness?.opened ?? '',
       result.resetOk ?? '',
       result.resetReason ?? '',
+      result.kickedDuringTrial ?? '',
+      result.kickReason ? JSON.stringify(result.kickReason) : '',
       result.trialError ? JSON.stringify(result.trialError) : '',
       result.verified
     ].join(','))
@@ -435,23 +498,9 @@ async function shutdown (bot, code) {
 }
 
 async function main () {
-  const bot = mineflayer.createBot({
-    host: HOST,
-    port: PORT,
-    username: USERNAME,
-    auth: 'offline',
-    version: '1.21.11',
-    physicsEnabled: false,
-    hideErrors: false
-  })
-  bot.on('kicked', reason => console.error('[MixedCourse kicked]', reason))
-  bot.on('error', error => console.error('[MixedCourse error]', error))
+  let bot = await connect()
 
   try {
-    const spawned = await onceWithTimeout(bot, 'spawn', 30000)
-    if (!spawned) throw new Error('Mixed course bot did not spawn')
-    bot.physicsEnabled = false
-    await sleep(900)
     await setup(bot)
 
     const plans = []
@@ -465,7 +514,29 @@ async function main () {
     }
 
     const results = []
+    let reconnects = 0
     for (let id = 0; id < plans.length; id++) {
+      lastKick = null
+
+      if (isDead(bot)) {
+        const revived = await reconnect()
+        if (!revived) {
+          results.push({
+            ...plans[id],
+            id,
+            mounted: false,
+            verified: false,
+            resetOk: false,
+            resetReason: 'reconnect_failed',
+            trialError: 'bot offline and reconnect failed'
+          })
+          console.error(`[MixedCourse] ${id + 1}/${plans.length} skipped, reconnect failed`)
+          continue
+        }
+        bot = revived
+        reconnects++
+      }
+
       let result
       try {
         result = await runTrial(bot, plans[id], id)
@@ -478,13 +549,20 @@ async function main () {
           verified: false,
           trialError: String(error && error.message ? error.message : error)
         }
-        try {
-          const recovery = await reset(bot)
-          result.resetOk = recovery.ok
-          result.resetReason = `recovery:${recovery.reason}`
-        } catch (recoveryError) {
+        result.kickedDuringTrial = isDead(bot)
+        result.kickReason = lastKick
+        if (!isDead(bot)) {
+          try {
+            const recovery = await reset(bot)
+            result.resetOk = recovery.ok
+            result.resetReason = `recovery:${recovery.reason}`
+          } catch (recoveryError) {
+            result.resetOk = false
+            result.resetReason = `recovery_failed:${recoveryError.message}`
+          }
+        } else {
           result.resetOk = false
-          result.resetReason = `recovery_failed:${recoveryError.message}`
+          result.resetReason = 'offline_after_trial'
         }
       }
       results.push(result)
@@ -497,6 +575,7 @@ async function main () {
         ` boatGone=${result.runtime?.gone?.length ?? 0}` +
         ` witness=${result.witness?.opened ?? false}` +
         ` reset=${result.resetOk ?? 'n/a'}` +
+        (result.kickedDuringTrial ? ` KICKED=${result.kickReason}` : '') +
         (result.trialError ? ` error=${JSON.stringify(result.trialError)}` : '') +
         ` verified=${result.verified}`)
     }
@@ -504,8 +583,14 @@ async function main () {
     const breaches = results.filter(r => r.verified)
     const uncleanResets = results.filter(r => r.resetOk === false)
     const errored = results.filter(r => r.trialError)
+    const kicked = results.filter(r => r.kickedDuringTrial)
     console.log(`[MixedCourse] completed=${results.length}/${plans.length}` +
-      ` verified=${breaches.length} uncleanResets=${uncleanResets.length} erroredTrials=${errored.length}`)
+      ` verified=${breaches.length} uncleanResets=${uncleanResets.length}` +
+      ` erroredTrials=${errored.length} kicked=${kicked.length} reconnects=${reconnects}`)
+    for (const r of kicked) {
+      console.log(`[MixedCourse VANILLA-STOP] id=${r.id} profile=${r.profile} mode=${r.mode}` +
+        ` batch=${r.batchSize} reason=${r.kickReason}`)
+    }
     for (const r of results) {
       const x = r.snapshot?.position?.x
       if (typeof x === 'number' && x > 0 && x <= COURSE_END && !r.trialError) {
