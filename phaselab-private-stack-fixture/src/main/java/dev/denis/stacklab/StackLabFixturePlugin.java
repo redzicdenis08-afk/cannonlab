@@ -528,7 +528,6 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    @SuppressWarnings({"unchecked", "rawtypes"})
     private void setAuraSkillState(Player player, String skillName, int level, double value) {
         try {
             Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
