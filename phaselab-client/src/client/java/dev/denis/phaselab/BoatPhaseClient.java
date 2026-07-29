@@ -33,9 +33,11 @@ import java.util.Locale;
 public final class BoatPhaseClient implements ClientModInitializer {
     private static final double STEP = 0.25D;
     private static final double BOAT_FORWARD_SEGMENT = 2.0D;
-    private static final double HORSE_FORWARD_SEGMENT = 1.5D;
+    private static final double HORSE_FORWARD_SEGMENT = 4.0D;
     private static final double DOWN_SEGMENT = 0.75D;
-    private static final int PACKETS_PER_TICK = 1;
+    private static final int BOAT_PACKETS_PER_TICK = 1;
+    private static final int HORSE_PACKETS_PER_TICK = 4;
+    private static final int DOWN_PACKETS_PER_TICK = 1;
     private static final int SETTLE_TICKS = 7;
     private static final int REMOUNT_TIMEOUT_TICKS = 36;
     private static final int REMOUNT_INTERVAL_TICKS = 4;
@@ -74,6 +76,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
     private static double segmentSent;
     private static double travelled;
     private static int sentPackets;
+    private static int packetsPerTick;
     private static int acceptedSegments;
     private static int settleTicksRemaining;
     private static int remountTicks;
@@ -232,7 +235,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
             return;
         }
 
-        for (int i = 0; i < PACKETS_PER_TICK && segmentSent < segmentLength - 1.0E-9D; i++) {
+        for (int i = 0; i < packetsPerTick && segmentSent < segmentLength - 1.0E-9D; i++) {
             Vec3 next = activeVehicle.position().add(direction.scale(STEP));
             activeVehicle.noPhysics = true;
             activeVehicle.setPos(next.x, next.y, next.z);
@@ -359,9 +362,11 @@ public final class BoatPhaseClient implements ClientModInitializer {
         if (mode == Mode.DOWN) {
             direction = new Vec3(0.0D, -1.0D, 0.0D);
             segmentLength = DOWN_SEGMENT;
+            packetsPerTick = DOWN_PACKETS_PER_TICK;
         } else {
             direction = nearestCardinal(player.getYRot());
             segmentLength = horse ? HORSE_FORWARD_SEGMENT : BOAT_FORWARD_SEGMENT;
+            packetsPerTick = horse ? HORSE_PACKETS_PER_TICK : BOAT_PACKETS_PER_TICK;
         }
 
         active = true;
@@ -382,10 +387,11 @@ public final class BoatPhaseClient implements ClientModInitializer {
         openLog();
         log("START", player, vehicle.position());
         message(player, String.format(Locale.ROOT,
-            "%s adaptive %s started. %.2f-block segments, one 0.25 packet per tick.",
+            "%s adaptive %s started. %.2f-block segments, %d x 0.25 packets per tick.",
             vehicleLabel,
             mode == Mode.DOWN ? "DOWN" : directionLabel(direction),
-            segmentLength
+            segmentLength,
+            packetsPerTick
         ));
     }
 
@@ -470,6 +476,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
         settleTicksRemaining = 0;
         remountTicks = 0;
         correctionCount = 0;
+        packetsPerTick = 0;
         closeLog();
     }
 
