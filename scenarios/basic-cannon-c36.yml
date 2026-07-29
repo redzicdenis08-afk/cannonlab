@@ -1,0 +1,30 @@
+name: basic-cannon-c36
+# From-scratch cannon, 36 charges detonating in water, payload one block above
+# the barrel cap, fired 8 redstone ticks late. Charge count is the sweep:
+# run 30431377480 showed payload lag barely moves range (9.49 -> 9.79 over
+# 2..12 rt), so force is the limiter. Target sits at 40 blocks to leave
+# headroom above the 9.8 already measured.
+cannon:
+  file: basic-cannon-c36.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: redstone
+  fire-input: {x: 0, y: 2, z: 0}
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: false
+target:
+  type: dry
+  direction: east
+  distance: 40
+  width: 9
+  height: 9
+  y-offset: 2
+  lateral-offset: 0
+  layers: 1
+  spacing: 3
+run:
+  shots: 3
+  warmup-ticks: 60
+  max-shot-ticks: 260
+  quiet-ticks: 140
+  shutdown-when-finished: true
