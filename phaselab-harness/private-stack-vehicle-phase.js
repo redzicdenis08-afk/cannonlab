@@ -245,9 +245,16 @@ async function survivalPlaceAndMount (phaseBot, attackerBot) {
   if (!ground) throw new Error('Boat placement ground is unloaded')
   const beforeIds = new Set(Object.keys(attackerBot.entities).map(Number))
   await attackerBot.lookAt(ground.position.offset(0.5, 1.0, 0.5), true)
-  await attackerBot.activateBlock(ground, new Vec3(0, 1, 0))
+  attackerBot.activateItem()
+  await sleep(150)
+  attackerBot.deactivateItem()
   const boat = await waitForPlacedBoat(attackerBot, beforeIds)
-  if (!boat) throw new Error('Survival boat placement produced no nearby boat entity')
+  if (!boat) {
+    const nearby = Object.values(attackerBot.entities)
+      .filter(entity => entity?.position && entity.position.distanceTo(attackerBot.entity.position) < 8)
+      .map(entity => ({ id: entity.id, name: entity.name, displayName: entity.displayName, position: entity.position }))
+    throw new Error(`Survival boat use produced no nearby boat entity held=${attackerBot.heldItem?.name || 'none'} nearby=${JSON.stringify(nearby)}`)
+  }
 
   for (let attempt = 1; attempt <= 3 && !attackerBot.vehicle; attempt++) {
     const mounted = onceWithTimeout(attackerBot, 'mount', 2500).catch(() => null)
