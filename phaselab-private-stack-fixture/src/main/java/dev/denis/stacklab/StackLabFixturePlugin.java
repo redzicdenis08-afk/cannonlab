@@ -31,6 +31,7 @@ import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -55,6 +56,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     private static final int WEB_Y = 68;
     private static final int WEB_SUPPORT_Y = 72;
     private static final int WEB_PLACE_Y = 73;
+    private static final int FLAME_X = 41;
+    private static final int FLAME_Y = 65;
+    private static final int FLAME_Z = 0;
     private final Gson gson = new Gson();
     private Path evidencePath;
     private boolean cancelPortalMultiPlace;
@@ -97,6 +101,10 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "weblaunderrelease" -> webLaunderRelease(sender);
                     case "weblaundersnapshot" -> webLaunderSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "weblaunderbreak" -> webLaunderBreak(sender, args);
+                    case "flameprep" -> flamePrep(sender, args);
+                    case "flametrigger" -> flameTrigger(sender, args);
+                    case "flamesnapshot" -> flameSnapshot(sender, args);
+                    case "flamebreak" -> flameBreak(sender, args);
                     default -> false;
                 };
             } catch (RuntimeException exception) {
@@ -162,6 +170,148 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return true;
     }
 
+
+
+    private boolean flamePrep(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab flameprep <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        World world = requireWorld();
+        for (Item item : world.getEntitiesByClass(Item.class)) {
+            if (item.getLocation().distanceSquared(new Location(world, FLAME_X, FLAME_Y, FLAME_Z)) <= 100.0) {
+                item.remove();
+            }
+        }
+        for (int x = FLAME_X - 3; x <= FLAME_X + 2; x++) {
+            for (int y = FLAME_Y - 1; y <= FLAME_Y + 3; y++) {
+                for (int z = FLAME_Z - 2; z <= FLAME_Z + 2; z++) {
+                    world.getBlockAt(x, y, z).setType(Material.AIR, false);
+                }
+            }
+        }
+        for (int x = FLAME_X - 3; x <= FLAME_X + 2; x++) {
+            for (int z = FLAME_Z - 2; z <= FLAME_Z + 2; z++) {
+                world.getBlockAt(x, FLAME_Y - 1, z).setType(Material.STONE, false);
+            }
+        }
+        world.getBlockAt(FLAME_X, FLAME_Y, FLAME_Z).setType(Material.LAVA, false);
+        player.getInventory().clear();
+        player.setItemOnCursor(null);
+        player.getInventory().setItem(0, new ItemStack(Material.DIAMOND_PICKAXE, 1));
+        player.getInventory().setHeldItemSlot(0);
+        setAuraSkillState(player, "MINING", 50, 0.0);
+        player.teleport(new Location(world, FLAME_X - 0.5, FLAME_Y + 1.0, FLAME_Z + 0.5, -90F, 0F));
+        Map<String, Object> snapshot = flameSnapshotMap(world, player, "prep");
+        writeEvent("flamewalker_prep", snapshot);
+        sender.sendMessage("STACKLAB FLAME PREP " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private boolean flameTrigger(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab flametrigger <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        org.bukkit.plugin.Plugin plugin = Bukkit.getPluginManager().getPlugin("ExcellentEnchants");
+        if (plugin == null || !plugin.isEnabled()) throw new IllegalStateException("ExcellentEnchants is not enabled");
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("before", flameSnapshotMap(requireWorld(), player, "before-trigger"));
+        try {
+            ClassLoader loader = plugin.getClass().getClassLoader();
+            Class<?> registryClass = Class.forName(
+                "su.nightexpress.excellentenchants.enchantment.EnchantRegistry", true, loader);
+            Object enchant = registryClass.getMethod("getById", String.class).invoke(null, "flame_walker");
+            if (enchant == null) throw new IllegalStateException("Flame Walker enchant is not registered");
+            Method onMove = enchant.getClass().getMethod(
+                "onMove", PlayerMoveEvent.class, Player.class, ItemStack.class, int.class);
+            Location from = player.getLocation().clone();
+            Location to = from.clone().add(0.01, 0.0, 0.0);
+            PlayerMoveEvent moveEvent = new PlayerMoveEvent(player, from, to);
+            Object result = onMove.invoke(enchant, moveEvent, player, new ItemStack(Material.NETHERITE_BOOTS, 1), 1);
+            evidence.put("invoked", true);
+            evidence.put("result", result);
+            evidence.put("enchant_id", String.valueOf(enchant.getClass().getMethod("getId").invoke(enchant)));
+        } catch (ReflectiveOperationException exception) {
+            evidence.put("invoked", false);
+            evidence.put("error", exception.toString());
+        }
+        evidence.put("after", flameSnapshotMap(requireWorld(), player, "after-trigger"));
+        writeEvent("flamewalker_trigger", evidence);
+        sender.sendMessage("STACKLAB FLAME TRIGGER " + gson.toJson(evidence));
+        return true;
+    }
+
+    private boolean flameSnapshot(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab flamesnapshot <player> [label]");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        String label = args.length > 2 ? args[2] : "manual";
+        Map<String, Object> snapshot = flameSnapshotMap(requireWorld(), player, label);
+        writeEvent("flamewalker_snapshot", snapshot);
+        sender.sendMessage("STACKLAB FLAME SNAPSHOT " + label + " " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private boolean flameBreak(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab flamebreak <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        World world = requireWorld();
+        Block block = world.getBlockAt(FLAME_X, FLAME_Y, FLAME_Z);
+        player.getInventory().setHeldItemSlot(0);
+        Map<String, Object> before = flameSnapshotMap(world, player, "before-break");
+        boolean accepted = player.breakBlock(block);
+        Map<String, Object> immediate = flameSnapshotMap(world, player, "immediate-after-break");
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("accepted", accepted);
+        evidence.put("before", before);
+        evidence.put("immediate", immediate);
+        writeEvent("flamewalker_break", evidence);
+        sender.sendMessage("STACKLAB FLAME BREAK " + gson.toJson(evidence));
+        return true;
+    }
+
+    private Map<String, Object> flameSnapshotMap(World world, Player player, String label) {
+        Block block = world.getBlockAt(FLAME_X, FLAME_Y, FLAME_Z);
+        int droppedMagma = world.getEntitiesByClass(Item.class).stream()
+            .filter(item -> item.getLocation().distanceSquared(block.getLocation()) <= 100.0)
+            .filter(item -> item.getItemStack().getType() == Material.MAGMA_BLOCK)
+            .mapToInt(item -> item.getItemStack().getAmount()).sum();
+        int inventoryMagma = countMaterial(player, Material.MAGMA_BLOCK);
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("label", label);
+        result.put("block_type", block.getType().name());
+        result.put("block_placed", auraPlaced(block));
+        result.put("dropped_magma", droppedMagma);
+        result.put("inventory_magma", inventoryMagma);
+        result.put("total_magma", droppedMagma + inventoryMagma + (block.getType() == Material.MAGMA_BLOCK ? 1 : 0));
+        result.put("mining_level", auraSkillLevel(player, "MINING"));
+        result.put("mining_xp", auraSkillXp(player, "MINING"));
+        return result;
+    }
 
     private boolean webLaunderBuild(org.bukkit.command.CommandSender sender, String[] args) {
         if (args.length < 3) {
