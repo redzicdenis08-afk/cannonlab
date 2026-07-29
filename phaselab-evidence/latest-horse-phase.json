@@ -1,0 +1,943 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-07-29T10:06:12.821Z",
+  "host": "127.0.0.1",
+  "port": 25566,
+  "version": "1.21.11",
+  "scope": "authorized exact private Sakura/Factions stack horse vehicle phase",
+  "claimsVerified": true,
+  "trials": [
+    {
+      "id": "solid240-horse-control",
+      "run": 1,
+      "kind": "solid",
+      "thickness": 240,
+      "step": 0.25,
+      "delayMs": 0,
+      "placement": "fixture",
+      "startX": 14.87,
+      "segmentLength": 15,
+      "segmentPauseMs": 100,
+      "elapsedMs": 5292,
+      "packetCount": 974,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromX": 14.87,
+          "targetX": 29.869999999999997,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 2,
+          "fromX": 29.869999999999997,
+          "targetX": 44.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 3,
+          "fromX": 44.87,
+          "targetX": 59.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 4,
+          "fromX": 59.87,
+          "targetX": 74.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 5,
+          "fromX": 74.87,
+          "targetX": 89.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 6,
+          "fromX": 89.87,
+          "targetX": 104.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 7,
+          "fromX": 104.87,
+          "targetX": 119.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 8,
+          "fromX": 119.87,
+          "targetX": 134.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 9,
+          "fromX": 134.87,
+          "targetX": 149.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 10,
+          "fromX": 149.87,
+          "targetX": 164.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 11,
+          "fromX": 164.87,
+          "targetX": 179.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 12,
+          "fromX": 179.87,
+          "targetX": 194.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 13,
+          "fromX": 194.87,
+          "targetX": 209.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 14,
+          "fromX": 209.87,
+          "targetX": 224.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 15,
+          "fromX": 224.87,
+          "targetX": 239.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 16,
+          "fromX": 239.87,
+          "targetX": 254.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 17,
+          "fromX": 254.87,
+          "targetX": 258.35,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        }
+      ],
+      "playerBeyondMounted": true,
+      "vehicleBeyond": true,
+      "playerBeyondDismounted": false,
+      "netheriteCount": 1,
+      "mountedAfter": true,
+      "dismountError": null,
+      "correctionCount": 0,
+      "firstCorrection": null,
+      "clientPlayerPosition": {
+        "x": 14.25,
+        "y": 65,
+        "z": 0.5
+      },
+      "clientBoatPosition": {
+        "x": 261.82998046875,
+        "y": 65,
+        "z": 0.5
+      },
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "mixed64-horse-ratchet10",
+      "run": 1,
+      "kind": "mixed",
+      "thickness": 64,
+      "step": 0.25,
+      "delayMs": 0,
+      "placement": "fixture",
+      "startX": 14.87,
+      "segmentLength": 10,
+      "segmentPauseMs": 100,
+      "elapsedMs": 6730,
+      "packetCount": 270,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromX": 14.87,
+          "targetX": 24.869999999999997,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 2,
+          "fromX": 24.869999999999997,
+          "targetX": 34.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 3,
+          "fromX": 34.87,
+          "targetX": 44.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 4,
+          "fromX": 44.87,
+          "targetX": 54.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 5,
+          "fromX": 54.87,
+          "targetX": 64.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 6,
+          "fromX": 64.87,
+          "targetX": 74.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 7,
+          "fromX": 74.87,
+          "targetX": 82.35,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        }
+      ],
+      "playerBeyondMounted": false,
+      "vehicleBeyond": true,
+      "playerBeyondDismounted": false,
+      "netheriteCount": 1,
+      "mountedAfter": true,
+      "dismountError": null,
+      "correctionCount": 0,
+      "firstCorrection": null,
+      "clientPlayerPosition": {
+        "x": 14.25,
+        "y": 65,
+        "z": 0.5
+      },
+      "clientBoatPosition": {
+        "x": 89.82998046875,
+        "y": 65,
+        "z": 0.5
+      },
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "mixed64-horse-ratchet10",
+      "run": 2,
+      "kind": "mixed",
+      "thickness": 64,
+      "step": 0.25,
+      "delayMs": 0,
+      "placement": "fixture",
+      "startX": 14.87,
+      "segmentLength": 10,
+      "segmentPauseMs": 100,
+      "elapsedMs": 4220,
+      "packetCount": 270,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromX": 14.87,
+          "targetX": 24.869999999999997,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 2,
+          "fromX": 24.869999999999997,
+          "targetX": 34.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 3,
+          "fromX": 34.87,
+          "targetX": 44.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 4,
+          "fromX": 44.87,
+          "targetX": 54.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 5,
+          "fromX": 54.87,
+          "targetX": 64.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 6,
+          "fromX": 64.87,
+          "targetX": 74.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 7,
+          "fromX": 74.87,
+          "targetX": 82.35,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        }
+      ],
+      "playerBeyondMounted": true,
+      "vehicleBeyond": true,
+      "playerBeyondDismounted": false,
+      "netheriteCount": 1,
+      "mountedAfter": true,
+      "dismountError": null,
+      "correctionCount": 0,
+      "firstCorrection": null,
+      "clientPlayerPosition": {
+        "x": 14.25,
+        "y": 65,
+        "z": 0.5
+      },
+      "clientBoatPosition": {
+        "x": 82.35,
+        "y": 65,
+        "z": 0.5
+      },
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "mixed64-horse-ratchet10",
+      "run": 3,
+      "kind": "mixed",
+      "thickness": 64,
+      "step": 0.25,
+      "delayMs": 0,
+      "placement": "fixture",
+      "startX": 14.87,
+      "segmentLength": 10,
+      "segmentPauseMs": 100,
+      "elapsedMs": 4220,
+      "packetCount": 270,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromX": 14.87,
+          "targetX": 24.869999999999997,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 2,
+          "fromX": 24.869999999999997,
+          "targetX": 34.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 3,
+          "fromX": 34.87,
+          "targetX": 44.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 4,
+          "fromX": 44.87,
+          "targetX": 54.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 5,
+          "fromX": 54.87,
+          "targetX": 64.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 6,
+          "fromX": 64.87,
+          "targetX": 74.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 7,
+          "fromX": 74.87,
+          "targetX": 82.35,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        }
+      ],
+      "playerBeyondMounted": true,
+      "vehicleBeyond": true,
+      "playerBeyondDismounted": false,
+      "netheriteCount": 1,
+      "mountedAfter": true,
+      "dismountError": null,
+      "correctionCount": 0,
+      "firstCorrection": null,
+      "clientPlayerPosition": {
+        "x": 14.25,
+        "y": 65,
+        "z": 0.5
+      },
+      "clientBoatPosition": {
+        "x": 82.35,
+        "y": 65,
+        "z": 0.5
+      },
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "mixed240-horse-ratchet10",
+      "run": 1,
+      "kind": "mixed",
+      "thickness": 240,
+      "step": 0.25,
+      "delayMs": 0,
+      "placement": "fixture",
+      "startX": 14.87,
+      "segmentLength": 10,
+      "segmentPauseMs": 100,
+      "elapsedMs": 6068,
+      "packetCount": 974,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromX": 14.87,
+          "targetX": 24.869999999999997,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 2,
+          "fromX": 24.869999999999997,
+          "targetX": 34.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 3,
+          "fromX": 34.87,
+          "targetX": 44.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 4,
+          "fromX": 44.87,
+          "targetX": 54.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 5,
+          "fromX": 54.87,
+          "targetX": 64.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 6,
+          "fromX": 64.87,
+          "targetX": 74.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 7,
+          "fromX": 74.87,
+          "targetX": 84.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 8,
+          "fromX": 84.87,
+          "targetX": 94.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 9,
+          "fromX": 94.87,
+          "targetX": 104.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 10,
+          "fromX": 104.87,
+          "targetX": 114.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 11,
+          "fromX": 114.87,
+          "targetX": 124.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 12,
+          "fromX": 124.87,
+          "targetX": 134.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 13,
+          "fromX": 134.87,
+          "targetX": 144.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 14,
+          "fromX": 144.87,
+          "targetX": 154.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 15,
+          "fromX": 154.87,
+          "targetX": 164.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 16,
+          "fromX": 164.87,
+          "targetX": 174.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 17,
+          "fromX": 174.87,
+          "targetX": 184.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 18,
+          "fromX": 184.87,
+          "targetX": 194.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 19,
+          "fromX": 194.87,
+          "targetX": 204.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 20,
+          "fromX": 204.87,
+          "targetX": 214.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 21,
+          "fromX": 214.87,
+          "targetX": 224.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 22,
+          "fromX": 224.87,
+          "targetX": 234.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 23,
+          "fromX": 234.87,
+          "targetX": 244.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 24,
+          "fromX": 244.87,
+          "targetX": 254.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 25,
+          "fromX": 254.87,
+          "targetX": 258.35,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        }
+      ],
+      "playerBeyondMounted": false,
+      "vehicleBeyond": true,
+      "playerBeyondDismounted": true,
+      "netheriteCount": 1,
+      "mountedAfter": true,
+      "dismountError": null,
+      "correctionCount": 0,
+      "firstCorrection": null,
+      "clientPlayerPosition": {
+        "x": 14.25,
+        "y": 65,
+        "z": 0.5
+      },
+      "clientBoatPosition": {
+        "x": 261.82998046875,
+        "y": 65,
+        "z": 0.5
+      },
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "mixed240-horse-ratchet10",
+      "run": 2,
+      "kind": "mixed",
+      "thickness": 240,
+      "step": 0.25,
+      "delayMs": 0,
+      "placement": "fixture",
+      "startX": 14.87,
+      "segmentLength": 10,
+      "segmentPauseMs": 100,
+      "elapsedMs": 3573,
+      "packetCount": 974,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromX": 14.87,
+          "targetX": 24.869999999999997,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 2,
+          "fromX": 24.869999999999997,
+          "targetX": 34.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 3,
+          "fromX": 34.87,
+          "targetX": 44.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 4,
+          "fromX": 44.87,
+          "targetX": 54.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 5,
+          "fromX": 54.87,
+          "targetX": 64.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 6,
+          "fromX": 64.87,
+          "targetX": 74.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 7,
+          "fromX": 74.87,
+          "targetX": 84.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 8,
+          "fromX": 84.87,
+          "targetX": 94.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 9,
+          "fromX": 94.87,
+          "targetX": 104.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 10,
+          "fromX": 104.87,
+          "targetX": 114.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 11,
+          "fromX": 114.87,
+          "targetX": 124.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 12,
+          "fromX": 124.87,
+          "targetX": 134.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 13,
+          "fromX": 134.87,
+          "targetX": 144.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 14,
+          "fromX": 144.87,
+          "targetX": 154.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 15,
+          "fromX": 154.87,
+          "targetX": 164.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 16,
+          "fromX": 164.87,
+          "targetX": 174.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 17,
+          "fromX": 174.87,
+          "targetX": 184.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 18,
+          "fromX": 184.87,
+          "targetX": 194.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 19,
+          "fromX": 194.87,
+          "targetX": 204.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 20,
+          "fromX": 204.87,
+          "targetX": 214.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 21,
+          "fromX": 214.87,
+          "targetX": 224.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 22,
+          "fromX": 224.87,
+          "targetX": 234.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 23,
+          "fromX": 234.87,
+          "targetX": 244.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 24,
+          "fromX": 244.87,
+          "targetX": 254.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 25,
+          "fromX": 254.87,
+          "targetX": 258.35,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        }
+      ],
+      "playerBeyondMounted": true,
+      "vehicleBeyond": true,
+      "playerBeyondDismounted": true,
+      "netheriteCount": 1,
+      "mountedAfter": true,
+      "dismountError": null,
+      "correctionCount": 0,
+      "firstCorrection": null,
+      "clientPlayerPosition": {
+        "x": 258.35,
+        "y": 65,
+        "z": 0.5
+      },
+      "clientBoatPosition": {
+        "x": 261.82998046875,
+        "y": 65,
+        "z": 0.5
+      },
+      "serverAuthoritativeSuccess": true
+    }
+  ],
+  "fatal": null,
+  "finishedAt": "2026-07-29T10:07:42.269Z",
+  "successCount": 1,
+  "totalCount": 6,
+  "byFamily": {
+    "solid240-horse-control": {
+      "successes": 0,
+      "attempts": 1
+    },
+    "mixed64-horse-ratchet10": {
+      "successes": 0,
+      "attempts": 3
+    },
+    "mixed240-horse-ratchet10": {
+      "successes": 1,
+      "attempts": 2
+    }
+  }
+}
