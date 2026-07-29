@@ -93,6 +93,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "alchemyfinal" -> alchemyFinal(sender);
                     case "chestmerge" -> chestMerge(sender, args);
                     case "auramana" -> auraMana(sender, args);
+                    case "aurastop" -> auraStop(sender, args);
                     case "tick" -> tick(sender, args);
                     case "cancelportal" -> cancelPortal(sender, args);
                     default -> false;
@@ -180,6 +181,46 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         }
         writeEvent("aura_mana_set", evidence);
         sender.sendMessage("STACKLAB AURA MANA " + gson.toJson(evidence));
+        return true;
+    }
+
+    private boolean auraStop(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("Usage: /stacklab aurastop <player> <ability>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        String abilityName = args[2].toUpperCase();
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("ability", abilityName);
+        try {
+            Object aura = Bukkit.getPluginManager().getPlugin("AuraSkills");
+            if (aura == null) throw new IllegalStateException("AuraSkills not loaded");
+            Object user = aura.getClass().getMethod("getUser", Player.class).invoke(aura, player);
+            Class<? extends Enum> abilitiesClass = Class.forName("dev.aurelium.auraskills.api.mana.ManaAbilities").asSubclass(Enum.class);
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Object ability = Enum.valueOf(abilitiesClass, abilityName);
+            Class<?> manaAbilityClass = Class.forName("dev.aurelium.auraskills.api.mana.ManaAbility");
+            Object data = user.getClass().getMethod("getManaAbilityData", manaAbilityClass).invoke(user, ability);
+            Class<?> dataClass = Class.forName("dev.aurelium.auraskills.common.mana.ManaAbilityData");
+            evidence.put("was_activated", dataClass.getMethod("isActivated").invoke(data));
+            evidence.put("was_ready", dataClass.getMethod("isReady").invoke(data));
+            evidence.put("was_cooldown", dataClass.getMethod("getCooldown").invoke(data));
+            dataClass.getMethod("setActivated", boolean.class).invoke(data, false);
+            dataClass.getMethod("setReady", boolean.class).invoke(data, false);
+            dataClass.getMethod("setCooldown", int.class).invoke(data, 0);
+            evidence.put("ok", true);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            evidence.put("ok", false);
+            evidence.put("error", exception.toString());
+        }
+        writeEvent("aura_ability_reset", evidence);
+        sender.sendMessage("STACKLAB AURA STOP " + gson.toJson(evidence));
         return true;
     }
 
