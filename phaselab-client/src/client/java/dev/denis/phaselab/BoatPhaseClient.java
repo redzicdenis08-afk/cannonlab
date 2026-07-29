@@ -10,6 +10,7 @@ import net.minecraft.client.player.LocalPlayer;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.InteractionHand;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
@@ -36,6 +37,8 @@ public final class BoatPhaseClient implements ClientModInitializer {
     private static final double BOAT_SEGMENT_LENGTH = 19.0D;
     private static final double HORSE_SEGMENT_LENGTH = 10.0D;
     private static final int SEGMENT_PAUSE_TICKS = 2;
+    private static final int REMOUNT_GRACE_TICKS = 100;
+    private static final int AUTO_REMOUNT_INTERVAL_TICKS = 5;
     private static final double MAX_DISTANCE = 512.0D;
 
     private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
@@ -58,6 +61,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
     private static int segmentsCompleted;
     private static int pauseTicksRemaining;
     private static int packetsPerSegment;
+    private static int remountWaitTicks;
     private static double segmentLength;
     private static String vehicleLabel;
     private static BufferedWriter logWriter;
@@ -99,7 +103,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
 
         if (!readyMessageShown) {
             readyMessageShown = true;
-            message(player, "Loaded. Mount a boat or horse, look where you want to go, press P. Press O to abort.");
+            message(player, "Loaded. Mount a boat or horse, face the base, press P. Natural drop + smart remount enabled.");
         }
 
         while (toggleKey.consumeClick()) {
@@ -121,12 +125,30 @@ public final class BoatPhaseClient implements ClientModInitializer {
 
         Entity vehicle = controlledVehicle(player);
         if (vehicle == null) {
-            stop(player, "You are no longer controlling a vehicle.", true);
+            if (activeVehicle != null && !activeVehicle.isRemoved() && remountWaitTicks < REMOUNT_GRACE_TICKS) {
+                remountWaitTicks++;
+                if (client.gameMode != null
+                    && player.distanceToSqr(activeVehicle) <= 64.0D
+                    && remountWaitTicks % AUTO_REMOUNT_INTERVAL_TICKS == 1) {
+                    client.gameMode.interact(player, activeVehicle, InteractionHand.MAIN_HAND);
+                }
+                actionbar(player, String.format(Locale.ROOT,
+                    "Remounting %s... %d/%d | O abort",
+                    vehicleLabel,
+                    remountWaitTicks,
+                    REMOUNT_GRACE_TICKS
+                ));
+                activeTicks++;
+                return;
+            }
+            stop(player, "Vehicle was lost or moved out of remount range.", true);
             return;
         }
 
+        activeVehicle = vehicle;
+        remountWaitTicks = 0;
+
         if (pauseTicksRemaining > 0) {
-            holdHeight(player, vehicle);
             pauseTicksRemaining--;
             activeTicks++;
             return;
@@ -148,16 +170,8 @@ public final class BoatPhaseClient implements ClientModInitializer {
 
         log("SEGMENT_START", player, vehicle.position());
         for (int packetIndex = 0; packetIndex < packetsThisSegment; packetIndex++) {
-            Vec3 current = vehicle.position();
-            Vec3 next = new Vec3(
-                current.x + direction.x * STEP,
-                lockedY,
-                current.z + direction.z * STEP
-            );
+            Vec3 next = vehicle.position().add(direction.scale(STEP));
             vehicle.noPhysics = true;
-            vehicle.setNoGravity(true);
-            vehicle.setDeltaMovement(Vec3.ZERO);
-            player.setDeltaMovement(Vec3.ZERO);
             vehicle.setPos(next.x, next.y, next.z);
             player.setPos(next.x, next.y, next.z);
             player.connection.send(new ServerboundMoveVehiclePacket(
@@ -218,27 +232,15 @@ public final class BoatPhaseClient implements ClientModInitializer {
         originalVehicleNoGravity = vehicle.isNoGravity();
         lockedY = vehicle.getY();
         activeVehicle = vehicle;
+        remountWaitTicks = 0;
         vehicle.noPhysics = true;
-        vehicle.setNoGravity(true);
-        vehicle.setDeltaMovement(Vec3.ZERO);
-        player.setDeltaMovement(Vec3.ZERO);
         openLog();
         log("START", player, vehicle.position());
         message(player, String.format(Locale.ROOT,
-            "%s started toward %s. Nearest cardinal locked. P stops; O aborts.",
+            "%s started toward %s. Natural 4.2 physics + smart remount. P stops; O aborts.",
             vehicleLabel,
             directionLabel(direction)
         ));
-    }
-
-    private static void holdHeight(LocalPlayer player, Entity vehicle) {
-        Vec3 current = vehicle.position();
-        vehicle.noPhysics = true;
-        vehicle.setNoGravity(true);
-        vehicle.setDeltaMovement(Vec3.ZERO);
-        player.setDeltaMovement(Vec3.ZERO);
-        vehicle.setPos(current.x, lockedY, current.z);
-        player.setPos(current.x, lockedY, current.z);
     }
 
     private static String directionLabel(Vec3 vector) {
@@ -294,6 +296,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
         activeTicks = 0;
         segmentsCompleted = 0;
         pauseTicksRemaining = 0;
+        remountWaitTicks = 0;
         activeVehicle = null;
         closeLog();
     }
