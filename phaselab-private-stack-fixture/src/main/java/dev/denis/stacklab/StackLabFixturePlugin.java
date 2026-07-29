@@ -9,6 +9,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.block.BrewingStand;
 import org.bukkit.block.Chest;
 import org.bukkit.block.Hopper;
@@ -159,10 +160,16 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         // Border-storage fixture. The victim half sits in chunk X=1 while
         // the attacker can legally place the adjacent half in chunk X=0.
         Block victimChestBlock = set(world, 16, Y, 14, Material.CHEST);
+        if (victimChestBlock.getBlockData() instanceof Directional directional) {
+            directional.setFacing(BlockFace.WEST);
+            victimChestBlock.setBlockData(directional, false);
+        }
         Chest victimChest = (Chest) victimChestBlock.getState();
         victimChest.getInventory().clear();
         victimChest.getInventory().setItem(0, new ItemStack(Material.NETHERITE_BLOCK, 27));
         world.getBlockAt(15, Y, 14).setType(Material.AIR, false);
+        Block borderHopperBlock = set(world, 15, Y - 1, 14, Material.HOPPER);
+        ((Hopper) borderHopperBlock.getState()).getInventory().clear();
 
         writeEvent("arena_build", snapshotMap(world, "build"));
         sender.sendMessage("STACKLAB BUILD OK boundary=15/16 y=" + Y);
@@ -512,6 +519,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         result.put("border_attacker_chest_type", type(world, 15, Y, 14));
         result.put("border_victim_chest_type", type(world, 16, Y, 14));
         result.put("border_victim_netherite_count", inventoryCount(world.getBlockAt(16, Y, 14), Material.NETHERITE_BLOCK));
+        result.put("border_hopper_netherite_count", inventoryCount(world.getBlockAt(15, Y - 1, 14), Material.NETHERITE_BLOCK));
+        result.put("border_attacker_chest_data", world.getBlockAt(15, Y, 14).getBlockData().getAsString());
+        result.put("border_victim_chest_data", world.getBlockAt(16, Y, 14).getBlockData().getAsString());
 
         Player attacker = Bukkit.getPlayerExact("AttackerBot");
         if (attacker != null) {
