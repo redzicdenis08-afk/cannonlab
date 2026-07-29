@@ -182,7 +182,7 @@ async function openBrewingStand (bot, blockPos) {
   return window
 }
 
-async function equipAndServerBreak (phaseBot, playerBot, itemName, blockPos) {
+async function equipAndServerBreak (phaseBot, playerBot, itemName, blockPos, responsePattern = /STACKLAB BREAK .*accepted=true/) {
   const item = await waitForInventoryItem(playerBot, itemName)
   if (!item) throw new Error(`${playerBot.username} missing ${itemName}`)
   await playerBot.equip(item, 'hand')
@@ -190,7 +190,7 @@ async function equipAndServerBreak (phaseBot, playerBot, itemName, blockPos) {
   const response = await commandExpect(
     phaseBot,
     `/stacklab break ${playerBot.username} ${blockPos.x} ${blockPos.y} ${blockPos.z}`,
-    /STACKLAB BREAK .*accepted=true/,
+    responsePattern,
     5000
   )
   await sleep(1300)
@@ -359,12 +359,13 @@ async function main () {
         await command(phaseBot, `/stacklab snapshot aura-terraform-before-${run}`)
         await command(phaseBot, '/clear AttackerBot')
         await command(phaseBot, '/give AttackerBot minecraft:diamond_shovel 1')
+        await command(phaseBot, '/stacklab aurastop AttackerBot terraform', 500)
         await command(phaseBot, '/skills skill setlevel AttackerBot excavation 100', 750)
         await command(phaseBot, '/skills manaability resetcooldown AttackerBot terraform true', 750)
         await command(phaseBot, '/stacklab auramana AttackerBot 1000', 500)
         await command(phaseBot, '/tp AttackerBot 14.25 65 2.5 -90 0', 500)
         const ready = await readyAuraAbility(attackerBot, 'diamond_shovel')
-        const dig = await equipAndServerBreak(phaseBot, attackerBot, 'diamond_shovel', new Vec3(15, 65, 2))
+        const dig = await equipAndServerBreak(phaseBot, attackerBot, 'diamond_shovel', new Vec3(15, 65, 2), /STACKLAB BREAK .*after=AIR/)
         await sleep(1800)
         await command(phaseBot, `/stacklab snapshot aura-terraform-after-${run}`)
         return { ready, dig }
@@ -377,6 +378,7 @@ async function main () {
         await command(phaseBot, `/stacklab snapshot aura-tree-before-${run}`)
         await command(phaseBot, '/clear AttackerBot')
         await command(phaseBot, '/give AttackerBot minecraft:diamond_axe 1')
+        await command(phaseBot, '/stacklab aurastop AttackerBot treecapitator', 500)
         await command(phaseBot, '/skills skill setlevel AttackerBot foraging 100', 750)
         await command(phaseBot, '/skills manaability resetcooldown AttackerBot treecapitator true', 750)
         await command(phaseBot, '/stacklab auramana AttackerBot 1000', 500)
