@@ -28,6 +28,7 @@ import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.RegisteredListener;
@@ -55,6 +56,8 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     private boolean cancelPortalMultiPlace;
     private boolean cancelTreecapSecondary;
     private int treecapCancelledEvents;
+    private boolean cancelEnchantedAppleConsume;
+    private int enchantedAppleCancelledEvents;
 
     @Override
     public void onEnable() {
@@ -90,6 +93,8 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "treecapbuild" -> treecapBuild(sender, args);
                     case "treecapinvoke" -> treecapInvoke(sender, args);
                     case "treecapsnapshot" -> treecapSnapshot(sender, args.length > 1 ? args[1] : "manual");
+                    case "rewardprep" -> rewardPrep(sender, args);
+                    case "rewardsnapshot" -> rewardSnapshot(sender, args);
                     default -> false;
                 };
             } catch (RuntimeException exception) {
@@ -155,6 +160,67 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return true;
     }
 
+
+    private boolean rewardPrep(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab rewardprep <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        player.closeInventory();
+        player.getInventory().clear();
+        player.setItemOnCursor(null);
+        player.getInventory().setItem(0, new ItemStack(Material.ENCHANTED_GOLDEN_APPLE, 1));
+        player.getInventory().setHeldItemSlot(0);
+        player.setFoodLevel(20);
+        player.setSaturation(20F);
+        setAuraSkillState(player, "ALCHEMY", 50, 0.0);
+        cancelEnchantedAppleConsume = true;
+        enchantedAppleCancelledEvents = 0;
+        Map<String, Object> snapshot = rewardSnapshotMap(player, "prep");
+        writeEvent("reward_timing_prep", snapshot);
+        sender.sendMessage("STACKLAB REWARD PREP " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private boolean rewardSnapshot(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab rewardsnapshot <player> [label]");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        String label = args.length > 2 ? args[2] : "manual";
+        Map<String, Object> snapshot = rewardSnapshotMap(player, label);
+        writeEvent("reward_timing_snapshot", snapshot);
+        sender.sendMessage("STACKLAB REWARD SNAPSHOT " + label + " " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private Map<String, Object> rewardSnapshotMap(Player player, String label) {
+        int apples = player.getInventory().all(Material.ENCHANTED_GOLDEN_APPLE).values().stream()
+            .mapToInt(ItemStack::getAmount).sum();
+        if (player.getItemOnCursor().getType() == Material.ENCHANTED_GOLDEN_APPLE) {
+            apples += player.getItemOnCursor().getAmount();
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("label", label);
+        result.put("player", player.getName());
+        result.put("enchanted_apples", apples);
+        result.put("alchemy_level", auraSkillLevel(player, "ALCHEMY"));
+        result.put("alchemy_xp", auraSkillXp(player, "ALCHEMY"));
+        result.put("late_cancel_enabled", cancelEnchantedAppleConsume);
+        result.put("cancelled_consume_events", enchantedAppleCancelledEvents);
+        result.put("food_level", player.getFoodLevel());
+        return result;
+    }
 
     private boolean treecapBuild(org.bukkit.command.CommandSender sender, String[] args) {
         if (args.length < 2) {
@@ -827,6 +893,21 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         ));
     }
 
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onLateEnchantedAppleCancel(PlayerItemConsumeEvent event) {
+        if (!cancelEnchantedAppleConsume) return;
+        if (event.getItem().getType() != Material.ENCHANTED_GOLDEN_APPLE) return;
+        event.setCancelled(true);
+        enchantedAppleCancelledEvents++;
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", event.getPlayer().getName());
+        evidence.put("cancelled", event.isCancelled());
+        evidence.put("item", event.getItem().getType().name());
+        evidence.put("cancelled_consume_events", enchantedAppleCancelledEvents);
+        evidence.put("alchemy_xp_at_cancel", auraSkillXp(event.getPlayer(), "ALCHEMY"));
+        writeEvent("reward_timing_late_consume_cancel", evidence);
+    }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onTreecapProtectedBreak(BlockBreakEvent event) {
