@@ -110,12 +110,26 @@ def main() -> int:
     assert finding["status"] == "confirmed", finding
     assert finding["evidence"]["xp_gain"] == 50.0, finding
 
+    wind_rows = [
+        {"type": "wind_snapshot", "label": "wind-after-open-standing-1", "x": 15.8, "fully_beyond": True, "solid_intersections": 0},
+        {"type": "wind_snapshot", "label": "wind-after-solid1-standing-1", "x": 15.8, "fully_beyond": False, "solid_intersections": 0},
+    ]
+    finding = evaluator.wind_phase(wind_rows)
+    assert finding["status"] == "rejected", finding
+
+    wind_rows.append(
+        {"type": "wind_snapshot", "label": "wind-after-solid1-swimming-8", "x": 17.6, "fully_beyond": True, "solid_intersections": 0}
+    )
+    finding = evaluator.wind_phase(wind_rows)
+    assert finding["status"] == "confirmed", finding
+    assert len(finding["evidence"]["confirmed_crossings"]) == 1, finding
+
     with tempfile.TemporaryDirectory() as temporary:
         path = Path(temporary) / "evidence.jsonl"
         path.write_text("\n".join(json.dumps(row) for row in confirmed_rows()) + "\n", encoding="utf-8")
         assert len(evaluator.read_rows(path)) == 9
 
-    print("Private-stack evidence evaluator regressions passed: 6")
+    print("Private-stack evidence evaluator regressions passed: 8")
     return 0
 
 

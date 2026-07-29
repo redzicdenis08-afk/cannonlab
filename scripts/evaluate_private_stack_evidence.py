@@ -207,6 +207,40 @@ def hopper(rows):
     return result("observed_low_impact" if moved else "rejected", "Cross-claim hopper transfer", before=before, after=after, move_events=[e for e in events if e.get("type") == "inventory_move"])
 
 
+def wind_phase(rows):
+    trials = []
+    for row in rows:
+        if row.get("type") != "wind_snapshot" or not str(row.get("label", "")).startswith("wind-after-"):
+            continue
+        label = str(row["label"])[len("wind-after-"):]
+        parts = label.rsplit("-", 2)
+        if len(parts) != 3:
+            continue
+        geometry, pose, pulses_raw = parts
+        trials.append({
+            "geometry": geometry,
+            "pose": pose,
+            "pulses": int(pulses_raw),
+            "x": row.get("x"),
+            "fully_beyond": row.get("fully_beyond") is True,
+            "solid_intersections": int(row.get("solid_intersections", 0)),
+            "server_snapshot": row,
+        })
+
+    open_controls = [t for t in trials if t["geometry"] == "open"]
+    wall_trials = [t for t in trials if t["geometry"] != "open"]
+    valid_controls = [t for t in open_controls if t["fully_beyond"] and t["solid_intersections"] == 0]
+    crossings = [t for t in wall_trials if t["fully_beyond"] and t["solid_intersections"] == 0]
+    status = "confirmed" if crossings else "rejected" if trials and valid_controls and not crossings else "inconclusive"
+    return result(
+        status,
+        "Wind-charge server displacement phased a player fully through protected wall geometry",
+        trials=trials,
+        valid_open_controls=len(valid_controls),
+        confirmed_crossings=crossings,
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("evidence", type=Path)
@@ -233,6 +267,7 @@ def main() -> int:
             "excellentenchants_treefeller": simple(rows, "tree-before", "tree-after", "tree_target_1", "AIR", "ExcellentEnchants Treefeller crossed enemy claim") if claims_ok else blocked("ExcellentEnchants Treefeller crossed enemy claim"),
             "excellentenchants_tunnel": simple(rows, "tunnel-before", "tunnel-after", "tunnel_target", "AIR", "ExcellentEnchants Tunnel crossed enemy claim") if claims_ok else blocked("ExcellentEnchants Tunnel crossed enemy claim"),
             "excellentenchants_blast": simple(rows, "blast-before", "blast-after", "tunnel_target", "AIR", "ExcellentEnchants Blast Mining crossed enemy claim") if claims_ok else blocked("ExcellentEnchants Blast Mining crossed enemy claim"),
+            "wind_charge_pose_phase": wind_phase(rows) if claims_ok else blocked("Wind-charge server displacement phased a player fully through protected wall geometry"),
             "factions_piston": simple(rows, "piston-before", "piston-after", "piston_payload_target", "DIAMOND_BLOCK", "Piston moved block into enemy claim") if claims_ok else blocked("Piston moved block into enemy claim"),
             "factions_hopper": hopper(rows) if claims_ok else blocked("Cross-claim hopper transfer"),
         },

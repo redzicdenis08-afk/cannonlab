@@ -17,6 +17,7 @@ import org.bukkit.block.data.type.EndPortalFrame;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.WindCharge;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -35,6 +36,8 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionType;
+import org.bukkit.util.BoundingBox;
+import org.bukkit.util.Vector;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -84,6 +87,10 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
                     case "alchemyfinal" -> alchemyFinal(sender);
+                    case "windbuild" -> windBuild(sender, args);
+                    case "windreset" -> windReset(sender, args);
+                    case "windburst" -> windBurst(sender, args);
+                    case "windsnapshot" -> windSnapshot(sender, args);
                     case "tick" -> tick(sender, args);
                     case "cancelportal" -> cancelPortal(sender, args);
                     default -> false;
@@ -426,6 +433,152 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         meta.setBasePotionType(type);
         item.setItemMeta(meta);
         return item;
+    }
+
+    private boolean windBuild(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab windbuild <open|solid1|mixed3>");
+            return true;
+        }
+        String geometry = args[1].toLowerCase();
+        World world = requireWorld();
+        clearWindArena(world);
+
+        if (geometry.equals("solid1")) {
+            for (int y = Y; y <= Y + 2; y++) {
+                for (int z = 29; z <= 31; z++) set(world, 16, y, z, Material.OBSIDIAN);
+            }
+        } else if (geometry.equals("mixed3")) {
+            for (int y = Y; y <= Y + 2; y++) {
+                for (int z = 29; z <= 31; z++) {
+                    set(world, 16, y, z, Material.OBSIDIAN);
+                    set(world, 17, y, z, Material.WATER);
+                    set(world, 18, y, z, Material.OBSIDIAN);
+                }
+            }
+        } else if (!geometry.equals("open")) {
+            sender.sendMessage("Unknown wind geometry: " + geometry);
+            return true;
+        }
+
+        writeEvent("wind_build", Map.of("geometry", geometry));
+        sender.sendMessage("STACKLAB WIND BUILD geometry=" + geometry);
+        return true;
+    }
+
+    private boolean windReset(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("Usage: /stacklab windreset <player> <standing|sneaking|swimming>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        String pose = args[2].toLowerCase();
+        player.leaveVehicle();
+        player.setVelocity(new Vector(0, 0, 0));
+        player.setGliding(false);
+        player.setSwimming(false);
+        player.setSneaking(false);
+        player.teleport(new Location(requireWorld(), 15.20, Y, 30.50, -90.0F, 0.0F));
+        if (pose.equals("sneaking")) player.setSneaking(true);
+        else if (pose.equals("swimming")) player.setSwimming(true);
+        else if (!pose.equals("standing")) {
+            sender.sendMessage("Unknown wind pose: " + pose);
+            return true;
+        }
+        writeEvent("wind_reset", windSnapshotMap(player, "reset", 0.0));
+        sender.sendMessage("STACKLAB WIND RESET player=" + player.getName() + " pose=" + pose);
+        return true;
+    }
+
+    private boolean windBurst(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("Usage: /stacklab windburst <player> <count>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        int count = Math.max(1, Math.min(Integer.parseInt(args[2]), 8));
+        for (int i = 0; i < count; i++) {
+            int delay = i * 4;
+            Bukkit.getScheduler().runTaskLater(this, () -> {
+                Location origin = new Location(requireWorld(), 14.25, Y + 0.75, 30.50);
+                WindCharge charge = requireWorld().spawn(origin, WindCharge.class, entity -> {
+                    entity.setShooter(player);
+                    entity.setVelocity(new Vector(0, 0, 0));
+                });
+                charge.explode();
+            }, delay);
+        }
+        writeEvent("wind_burst", Map.of("player", player.getName(), "count", count));
+        sender.sendMessage("STACKLAB WIND BURST player=" + player.getName() + " count=" + count);
+        return true;
+    }
+
+    private boolean windSnapshot(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 4) {
+            sender.sendMessage("Usage: /stacklab windsnapshot <player> <label> <targetX>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        Map<String, Object> snapshot = windSnapshotMap(player, args[2], Double.parseDouble(args[3]));
+        writeEvent("wind_snapshot", snapshot);
+        sender.sendMessage("STACKLAB WIND SNAPSHOT " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private Map<String, Object> windSnapshotMap(Player player, String label, double targetX) {
+        Location location = player.getLocation();
+        BoundingBox box = player.getBoundingBox();
+        int solidIntersections = 0;
+        for (int x = (int) Math.floor(box.getMinX()); x <= (int) Math.floor(box.getMaxX()); x++) {
+            for (int y = (int) Math.floor(box.getMinY()); y <= (int) Math.floor(box.getMaxY()); y++) {
+                for (int z = (int) Math.floor(box.getMinZ()); z <= (int) Math.floor(box.getMaxZ()); z++) {
+                    if (requireWorld().getBlockAt(x, y, z).getType().isSolid()) solidIntersections++;
+                }
+            }
+        }
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("label", label);
+        result.put("player", player.getName());
+        result.put("x", location.getX());
+        result.put("y", location.getY());
+        result.put("z", location.getZ());
+        result.put("velocity_x", player.getVelocity().getX());
+        result.put("velocity_y", player.getVelocity().getY());
+        result.put("velocity_z", player.getVelocity().getZ());
+        result.put("sneaking", player.isSneaking());
+        result.put("swimming", player.isSwimming());
+        result.put("gliding", player.isGliding());
+        result.put("vehicle", player.getVehicle() == null ? "NONE" : player.getVehicle().getType().name());
+        result.put("solid_intersections", solidIntersections);
+        result.put("target_x", targetX);
+        result.put("fully_beyond", targetX > 0.0 && box.getMinX() >= targetX);
+        return result;
+    }
+
+    private void clearWindArena(World world) {
+        for (int x = 12; x <= 21; x++) {
+            for (int y = Y - 1; y <= Y + 4; y++) {
+                for (int z = 27; z <= 33; z++) world.getBlockAt(x, y, z).setType(Material.AIR, false);
+            }
+        }
+        for (int x = 12; x <= 21; x++) {
+            for (int z = 27; z <= 33; z++) world.getBlockAt(x, Y - 1, z).setType(Material.BEDROCK, false);
+        }
+        world.getEntitiesByClass(WindCharge.class).stream()
+            .filter(entity -> entity.getLocation().getZ() >= 27 && entity.getLocation().getZ() <= 33)
+            .forEach(WindCharge::remove);
     }
 
     private Map<String, Object> snapshotMap(World world, String label) {

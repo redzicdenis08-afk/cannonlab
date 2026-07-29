@@ -264,6 +264,28 @@ async function main () {
       return { victim: victimBot.entity.position, attacker: attackerBot.entity.position, witness }
     })
 
+    for (const geometry of ['open', 'solid1', 'mixed3']) {
+      for (const pose of ['standing', 'sneaking', 'swimming']) {
+        for (const pulses of [1, 2, 4, 8]) {
+          await phase(`wind_phase_${geometry}_${pose}_${pulses}`, async () => {
+            const targetX = geometry === 'open' ? 15.45 : geometry === 'solid1' ? 17.30 : 19.30
+            await command(phaseBot, `/stacklab windbuild ${geometry}`, 400)
+            await command(phaseBot, `/stacklab windreset AttackerBot ${pose}`, 400)
+            await command(phaseBot, `/stacklab windsnapshot AttackerBot wind-before-${geometry}-${pose}-${pulses} ${targetX}`, 250)
+            await command(phaseBot, `/stacklab windburst AttackerBot ${pulses}`, 250)
+            await sleep(1400 + pulses * 200)
+            const snapshot = await commandExpect(
+              phaseBot,
+              `/stacklab windsnapshot AttackerBot wind-after-${geometry}-${pose}-${pulses} ${targetX}`,
+              /STACKLAB WIND SNAPSHOT /,
+              5000
+            )
+            return { geometry, pose, pulses, targetX, snapshot }
+          })
+        }
+      }
+    }
+
     await phase('auraskills_excellentenchants_infinite_grindstone_xp', async () => {
       await command(phaseBot, '/stacklab build', 650)
       await command(phaseBot, '/clear AttackerBot')
