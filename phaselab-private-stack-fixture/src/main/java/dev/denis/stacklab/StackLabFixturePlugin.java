@@ -84,6 +84,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "portalsnapshot" -> portalSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "claimsnapshot" -> claimSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "give" -> give(sender, args);
+                    case "boatuse" -> boatUse(sender, args);
                     case "grindstoneprep" -> grindstonePrep(sender, args);
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
@@ -428,6 +429,74 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         player.getInventory().setItemInMainHand(item);
         writeEvent("give", Map.of("player", player.getName(), "material", material.name(), "enchant", key.toString(), "level", level));
         sender.sendMessage("STACKLAB GIVE OK player=" + player.getName() + " enchant=" + key + " level=" + level);
+        return true;
+    }
+
+
+    private boolean boatUse(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab boatuse <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("STACKLAB BOAT USE player=" + args[1] + " accepted=false reason=offline");
+            return true;
+        }
+
+        World world = player.getWorld();
+        player.getInventory().setItemInMainHand(new ItemStack(Material.OAK_BOAT, 1));
+        long before = world.getEntities().stream()
+            .filter(entity -> entity.getType().name().contains("BOAT"))
+            .count();
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("before_boats", before);
+        evidence.put("player_x", player.getLocation().getX());
+        evidence.put("player_y", player.getLocation().getY());
+        evidence.put("player_z", player.getLocation().getZ());
+        evidence.put("yaw", player.getLocation().getYaw());
+        evidence.put("pitch", player.getLocation().getPitch());
+        try {
+            Object serverPlayer = player.getClass().getMethod("getHandle").invoke(player);
+            Class<?> handClass = Class.forName("net.minecraft.world.InteractionHand");
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Object mainHand = Enum.valueOf((Class<? extends Enum>) handClass, "MAIN_HAND");
+            Object nmsStack = serverPlayer.getClass().getMethod("getItemInHand", handClass).invoke(serverPlayer, mainHand);
+            Object item = nmsStack.getClass().getMethod("getItem").invoke(nmsStack);
+            Object level = serverPlayer.getClass().getMethod("level").invoke(serverPlayer);
+            Class<?> levelClass = Class.forName("net.minecraft.world.level.Level");
+            Class<?> nmsPlayerClass = Class.forName("net.minecraft.world.entity.player.Player");
+            Method use = item.getClass().getMethod("use", levelClass, nmsPlayerClass, handClass);
+            Object result = use.invoke(item, level, serverPlayer, mainHand);
+            evidence.put("invoked", true);
+            evidence.put("result", String.valueOf(result));
+        } catch (ReflectiveOperationException exception) {
+            evidence.put("invoked", false);
+            evidence.put("error", exception.toString());
+        }
+
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            var nearby = world.getEntities().stream()
+                .filter(entity -> entity.getType().name().contains("BOAT"))
+                .filter(entity -> entity.getLocation().distanceSquared(player.getLocation()) <= 64.0)
+                .map(entity -> Map.of(
+                    "uuid", entity.getUniqueId().toString(),
+                    "type", entity.getType().name(),
+                    "x", entity.getLocation().getX(),
+                    "y", entity.getLocation().getY(),
+                    "z", entity.getLocation().getZ()
+                ))
+                .toList();
+            evidence.put("after_boats", world.getEntities().stream()
+                .filter(entity -> entity.getType().name().contains("BOAT"))
+                .count());
+            evidence.put("nearby", nearby);
+            evidence.put("held_after", itemSummary(player.getInventory().getItemInMainHand()));
+            evidence.put("accepted", !nearby.isEmpty());
+            writeEvent("server_boat_item_use", evidence);
+            sender.sendMessage("STACKLAB BOAT USE " + gson.toJson(evidence));
+        }, 2L);
         return true;
     }
 

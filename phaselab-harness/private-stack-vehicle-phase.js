@@ -235,25 +235,22 @@ async function waitForPlacedBoat (bot, beforeIds, timeoutMs = 5000) {
 }
 
 async function survivalPlaceAndMount (phaseBot, attackerBot) {
-  await command(phaseBot, '/give AttackerBot minecraft:oak_boat 1', 350)
-  const item = await waitForInventoryItem(attackerBot, 'oak_boat')
-  if (!item) throw new Error('AttackerBot did not receive oak boat')
-  await attackerBot.equip(item, 'hand')
-  await sleep(150)
-
-  const ground = attackerBot.blockAt(new Vec3(15, 64, 0))
-  if (!ground) throw new Error('Boat placement ground is unloaded')
+  await command(phaseBot, `/tp AttackerBot 14.25 ${Y} ${Z} -90 45`, 350)
   const beforeIds = new Set(Object.keys(attackerBot.entities).map(Number))
-  await attackerBot.lookAt(ground.position.offset(0.5, 1.0, 0.5), true)
-  attackerBot.activateItem()
-  await sleep(150)
-  attackerBot.deactivateItem()
-  const boat = await waitForPlacedBoat(attackerBot, beforeIds)
+  const response = await commandExpect(
+    phaseBot,
+    '/stacklab boatuse AttackerBot',
+    /STACKLAB BOAT USE .*"accepted":true/,
+    8000
+  )
+  record('server_boat_item_response', { response })
+
+  const boat = await waitForPlacedBoat(attackerBot, beforeIds, 8000)
   if (!boat) {
     const nearby = Object.values(attackerBot.entities)
       .filter(entity => entity?.position && entity.position.distanceTo(attackerBot.entity.position) < 8)
       .map(entity => ({ id: entity.id, name: entity.name, displayName: entity.displayName, position: entity.position }))
-    throw new Error(`Survival boat use produced no nearby boat entity held=${attackerBot.heldItem?.name || 'none'} nearby=${JSON.stringify(nearby)}`)
+    throw new Error(`Server BoatItem.use succeeded but client saw no nearby boat nearby=${JSON.stringify(nearby)}`)
   }
 
   for (let attempt = 1; attempt <= 3 && !attackerBot.vehicle; attempt++) {
@@ -263,8 +260,10 @@ async function survivalPlaceAndMount (phaseBot, attackerBot) {
     await mounted
     await sleep(150)
   }
-  if (!attackerBot.vehicle) throw new Error('Normal right-click failed to mount survival-placed boat')
+  if (!attackerBot.vehicle) throw new Error('Normal right-click failed to mount player-placed boat')
   record('survival_boat_ready', {
+    placement: 'nms_boat_item_use',
+    mount: 'normal_right_click',
     boatId: attackerBot.vehicle.id,
     boatPosition: attackerBot.vehicle.position,
     playerPosition: attackerBot.entity.position
