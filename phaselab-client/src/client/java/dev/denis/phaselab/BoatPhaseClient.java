@@ -200,12 +200,13 @@ public final class BoatPhaseClient implements ClientModInitializer {
         packetsPerSegment = (int) Math.round(segmentLength / STEP);
         vehicleLabel = horse ? "Horse" : "Boat";
 
-        double radians = Math.toRadians(player.getYRot());
-        direction = new Vec3(-Math.sin(radians), 0.0D, Math.cos(radians)).normalize();
-        if (!Double.isFinite(direction.x) || !Double.isFinite(direction.z)) {
-            message(player, "Could not calculate a horizontal direction.");
-            return;
-        }
+        int cardinal = Math.floorMod((int) Math.round(player.getYRot() / 90.0D), 4);
+        direction = switch (cardinal) {
+            case 0 -> new Vec3(0.0D, 0.0D, 1.0D);   // South
+            case 1 -> new Vec3(-1.0D, 0.0D, 0.0D);  // West
+            case 2 -> new Vec3(0.0D, 0.0D, -1.0D);  // North
+            default -> new Vec3(1.0D, 0.0D, 0.0D);  // East
+        };
 
         active = true;
         travelled = 0.0D;
@@ -224,7 +225,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
         openLog();
         log("START", player, vehicle.position());
         message(player, String.format(Locale.ROOT,
-            "%s started toward %s. Direction locked. P stops; O aborts.",
+            "%s started toward %s. Nearest cardinal locked. P stops; O aborts.",
             vehicleLabel,
             directionLabel(direction)
         ));

@@ -1,4 +1,4 @@
-# PhaseLab Client 4.3
+# PhaseLab Client 4.4
 
 Client-only Fabric 1.21.11 position laboratory for servers you own or are explicitly authorized to test.
 
@@ -31,11 +31,11 @@ The controls are registered under the **PhaseLab** category and can be rebound n
 ## One-button vehicle mode
 
 1. Mount and control a normal boat or a tamed saddled horse.
-2. Look horizontally in the direction you want to travel.
-3. Press `P` once. The direction and starting height are locked immediately.
+2. Look roughly north, south, east, or west in the direction you want to travel.
+3. Press `P` once. The nearest cardinal direction and starting height are locked immediately.
 4. Press `P` again to stop, or `O` to emergency stop.
 
-Boat mode automatically uses 19-block bursts. Horse mode automatically uses 10-block bursts. Both use 0.25-block packet steps and 100 ms pauses. Horse mode still needs normal survival precautions such as Fire Resistance for lava courses.
+Boat mode automatically uses 19-block bursts. Horse mode automatically uses 10-block bursts. Both use 0.25-block packet steps and 100 ms pauses. Cardinal snapping is deliberate: exact testing passed north, south, east, and west 16/16, while diagonals were less reliable. Horse mode still needs normal survival precautions such as Fire Resistance for lava courses.
 
 ## Witness test rig
 
