@@ -17,10 +17,14 @@ on:
       - 'scenarios/perfectone-live.yml'
       - 'scenarios/perfectone-v2-watered.yml'
       - 'cannons/basic-cannon-c36.schem.b64'
-      - 'scenarios/c36-r55.yml'
-      - 'scenarios/c36-r65.yml'
-      - 'scenarios/c36-r72.yml'
-      - 'scenarios/c36-r80.yml'
+      - 'cannons/dual-cannon-c12.schem.b64'
+      - 'scenarios/dual-c12.yml'
+      - 'cannons/dual-cannon-c24.schem.b64'
+      - 'scenarios/dual-c24.yml'
+      - 'cannons/dual-cannon-c36.schem.b64'
+      - 'scenarios/dual-c36.yml'
+      - 'cannons/basic-cannon-c36.schem.b64'
+      - 'scenarios/line-c36.yml'
       - '.github/workflows/perfectone-live.yml'
 
 concurrency:
@@ -44,18 +48,18 @@ jobs:
           - scenario: perfectone-v2-watered.yml
             fixture: perfectone-v2-watered
             tag: perfectone-v2-watered
-          - scenario: c36-r55.yml
+          - scenario: dual-c12.yml
+            fixture: dual-cannon-c12
+            tag: dual-c12
+          - scenario: dual-c24.yml
+            fixture: dual-cannon-c24
+            tag: dual-c24
+          - scenario: dual-c36.yml
+            fixture: dual-cannon-c36
+            tag: dual-c36
+          - scenario: line-c36.yml
             fixture: basic-cannon-c36
-            tag: c36-r55
-          - scenario: c36-r65.yml
-            fixture: basic-cannon-c36
-            tag: c36-r65
-          - scenario: c36-r72.yml
-            fixture: basic-cannon-c36
-            tag: c36-r72
-          - scenario: c36-r80.yml
-            fixture: basic-cannon-c36
-            tag: c36-r80
+            tag: line-c36
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -1,9 +1,10 @@
-name: c36-r65
-# c36 measured 71.5 blocks forward with zero self-damage and 625/625 integrity
-# in run 30431649268, but the 40-block target was overshot. This brackets the
-# range to find where the payload actually lands.
+name: dual-c12
+# Charges beside the payload instead of further behind it. The line design
+# saturated at 15.5 blocks because charges past ~12 fall outside the blast
+# radius. Target at 30 so an improvement over 15.5 is visible and a hit is
+# possible.
 cannon:
-  file: basic-cannon-c36.schem
+  file: dual-cannon-c12.schem
   origin: {x: 0, y: 0, z: 0}
   fire-mode: redstone
   fire-input: {x: 0, y: 2, z: 0}
@@ -13,7 +14,7 @@ limits:
 target:
   type: dry
   direction: east
-  distance: 65
+  distance: 30
   width: 15
   height: 15
   y-offset: 0
