@@ -203,8 +203,8 @@ async function setupFactions (phaseBot, victimBot, attackerBot) {
   for (const [chunkX, chunkZ] of armChunks) {
     const x = chunkX * 16 + 8.5
     const z = chunkZ * 16 + 8.5
-    await command(phaseBot, `/tp VictimBot ${x} 65 ${z}`, 90)
-    await command(victimBot, '/f claim', 220)
+    await command(phaseBot, `/tp VictimBot ${x} 65 ${z}`, 220)
+    await command(victimBot, '/f claim', 380)
   }
 
   const response = await commandExpect(
