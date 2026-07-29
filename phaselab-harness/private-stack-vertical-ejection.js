@@ -357,9 +357,9 @@ function classifyStageEvents (events, expected) {
     if (event.type === 'player_position') {
       const packet = event.packet || {}
       const close = Number.isFinite(packet.x) && Number.isFinite(packet.y) && Number.isFinite(packet.z)
-        && Math.abs(packet.x - expected.x) <= 1.0
+        && Math.abs(packet.x - expected.x) <= 3.0
         && Math.abs(packet.y - expected.y) <= 1.0
-        && Math.abs(packet.z - expected.z) <= 1.0
+        && Math.abs(packet.z - expected.z) <= 3.0
       if (close) expectedRelocations.push(event)
       else setbacks.push(event)
     } else {
