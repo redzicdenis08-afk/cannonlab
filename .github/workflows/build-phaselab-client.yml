@@ -91,7 +91,7 @@ jobs:
           javap -classpath "$JAR" -p dev.denis.phaselab.BoatPhaseClient | tee boat-phase-javap.txt
           grep -F 'BOAT_SEGMENT_LENGTH' boat-phase-javap.txt
           grep -F 'HORSE_SEGMENT_LENGTH' boat-phase-javap.txt
-                    grep -F 'SEGMENT_PAUSE_TICKS' boat-phase-javap.txt
+          grep -F 'SETTLE_TICKS' boat-phase-javap.txt
 
       - name: Publish compact client verdict
         if: success() && github.event_name == 'push'
