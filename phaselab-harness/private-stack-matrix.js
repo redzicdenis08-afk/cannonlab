@@ -9,6 +9,7 @@ const HOST = process.env.PHASELAB_HOST || '127.0.0.1'
 const PORT = Number(process.env.PHASELAB_PORT || 25566)
 const OUTPUT_DIR = path.resolve(process.env.PHASELAB_OUTPUT || 'output-private-stack')
 const VERSION = '1.21.11'
+const ONLY_GRINDSTONE = process.env.PHASELAB_ONLY_GRINDSTONE === 'true'
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 fs.mkdirSync(OUTPUT_DIR, { recursive: true })
@@ -228,7 +229,7 @@ async function main () {
     await command(phaseBot, '/effect give VictimBot minecraft:resistance infinite 255 true')
     await command(phaseBot, '/effect give AttackerBot minecraft:resistance infinite 255 true')
 
-    await phase('factions_setup', async () => {
+    if (!ONLY_GRINDSTONE) await phase('factions_setup', async () => {
       await command(phaseBot, '/stacklab build', 700)
       await command(phaseBot, '/stacklab portalbuild', 700)
       await command(phaseBot, '/tp VictimBot 17.5 65 0.5')
@@ -254,6 +255,13 @@ async function main () {
       return { victim: victimBot.entity.position, attacker: attackerBot.entity.position, witness }
     })
 
+    if (ONLY_GRINDSTONE) {
+      await phase('grindstone_guard_setup', async () => {
+        await command(phaseBot, '/stacklab build', 700)
+        return { isolated: true }
+      })
+    }
+
     await phase('auraskills_excellentenchants_infinite_grindstone_xp', async () => {
       await command(phaseBot, '/stacklab build', 650)
       await command(phaseBot, '/clear AttackerBot')
@@ -273,6 +281,8 @@ async function main () {
       try { window.close() } catch {}
       return { clicks }
     })
+
+    if (ONLY_GRINDSTONE) return
 
     if (attackerBot.currentWindow) {
       try { attackerBot.closeWindow(attackerBot.currentWindow) } catch {}

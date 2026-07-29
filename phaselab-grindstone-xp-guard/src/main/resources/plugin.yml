@@ -1,0 +1,6 @@
+name: PhaseLabGrindstoneXpGuard
+version: ${version}
+main: dev.denis.phaselab.guard.GrindstoneXpGuardPlugin
+api-version: '1.21'
+authors: [Denis]
+description: Blocks ExcellentEnchants cursed grindstone transactions before AuraSkills can award repeatable XP.
