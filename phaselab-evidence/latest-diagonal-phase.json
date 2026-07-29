@@ -1,0 +1,43 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-07-29T13:52:21.972Z",
+  "host": "127.0.0.1",
+  "port": 25566,
+  "version": "1.21.11",
+  "scope": "authorized exact private Sakura/Factions four-diagonal vehicle phase",
+  "claimsVerified": false,
+  "trials": [],
+  "fatal": "Error: Diagonal claim witness failed: {\"label\":\"northeast_near\",\"chunk_x\":1,\"chunk_z\":-1,\"tag\":\"Wilderness\",\"wilderness\":true,\"verified\":true}\n    at setupFactions (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:248:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async main (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-diagonal-phase.js:603:5)",
+  "finishedAt": "2026-07-29T13:53:45.555Z",
+  "successCount": 0,
+  "totalCount": 0,
+  "byFamily": {},
+  "byVehicle": {
+    "boat": {
+      "successes": 0,
+      "attempts": 0
+    },
+    "horse": {
+      "successes": 0,
+      "attempts": 0
+    }
+  },
+  "byDirection": {
+    "northeast": {
+      "successes": 0,
+      "attempts": 0
+    },
+    "northwest": {
+      "successes": 0,
+      "attempts": 0
+    },
+    "southeast": {
+      "successes": 0,
+      "attempts": 0
+    },
+    "southwest": {
+      "successes": 0,
+      "attempts": 0
+    }
+  }
+}
