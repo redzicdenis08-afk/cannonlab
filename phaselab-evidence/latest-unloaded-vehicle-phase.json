@@ -1,0 +1,411 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-07-29T09:51:06.104Z",
+  "host": "127.0.0.1",
+  "port": 25566,
+  "version": "1.21.11",
+  "scope": "authorized exact private Sakura/Factions stack",
+  "claimsVerified": true,
+  "trials": [
+    {
+      "id": "solid240-survival-unloaded-ratchet15",
+      "run": 1,
+      "kind": "solid",
+      "thickness": 240,
+      "step": 0.25,
+      "delayMs": 0,
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Route did not unload chunks 6..16 evidence={\"min_x\":3,\"max_x\":16,\"z\":0,\"unloaded_count\":0,\"chunks\":[{\"x\":3,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":4,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":5,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":6,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":7,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":8,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":9,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":10,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":11,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":12,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":13,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":14,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":15,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":16,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true}]}\n    at runTrial (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vehicle-phase.js:417:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async main (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vehicle-phase.js:511:11)"
+    },
+    {
+      "id": "solid240-survival-unloaded-ratchet15",
+      "run": 2,
+      "kind": "solid",
+      "thickness": 240,
+      "step": 0.25,
+      "delayMs": 0,
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Route did not unload chunks 6..16 evidence={\"min_x\":3,\"max_x\":16,\"z\":0,\"unloaded_count\":0,\"chunks\":[{\"x\":3,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":4,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":5,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":6,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":7,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":8,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":9,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":10,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":11,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":12,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":13,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":14,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":15,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":16,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true}]}\n    at runTrial (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vehicle-phase.js:417:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async main (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vehicle-phase.js:511:11)"
+    },
+    {
+      "id": "solid240-survival-unloaded-ratchet15",
+      "run": 3,
+      "kind": "solid",
+      "thickness": 240,
+      "step": 0.25,
+      "delayMs": 0,
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Route did not unload chunks 6..16 evidence={\"min_x\":3,\"max_x\":16,\"z\":0,\"unloaded_count\":0,\"chunks\":[{\"x\":3,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":4,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":5,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":6,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":7,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":8,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":9,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":10,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":11,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":12,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":13,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":14,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":15,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":16,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true}]}\n    at runTrial (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vehicle-phase.js:417:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async main (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vehicle-phase.js:511:11)"
+    },
+    {
+      "id": "layered240-survival-unloaded-ratchet15",
+      "run": 1,
+      "kind": "layered",
+      "thickness": 240,
+      "step": 0.25,
+      "delayMs": 0,
+      "placement": "survival",
+      "unloadRoute": true,
+      "unloadResponse": "STACKLAB UNLOAD ROUTE {\"min_x\":3,\"max_x\":16,\"z\":0,\"unloaded_count\":0,\"chunks\":[{\"x\":3,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":4,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":5,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":6,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":7,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":8,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":9,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":10,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":11,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":12,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":13,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":14,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":15,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":16,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false}]}",
+      "startX": 14.870000004768372,
+      "segmentLength": 15,
+      "segmentPauseMs": 100,
+      "elapsedMs": 2768,
+      "packetCount": 974,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromX": 14.870000004768372,
+          "targetX": 29.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 2,
+          "fromX": 29.87000000476837,
+          "targetX": 44.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 3,
+          "fromX": 44.87000000476837,
+          "targetX": 59.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 4,
+          "fromX": 59.87000000476837,
+          "targetX": 74.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 5,
+          "fromX": 74.87000000476837,
+          "targetX": 89.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 6,
+          "fromX": 89.87000000476837,
+          "targetX": 104.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 7,
+          "fromX": 104.87000000476837,
+          "targetX": 119.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 8,
+          "fromX": 119.87000000476837,
+          "targetX": 134.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 9,
+          "fromX": 134.87000000476837,
+          "targetX": 149.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 10,
+          "fromX": 149.87000000476837,
+          "targetX": 164.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 11,
+          "fromX": 164.87000000476837,
+          "targetX": 179.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 12,
+          "fromX": 179.87000000476837,
+          "targetX": 194.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 13,
+          "fromX": 194.87000000476837,
+          "targetX": 209.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 14,
+          "fromX": 209.87000000476837,
+          "targetX": 224.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 15,
+          "fromX": 224.87000000476837,
+          "targetX": 239.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 16,
+          "fromX": 239.87000000476837,
+          "targetX": 254.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 17,
+          "fromX": 254.87000000476837,
+          "targetX": 258.35,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        }
+      ],
+      "playerBeyondMounted": true,
+      "boatBeyond": true,
+      "playerBeyondDismounted": true,
+      "netheriteCount": 1,
+      "mountedAfter": true,
+      "dismountError": null,
+      "correctionCount": 0,
+      "firstCorrection": null,
+      "clientPlayerPosition": {
+        "x": 258.35,
+        "y": 65,
+        "z": 0.5
+      },
+      "clientBoatPosition": {
+        "x": 258.35,
+        "y": 65,
+        "z": 0.5
+      },
+      "serverAuthoritativeSuccess": true
+    },
+    {
+      "id": "layered240-survival-unloaded-ratchet15",
+      "run": 2,
+      "kind": "layered",
+      "thickness": 240,
+      "step": 0.25,
+      "delayMs": 0,
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Route did not unload chunks 6..16 evidence={\"min_x\":3,\"max_x\":16,\"z\":0,\"unloaded_count\":0,\"chunks\":[{\"x\":3,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":4,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":5,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":6,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":7,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":8,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":9,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":10,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":11,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":12,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":13,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":14,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":15,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":16,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true}]}\n    at runTrial (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vehicle-phase.js:417:13)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async main (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vehicle-phase.js:511:11)"
+    },
+    {
+      "id": "layered240-survival-unloaded-ratchet15",
+      "run": 3,
+      "kind": "layered",
+      "thickness": 240,
+      "step": 0.25,
+      "delayMs": 0,
+      "placement": "survival",
+      "unloadRoute": true,
+      "unloadResponse": "STACKLAB UNLOAD ROUTE {\"min_x\":3,\"max_x\":16,\"z\":0,\"unloaded_count\":0,\"chunks\":[{\"x\":3,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":4,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":5,\"unload_return\":false,\"z\":0,\"loaded_after\":true,\"loaded_before\":true},{\"x\":6,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":7,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":8,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":9,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":10,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":11,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":12,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":13,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":14,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":15,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false},{\"x\":16,\"unload_return\":false,\"z\":0,\"loaded_after\":false,\"loaded_before\":false}]}",
+      "startX": 14.870000004768372,
+      "segmentLength": 15,
+      "segmentPauseMs": 100,
+      "elapsedMs": 2763,
+      "packetCount": 974,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromX": 14.870000004768372,
+          "targetX": 29.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 2,
+          "fromX": 29.87000000476837,
+          "targetX": 44.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 3,
+          "fromX": 44.87000000476837,
+          "targetX": 59.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 4,
+          "fromX": 59.87000000476837,
+          "targetX": 74.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 5,
+          "fromX": 74.87000000476837,
+          "targetX": 89.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 6,
+          "fromX": 89.87000000476837,
+          "targetX": 104.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 7,
+          "fromX": 104.87000000476837,
+          "targetX": 119.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 8,
+          "fromX": 119.87000000476837,
+          "targetX": 134.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 9,
+          "fromX": 134.87000000476837,
+          "targetX": 149.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 10,
+          "fromX": 149.87000000476837,
+          "targetX": 164.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 11,
+          "fromX": 164.87000000476837,
+          "targetX": 179.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 12,
+          "fromX": 179.87000000476837,
+          "targetX": 194.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 13,
+          "fromX": 194.87000000476837,
+          "targetX": 209.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 14,
+          "fromX": 209.87000000476837,
+          "targetX": 224.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 15,
+          "fromX": 224.87000000476837,
+          "targetX": 239.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 16,
+          "fromX": 239.87000000476837,
+          "targetX": 254.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 17,
+          "fromX": 254.87000000476837,
+          "targetX": 258.35,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        }
+      ],
+      "playerBeyondMounted": true,
+      "boatBeyond": true,
+      "playerBeyondDismounted": true,
+      "netheriteCount": 2,
+      "mountedAfter": true,
+      "dismountError": null,
+      "correctionCount": 0,
+      "firstCorrection": null,
+      "clientPlayerPosition": {
+        "x": 258.35,
+        "y": 65,
+        "z": 0.5
+      },
+      "clientBoatPosition": {
+        "x": 258.35,
+        "y": 65,
+        "z": 0.5
+      },
+      "serverAuthoritativeSuccess": true
+    }
+  ],
+  "fatal": null,
+  "finishedAt": "2026-07-29T09:52:18.348Z",
+  "successCount": 2,
+  "totalCount": 6,
+  "byFamily": {
+    "solid240-survival-unloaded-ratchet15": {
+      "successes": 0,
+      "attempts": 3
+    },
+    "layered240-survival-unloaded-ratchet15": {
+      "successes": 2,
+      "attempts": 3
+    }
+  }
+}
