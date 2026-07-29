@@ -91,6 +91,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "portalsnapshot" -> portalSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "claimsnapshot" -> claimSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "directionclaimsnapshot" -> directionClaimSnapshot(sender, args.length > 1 ? args[1] : "manual");
+                    case "factionboost" -> factionBoost(sender, args);
                     case "give" -> give(sender, args);
                     case "boatuse" -> boatUse(sender, args);
                     case "boatinteract" -> boatInteract(sender, args);
@@ -423,6 +424,34 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         }
         writeEvent("direction_claim_witness", witness);
         sender.sendMessage("STACKLAB DIRECTION CLAIM WITNESS " + gson.toJson(witness));
+        return true;
+    }
+
+    private boolean factionBoost(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("Usage: /stacklab factionboost <faction-tag> <value>");
+            return true;
+        }
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("tag", args[1]);
+        try {
+            double value = Double.parseDouble(args[2]);
+            Class<?> factionsClass = Class.forName("dev.kitteh.factions.Factions");
+            Object factions = factionsClass.getMethod("factions").invoke(null);
+            Object faction = factionsClass.getMethod("get", String.class).invoke(factions, args[1]);
+            if (faction == null) throw new IllegalStateException("Faction not found: " + args[1]);
+            Method powerBoostGetter = faction.getClass().getMethod("powerBoost");
+            Method powerBoostSetter = faction.getClass().getMethod("powerBoost", double.class);
+            powerBoostSetter.invoke(faction, value);
+            evidence.put("requested", value);
+            evidence.put("actual", ((Number) powerBoostGetter.invoke(faction)).doubleValue());
+            evidence.put("verified", true);
+        } catch (NumberFormatException | ReflectiveOperationException | IllegalStateException exception) {
+            evidence.put("verified", false);
+            evidence.put("error", exception.toString());
+        }
+        writeEvent("faction_power_boost", evidence);
+        sender.sendMessage("STACKLAB FACTION BOOST " + gson.toJson(evidence));
         return true;
     }
 
