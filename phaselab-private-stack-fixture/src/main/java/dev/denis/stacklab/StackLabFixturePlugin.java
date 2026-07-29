@@ -535,13 +535,21 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             Class<?> handClass = Class.forName("net.minecraft.world.InteractionHand");
             @SuppressWarnings({"unchecked", "rawtypes"})
             Object mainHand = Enum.valueOf((Class<? extends Enum>) handClass, "MAIN_HAND");
-            Class<?> nmsPlayerClass = Class.forName("net.minecraft.world.entity.player.Player");
             Class<?> vec3Class = Class.forName("net.minecraft.world.phys.Vec3");
             Object hitVector = serverBoat.getClass().getMethod("position").invoke(serverBoat);
-            Method interact = serverBoat.getClass().getMethod("interact", nmsPlayerClass, handClass, vec3Class);
-            Object result = interact.invoke(serverBoat, serverPlayer, mainHand, hitVector);
+            int entityId = (Integer) serverBoat.getClass().getMethod("getId").invoke(serverBoat);
+
+            Class<?> packetClass = Class.forName("net.minecraft.network.protocol.game.ServerboundInteractPacket");
+            Constructor<?> packetConstructor = packetClass.getConstructor(int.class, handClass, vec3Class, boolean.class);
+            Object packet = packetConstructor.newInstance(entityId, mainHand, hitVector, false);
+
+            Object connection = serverPlayer.getClass().getField("connection").get(serverPlayer);
+            Method handleInteract = connection.getClass().getMethod("handleInteract", packetClass);
+            handleInteract.invoke(connection, packet);
             evidence.put("invoked", true);
-            evidence.put("result", String.valueOf(result));
+            evidence.put("path", "ServerboundInteractPacket->handleInteract");
+            evidence.put("entity_id", entityId);
+            evidence.put("result", "handled");
         } catch (ReflectiveOperationException | IllegalStateException exception) {
             evidence.put("invoked", false);
             evidence.put("error", exception.toString());
