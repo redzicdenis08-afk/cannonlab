@@ -15,6 +15,9 @@ import org.bukkit.block.Hopper;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.EndPortalFrame;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.AbstractHorse;
+import org.bukkit.entity.EntityType;
+import org.bukkit.entity.Horse;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -37,6 +40,8 @@ import org.bukkit.event.vehicle.VehicleEnterEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.bukkit.potion.PotionType;
 
 import java.io.BufferedWriter;
@@ -88,6 +93,8 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "give" -> give(sender, args);
                     case "boatuse" -> boatUse(sender, args);
                     case "boatinteract" -> boatInteract(sender, args);
+                    case "horseprep" -> horsePrep(sender, args);
+                    case "vehicleinteract" -> vehicleInteract(sender, args);
                     case "vehiclecheck" -> vehicleCheck(sender, args);
                     case "grindstoneprep" -> grindstonePrep(sender, args);
                     case "break" -> breakBlock(sender, args);
@@ -505,6 +512,91 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     }
 
 
+
+    private boolean horsePrep(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab horseprep <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("STACKLAB HORSE PREP player=" + args[1] + " accepted=false reason=offline");
+            return true;
+        }
+        World world = player.getWorld();
+        world.getEntitiesByClass(Horse.class).forEach(Horse::remove);
+        Location location = new Location(world, 14.87, Y, 0.5, -90.0F, 0.0F);
+        Horse horse = (Horse) world.spawnEntity(location, EntityType.HORSE);
+        horse.setTamed(true);
+        horse.setOwner(player);
+        horse.getInventory().setSaddle(new ItemStack(Material.SADDLE));
+        horse.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, PotionEffect.INFINITE_DURATION, 0, false, false));
+        horse.setAdult();
+        horse.setHealth(horse.getMaxHealth());
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("horse_uuid", horse.getUniqueId().toString());
+        evidence.put("type", horse.getType().name());
+        evidence.put("x", horse.getLocation().getX());
+        evidence.put("y", horse.getLocation().getY());
+        evidence.put("z", horse.getLocation().getZ());
+        evidence.put("tamed", horse.isTamed());
+        evidence.put("saddled", horse.getInventory().getSaddle() != null);
+        evidence.put("fire_resistance", horse.hasPotionEffect(PotionEffectType.FIRE_RESISTANCE));
+        writeEvent("server_horse_prep", evidence);
+        sender.sendMessage("STACKLAB HORSE PREP " + gson.toJson(evidence));
+        return true;
+    }
+
+    private boolean vehicleInteract(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("Usage: /stacklab vehicleinteract <player> <entity-type>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        String requestedType = args[2].toUpperCase(java.util.Locale.ROOT);
+        if (player == null) {
+            sender.sendMessage("STACKLAB VEHICLE INTERACT player=" + args[1] + " mounted=false reason=offline");
+            return true;
+        }
+        var target = player.getWorld().getEntities().stream()
+            .filter(entity -> entity.getType().name().equals(requestedType))
+            .min(java.util.Comparator.comparingDouble(entity -> entity.getLocation().distanceSquared(player.getLocation())))
+            .orElse(null);
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("requested_type", requestedType);
+        evidence.put("target_found", target != null);
+        evidence.put("distance_squared", target == null ? -1.0 : target.getLocation().distanceSquared(player.getLocation()));
+        try {
+            if (target == null) throw new IllegalStateException("No nearby requested vehicle");
+            Object serverPlayer = player.getClass().getMethod("getHandle").invoke(player);
+            Object serverTarget = target.getClass().getMethod("getHandle").invoke(target);
+            Class<?> handClass = Class.forName("net.minecraft.world.InteractionHand");
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Object mainHand = Enum.valueOf((Class<? extends Enum>) handClass, "MAIN_HAND");
+            Class<?> vec3Class = Class.forName("net.minecraft.world.phys.Vec3");
+            Object hitVector = serverTarget.getClass().getMethod("position").invoke(serverTarget);
+            int entityId = (Integer) serverTarget.getClass().getMethod("getId").invoke(serverTarget);
+            Class<?> packetClass = Class.forName("net.minecraft.network.protocol.game.ServerboundInteractPacket");
+            Constructor<?> packetConstructor = packetClass.getConstructor(int.class, handClass, vec3Class, boolean.class);
+            Object packet = packetConstructor.newInstance(entityId, mainHand, hitVector, false);
+            Object connection = serverPlayer.getClass().getField("connection").get(serverPlayer);
+            Method handleInteract = connection.getClass().getMethod("handleInteract", packetClass);
+            handleInteract.invoke(connection, packet);
+            evidence.put("invoked", true);
+            evidence.put("path", "ServerboundInteractPacket->handleInteract");
+            evidence.put("entity_id", entityId);
+        } catch (ReflectiveOperationException | IllegalStateException exception) {
+            evidence.put("invoked", false);
+            evidence.put("error", exception.toString());
+        }
+        evidence.put("mounted", player.getVehicle() != null);
+        evidence.put("vehicle_type", player.getVehicle() == null ? "NONE" : player.getVehicle().getType().name());
+        writeEvent("server_vehicle_interact", evidence);
+        sender.sendMessage("STACKLAB VEHICLE INTERACT " + gson.toJson(evidence));
+        return true;
+    }
 
     private boolean boatInteract(org.bukkit.command.CommandSender sender, String[] args) {
         if (args.length < 2) {
