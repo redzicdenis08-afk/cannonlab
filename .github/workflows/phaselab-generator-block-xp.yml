@@ -5,6 +5,7 @@ on:
     branches:
       - research/phaselab-generator-block-xp
       - research/phaselab-generator-item-dupe
+      - research/phaselab-generator-item-dupe-realistic
     paths:
       - 'phaselab-private-stack-fixture/**'
       - 'phaselab-harness/generator-block-xp.js'
@@ -263,7 +264,7 @@ jobs:
           print(summary)
           generated_outputs = ','.join(str(c.get('after', {}).get('total_debris')) for c in generated.get('cycles', []))
           control_outputs = ','.join(str(c.get('after', {}).get('total_debris')) for c in control.get('cycles', []))
-          print('::notice title=GeneratorItemResult::confirmed=' + str(result.get('confirmed')) + '; generated_outputs=' + generated_outputs + '; control_outputs=' + control_outputs + '; generated_debris_gain=' + str(generated.get('totalDebrisGain')) + '; fatal=' + str(result.get('fatal')))
+          print('::notice title=GeneratorRealisticResult::confirmed=' + str(result.get('confirmed')) + '; generated_outputs=' + generated_outputs + '; control_outputs=' + control_outputs + '; generated_debris_gain=' + str(generated.get('totalDebrisGain')) + '; fatal=' + str(result.get('fatal')))
           if result.get('fatal') or not result.get('confirmed'):
               raise SystemExit(1)
           PY

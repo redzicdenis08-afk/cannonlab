@@ -232,8 +232,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         player.getInventory().setItem(0, new ItemStack(Material.DIAMOND_PICKAXE, 1));
         if (!generated) player.getInventory().setItem(1, new ItemStack(Material.ANCIENT_DEBRIS, 1));
         player.getInventory().setHeldItemSlot(generated ? 0 : 1);
-        setAuraSkillState(player, "MINING", 50, 0.0);
-        setAuraTraitModifier(player, "MINING_LUCK", 500.0);
+        setAuraSkillState(player, "MINING", 100, 0.0);
         Block target = world.getBlockAt(GENERATOR_X, GENERATOR_Y, GENERATOR_Z);
         target.setType(generated ? Material.ANCIENT_DEBRIS : Material.AIR, false);
         player.teleport(new Location(world, GENERATOR_X - 1.5, GENERATOR_Y, GENERATOR_Z + 0.5, -90F, 0F));

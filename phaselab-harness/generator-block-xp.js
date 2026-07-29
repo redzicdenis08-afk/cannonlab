@@ -105,8 +105,8 @@ async function runCycle (phaseBot, mode, cycle) {
   const result = {
     cycle, reset, placement, before, breakEvidence, after, xpGain, debrisGain,
     markerExpected: mode === 'generated' ? before.block_placed === false : before.block_placed === true,
-    exploited: mode === 'generated' && before.block_type === 'ANCIENT_DEBRIS' && before.block_placed === false && Number(before.mining_luck) >= 500 && breakEvidence.accepted === true && xpGain > 0 && Number(after.total_debris) >= 6 && debrisGain >= 5,
-    controlled: mode === 'control' && before.block_type === 'ANCIENT_DEBRIS' && before.block_placed === true && Number(before.mining_luck) >= 500 && breakEvidence.accepted === true && xpGain === 0 && Number(after.total_debris) === 1 && debrisGain === 0
+    exploited: mode === 'generated' && before.block_type === 'ANCIENT_DEBRIS' && before.block_placed === false && Number(before.mining_luck) >= 100 && Number(before.mining_luck) < 200 && breakEvidence.accepted === true && xpGain > 0 && Number(after.total_debris) >= 2 && debrisGain >= 1,
+    controlled: mode === 'control' && before.block_type === 'ANCIENT_DEBRIS' && before.block_placed === true && Number(before.mining_luck) >= 100 && Number(before.mining_luck) < 200 && breakEvidence.accepted === true && xpGain === 0 && Number(after.total_debris) === 1 && debrisGain === 0
   }
   record('cycle_result', { mode, ...result })
   return result
