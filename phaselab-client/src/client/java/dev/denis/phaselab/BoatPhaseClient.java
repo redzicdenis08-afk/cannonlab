@@ -180,6 +180,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
             travelled,
             sentPackets
         ));
+    }
 
     private static void start(LocalPlayer player) {
         Entity vehicle = controlledVehicle(player);
