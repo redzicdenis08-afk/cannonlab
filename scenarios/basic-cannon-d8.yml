@@ -1,0 +1,37 @@
+name: basic-cannon-d8
+# Minimal from-scratch cannon: 6 charges detonating in water, payload one block
+# above the barrel cap, fired 8 redstone ticks (16 game ticks) later so it still
+# has fuse remaining when the charges go off.
+#
+# Sweeping the payload lag is the whole point of this variant set. Gates stay
+# loose: the question is whether anything travels forward at all.
+cannon:
+  file: basic-cannon-d8.schem
+  origin:
+    x: 0
+    y: 0
+    z: 0
+  fire-mode: redstone
+  fire-input:
+    x: 0
+    y: 1
+    z: 0
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: false
+target:
+  type: dry
+  direction: east
+  distance: 26
+  width: 7
+  height: 7
+  y-offset: 2
+  lateral-offset: 0
+  layers: 1
+  spacing: 3
+run:
+  shots: 3
+  warmup-ticks: 60
+  max-shot-ticks: 220
+  quiet-ticks: 140
+  shutdown-when-finished: true
