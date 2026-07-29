@@ -649,7 +649,8 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             return true;
         }
         Map<String, Object> before = nimbleSnapshotMap(victim, killer, "before-kill");
-        victim.damage(1000.0, killer);
+        victim.setKiller(killer);
+        victim.setHealth(0.0);
         Map<String, Object> immediate = nimbleSnapshotMap(victim, killer, "immediate-after-kill");
         Map<String, Object> evidence = new LinkedHashMap<>();
         evidence.put("accepted", victim.isDead());
