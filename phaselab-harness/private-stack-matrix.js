@@ -288,7 +288,7 @@ async function main () {
       await command(phaseBot, '/stacklab build', 650)
       await command(phaseBot, '/clear AttackerBot')
       await command(phaseBot, '/stacklab snapshot border-chest-before', 300)
-      await command(phaseBot, '/tp AttackerBot 14.5 65 14.5 -90 0', 500)
+      await command(phaseBot, '/tp AttackerBot 14.5 65 14.5 0 0', 500)
       const merge = await commandExpect(
         phaseBot,
         '/stacklab chestmerge AttackerBot',
