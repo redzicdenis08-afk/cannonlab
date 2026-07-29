@@ -1,28 +1,28 @@
-name: PhaseLab Mixed 15-Chunk Claim Course
+name: PhaseLab Ratchet Guard Regression
 
 on:
   push:
     branches:
       - research/phaselab-mixed-course
     paths:
-      - 'phaselab-defense-course/**'
-      - 'phaselab-harness/mixed-claim-course-v2.js'
-      - '.github/workflows/phaselab-mixed-claim-course-runtime.yml'
+      - 'phaselab-ratchet-guard/**'
+      - 'phaselab-harness/ratchet-burst-v2.js'
+      - '.github/workflows/phaselab-ratchet-guard-regression.yml'
   pull_request:
     paths:
-      - 'phaselab-defense-course/**'
-      - 'phaselab-harness/mixed-claim-course-v2.js'
-      - '.github/workflows/phaselab-mixed-claim-course-runtime.yml'
+      - 'phaselab-ratchet-guard/**'
+      - 'phaselab-harness/ratchet-burst-v2.js'
+      - '.github/workflows/phaselab-ratchet-guard-regression.yml'
   workflow_dispatch:
 
 concurrency:
-  group: phaselab-mixed-claim-course-${{ github.ref }}
+  group: phaselab-ratchet-guard-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  exact-sakura-mixed-course:
+  exact-sakura-ratchet-guard:
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -45,8 +45,10 @@ jobs:
       - name: Build laboratory plugins
         shell: bash
         run: |
+          set -euxo pipefail
           gradle -p phaselab-claim-gate clean build --stacktrace --console=plain
           gradle -p phaselab-defense-course clean build --stacktrace --console=plain
+          gradle -p phaselab-ratchet-guard clean build --stacktrace --console=plain
 
       - name: Restore pinned Sakura paperclip
         id: sakura-cache
@@ -60,7 +62,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p phaselab-runtime phaselab-cache
+          mkdir -p phaselab-cache
           git config --global user.name 'PhaseLab CI'
           git config --global user.email 'phaselab-ci@users.noreply.github.com'
           git clone --filter=blob:none https://github.com/Samsuik/Sakura.git sakura-source
@@ -87,9 +89,9 @@ jobs:
           cp phaselab-cache/server.jar phaselab-runtime/server.jar
           cp phaselab-claim-gate/build/libs/PhaseLab-ClaimGate-1.0.0.jar phaselab-runtime/plugins/
           cp phaselab-defense-course/build/libs/PhaseLab-DefenseCourse-1.0.0.jar phaselab-runtime/plugins/
+          cp phaselab-ratchet-guard/build/libs/PhaseLab-RatchetGuard-1.0.0.jar phaselab-runtime/plugins/
           sha256sum phaselab-runtime/server.jar > phaselab-runtime/sakura-server.sha256
-          sha256sum phaselab-runtime/plugins/PhaseLab-ClaimGate-1.0.0.jar > phaselab-runtime/claim-gate.sha256
-          sha256sum phaselab-runtime/plugins/PhaseLab-DefenseCourse-1.0.0.jar > phaselab-runtime/defense-course.sha256
+          sha256sum phaselab-runtime/plugins/*.jar > phaselab-runtime/lab-plugins.sha256
 
       - name: Install ViaVersion and ViaBackwards 5.9.0
         shell: bash
@@ -102,7 +104,7 @@ jobs:
           curl -fL "$VV_URL" -o phaselab-runtime/plugins/ViaVersion.jar
           curl -fL "$VB_URL" -o phaselab-runtime/plugins/ViaBackwards.jar
 
-      - name: Run full mixed hostile course
+      - name: Run cancellation-ratchet regression
         shell: bash
         run: |
           set -o pipefail
@@ -126,8 +128,8 @@ jobs:
           view-distance=3
           simulation-distance=3
           max-players=4
-          allow-flight=true
-          motd=PhaseLab mixed hostile defense runtime
+          allow-flight=false
+          motd=PhaseLab defensive ratchet regression
           EOF
           cat > "$RUNTIME/ops.json" <<'EOF'
           [{"uuid":"0c88e2e5-4a6f-3398-adba-5d004a77e35d","name":"PhaseBot","level":4,"bypassesPlayerLimit":true}]
@@ -154,38 +156,49 @@ jobs:
           test "$READY" -eq 1
           grep -F 'PhaseLab ClaimGate enabled' server.log
           grep -F 'PhaseLab DefenseCourse enabled' server.log
+          grep -F 'PhaseLab RatchetGuard enabled' server.log
 
           cd "$HARNESS"
           PHASELAB_HOST=127.0.0.1 \
           PHASELAB_PORT=25565 \
           PHASELAB_USERNAME=PhaseBot \
           PHASELAB_OUTPUT="$RUNTIME/output" \
-          PHASELAB_RUNNER=mixed-claim-course-v2.js \
-          PHASELAB_HARD_TIMEOUT_MS=2700000 \
-          npm test 2>&1 | tee "$RUNTIME/mixed-course-harness.log"
+          PHASELAB_RUNNER=ratchet-burst-v2.js \
+          PHASELAB_HARD_TIMEOUT_MS=900000 \
+          npm test 2>&1 | tee "$RUNTIME/ratchet-guard-harness.log"
           STATUS=${PIPESTATUS[0]}
+          test "$STATUS" -eq 0
 
-          echo '--- mixed-claim-course-report.csv ---'
-          cat "$RUNTIME/output/mixed-claim-course-report.csv" || true
-          echo '--- course telemetry ---'
-          find "$RUNTIME/plugins/PhaseLabDefenseCourse" -name '*.csv' -type f -print -exec cat {} \; || true
-          echo '--- claim telemetry ---'
-          find "$RUNTIME/plugins/PhaseLabClaimGate" -name '*.csv' -type f -print -exec cat {} \; || true
-          exit "$STATUS"
+          node - "$RUNTIME/output/ratchet-burst-v2-report.json" <<'NODE'
+          const fs = require('fs')
+          const report = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'))
+          const escaped = report.results.filter(result =>
+            result.verified || result.mountedVerified || result.exitVerified)
+          if (escaped.length > 0) {
+            console.error('RatchetGuard regression failed: protected-zone witness succeeded', escaped)
+            process.exit(1)
+          }
+          if (report.results.length !== 4) {
+            console.error(`Expected four short regression trials, got ${report.results.length}`)
+            process.exit(1)
+          }
+          console.log(`RatchetGuard blocked all ${report.results.length} regression trials`)
+          NODE
 
-      - name: Upload mixed course evidence
+          grep -F 'RatchetGuard blocked mounted protected-zone advance' "$RUNTIME/server.log"
+
+      - name: Upload defensive evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-mixed-15-chunk-course
+          name: phaselab-ratchet-guard-regression
           path: |
-            phaselab-runtime/output/mixed-claim-course-report.json
-            phaselab-runtime/output/mixed-claim-course-report.csv
-            phaselab-runtime/mixed-course-harness.log
+            phaselab-runtime/output/ratchet-burst-v2-report.json
+            phaselab-runtime/output/ratchet-burst-v2-report.csv
+            phaselab-runtime/ratchet-guard-harness.log
             phaselab-runtime/server.log
-            phaselab-runtime/plugins/PhaseLabDefenseCourse/*.csv
             phaselab-runtime/plugins/PhaseLabClaimGate/*.csv
-            phaselab-runtime/defense-course.sha256
-            phaselab-runtime/claim-gate.sha256
+            phaselab-runtime/plugins/PhaseLabDefenseCourse/*.csv
+            phaselab-runtime/lab-plugins.sha256
             phaselab-runtime/sakura-server.sha256
           if-no-files-found: warn

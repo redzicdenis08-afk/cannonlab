@@ -1,0 +1,14 @@
+name: PhaseLabInputProbe
+version: ${version}
+main: dev.denis.phaselab.input.InputProbePlugin
+api-version: '1.21'
+authors: [Denis]
+description: Server-side mounted input and dismount telemetry for authorized Sakura testing.
+commands:
+  inputlab:
+    description: Control mounted input telemetry.
+    usage: /inputlab <status|start|stop|mark>
+    permission: phaselab.input.admin
+permissions:
+  phaselab.input.admin:
+    default: op

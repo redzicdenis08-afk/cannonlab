@@ -1,28 +1,32 @@
-name: PhaseLab Mixed 15-Chunk Claim Course
+name: PhaseLab SurfaceGuard Exact Runtime
 
 on:
   push:
     branches:
       - research/phaselab-mixed-course
     paths:
-      - 'phaselab-defense-course/**'
-      - 'phaselab-harness/mixed-claim-course-v2.js'
-      - '.github/workflows/phaselab-mixed-claim-course-runtime.yml'
+      - 'phaselab-surface-guard/**'
+      - 'phaselab-dismount-anchor-guard/**'
+      - 'phaselab-harness/surface-guard-regression.js'
+      - 'phaselab-harness/surface-guard-regression-v2.js'
+      - '.github/workflows/phaselab-surface-guard-runtime.yml'
   pull_request:
     paths:
-      - 'phaselab-defense-course/**'
-      - 'phaselab-harness/mixed-claim-course-v2.js'
-      - '.github/workflows/phaselab-mixed-claim-course-runtime.yml'
+      - 'phaselab-surface-guard/**'
+      - 'phaselab-dismount-anchor-guard/**'
+      - 'phaselab-harness/surface-guard-regression.js'
+      - 'phaselab-harness/surface-guard-regression-v2.js'
+      - '.github/workflows/phaselab-surface-guard-runtime.yml'
   workflow_dispatch:
 
 concurrency:
-  group: phaselab-mixed-claim-course-${{ github.ref }}
+  group: phaselab-surface-guard-runtime-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  exact-sakura-mixed-course:
+  exact-sakura-surface-guard:
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -42,11 +46,12 @@ jobs:
         working-directory: phaselab-harness
         run: npm install --no-audit --no-fund
 
-      - name: Build laboratory plugins
+      - name: Build defensive plugins
         shell: bash
         run: |
-          gradle -p phaselab-claim-gate clean build --stacktrace --console=plain
-          gradle -p phaselab-defense-course clean build --stacktrace --console=plain
+          set -euxo pipefail
+          gradle -p phaselab-surface-guard clean build --stacktrace --console=plain
+          gradle -p phaselab-dismount-anchor-guard clean build --stacktrace --console=plain
 
       - name: Restore pinned Sakura paperclip
         id: sakura-cache
@@ -60,7 +65,7 @@ jobs:
         shell: bash
         run: |
           set -euxo pipefail
-          mkdir -p phaselab-runtime phaselab-cache
+          mkdir -p phaselab-cache
           git config --global user.name 'PhaseLab CI'
           git config --global user.email 'phaselab-ci@users.noreply.github.com'
           git clone --filter=blob:none https://github.com/Samsuik/Sakura.git sakura-source
@@ -85,11 +90,11 @@ jobs:
           set -euxo pipefail
           mkdir -p phaselab-runtime/plugins phaselab-runtime/output
           cp phaselab-cache/server.jar phaselab-runtime/server.jar
-          cp phaselab-claim-gate/build/libs/PhaseLab-ClaimGate-1.0.0.jar phaselab-runtime/plugins/
-          cp phaselab-defense-course/build/libs/PhaseLab-DefenseCourse-1.0.0.jar phaselab-runtime/plugins/
+          cp phaselab-surface-guard/build/libs/PhaseLab-SurfaceGuard-1.0.0.jar phaselab-runtime/plugins/
+          cp phaselab-dismount-anchor-guard/build/libs/PhaseLab-DismountAnchorGuard-1.0.0.jar phaselab-runtime/plugins/
           sha256sum phaselab-runtime/server.jar > phaselab-runtime/sakura-server.sha256
-          sha256sum phaselab-runtime/plugins/PhaseLab-ClaimGate-1.0.0.jar > phaselab-runtime/claim-gate.sha256
-          sha256sum phaselab-runtime/plugins/PhaseLab-DefenseCourse-1.0.0.jar > phaselab-runtime/defense-course.sha256
+          sha256sum phaselab-runtime/plugins/PhaseLab-SurfaceGuard-1.0.0.jar > phaselab-runtime/surface-guard.sha256
+          sha256sum phaselab-runtime/plugins/PhaseLab-DismountAnchorGuard-1.0.0.jar > phaselab-runtime/dismount-anchor-guard.sha256
 
       - name: Install ViaVersion and ViaBackwards 5.9.0
         shell: bash
@@ -102,7 +107,7 @@ jobs:
           curl -fL "$VV_URL" -o phaselab-runtime/plugins/ViaVersion.jar
           curl -fL "$VB_URL" -o phaselab-runtime/plugins/ViaBackwards.jar
 
-      - name: Run full mixed hostile course
+      - name: Run SurfaceGuard matrix v3
         shell: bash
         run: |
           set -o pipefail
@@ -118,16 +123,16 @@ jobs:
           server-port=25565
           server-ip=127.0.0.1
           gamemode=survival
-          difficulty=normal
+          difficulty=peaceful
           spawn-protection=0
           level-name=phaselab
           level-type=minecraft:flat
           generate-structures=false
-          view-distance=3
-          simulation-distance=3
+          view-distance=5
+          simulation-distance=5
           max-players=4
-          allow-flight=true
-          motd=PhaseLab mixed hostile defense runtime
+          allow-flight=false
+          motd=PhaseLab SurfaceGuard exact runtime v3
           EOF
           cat > "$RUNTIME/ops.json" <<'EOF'
           [{"uuid":"0c88e2e5-4a6f-3398-adba-5d004a77e35d","name":"PhaseBot","level":4,"bypassesPlayerLimit":true}]
@@ -152,40 +157,38 @@ jobs:
             sleep 2
           done
           test "$READY" -eq 1
-          grep -F 'PhaseLab ClaimGate enabled' server.log
-          grep -F 'PhaseLab DefenseCourse enabled' server.log
+          grep -F 'PhaseLab SurfaceGuard enabled' server.log
+          grep -F 'PhaseLab DismountAnchorGuard enabled' server.log
 
           cd "$HARNESS"
           PHASELAB_HOST=127.0.0.1 \
           PHASELAB_PORT=25565 \
           PHASELAB_USERNAME=PhaseBot \
           PHASELAB_OUTPUT="$RUNTIME/output" \
-          PHASELAB_RUNNER=mixed-claim-course-v2.js \
-          PHASELAB_HARD_TIMEOUT_MS=2700000 \
-          npm test 2>&1 | tee "$RUNTIME/mixed-course-harness.log"
+          PHASELAB_RUNNER=surface-guard-regression-v2.js \
+          PHASELAB_HARD_TIMEOUT_MS=900000 \
+          npm test 2>&1 | tee "$RUNTIME/surface-guard-harness.log"
           STATUS=${PIPESTATUS[0]}
 
-          echo '--- mixed-claim-course-report.csv ---'
-          cat "$RUNTIME/output/mixed-claim-course-report.csv" || true
-          echo '--- course telemetry ---'
-          find "$RUNTIME/plugins/PhaseLabDefenseCourse" -name '*.csv' -type f -print -exec cat {} \; || true
-          echo '--- claim telemetry ---'
-          find "$RUNTIME/plugins/PhaseLabClaimGate" -name '*.csv' -type f -print -exec cat {} \; || true
+          echo '--- SurfaceGuard report ---'
+          cat "$RUNTIME/output/surface-guard-report.csv" || true
+          echo '--- SurfaceGuard telemetry ---'
+          find "$RUNTIME/plugins/PhaseLabSurfaceGuard" -name '*.csv' -type f -print -exec cat {} \; || true
+          grep -F 'DismountAnchorGuard corrected' "$RUNTIME/server.log" || true
           exit "$STATUS"
 
-      - name: Upload mixed course evidence
+      - name: Upload exact-runtime evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-mixed-15-chunk-course
+          name: phaselab-surface-guard-exact-runtime
           path: |
-            phaselab-runtime/output/mixed-claim-course-report.json
-            phaselab-runtime/output/mixed-claim-course-report.csv
-            phaselab-runtime/mixed-course-harness.log
+            phaselab-runtime/output/surface-guard-report.json
+            phaselab-runtime/output/surface-guard-report.csv
+            phaselab-runtime/surface-guard-harness.log
             phaselab-runtime/server.log
-            phaselab-runtime/plugins/PhaseLabDefenseCourse/*.csv
-            phaselab-runtime/plugins/PhaseLabClaimGate/*.csv
-            phaselab-runtime/defense-course.sha256
-            phaselab-runtime/claim-gate.sha256
+            phaselab-runtime/plugins/PhaseLabSurfaceGuard/*.csv
+            phaselab-runtime/surface-guard.sha256
+            phaselab-runtime/dismount-anchor-guard.sha256
             phaselab-runtime/sakura-server.sha256
           if-no-files-found: warn

@@ -1,0 +1,14 @@
+name: PhaseLabTransportGraphGuard
+version: ${version}
+main: dev.denis.phaselab.transport.TransportGraphGuardPlugin
+api-version: '1.21'
+authors: [Denis]
+description: Defensive passenger-graph transport validation for authorized Sakura testing.
+commands:
+  transportguard:
+    description: Configure or inspect TransportGraphGuard.
+    usage: /transportguard <status|zone|allow|probe|snapshot|reset>
+    permission: phaselab.transportguard.admin
+permissions:
+  phaselab.transportguard.admin:
+    default: op

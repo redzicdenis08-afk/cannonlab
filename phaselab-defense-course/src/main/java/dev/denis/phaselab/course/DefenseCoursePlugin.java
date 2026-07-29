@@ -1,10 +1,8 @@
 package dev.denis.phaselab.course;
 
 import org.bukkit.Bukkit;
-import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.World;
-import org.bukkit.block.Block;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Entity;
@@ -15,11 +13,10 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityCombustEvent;
 import org.bukkit.event.entity.EntityDamageEvent;
-import org.bukkit.event.player.PlayerDeathEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.vehicle.VehicleDamageEvent;
 import org.bukkit.event.vehicle.VehicleDestroyEvent;
-import org.bukkit.event.vehicle.VehicleEnterEvent;
 import org.bukkit.event.vehicle.VehicleExitEvent;
 import org.bukkit.event.vehicle.VehicleMoveEvent;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -40,14 +37,12 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Builds and continuously rewrites a 240-block, fifteen-chunk mixed defense
- * course. It is a lab fixture, not a factions implementation.
+ * Dynamic fifteen-chunk mixed defense fixture for authorized Sakura testing.
  *
- * The physical region contains solid collision planes, water, lava, cobblestone,
- * basalt, crying obsidian and chunk-seam obsidian. During an active run, selected
- * planes are regenerated every few ticks with normal physics updates. Telemetry
- * records chunk progress, health, fire, vehicle damage/destruction, dismounts,
- * deaths and authoritative coordinates.
+ * The plugin builds a 240-block solid course containing obsidian, water, lava,
+ * cobblestone, basalt and crying obsidian. Selected planes are regenerated with
+ * normal physics updates while a trial runs. All important coordinates are read
+ * directly from the server and written to CSV.
  */
 public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
     private enum Profile {
@@ -56,10 +51,10 @@ public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
         LAVA_HEAVY
     }
 
-    private record ActiveRun(
+    private record Run(
         UUID playerId,
-        UUID rootVehicleId,
-        String runId,
+        UUID vehicleId,
+        String id,
         Profile profile,
         long startedTick
     ) {
@@ -68,26 +63,26 @@ public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
     private String worldName;
     private int startX;
     private int endX;
-    private int minimumY;
-    private int maximumY;
-    private int minimumZ;
-    private int maximumZ;
+    private int minY;
+    private int maxY;
+    private int minZ;
+    private int maxZ;
     private int witnessX;
     private int witnessY;
     private int witnessZ;
-    private boolean regenerationEnabled;
-    private int regenerationPeriodTicks;
+    private int regenPeriod;
     private int planesPerPass;
+    private boolean regenEnabled;
 
-    private long logicalTick;
+    private long tick;
     private Profile builtProfile = Profile.MIXED;
-    private final List<Integer> regeneratingPlanes = new ArrayList<>();
-    private int regenerationCursor;
-    private BukkitTask regenerationTask;
-    private final Map<UUID, ActiveRun> activeRuns = new HashMap<>();
-    private final Map<UUID, Integer> lastVehicleChunk = new HashMap<>();
+    private final List<Integer> regenPlanes = new ArrayList<>();
+    private int regenCursor;
+    private BukkitTask regenTask;
+    private final Map<UUID, Run> runs = new HashMap<>();
+    private final Map<UUID, Integer> lastChunk = new HashMap<>();
 
-    private BufferedWriter telemetryWriter;
+    private BufferedWriter writer;
     private Path telemetryPath;
 
     @Override
@@ -95,58 +90,40 @@ public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
         saveDefaultConfig();
         loadSettings();
         Bukkit.getPluginManager().registerEvents(this, this);
-        Bukkit.getScheduler().runTaskTimer(this, () -> logicalTick++, 1L, 1L);
+        Bukkit.getScheduler().runTaskTimer(this, () -> tick++, 1L, 1L);
         openTelemetry();
-        getLogger().info("PhaseLab DefenseCourse enabled: X=[" + startX + ',' + endX
-            + "] profile=" + builtProfile + " regenPeriod=" + regenerationPeriodTicks);
+        getLogger().info("PhaseLab DefenseCourse enabled: X=[" + startX + ',' + endX + "]");
     }
 
     @Override
     public void onDisable() {
         stopRegeneration();
+        runs.clear();
+        lastChunk.clear();
         closeTelemetry();
-        activeRuns.clear();
-        lastVehicleChunk.clear();
     }
 
     private void loadSettings() {
         worldName = getConfig().getString("course.world", "world");
         startX = getConfig().getInt("course.start-x", 0);
         endX = getConfig().getInt("course.end-x", 239);
-        minimumY = getConfig().getInt("course.minimum-y", 65);
-        maximumY = getConfig().getInt("course.maximum-y", 69);
-        minimumZ = getConfig().getInt("course.minimum-z", -3);
-        maximumZ = getConfig().getInt("course.maximum-z", 3);
+        minY = getConfig().getInt("course.minimum-y", 65);
+        maxY = getConfig().getInt("course.maximum-y", 69);
+        minZ = getConfig().getInt("course.minimum-z", -3);
+        maxZ = getConfig().getInt("course.maximum-z", 3);
         witnessX = getConfig().getInt("course.witness-x", 244);
         witnessY = getConfig().getInt("course.witness-y", 65);
         witnessZ = getConfig().getInt("course.witness-z", 0);
-        if (startX > endX) {
-            int swap = startX;
-            startX = endX;
-            endX = swap;
-        }
-        if (minimumY > maximumY) {
-            int swap = minimumY;
-            minimumY = maximumY;
-            maximumY = swap;
-        }
-        if (minimumZ > maximumZ) {
-            int swap = minimumZ;
-            minimumZ = maximumZ;
-            maximumZ = swap;
-        }
-        regenerationEnabled = getConfig().getBoolean("regeneration.enabled", true);
-        regenerationPeriodTicks = Math.max(1,
-            getConfig().getInt("regeneration.period-ticks", 2));
-        planesPerPass = Math.max(1,
-            getConfig().getInt("regeneration.planes-per-pass", 8));
+        regenEnabled = getConfig().getBoolean("regeneration.enabled", true);
+        regenPeriod = Math.max(1, getConfig().getInt("regeneration.period-ticks", 2));
+        planesPerPass = Math.max(1, getConfig().getInt("regeneration.planes-per-pass", 8));
     }
 
     private World world() {
         return Bukkit.getWorld(worldName);
     }
 
-    private void buildCourse(Profile profile) {
+    private void build(Profile profile) {
         World world = world();
         if (world == null) {
             throw new IllegalStateException("World is not loaded: " + worldName);
@@ -154,42 +131,51 @@ public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
 
         stopRegeneration();
         builtProfile = profile;
-        regeneratingPlanes.clear();
-        regenerationCursor = 0;
+        regenPlanes.clear();
+        regenCursor = 0;
 
         for (int x = startX; x <= endX; x++) {
             Material material = materialAt(profile, x);
-            boolean physics = material == Material.WATER || material == Material.LAVA;
-            for (int y = minimumY; y <= maximumY; y++) {
-                for (int z = minimumZ; z <= maximumZ; z++) {
-                    world.getBlockAt(x, y, z).setType(material, physics);
-                }
-            }
-            if (isRegeneratingPlane(profile, x)) {
-                regeneratingPlanes.add(x);
+            setPlane(world, x, material);
+            if (shouldRegenerate(profile, x)) {
+                regenPlanes.add(x);
             }
         }
 
         for (int x = startX - 8; x <= endX + 12; x++) {
-            for (int z = minimumZ - 3; z <= maximumZ + 3; z++) {
-                world.getBlockAt(x, minimumY - 1, z).setType(Material.STONE, false);
+            for (int z = minZ - 3; z <= maxZ + 3; z++) {
+                world.getBlockAt(x, minY - 1, z).setType(Material.STONE, false);
             }
         }
         for (int x = endX + 1; x <= endX + 10; x++) {
-            for (int y = minimumY; y <= maximumY; y++) {
-                for (int z = minimumZ; z <= maximumZ; z++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int z = minZ; z <= maxZ; z++) {
                     world.getBlockAt(x, y, z).setType(Material.AIR, false);
                 }
             }
         }
-        Block witness = world.getBlockAt(witnessX, witnessY, witnessZ);
-        witness.setType(Material.BARREL, false);
+        world.getBlockAt(witnessX, witnessY, witnessZ).setType(Material.BARREL, false);
 
-        if (regenerationEnabled) {
-            startRegeneration();
+        if (regenEnabled) {
+            regenTask = Bukkit.getScheduler().runTaskTimer(
+                this,
+                this::regenerate,
+                regenPeriod,
+                regenPeriod
+            );
         }
         telemetry("COURSE_BUILT", null, null, null,
-            startX, minimumY, 0.0D, "profile=" + profile + ";planes=" + regeneratingPlanes.size());
+            startX, minY, 0.0D,
+            "profile=" + profile + ";regenPlanes=" + regenPlanes.size());
+    }
+
+    private void setPlane(World world, int x, Material material) {
+        boolean physics = material == Material.WATER || material == Material.LAVA;
+        for (int y = minY; y <= maxY; y++) {
+            for (int z = minZ; z <= maxZ; z++) {
+                world.getBlockAt(x, y, z).setType(material, physics);
+            }
+        }
     }
 
     private Material materialAt(Profile profile, int x) {
@@ -222,49 +208,33 @@ public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
         };
     }
 
-    private boolean isRegeneratingPlane(Profile profile, int x) {
+    private boolean shouldRegenerate(Profile profile, int x) {
+        Material material = materialAt(profile, x);
         int lane = Math.floorMod(x - startX, 16);
         return lane == 0
             || lane == 15
-            || materialAt(profile, x) == Material.WATER
-            || materialAt(profile, x) == Material.LAVA
-            || materialAt(profile, x) == Material.COBBLESTONE
-            || materialAt(profile, x) == Material.BASALT;
+            || material == Material.WATER
+            || material == Material.LAVA
+            || material == Material.COBBLESTONE
+            || material == Material.BASALT;
     }
 
-    private void startRegeneration() {
-        stopRegeneration();
-        regenerationTask = Bukkit.getScheduler().runTaskTimer(
-            this,
-            this::regeneratePass,
-            regenerationPeriodTicks,
-            regenerationPeriodTicks
-        );
+    private void regenerate() {
+        World world = world();
+        if (world == null || regenPlanes.isEmpty()) {
+            return;
+        }
+        int count = Math.min(planesPerPass, regenPlanes.size());
+        for (int index = 0; index < count; index++) {
+            int x = regenPlanes.get(Math.floorMod(regenCursor++, regenPlanes.size()));
+            setPlane(world, x, materialAt(builtProfile, x));
+        }
     }
 
     private void stopRegeneration() {
-        if (regenerationTask != null) {
-            regenerationTask.cancel();
-            regenerationTask = null;
-        }
-    }
-
-    private void regeneratePass() {
-        World world = world();
-        if (world == null || regeneratingPlanes.isEmpty()) {
-            return;
-        }
-        int count = Math.min(planesPerPass, regeneratingPlanes.size());
-        for (int index = 0; index < count; index++) {
-            int planeIndex = Math.floorMod(regenerationCursor++, regeneratingPlanes.size());
-            int x = regeneratingPlanes.get(planeIndex);
-            Material material = materialAt(builtProfile, x);
-            boolean physics = material == Material.WATER || material == Material.LAVA;
-            for (int y = minimumY; y <= maximumY; y++) {
-                for (int z = minimumZ; z <= maximumZ; z++) {
-                    world.getBlockAt(x, y, z).setType(material, physics);
-                }
-            }
+        if (regenTask != null) {
+            regenTask.cancel();
+            regenTask = null;
         }
     }
 
@@ -275,14 +245,14 @@ public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
             if (!(passenger instanceof Player player)) {
                 continue;
             }
-            ActiveRun run = activeRuns.get(player.getUniqueId());
+            Run run = runs.get(player.getUniqueId());
             if (run == null) {
                 continue;
             }
             int chunk = Math.floorDiv(event.getTo().getBlockX(), 16);
-            int previous = lastVehicleChunk.getOrDefault(player.getUniqueId(), Integer.MIN_VALUE);
+            int previous = lastChunk.getOrDefault(player.getUniqueId(), Integer.MIN_VALUE);
             if (chunk != previous) {
-                lastVehicleChunk.put(player.getUniqueId(), chunk);
+                lastChunk.put(player.getUniqueId(), chunk);
                 telemetry("CHUNK_PROGRESS", run, player, vehicle,
                     event.getTo().getX(), event.getTo().getY(), player.getHealth(),
                     "chunk=" + chunk + ";fire=" + player.getFireTicks());
@@ -292,12 +262,12 @@ public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
     public void onVehicleDamage(VehicleDamageEvent event) {
-        Vehicle vehicle = event.getVehicle();
-        ActiveRun run = runForVehicle(vehicle);
+        Run run = runForVehicle(event.getVehicle());
         if (run != null) {
             Player player = Bukkit.getPlayer(run.playerId());
-            telemetry("VEHICLE_DAMAGE", run, player, vehicle,
-                vehicle.getLocation().getX(), vehicle.getLocation().getY(),
+            telemetry("VEHICLE_DAMAGE", run, player, event.getVehicle(),
+                event.getVehicle().getLocation().getX(),
+                event.getVehicle().getLocation().getY(),
                 player == null ? -1.0D : player.getHealth(),
                 "damage=" + event.getDamage() + ";cancelled=" + event.isCancelled());
         }
@@ -305,33 +275,21 @@ public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
     public void onVehicleDestroy(VehicleDestroyEvent event) {
-        Vehicle vehicle = event.getVehicle();
-        ActiveRun run = runForVehicle(vehicle);
+        Run run = runForVehicle(event.getVehicle());
         if (run != null) {
             Player player = Bukkit.getPlayer(run.playerId());
-            telemetry("VEHICLE_DESTROY", run, player, vehicle,
-                vehicle.getLocation().getX(), vehicle.getLocation().getY(),
+            telemetry("VEHICLE_DESTROY", run, player, event.getVehicle(),
+                event.getVehicle().getLocation().getX(),
+                event.getVehicle().getLocation().getY(),
                 player == null ? -1.0D : player.getHealth(),
                 "cancelled=" + event.isCancelled());
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
-    public void onVehicleEnter(VehicleEnterEvent event) {
-        if (event.getEntered() instanceof Player player) {
-            ActiveRun run = activeRuns.get(player.getUniqueId());
-            if (run != null) {
-                telemetry("VEHICLE_ENTER", run, player, event.getVehicle(),
-                    player.getLocation().getX(), player.getLocation().getY(), player.getHealth(),
-                    "cancelled=" + event.isCancelled());
-            }
-        }
-    }
-
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
     public void onVehicleExit(VehicleExitEvent event) {
         if (event.getExited() instanceof Player player) {
-            ActiveRun run = activeRuns.get(player.getUniqueId());
+            Run run = runs.get(player.getUniqueId());
             if (run != null) {
                 telemetry("VEHICLE_EXIT", run, player, event.getVehicle(),
                     player.getLocation().getX(), player.getLocation().getY(), player.getHealth(),
@@ -341,36 +299,34 @@ public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
-    public void onPlayerDamage(EntityDamageEvent event) {
-        if (!(event.getEntity() instanceof Player player)) {
-            return;
-        }
-        ActiveRun run = activeRuns.get(player.getUniqueId());
-        if (run != null) {
-            telemetry("PLAYER_DAMAGE", run, player, player.getVehicle(),
-                player.getLocation().getX(), player.getLocation().getY(), player.getHealth(),
-                "cause=" + event.getCause() + ";damage=" + event.getFinalDamage()
-                    + ";cancelled=" + event.isCancelled());
+    public void onDamage(EntityDamageEvent event) {
+        if (event.getEntity() instanceof Player player) {
+            Run run = runs.get(player.getUniqueId());
+            if (run != null) {
+                telemetry("PLAYER_DAMAGE", run, player, player.getVehicle(),
+                    player.getLocation().getX(), player.getLocation().getY(), player.getHealth(),
+                    "cause=" + event.getCause() + ";damage=" + event.getFinalDamage()
+                        + ";cancelled=" + event.isCancelled());
+            }
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
     public void onCombust(EntityCombustEvent event) {
-        if (!(event.getEntity() instanceof Player player)) {
-            return;
-        }
-        ActiveRun run = activeRuns.get(player.getUniqueId());
-        if (run != null) {
-            telemetry("PLAYER_COMBUST", run, player, player.getVehicle(),
-                player.getLocation().getX(), player.getLocation().getY(), player.getHealth(),
-                "duration=" + event.getDuration() + ";cancelled=" + event.isCancelled());
+        if (event.getEntity() instanceof Player player) {
+            Run run = runs.get(player.getUniqueId());
+            if (run != null) {
+                telemetry("PLAYER_COMBUST", run, player, player.getVehicle(),
+                    player.getLocation().getX(), player.getLocation().getY(), player.getHealth(),
+                    "duration=" + event.getDuration() + ";cancelled=" + event.isCancelled());
+            }
         }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
-        ActiveRun run = activeRuns.get(player.getUniqueId());
+        Run run = runs.get(player.getUniqueId());
         if (run != null) {
             telemetry("PLAYER_DEATH", run, player, player.getVehicle(),
                 player.getLocation().getX(), player.getLocation().getY(), 0.0D,
@@ -380,13 +336,13 @@ public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        activeRuns.remove(event.getPlayer().getUniqueId());
-        lastVehicleChunk.remove(event.getPlayer().getUniqueId());
+        runs.remove(event.getPlayer().getUniqueId());
+        lastChunk.remove(event.getPlayer().getUniqueId());
     }
 
-    private ActiveRun runForVehicle(Entity vehicle) {
-        for (ActiveRun run : activeRuns.values()) {
-            if (run.rootVehicleId().equals(vehicle.getUniqueId())) {
+    private Run runForVehicle(Entity vehicle) {
+        for (Run run : runs.values()) {
+            if (run.vehicleId().equals(vehicle.getUniqueId())) {
                 return run;
             }
         }
@@ -397,17 +353,20 @@ public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (args.length == 0 || args[0].equalsIgnoreCase("status")) {
             sender.sendMessage("DefenseCourse profile=" + builtProfile
-                + " X=[" + startX + ',' + endX + "] regen=" + (regenerationTask != null)
-                + " activeRuns=" + activeRuns.size()
+                + " X=[" + startX + ',' + endX + "] regen=" + (regenTask != null)
+                + " active=" + runs.size()
                 + " telemetry=" + (telemetryPath == null ? "disabled" : telemetryPath));
             return true;
         }
 
         switch (args[0].toLowerCase(Locale.ROOT)) {
             case "build" -> {
-                Profile profile = args.length >= 2 ? parseProfile(args[1]) : Profile.MIXED;
+                Profile profile;
                 try {
-                    buildCourse(profile);
+                    profile = args.length >= 2
+                        ? Profile.valueOf(args[1].toUpperCase(Locale.ROOT))
+                        : Profile.MIXED;
+                    build(profile);
                     sender.sendMessage("Defense course built: " + profile);
                 } catch (RuntimeException exception) {
                     sender.sendMessage("Course build failed: " + exception.getMessage());
@@ -419,27 +378,21 @@ public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
                     sender.sendMessage("Run this command as the test player.");
                     return true;
                 }
-                Entity vehicle = player.getRootVehicle();
-                if (vehicle == player) {
-                    sender.sendMessage("Mount the test vehicle before starting telemetry.");
+                Entity vehicle = player.getVehicle();
+                if (vehicle == null) {
+                    sender.sendMessage("Mount the test vehicle first.");
                     return true;
                 }
-                String runId = args.length >= 2
+                String id = args.length >= 2
                     ? args[1]
                     : "run-" + Instant.now().toEpochMilli();
-                ActiveRun run = new ActiveRun(
-                    player.getUniqueId(),
-                    vehicle.getUniqueId(),
-                    runId,
-                    builtProfile,
-                    logicalTick
-                );
-                activeRuns.put(player.getUniqueId(), run);
-                lastVehicleChunk.remove(player.getUniqueId());
+                Run run = new Run(player.getUniqueId(), vehicle.getUniqueId(), id, builtProfile, tick);
+                runs.put(player.getUniqueId(), run);
+                lastChunk.remove(player.getUniqueId());
                 telemetry("RUN_START", run, player, vehicle,
                     player.getLocation().getX(), player.getLocation().getY(), player.getHealth(),
                     "fire=" + player.getFireTicks());
-                sender.sendMessage("Defense course telemetry started: " + runId);
+                sender.sendMessage("Defense course telemetry started: " + id);
                 return true;
             }
             case "stop" -> {
@@ -447,34 +400,48 @@ public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
                     sender.sendMessage("Run this command as the test player.");
                     return true;
                 }
-                ActiveRun run = activeRuns.remove(player.getUniqueId());
-                lastVehicleChunk.remove(player.getUniqueId());
+                Run run = runs.remove(player.getUniqueId());
+                lastChunk.remove(player.getUniqueId());
                 if (run != null) {
                     telemetry("RUN_STOP", run, player, player.getVehicle(),
                         player.getLocation().getX(), player.getLocation().getY(), player.getHealth(),
-                        "fire=" + player.getFireTicks());
+                        "z=" + player.getLocation().getZ() + ";fire=" + player.getFireTicks());
                 }
                 sender.sendMessage("Defense course telemetry stopped.");
                 return true;
             }
+            case "snapshot" -> {
+                if (!(sender instanceof Player player)) {
+                    sender.sendMessage("Run this command as the test player.");
+                    return true;
+                }
+                Entity vehicle = player.getVehicle();
+                sender.sendMessage(String.format(Locale.ROOT,
+                    "COURSE_SNAPSHOT player=%.6f,%.6f,%.6f health=%.3f fire=%d vehicle=%s",
+                    player.getLocation().getX(),
+                    player.getLocation().getY(),
+                    player.getLocation().getZ(),
+                    player.getHealth(),
+                    player.getFireTicks(),
+                    vehicle == null
+                        ? "none"
+                        : String.format(Locale.ROOT, "%.6f,%.6f,%.6f",
+                            vehicle.getLocation().getX(),
+                            vehicle.getLocation().getY(),
+                            vehicle.getLocation().getZ())
+                ));
+                return true;
+            }
             case "reset" -> {
-                activeRuns.clear();
-                lastVehicleChunk.clear();
+                runs.clear();
+                lastChunk.clear();
                 sender.sendMessage("Defense course runtime state reset.");
                 return true;
             }
             default -> {
-                sender.sendMessage("Usage: /courselab <status|build [mixed|water_heavy|lava_heavy]|start [id]|stop|reset>");
+                sender.sendMessage("Usage: /courselab <status|build|start|stop|snapshot|reset>");
                 return true;
             }
-        }
-    }
-
-    private Profile parseProfile(String text) {
-        try {
-            return Profile.valueOf(text.toUpperCase(Locale.ROOT));
-        } catch (IllegalArgumentException exception) {
-            throw new IllegalArgumentException("Profile must be MIXED, WATER_HEAVY, or LAVA_HEAVY.");
         }
     }
 
@@ -486,25 +453,24 @@ public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
             Files.createDirectories(getDataFolder().toPath());
             telemetryPath = getDataFolder().toPath().resolve(
                 "defense-course-" + Instant.now().toString().replace(':', '-') + ".csv");
-            telemetryWriter = Files.newBufferedWriter(
+            writer = Files.newBufferedWriter(
                 telemetryPath,
                 StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE_NEW,
                 StandardOpenOption.WRITE
             );
-            telemetryWriter.write(
-                "time,tick,event,run_id,profile,player,vehicle,vehicle_uuid,x,y,health,action\n");
-            telemetryWriter.flush();
+            writer.write("time,tick,event,run_id,profile,player,vehicle,vehicle_uuid,x,y,health,action\n");
+            writer.flush();
         } catch (IOException exception) {
-            getLogger().warning("Unable to open defense course telemetry: " + exception.getMessage());
-            telemetryWriter = null;
+            getLogger().warning("Unable to open defense telemetry: " + exception.getMessage());
+            writer = null;
             telemetryPath = null;
         }
     }
 
     private void telemetry(
         String event,
-        ActiveRun run,
+        Run run,
         Player player,
         Entity vehicle,
         double x,
@@ -512,16 +478,16 @@ public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
         double health,
         String action
     ) {
-        if (telemetryWriter == null) {
+        if (writer == null) {
             return;
         }
         try {
-            telemetryWriter.write(String.format(Locale.ROOT,
+            writer.write(String.format(Locale.ROOT,
                 "%s,%d,%s,%s,%s,%s,%s,%s,%.6f,%.6f,%.3f,%s%n",
                 Instant.now(),
-                logicalTick,
+                tick,
                 event,
-                run == null ? "none" : csv(run.runId()),
+                run == null ? "none" : csv(run.id()),
                 run == null ? builtProfile : run.profile(),
                 player == null ? "none" : csv(player.getName()),
                 vehicle == null ? "none" : vehicle.getType(),
@@ -531,7 +497,7 @@ public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
                 health,
                 csv(action)
             ));
-            telemetryWriter.flush();
+            writer.flush();
         } catch (IOException ignored) {
         }
     }
@@ -543,14 +509,14 @@ public final class DefenseCoursePlugin extends JavaPlugin implements Listener {
     }
 
     private void closeTelemetry() {
-        if (telemetryWriter == null) {
+        if (writer == null) {
             return;
         }
         try {
-            telemetryWriter.close();
+            writer.close();
         } catch (IOException ignored) {
         } finally {
-            telemetryWriter = null;
+            writer = null;
         }
     }
 }

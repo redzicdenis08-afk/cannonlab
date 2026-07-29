@@ -1,0 +1,14 @@
+name: PhaseLabSurfaceGuard
+version: ${version}
+main: dev.denis.phaselab.surface.SurfaceGuardPlugin
+api-version: '1.21'
+authors: [Denis]
+description: Defensive phase-surface regression guard for authorized Sakura testing.
+commands:
+  surfaceguard:
+    description: Configure or inspect PhaseSurfaceGuard.
+    usage: /surfaceguard <status|zone|relation|allow|snapshot|probe|reset>
+    permission: phaselab.surfaceguard.admin
+permissions:
+  phaselab.surfaceguard.admin:
+    default: op

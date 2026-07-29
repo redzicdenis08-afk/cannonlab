@@ -1,0 +1,59 @@
+name: Build PhaseLab TransportGraphGuard
+
+on:
+  push:
+    branches:
+      - research/phaselab-mixed-course
+    paths:
+      - 'phaselab-transport-graph-guard/**'
+      - '.github/workflows/build-phaselab-transport-graph-guard.yml'
+  pull_request:
+    paths:
+      - 'phaselab-transport-graph-guard/**'
+      - '.github/workflows/build-phaselab-transport-graph-guard.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: phaselab-transport-graph-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.1'
+      - name: Build TransportGraphGuard
+        working-directory: phaselab-transport-graph-guard
+        shell: bash
+        run: |
+          set -o pipefail
+          gradle clean build --stacktrace --console=plain 2>&1 | tee build.log
+      - name: Verify JAR
+        working-directory: phaselab-transport-graph-guard
+        shell: bash
+        run: |
+          JAR='build/libs/PhaseLab-TransportGraphGuard-1.0.0.jar'
+          test -f "$JAR"
+          jar tf "$JAR" | tee jar-contents.txt
+          jar tf "$JAR" | grep -F 'dev/denis/phaselab/transport/TransportGraphGuardPlugin.class'
+          unzip -p "$JAR" plugin.yml | tee built-plugin.yml
+          grep -F 'name: PhaseLabTransportGraphGuard' built-plugin.yml
+          grep -F 'version: 1.0.0' built-plugin.yml
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phaselab-transport-graph-guard-build
+          path: |
+            phaselab-transport-graph-guard/build.log
+            phaselab-transport-graph-guard/jar-contents.txt
+            phaselab-transport-graph-guard/built-plugin.yml
+            phaselab-transport-graph-guard/build/libs/PhaseLab-TransportGraphGuard-1.0.0.jar
+          if-no-files-found: warn

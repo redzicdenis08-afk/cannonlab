@@ -1,28 +1,28 @@
-name: PhaseLab Mixed 15-Chunk Claim Course
+name: PhaseLab Mounted Input Probe
 
 on:
   push:
     branches:
       - research/phaselab-mixed-course
     paths:
-      - 'phaselab-defense-course/**'
-      - 'phaselab-harness/mixed-claim-course-v2.js'
-      - '.github/workflows/phaselab-mixed-claim-course-runtime.yml'
+      - 'phaselab-input-probe/**'
+      - 'phaselab-harness/input-dismount-probe-v2.js'
+      - '.github/workflows/phaselab-input-probe-runtime.yml'
   pull_request:
     paths:
-      - 'phaselab-defense-course/**'
-      - 'phaselab-harness/mixed-claim-course-v2.js'
-      - '.github/workflows/phaselab-mixed-claim-course-runtime.yml'
+      - 'phaselab-input-probe/**'
+      - 'phaselab-harness/input-dismount-probe-v2.js'
+      - '.github/workflows/phaselab-input-probe-runtime.yml'
   workflow_dispatch:
 
 concurrency:
-  group: phaselab-mixed-claim-course-${{ github.ref }}
+  group: phaselab-input-probe-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  exact-sakura-mixed-course:
+  exact-sakura-input-probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 70
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -37,24 +37,18 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.5.1'
-
       - name: Install headless client
         working-directory: phaselab-harness
         run: npm install --no-audit --no-fund
-
-      - name: Build laboratory plugins
-        shell: bash
-        run: |
-          gradle -p phaselab-claim-gate clean build --stacktrace --console=plain
-          gradle -p phaselab-defense-course clean build --stacktrace --console=plain
-
+      - name: Build input probe
+        working-directory: phaselab-input-probe
+        run: gradle clean build --stacktrace --console=plain
       - name: Restore pinned Sakura paperclip
         id: sakura-cache
         uses: actions/cache/restore@v4
         with:
           path: phaselab-cache/server.jar
           key: sakura-paperclip-63f35d74e0fbe6bcd76c58494c01c1632c83010d-java25-v1
-
       - name: Build pinned Sakura 26.1.2
         if: steps.sakura-cache.outputs.cache-hit != 'true'
         shell: bash
@@ -71,26 +65,20 @@ jobs:
           SERVER_JAR="$(find . -path '*/build/libs/*paperclip*.jar' -type f | sort | tail -n 1)"
           test -n "$SERVER_JAR"
           cp "$SERVER_JAR" ../phaselab-cache/server.jar
-
       - name: Save pinned Sakura paperclip
         if: steps.sakura-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@v4
         with:
           path: phaselab-cache/server.jar
           key: sakura-paperclip-63f35d74e0fbe6bcd76c58494c01c1632c83010d-java25-v1
-
-      - name: Prepare exact runtime
+      - name: Prepare runtime
         shell: bash
         run: |
-          set -euxo pipefail
           mkdir -p phaselab-runtime/plugins phaselab-runtime/output
           cp phaselab-cache/server.jar phaselab-runtime/server.jar
-          cp phaselab-claim-gate/build/libs/PhaseLab-ClaimGate-1.0.0.jar phaselab-runtime/plugins/
-          cp phaselab-defense-course/build/libs/PhaseLab-DefenseCourse-1.0.0.jar phaselab-runtime/plugins/
+          cp phaselab-input-probe/build/libs/PhaseLab-InputProbe-1.0.0.jar phaselab-runtime/plugins/
           sha256sum phaselab-runtime/server.jar > phaselab-runtime/sakura-server.sha256
-          sha256sum phaselab-runtime/plugins/PhaseLab-ClaimGate-1.0.0.jar > phaselab-runtime/claim-gate.sha256
-          sha256sum phaselab-runtime/plugins/PhaseLab-DefenseCourse-1.0.0.jar > phaselab-runtime/defense-course.sha256
-
+          sha256sum phaselab-runtime/plugins/PhaseLab-InputProbe-1.0.0.jar > phaselab-runtime/input-probe.sha256
       - name: Install ViaVersion and ViaBackwards 5.9.0
         shell: bash
         run: |
@@ -101,14 +89,12 @@ jobs:
           VB_URL="$(printf '%s' "$VB_JSON" | jq -r '.files[] | select(.primary == true) | .url' | head -n 1)"
           curl -fL "$VV_URL" -o phaselab-runtime/plugins/ViaVersion.jar
           curl -fL "$VB_URL" -o phaselab-runtime/plugins/ViaBackwards.jar
-
-      - name: Run full mixed hostile course
+      - name: Run input probe v2
         shell: bash
         run: |
           set -o pipefail
           RUNTIME="$GITHUB_WORKSPACE/phaselab-runtime"
           HARNESS="$GITHUB_WORKSPACE/phaselab-harness"
-
           cat > "$RUNTIME/eula.txt" <<'EOF'
           eula=true
           EOF
@@ -118,24 +104,22 @@ jobs:
           server-port=25565
           server-ip=127.0.0.1
           gamemode=survival
-          difficulty=normal
+          difficulty=peaceful
           spawn-protection=0
           level-name=phaselab
           level-type=minecraft:flat
           generate-structures=false
-          view-distance=3
-          simulation-distance=3
+          view-distance=5
+          simulation-distance=5
           max-players=4
-          allow-flight=true
-          motd=PhaseLab mixed hostile defense runtime
+          motd=PhaseLab mounted input probe v2
           EOF
           cat > "$RUNTIME/ops.json" <<'EOF'
           [{"uuid":"0c88e2e5-4a6f-3398-adba-5d004a77e35d","name":"PhaseBot","level":4,"bypassesPlayerLimit":true}]
           EOF
-
           cd "$RUNTIME"
           mkfifo server.in
-          tail -f server.in | java -Xms1G -Xmx4G -jar server.jar nogui > server.log 2>&1 &
+          tail -f server.in | java -Xms1G -Xmx3G -jar server.jar nogui > server.log 2>&1 &
           SERVER_PIPE_PID=$!
           exec 3>server.in
           cleanup() {
@@ -144,7 +128,6 @@ jobs:
             kill "$SERVER_PIPE_PID" 2>/dev/null || true
           }
           trap cleanup EXIT
-
           READY=0
           for _ in $(seq 1 300); do
             if grep -q 'Done (' server.log; then READY=1; break; fi
@@ -152,40 +135,32 @@ jobs:
             sleep 2
           done
           test "$READY" -eq 1
-          grep -F 'PhaseLab ClaimGate enabled' server.log
-          grep -F 'PhaseLab DefenseCourse enabled' server.log
-
+          grep -F 'PhaseLab InputProbe enabled' server.log
           cd "$HARNESS"
           PHASELAB_HOST=127.0.0.1 \
           PHASELAB_PORT=25565 \
           PHASELAB_USERNAME=PhaseBot \
           PHASELAB_OUTPUT="$RUNTIME/output" \
-          PHASELAB_RUNNER=mixed-claim-course-v2.js \
-          PHASELAB_HARD_TIMEOUT_MS=2700000 \
-          npm test 2>&1 | tee "$RUNTIME/mixed-course-harness.log"
+          PHASELAB_RUNNER=input-dismount-probe-v2.js \
+          PHASELAB_HARD_TIMEOUT_MS=720000 \
+          npm test 2>&1 | tee "$RUNTIME/input-probe-v2-harness.log"
           STATUS=${PIPESTATUS[0]}
-
-          echo '--- mixed-claim-course-report.csv ---'
-          cat "$RUNTIME/output/mixed-claim-course-report.csv" || true
-          echo '--- course telemetry ---'
-          find "$RUNTIME/plugins/PhaseLabDefenseCourse" -name '*.csv' -type f -print -exec cat {} \; || true
-          echo '--- claim telemetry ---'
-          find "$RUNTIME/plugins/PhaseLabClaimGate" -name '*.csv' -type f -print -exec cat {} \; || true
+          echo '--- input-dismount-v2-report.csv ---'
+          cat "$RUNTIME/output/input-dismount-v2-report.csv" || true
+          echo '--- server input telemetry ---'
+          find "$RUNTIME/plugins/PhaseLabInputProbe" -name '*.csv' -type f -print -exec cat {} \; || true
           exit "$STATUS"
-
-      - name: Upload mixed course evidence
+      - name: Upload input probe evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-mixed-15-chunk-course
+          name: phaselab-input-probe-v2-runtime
           path: |
-            phaselab-runtime/output/mixed-claim-course-report.json
-            phaselab-runtime/output/mixed-claim-course-report.csv
-            phaselab-runtime/mixed-course-harness.log
+            phaselab-runtime/output/input-dismount-v2-report.json
+            phaselab-runtime/output/input-dismount-v2-report.csv
+            phaselab-runtime/input-probe-v2-harness.log
             phaselab-runtime/server.log
-            phaselab-runtime/plugins/PhaseLabDefenseCourse/*.csv
-            phaselab-runtime/plugins/PhaseLabClaimGate/*.csv
-            phaselab-runtime/defense-course.sha256
-            phaselab-runtime/claim-gate.sha256
+            phaselab-runtime/plugins/PhaseLabInputProbe/*.csv
+            phaselab-runtime/input-probe.sha256
             phaselab-runtime/sakura-server.sha256
           if-no-files-found: warn

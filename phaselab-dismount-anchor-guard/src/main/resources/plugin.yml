@@ -1,0 +1,14 @@
+name: PhaseLabDismountAnchorGuard
+version: ${version}
+main: dev.denis.phaselab.dismount.DismountAnchorGuardPlugin
+api-version: '1.21'
+authors: [Denis]
+description: Defensive pre-mount anchor validation for authorized Sakura phase testing.
+commands:
+  dismountguard:
+    description: Configure or inspect DismountAnchorGuard.
+    usage: /dismountguard <status|zone|reset>
+    permission: phaselab.dismountguard.admin
+permissions:
+  phaselab.dismountguard.admin:
+    default: op

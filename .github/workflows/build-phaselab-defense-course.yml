@@ -3,11 +3,7 @@ name: Build PhaseLab Defense Course
 on:
   push:
     branches:
-      - feature/phaselab-client
-    paths:
-      - 'phaselab-defense-course/**'
-      - '.github/workflows/build-phaselab-defense-course.yml'
-  pull_request:
+      - research/phaselab-mixed-course
     paths:
       - 'phaselab-defense-course/**'
       - '.github/workflows/build-phaselab-defense-course.yml'
