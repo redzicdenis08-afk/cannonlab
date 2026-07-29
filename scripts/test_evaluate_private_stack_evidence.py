@@ -110,12 +110,35 @@ def main() -> int:
     assert finding["status"] == "confirmed", finding
     assert finding["evidence"]["xp_gain"] == 50.0, finding
 
+    crafter_rows = [
+        {
+            "type": "snapshot",
+            "label": "crafter-before",
+            "victim_crafter_netherite_count": 27,
+            "attacker_netherite_count": 0,
+        },
+        {
+            "type": "crafter_open",
+            "cancelled": False,
+            "netherite_count": 27,
+        },
+        {
+            "type": "snapshot",
+            "label": "crafter-after",
+            "victim_crafter_netherite_count": 0,
+            "attacker_netherite_count": 27,
+        },
+    ]
+    finding = evaluator.crafter_theft(crafter_rows)
+    assert finding["status"] == "confirmed", finding
+    assert finding["evidence"]["stolen"] is True, finding
+
     with tempfile.TemporaryDirectory() as temporary:
         path = Path(temporary) / "evidence.jsonl"
         path.write_text("\n".join(json.dumps(row) for row in confirmed_rows()) + "\n", encoding="utf-8")
         assert len(evaluator.read_rows(path)) == 9
 
-    print("Private-stack evidence evaluator regressions passed: 6")
+    print("Private-stack evidence evaluator regressions passed: 7")
     return 0
 
 

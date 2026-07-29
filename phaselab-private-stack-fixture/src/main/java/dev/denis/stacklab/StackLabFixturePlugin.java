@@ -29,6 +29,7 @@ import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
@@ -152,6 +153,15 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         set(world, 13, Y + 1, 9, Material.HOPPER);
         set(world, 13, Y, 9, Material.CHEST);
         set(world, 14, Y + 1, 9, Material.REDSTONE_BLOCK);
+
+        // Newer persistent container omitted by FactionsUUID 4.6.1's
+        // Protection.useActionFromBlockType switch. This lives fully inside
+        // the victim claim and must not be visible or lootable to AttackerBot.
+        Block crafterBlock = set(world, 16, Y, 6, Material.CRAFTER);
+        if (crafterBlock.getState() instanceof org.bukkit.inventory.InventoryHolder holder) {
+            holder.getInventory().clear();
+            holder.getInventory().setItem(0, new ItemStack(Material.NETHERITE_BLOCK, 27));
+        }
 
         writeEvent("arena_build", snapshotMap(world, "build"));
         sender.sendMessage("STACKLAB BUILD OK boundary=15/16 y=" + Y);
@@ -444,11 +454,15 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         result.put("piston_payload_target", type(world, 16, Y, 12));
         result.put("hopper_count", inventoryCount(world.getBlockAt(15, Y, 8), Material.DIAMOND));
         result.put("target_chest_count", inventoryCount(world.getBlockAt(16, Y, 8), Material.DIAMOND));
+        result.put("victim_crafter_type", type(world, 16, Y, 6));
+        result.put("victim_crafter_netherite_count", inventoryCount(world.getBlockAt(16, Y, 6), Material.NETHERITE_BLOCK));
 
         Player attacker = Bukkit.getPlayerExact("AttackerBot");
         if (attacker != null) {
             result.put("attacker_enchanting_xp", auraEnchantingXp(attacker));
             result.put("attacker_alchemy_xp", auraSkillXp(attacker, "ALCHEMY"));
+            result.put("attacker_netherite_count", attacker.getInventory().all(Material.NETHERITE_BLOCK)
+                .values().stream().mapToInt(ItemStack::getAmount).sum());
             var top = attacker.getOpenInventory().getTopInventory();
             result.put("attacker_open_inventory", top.getType().name());
             if (top.getType() == InventoryType.GRINDSTONE) {
@@ -639,6 +653,21 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             "cancelled", event.isCancelled(),
             "source", event.getSource().getType().name(),
             "destination", event.getDestination().getType().name()
+        ));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onCrafterOpen(InventoryOpenEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) return;
+        if (event.getInventory().getType() != InventoryType.CRAFTER) return;
+        Location location = event.getInventory().getLocation();
+        if (location == null || !inArena(location)) return;
+        writeEvent("crafter_open", Map.of(
+            "player", player.getName(),
+            "cancelled", event.isCancelled(),
+            "x", location.getBlockX(), "y", location.getBlockY(), "z", location.getBlockZ(),
+            "netherite_count", event.getInventory().all(Material.NETHERITE_BLOCK)
+                .values().stream().mapToInt(ItemStack::getAmount).sum()
         ));
     }
 

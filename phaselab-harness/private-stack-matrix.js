@@ -264,6 +264,47 @@ async function main () {
       return { victim: victimBot.entity.position, attacker: attackerBot.entity.position, witness }
     })
 
+    await phase('factions_enemy_crafter_theft', async () => {
+      await command(phaseBot, '/stacklab build', 650)
+      await command(phaseBot, '/clear AttackerBot', 300)
+      await command(phaseBot, '/stacklab snapshot crafter-before', 300)
+      await command(phaseBot, '/tp AttackerBot 15.25 65 6.5 -90 0', 500)
+
+      const block = attackerBot.blockAt(new Vec3(16, 65, 6))
+      if (!block) throw new Error('Victim crafter missing')
+      await attackerBot.lookAt(block.position.offset(0.5, 0.5, 0.5), true)
+
+      let window = null
+      let openError = null
+      let visibleNetherite = 0
+      let clickError = null
+      try {
+        window = await attackerBot.openBlock(block)
+        await sleep(700)
+        visibleNetherite = window.slots
+          .slice(0, window.inventoryStart)
+          .filter(item => item?.name === 'netherite_block')
+          .reduce((sum, item) => sum + item.count, 0)
+        if (visibleNetherite > 0) {
+          const slot = window.slots
+            .slice(0, window.inventoryStart)
+            .findIndex(item => item?.name === 'netherite_block')
+          await attackerBot.clickWindow(slot, 0, 1)
+          await sleep(900)
+        }
+      } catch (error) {
+        if (window) clickError = String(error.stack || error)
+        else openError = String(error.stack || error)
+      } finally {
+        if (window) {
+          try { attackerBot.closeWindow(window) } catch {}
+        }
+      }
+
+      await command(phaseBot, '/stacklab snapshot crafter-after', 300)
+      return { block: block.name, visibleNetherite, openError, clickError }
+    })
+
     await phase('auraskills_excellentenchants_infinite_grindstone_xp', async () => {
       await command(phaseBot, '/stacklab build', 650)
       await command(phaseBot, '/clear AttackerBot')
