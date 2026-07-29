@@ -212,7 +212,7 @@ def chest_raft_theft(rows):
     if not w:
         return result("inconclusive", "Attacker opened and looted an enemy-claim bamboo chest raft", reason="missing_window")
     before, after, events = w
-    interactions = [e for e in events if e.get("type") == "chest_raft_interact"]
+    interactions = [e for e in events if e.get("type") in {"chest_raft_interact", "chest_raft_interact_at"}]
     before_count = int(before.get("victim_chest_raft_netherite_count", 0))
     after_count = int(after.get("victim_chest_raft_netherite_count", 0))
     attacker_count = int(after.get("attacker_netherite_count", 0))

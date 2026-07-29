@@ -283,7 +283,7 @@ async function main () {
       let clickError = null
       let visibleNetherite = 0
       try {
-        attackerBot.setControlState('sneak', true)
+        attackerBot._client.write('player_input', { inputs: { shift: true } })
         await sleep(200)
         window = await attackerBot.openEntity(raft)
         await sleep(700)
@@ -302,7 +302,7 @@ async function main () {
         if (window) clickError = String(error.stack || error)
         else openError = String(error.stack || error)
       } finally {
-        attackerBot.setControlState('sneak', false)
+        attackerBot._client.write('player_input', { inputs: { shift: false } })
         if (window) {
           try { attackerBot.closeWindow(window) } catch {}
         }

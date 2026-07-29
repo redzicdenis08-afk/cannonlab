@@ -33,6 +33,7 @@ import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
+import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -157,7 +158,14 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
 
         world.getEntitiesByClass(BambooChestRaft.class).stream()
             .filter(entity -> inArena(entity.getLocation()))
-            .forEach(BambooChestRaft::remove);
+            .forEach(entity -> {
+                entity.getInventory().clear();
+                entity.remove();
+            });
+        world.getEntitiesByClass(Item.class).stream()
+            .filter(item -> inArena(item.getLocation()))
+            .filter(item -> item.getItemStack().getType() == Material.NETHERITE_BLOCK)
+            .forEach(Item::remove);
         BambooChestRaft raft = world.spawn(new Location(world, 16.5, Y, 14.0), BambooChestRaft.class, entity -> {
             entity.setGravity(false);
             entity.setInvulnerable(true);
@@ -468,6 +476,8 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             result.put("attacker_alchemy_xp", auraSkillXp(attacker, "ALCHEMY"));
             result.put("attacker_netherite_count", attacker.getInventory().all(Material.NETHERITE_BLOCK)
                 .values().stream().mapToInt(ItemStack::getAmount).sum());
+            result.put("attacker_sneaking", attacker.isSneaking());
+            result.put("attacker_vehicle", attacker.getVehicle() == null ? "NONE" : attacker.getVehicle().getType().name());
             var top = attacker.getOpenInventory().getTopInventory();
             result.put("attacker_open_inventory", top.getType().name());
             if (top.getType() == InventoryType.GRINDSTONE) {
@@ -796,6 +806,22 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             "netherite_count", raft.getInventory().all(Material.NETHERITE_BLOCK)
                 .values().stream().mapToInt(ItemStack::getAmount).sum(),
             "x", raft.getLocation().getX(), "y", raft.getLocation().getY(), "z", raft.getLocation().getZ()
+        ));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onChestRaftInteractAt(PlayerInteractAtEntityEvent event) {
+        if (!(event.getRightClicked() instanceof BambooChestRaft raft)) return;
+        if (!raft.getScoreboardTags().contains("stacklab_victim_chest_raft")) return;
+        writeEvent("chest_raft_interact_at", Map.of(
+            "player", event.getPlayer().getName(),
+            "cancelled", event.isCancelled(),
+            "entity_type", raft.getType().name(),
+            "netherite_count", raft.getInventory().all(Material.NETHERITE_BLOCK)
+                .values().stream().mapToInt(ItemStack::getAmount).sum(),
+            "hit_x", event.getClickedPosition().getX(),
+            "hit_y", event.getClickedPosition().getY(),
+            "hit_z", event.getClickedPosition().getZ()
         ));
     }
 
