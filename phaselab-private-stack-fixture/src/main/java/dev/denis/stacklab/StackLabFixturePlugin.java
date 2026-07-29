@@ -390,13 +390,15 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             Object hitResult = hitResultClass
                 .getConstructor(vec3Class, directionClass, blockPosClass, boolean.class)
                 .newInstance(hitLocation, west, blockPos, false);
-            Class<?> nmsPlayerClass = Class.forName("net.minecraft.world.entity.player.Player");
-            Class<?> contextClass = Class.forName("net.minecraft.world.item.context.UseOnContext");
-            Object context = contextClass.getConstructor(nmsPlayerClass, handClass, hitResultClass)
-                .newInstance(serverPlayer, mainHand, hitResult);
+            Class<?> serverPlayerClass = Class.forName("net.minecraft.server.level.ServerPlayer");
+            Class<?> levelClass = Class.forName("net.minecraft.world.level.Level");
+            Class<?> nmsStackClass = Class.forName("net.minecraft.world.item.ItemStack");
             Object nmsStack = serverPlayer.getClass().getMethod("getItemInHand", handClass).invoke(serverPlayer, mainHand);
-            Object item = nmsStack.getClass().getMethod("getItem").invoke(nmsStack);
-            Object result = item.getClass().getMethod("useOn", contextClass).invoke(item, context);
+            Object serverLevel = world.getClass().getMethod("getHandle").invoke(world);
+            Object gameMode = serverPlayer.getClass().getField("gameMode").get(serverPlayer);
+            Object result = gameMode.getClass()
+                .getMethod("useItemOn", serverPlayerClass, levelClass, nmsStackClass, handClass, hitResultClass)
+                .invoke(gameMode, serverPlayer, serverLevel, nmsStack, mainHand, hitResult);
             evidence.put("invoked", true);
             evidence.put("result", String.valueOf(result));
         } catch (ReflectiveOperationException exception) {
