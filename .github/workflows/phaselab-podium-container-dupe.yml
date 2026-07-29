@@ -21,7 +21,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: phaselab-podium-dupe-${{ github.ref }}-${{ matrix.mode }}
+  group: phaselab-podium-dupe-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
