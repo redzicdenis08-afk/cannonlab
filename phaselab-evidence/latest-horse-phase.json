@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "startedAt": "2026-07-29T10:06:12.821Z",
+  "startedAt": "2026-07-29T10:16:50.693Z",
   "host": "127.0.0.1",
   "port": 25566,
   "version": "1.21.11",
@@ -18,8 +18,8 @@
       "startX": 14.87,
       "segmentLength": 15,
       "segmentPauseMs": 100,
-      "elapsedMs": 5292,
-      "packetCount": 974,
+      "elapsedMs": 8144,
+      "packetCount": 985,
       "segmentWitnesses": [
         {
           "segment": 1,
@@ -152,7 +152,7 @@
         {
           "segment": 17,
           "fromX": 254.87,
-          "targetX": 258.35,
+          "targetX": 261,
           "playerAccepted": true,
           "vehicleAccepted": true,
           "correctionsSoFar": false
@@ -160,23 +160,50 @@
       ],
       "playerBeyondMounted": true,
       "vehicleBeyond": true,
-      "playerBeyondDismounted": false,
+      "playerBeyondDismounted": true,
       "netheriteCount": 1,
       "mountedAfter": true,
-      "dismountError": null,
-      "correctionCount": 0,
-      "firstCorrection": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-horse-phase.js:82:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "dismountResponse": null,
+      "correctionCount": 1,
+      "firstCorrection": {
+        "type": "player_position",
+        "elapsedMs": 2164.443887,
+        "packet": {
+          "teleportId": 7,
+          "x": 261,
+          "y": 65,
+          "z": 1.4982471994208026,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        }
+      },
       "clientPlayerPosition": {
-        "x": 14.25,
+        "x": 261,
         "y": 65,
-        "z": 0.5
+        "z": 1.4982471994208026
       },
       "clientBoatPosition": {
-        "x": 261.82998046875,
+        "x": 261,
         "y": 65,
         "z": 0.5
       },
-      "serverAuthoritativeSuccess": false
+      "serverAuthoritativeSuccess": true
     },
     {
       "id": "mixed64-horse-ratchet10",
@@ -189,8 +216,8 @@
       "startX": 14.87,
       "segmentLength": 10,
       "segmentPauseMs": 100,
-      "elapsedMs": 6730,
-      "packetCount": 270,
+      "elapsedMs": 7184,
+      "packetCount": 281,
       "segmentWitnesses": [
         {
           "segment": 1,
@@ -243,31 +270,66 @@
         {
           "segment": 7,
           "fromX": 74.87,
-          "targetX": 82.35,
+          "targetX": 84.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 8,
+          "fromX": 84.87,
+          "targetX": 85,
           "playerAccepted": true,
           "vehicleAccepted": true,
           "correctionsSoFar": false
         }
       ],
-      "playerBeyondMounted": false,
+      "playerBeyondMounted": true,
       "vehicleBeyond": true,
-      "playerBeyondDismounted": false,
+      "playerBeyondDismounted": true,
       "netheriteCount": 1,
       "mountedAfter": true,
-      "dismountError": null,
-      "correctionCount": 0,
-      "firstCorrection": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-horse-phase.js:82:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "dismountResponse": null,
+      "correctionCount": 1,
+      "firstCorrection": {
+        "type": "player_position",
+        "elapsedMs": 1205.533615,
+        "packet": {
+          "teleportId": 11,
+          "x": 85,
+          "y": 65,
+          "z": 1.4982471994208026,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        }
+      },
       "clientPlayerPosition": {
-        "x": 14.25,
+        "x": 85,
         "y": 65,
-        "z": 0.5
+        "z": 1.4982471994208026
       },
       "clientBoatPosition": {
-        "x": 89.82998046875,
+        "x": 85,
         "y": 65,
         "z": 0.5
       },
-      "serverAuthoritativeSuccess": false
+      "serverAuthoritativeSuccess": true
     },
     {
       "id": "mixed64-horse-ratchet10",
@@ -280,8 +342,8 @@
       "startX": 14.87,
       "segmentLength": 10,
       "segmentPauseMs": 100,
-      "elapsedMs": 4220,
-      "packetCount": 270,
+      "elapsedMs": 7172,
+      "packetCount": 281,
       "segmentWitnesses": [
         {
           "segment": 1,
@@ -334,7 +396,15 @@
         {
           "segment": 7,
           "fromX": 74.87,
-          "targetX": 82.35,
+          "targetX": 84.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 8,
+          "fromX": 84.87,
+          "targetX": 85,
           "playerAccepted": true,
           "vehicleAccepted": true,
           "correctionsSoFar": false
@@ -342,23 +412,50 @@
       ],
       "playerBeyondMounted": true,
       "vehicleBeyond": true,
-      "playerBeyondDismounted": false,
+      "playerBeyondDismounted": true,
       "netheriteCount": 1,
       "mountedAfter": true,
-      "dismountError": null,
-      "correctionCount": 0,
-      "firstCorrection": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-horse-phase.js:82:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "dismountResponse": null,
+      "correctionCount": 1,
+      "firstCorrection": {
+        "type": "player_position",
+        "elapsedMs": 1178.805443,
+        "packet": {
+          "teleportId": 15,
+          "x": 85,
+          "y": 65,
+          "z": 1.4982471994208026,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        }
+      },
       "clientPlayerPosition": {
-        "x": 14.25,
+        "x": 85,
         "y": 65,
-        "z": 0.5
+        "z": 1.4982471994208026
       },
       "clientBoatPosition": {
-        "x": 82.35,
+        "x": 85.1298828125,
         "y": 65,
         "z": 0.5
       },
-      "serverAuthoritativeSuccess": false
+      "serverAuthoritativeSuccess": true
     },
     {
       "id": "mixed64-horse-ratchet10",
@@ -371,8 +468,8 @@
       "startX": 14.87,
       "segmentLength": 10,
       "segmentPauseMs": 100,
-      "elapsedMs": 4220,
-      "packetCount": 270,
+      "elapsedMs": 7179,
+      "packetCount": 281,
       "segmentWitnesses": [
         {
           "segment": 1,
@@ -425,7 +522,15 @@
         {
           "segment": 7,
           "fromX": 74.87,
-          "targetX": 82.35,
+          "targetX": 84.87,
+          "playerAccepted": true,
+          "vehicleAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 8,
+          "fromX": 84.87,
+          "targetX": 85,
           "playerAccepted": true,
           "vehicleAccepted": true,
           "correctionsSoFar": false
@@ -433,23 +538,50 @@
       ],
       "playerBeyondMounted": true,
       "vehicleBeyond": true,
-      "playerBeyondDismounted": false,
+      "playerBeyondDismounted": true,
       "netheriteCount": 1,
       "mountedAfter": true,
-      "dismountError": null,
-      "correctionCount": 0,
-      "firstCorrection": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-horse-phase.js:82:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "dismountResponse": null,
+      "correctionCount": 1,
+      "firstCorrection": {
+        "type": "player_position",
+        "elapsedMs": 1209.456113,
+        "packet": {
+          "teleportId": 19,
+          "x": 85,
+          "y": 65,
+          "z": 1.4982471994208026,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        }
+      },
       "clientPlayerPosition": {
-        "x": 14.25,
+        "x": 85,
         "y": 65,
-        "z": 0.5
+        "z": 1.4982471994208026
       },
       "clientBoatPosition": {
-        "x": 82.35,
+        "x": 87.13134765625,
         "y": 65,
-        "z": 0.5
+        "z": 0.18408203125
       },
-      "serverAuthoritativeSuccess": false
+      "serverAuthoritativeSuccess": true
     },
     {
       "id": "mixed240-horse-ratchet10",
@@ -462,8 +594,8 @@
       "startX": 14.87,
       "segmentLength": 10,
       "segmentPauseMs": 100,
-      "elapsedMs": 6068,
-      "packetCount": 974,
+      "elapsedMs": 8924,
+      "packetCount": 985,
       "segmentWitnesses": [
         {
           "segment": 1,
@@ -660,31 +792,58 @@
         {
           "segment": 25,
           "fromX": 254.87,
-          "targetX": 258.35,
+          "targetX": 261,
           "playerAccepted": true,
           "vehicleAccepted": true,
           "correctionsSoFar": false
         }
       ],
-      "playerBeyondMounted": false,
+      "playerBeyondMounted": true,
       "vehicleBeyond": true,
       "playerBeyondDismounted": true,
       "netheriteCount": 1,
       "mountedAfter": true,
-      "dismountError": null,
-      "correctionCount": 0,
-      "firstCorrection": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-horse-phase.js:82:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "dismountResponse": null,
+      "correctionCount": 1,
+      "firstCorrection": {
+        "type": "player_position",
+        "elapsedMs": 2964.561481,
+        "packet": {
+          "teleportId": 23,
+          "x": 261,
+          "y": 65,
+          "z": 1.4982471994208026,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        }
+      },
       "clientPlayerPosition": {
-        "x": 14.25,
+        "x": 261,
         "y": 65,
-        "z": 0.5
+        "z": 1.4982471994208026
       },
       "clientBoatPosition": {
-        "x": 261.82998046875,
+        "x": 267.1298828125,
         "y": 65,
         "z": 0.5
       },
-      "serverAuthoritativeSuccess": false
+      "serverAuthoritativeSuccess": true
     },
     {
       "id": "mixed240-horse-ratchet10",
@@ -697,8 +856,8 @@
       "startX": 14.87,
       "segmentLength": 10,
       "segmentPauseMs": 100,
-      "elapsedMs": 3573,
-      "packetCount": 974,
+      "elapsedMs": 8915,
+      "packetCount": 985,
       "segmentWitnesses": [
         {
           "segment": 1,
@@ -895,7 +1054,7 @@
         {
           "segment": 25,
           "fromX": 254.87,
-          "targetX": 258.35,
+          "targetX": 261,
           "playerAccepted": true,
           "vehicleAccepted": true,
           "correctionsSoFar": false
@@ -906,16 +1065,43 @@
       "playerBeyondDismounted": true,
       "netheriteCount": 1,
       "mountedAfter": true,
-      "dismountError": null,
-      "correctionCount": 0,
-      "firstCorrection": null,
+      "dismountError": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-horse-phase.js:82:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)",
+      "dismountResponse": null,
+      "correctionCount": 1,
+      "firstCorrection": {
+        "type": "player_position",
+        "elapsedMs": 2944.475808,
+        "packet": {
+          "teleportId": 27,
+          "x": 261,
+          "y": 65,
+          "z": 1.4982471994208026,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        }
+      },
       "clientPlayerPosition": {
-        "x": 258.35,
+        "x": 261,
         "y": 65,
-        "z": 0.5
+        "z": 1.4982471994208026
       },
       "clientBoatPosition": {
-        "x": 261.82998046875,
+        "x": 261,
         "y": 65,
         "z": 0.5
       },
@@ -923,20 +1109,20 @@
     }
   ],
   "fatal": null,
-  "finishedAt": "2026-07-29T10:07:42.269Z",
-  "successCount": 1,
+  "finishedAt": "2026-07-29T10:18:38.433Z",
+  "successCount": 6,
   "totalCount": 6,
   "byFamily": {
     "solid240-horse-control": {
-      "successes": 0,
+      "successes": 1,
       "attempts": 1
     },
     "mixed64-horse-ratchet10": {
-      "successes": 0,
+      "successes": 3,
       "attempts": 3
     },
     "mixed240-horse-ratchet10": {
-      "successes": 1,
+      "successes": 2,
       "attempts": 2
     }
   }
