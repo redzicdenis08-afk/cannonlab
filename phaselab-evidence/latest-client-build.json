@@ -1,1 +1,1 @@
-{"version":"4.1.0","minecraft":"1.21.11","artifact":"phaselab-client-4.1.0.jar","sha256":"68ce7282b3151516476711c46d681b3d0b1f7789eb5d0a7950dbf3f551db3c08","bytes":27818,"step":0.25,"segment_blocks":19.0,"pause_ticks":2,"verified":true}
+{"version":"4.2.0","minecraft":"1.21.11","artifact":"phaselab-client-4.2.0.jar","sha256":"df104b865e9550f151c028d00dc5645fbbff73243819a74514bdfdacc21525bf","bytes":27999,"step":0.25,"boat_segment_blocks":19.0,"horse_segment_blocks":10.0,"pause_ticks":2,"verified":true}
