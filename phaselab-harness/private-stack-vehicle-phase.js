@@ -235,7 +235,7 @@ async function waitForPlacedBoat (bot, beforeIds, timeoutMs = 5000) {
 }
 
 async function survivalPlaceAndMount (phaseBot, attackerBot) {
-  await command(phaseBot, `/tp AttackerBot 14.25 ${Y} ${Z} -90 45`, 350)
+  await command(phaseBot, `/tp AttackerBot 13.25 ${Y} ${Z} -90 45`, 350)
   const beforeIds = new Set(Object.keys(attackerBot.entities).map(Number))
   const response = await commandExpect(
     phaseBot,
