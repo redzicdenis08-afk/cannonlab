@@ -1,7 +1,7 @@
 package dev.denis.phaselab.guard;
 
 import org.bukkit.Material;
-import org.bukkit.Location;
+import org.bukkit.block.DecoratedPot;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.EventHandler;
@@ -11,14 +11,10 @@ import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
 import java.util.Set;
 
 public final class ModernContainerGuardPlugin extends JavaPlugin implements Listener {
-    private Constructor<?> factionLocationConstructor;
-    private Method factionAtLocation;
-
     @Override
     public void onEnable() {
         try {
@@ -26,10 +22,10 @@ public final class ModernContainerGuardPlugin extends JavaPlugin implements List
             if (factionsPlugin == null || !factionsPlugin.isEnabled()) {
                 throw new IllegalStateException("FactionsUUID is not enabled");
             }
-            ClassLoader factionsLoader = factionsPlugin.getClass().getClassLoader();
-
-            Class<?> confsClass = Class.forName("dev.kitteh.factions.config.Confs", true, factionsLoader);
-            Object mainConfig = confsClass.getMethod("main").invoke(null);
+            // Invoke the public FactionsPlugin#conf bridge on the already loaded
+            // plugin instance. Paper isolates plugin classloaders, so trying to
+            // Class.forName internal Factions classes from this plugin is invalid.
+            Object mainConfig = invoke(factionsPlugin, "conf");
             Object factionsConfig = invoke(mainConfig, "factions");
             Object protectionConfig = invoke(factionsConfig, "protection");
             Object containersValue = invoke(protectionConfig, "getCustomContainers");
@@ -46,10 +42,6 @@ public final class ModernContainerGuardPlugin extends JavaPlugin implements List
                 throw new IllegalStateException("Could not register modern protected containers");
             }
 
-            Class<?> locationClass = Class.forName("dev.kitteh.factions.FLocation", true, factionsLoader);
-            factionLocationConstructor = locationClass.getConstructor(Location.class);
-            factionAtLocation = locationClass.getMethod("faction");
-
             getServer().getPluginManager().registerEvents(this, this);
             getLogger().info("FactionsUUID modern-container guard enabled; CRAFTER added=" + crafterAdded + ", DECORATED_POT added=" + potAdded);
         } catch (ReflectiveOperationException | RuntimeException exception) {
@@ -60,21 +52,12 @@ public final class ModernContainerGuardPlugin extends JavaPlugin implements List
     @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = true)
     public void onProjectilePotBreak(EntityChangeBlockEvent event) {
         if (event.getBlock().getType() != Material.DECORATED_POT) return;
-        if (!(event.getEntity() instanceof Projectile)) return;
-        if (!isNormalFaction(event.getBlock().getLocation())) return;
+        if (!(event.getEntity() instanceof Projectile projectile)) return;
+        if (!(projectile.getShooter() instanceof Player)) return;
+        if (!(event.getBlock().getState() instanceof DecoratedPot pot)) return;
+        if (pot.getInventory().getItem() == null || pot.getInventory().getItem().getType().isAir()) return;
 
         event.setCancelled(true);
-    }
-
-    private boolean isNormalFaction(Location location) {
-        try {
-            Object factionLocation = factionLocationConstructor.newInstance(location);
-            Object faction = factionAtLocation.invoke(factionLocation);
-            return Boolean.TRUE.equals(faction.getClass().getMethod("isNormal").invoke(faction));
-        } catch (ReflectiveOperationException exception) {
-            getLogger().severe("Could not resolve faction for decorated-pot protection: " + exception);
-            return true;
-        }
     }
 
     private Object invoke(Object target, String methodName) throws ReflectiveOperationException {
