@@ -13,7 +13,9 @@ on:
   pull_request:
     paths:
       - 'cannons/perfectone-loaded.schem.b64'
+      - 'cannons/perfectone-v2-watered.schem.b64'
       - 'scenarios/perfectone-live.yml'
+      - 'scenarios/perfectone-v2-watered.yml'
       - '.github/workflows/perfectone-live.yml'
 
 concurrency:
@@ -27,6 +29,14 @@ jobs:
   perfectone-diagnostic:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - scenario: perfectone-live.yml
+            fixture: perfectone-loaded
+          - scenario: perfectone-v2-watered.yml
+            fixture: perfectone-v2-watered
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -52,16 +62,16 @@ jobs:
 
       - name: Static audit of the loaded fixture
         run: |
-          base64 --decode cannons/perfectone-loaded.schem.b64 > /tmp/perfectone-loaded.schem
-          python scripts/schem-audit.py /tmp/perfectone-loaded.schem \
-            --json-out perfectone-static-audit.json || true
-          python scripts/cannon-module-map.py /tmp/perfectone-loaded.schem \
-            --json-out perfectone-module-map.json || true
+          base64 --decode cannons/${{ matrix.variant.fixture }}.schem.b64 > /tmp/fixture.schem
+          python scripts/schem-audit.py /tmp/fixture.schem \
+            --json-out ${{ matrix.variant.fixture }}-static-audit.json || true
+          python scripts/cannon-module-map.py /tmp/fixture.schem \
+            --json-out ${{ matrix.variant.fixture }}-module-map.json || true
 
       - name: Fire PerfectOne
         env:
-          CANNONLAB_SCENARIO: perfectone-live.yml
-          CANNONLAB_SERVER_LABEL: Paper 26.1.2 PerfectOne diagnostic
+          CANNONLAB_SCENARIO: ${{ matrix.variant.scenario }}
+          CANNONLAB_SERVER_LABEL: Paper 26.1.2 ${{ matrix.variant.fixture }}
           CANNONLAB_EXPECTED_SHOTS: '3'
           # 510 dispensers fire together; the single-TNT assumption does not hold.
           CANNONLAB_STRICT_SINGLE_TNT: 'false'
@@ -80,10 +90,10 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: PerfectOne-diagnostic-${{ github.run_number }}
+          name: PerfectOne-diagnostic-${{ matrix.variant.fixture }}-${{ github.run_number }}
           path: |
             lab-artifacts/**
-            perfectone-static-audit.json
-            perfectone-module-map.json
+            ${{ matrix.variant.fixture }}-static-audit.json
+            ${{ matrix.variant.fixture }}-module-map.json
           if-no-files-found: warn
           retention-days: 30
