@@ -25,7 +25,9 @@ import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
+import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -125,6 +127,10 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         piston.setBlockData(pistonData, false);
         set(world, 15, Y, 12, Material.DIAMOND_BLOCK);
         set(world, 14, Y, 11, Material.LEVER);
+
+        // Physical workstation for the AuraSkills + ExcellentEnchants
+        // grindstone event-priority interaction.
+        set(world, 13, Y, 5, Material.GRINDSTONE);
 
         writeEvent("arena_build", snapshotMap(world, "build"));
         sender.sendMessage("STACKLAB BUILD OK boundary=15/16 y=" + Y);
@@ -320,7 +326,50 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         result.put("piston_payload_target", type(world, 16, Y, 12));
         result.put("hopper_count", inventoryCount(world.getBlockAt(15, Y, 8), Material.DIAMOND));
         result.put("target_chest_count", inventoryCount(world.getBlockAt(16, Y, 8), Material.DIAMOND));
+
+        Player attacker = Bukkit.getPlayerExact("AttackerBot");
+        if (attacker != null) {
+            result.put("attacker_enchanting_xp", auraEnchantingXp(attacker));
+            var top = attacker.getOpenInventory().getTopInventory();
+            result.put("attacker_open_inventory", top.getType().name());
+            if (top.getType() == InventoryType.GRINDSTONE) {
+                result.put("grindstone_input_0", itemSummary(top.getItem(0)));
+                result.put("grindstone_input_1", itemSummary(top.getItem(1)));
+                result.put("grindstone_result", itemSummary(top.getItem(2)));
+                result.put("grindstone_input_fragility", enchantLevel(top.getItem(0), "excellentenchants:curse_of_fragility"));
+                result.put("grindstone_result_fragility", enchantLevel(top.getItem(2), "excellentenchants:curse_of_fragility"));
+            }
+        }
         return result;
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Object auraEnchantingXp(Player player) {
+        try {
+            Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
+            Object api = apiClass.getMethod("get").invoke(null);
+            Object user = apiClass.getMethod("getUser", java.util.UUID.class).invoke(api, player.getUniqueId());
+            Class<? extends Enum> skillsClass = (Class<? extends Enum>) Class.forName("dev.aurelium.auraskills.api.skill.Skills");
+            Object enchanting = Enum.valueOf(skillsClass, "ENCHANTING");
+            Class<?> skillClass = Class.forName("dev.aurelium.auraskills.api.skill.Skill");
+            Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
+            return skillsUserClass.getMethod("getSkillXp", skillClass).invoke(user, enchanting);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            return "reflection-error:" + exception.getClass().getSimpleName();
+        }
+    }
+
+    private String itemSummary(ItemStack item) {
+        if (item == null || item.getType().isAir()) return "AIR";
+        return item.getType().name() + "x" + item.getAmount();
+    }
+
+    private int enchantLevel(ItemStack item, String rawKey) {
+        if (item == null) return 0;
+        NamespacedKey key = NamespacedKey.fromString(rawKey);
+        if (key == null) return 0;
+        Enchantment enchantment = Registry.ENCHANTMENT.get(key);
+        return enchantment == null ? 0 : item.getEnchantmentLevel(enchantment);
     }
 
     private Map<String, Object> portalSnapshotMap(World world, String label) {
@@ -451,6 +500,24 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             "source", event.getSource().getType().name(),
             "destination", event.getDestination().getType().name()
         ));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onGrindstoneResultClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (event.getView().getTopInventory().getType() != InventoryType.GRINDSTONE) return;
+        if (event.getRawSlot() != 2) return;
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("player", player.getName());
+        data.put("cancelled", event.isCancelled());
+        data.put("action", event.getAction().name());
+        data.put("click", event.getClick().name());
+        data.put("input", itemSummary(event.getView().getTopInventory().getItem(0)));
+        data.put("result", itemSummary(event.getView().getTopInventory().getItem(2)));
+        data.put("input_fragility", enchantLevel(event.getView().getTopInventory().getItem(0), "excellentenchants:curse_of_fragility"));
+        data.put("enchanting_xp_monitor", auraEnchantingXp(player));
+        writeEvent("grindstone_result_click", data);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)

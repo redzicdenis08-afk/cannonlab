@@ -95,6 +95,47 @@ def aura_tree(rows):
     return result(status, "AuraSkills Treecapitator removed enemy-claim blocks without BlockBreakEvent", attempts=attempts, confirmed_attempts=hits)
 
 
+def grindstone_xp(rows):
+    attempts = []
+    for n in range(1, 4):
+        w = window(rows, f"grindstone-before-{n}", f"grindstone-after-{n}")
+        if not w:
+            attempts.append({"run": n, "missing": True})
+            continue
+        before, after, events = w
+        clicks = [e for e in events if e.get("type") == "grindstone_result_click"]
+        try:
+            xp_before = float(before.get("attacker_enchanting_xp"))
+            xp_after = float(after.get("attacker_enchanting_xp"))
+        except (TypeError, ValueError):
+            xp_before = xp_after = None
+        persisted = (
+            after.get("grindstone_input_0") == "DIAMOND_SWORDx1"
+            and int(after.get("grindstone_input_fragility", 0)) >= 1
+        )
+        cancelled = any(e.get("cancelled") is True for e in clicks)
+        gained = xp_before is not None and xp_after is not None and xp_after > xp_before
+        attempts.append({
+            "run": n,
+            "xp_before": xp_before,
+            "xp_after": xp_after,
+            "xp_gain": None if xp_before is None or xp_after is None else xp_after - xp_before,
+            "item_persisted": persisted,
+            "cancelled_result_click": cancelled,
+            "server_click_events": clicks,
+            "exploitable": gained and persisted and cancelled,
+        })
+    hits = sum(a.get("exploitable") is True for a in attempts)
+    completed = [a for a in attempts if "exploitable" in a]
+    status = "confirmed" if hits == 3 else "rejected" if len(completed) == 3 and all(a["exploitable"] is False for a in completed) else "inconclusive"
+    return result(
+        status,
+        "AuraSkills awarded repeatable grindstone XP while ExcellentEnchants preserved the cursed item",
+        attempts=attempts,
+        confirmed_attempts=hits,
+    )
+
+
 def simple(rows, before_label, after_label, field, vulnerable, title):
     w = window(rows, before_label, after_label)
     if not w:
@@ -131,6 +172,7 @@ def main() -> int:
         "claims_verified": claims_ok,
         "claim_witness": claims,
         "findings": {
+            "auraskills_excellentenchants_grindstone_xp": grindstone_xp(rows),
             "portal_factions": portal(rows, "factions", 3, False) if claims_ok else blocked("Cancelled portal creation duplicated a filled barrel"),
             "portal_cancel_control": portal(rows, "control", 2, True),
             "auraskills_treecapitator": aura_tree(rows) if claims_ok else blocked("AuraSkills Treecapitator removed enemy-claim blocks without BlockBreakEvent"),

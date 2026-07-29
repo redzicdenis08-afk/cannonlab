@@ -127,6 +127,50 @@ async function equipAndDig (bot, itemName, blockPos) {
   return { target: block.name }
 }
 
+async function openGrindstoneAndLoadSword (bot, blockPos) {
+  const block = bot.blockAt(blockPos)
+  if (!block) throw new Error(`Missing grindstone at ${blockPos}`)
+  await bot.lookAt(block.position.offset(0.5, 0.5, 0.5), true)
+  const window = await bot.openBlock(block)
+  await sleep(450)
+
+  const swordSlot = window.slots.findIndex((entry, slot) => {
+    return slot >= window.inventoryStart && entry?.name === 'diamond_sword'
+  })
+  if (swordSlot < 0) {
+    throw new Error(`Cursed sword not found; window=${window.type} inventoryStart=${window.inventoryStart}`)
+  }
+
+  await bot.clickWindow(swordSlot, 0, 1)
+  await sleep(700)
+  record('grindstone_loaded', {
+    windowType: window.type,
+    input0: window.slots[0]?.name || null,
+    input1: window.slots[1]?.name || null,
+    result: window.slots[2]?.name || null
+  })
+  if (!window.slots[2]) throw new Error('Grindstone result slot did not populate')
+  return window
+}
+
+async function clickGrindstoneResult (bot, window, run) {
+  let clickError = null
+  try {
+    await bot.clickWindow(2, 0, 0)
+  } catch (error) {
+    clickError = String(error.stack || error)
+  }
+  await sleep(650)
+  const state = {
+    run,
+    clickError,
+    input0: window.slots[0]?.name || null,
+    result: window.slots[2]?.name || null
+  }
+  record('grindstone_click_client', state)
+  return state
+}
+
 async function equipAndServerBreak (phaseBot, playerBot, itemName, blockPos) {
   const item = await waitForInventoryItem(playerBot, itemName)
   if (!item) throw new Error(`${playerBot.username} missing ${itemName}`)
@@ -207,6 +251,22 @@ async function main () {
       await command(victimBot, '/f show', 400)
       await command(attackerBot, '/f show', 400)
       return { victim: victimBot.entity.position, attacker: attackerBot.entity.position, witness }
+    })
+
+    await phase('auraskills_excellentenchants_infinite_grindstone_xp', async () => {
+      await command(phaseBot, '/stacklab build', 650)
+      await command(phaseBot, '/clear AttackerBot')
+      await command(phaseBot, '/stacklab give AttackerBot diamond_sword excellentenchants:curse_of_fragility 1', 650)
+      await command(phaseBot, '/tp AttackerBot 12.5 65 5.5 -90 0', 500)
+      const window = await openGrindstoneAndLoadSword(attackerBot, new Vec3(13, 65, 5))
+      const clicks = []
+      for (let run = 1; run <= 3; run++) {
+        await command(phaseBot, `/stacklab snapshot grindstone-before-${run}`, 300)
+        clicks.push(await clickGrindstoneResult(attackerBot, window, run))
+        await command(phaseBot, `/stacklab snapshot grindstone-after-${run}`, 300)
+      }
+      try { window.close() } catch {}
+      return { clicks }
     })
 
     for (let run = 1; run <= 3; run++) {
