@@ -2,12 +2,15 @@ package dev.denis.stacklab;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import com.destroystokyo.paper.event.block.BlockDestroyEvent;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
 import org.bukkit.World;
+import org.bukkit.WorldCreator;
+import org.bukkit.boss.DragonBattle;
 import org.bukkit.block.Block;
 import org.bukkit.block.BrewingStand;
 import org.bukkit.block.Chest;
@@ -15,6 +18,9 @@ import org.bukkit.block.Hopper;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.EndPortalFrame;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.entity.EnderCrystal;
+import org.bukkit.entity.EnderDragon;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -52,6 +58,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     private final Gson gson = new Gson();
     private Path evidencePath;
     private boolean cancelPortalMultiPlace;
+    private Location podiumCenter;
+    private Location podiumBarrelLocation;
+    private Location podiumFourthBase;
 
     @Override
     public void onEnable() {
@@ -82,6 +91,10 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "give" -> give(sender, args);
                     case "grindstoneprep" -> grindstonePrep(sender, args);
                     case "portaluse" -> portalUse(sender, args);
+                    case "podiumbuild" -> podiumBuild(sender);
+                    case "podiumuse" -> podiumUse(sender, args);
+                    case "podiumsnapshot" -> podiumSnapshot(sender, args.length > 1 ? args[1] : "manual");
+                    case "podiumclaimsnapshot" -> podiumClaimSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
                     case "alchemyfinal" -> alchemyFinal(sender);
@@ -399,6 +412,216 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return true;
     }
 
+
+    private boolean podiumBuild(org.bukkit.command.CommandSender sender) {
+        World world = requireEndWorld();
+        DragonBattle battle = world.getEnderDragonBattle();
+        if (battle == null) throw new IllegalStateException("End dragon battle is unavailable");
+
+        world.getEntitiesByClass(EnderDragon.class).forEach(Entity::remove);
+        world.getEntitiesByClass(EnderCrystal.class).forEach(Entity::remove);
+        world.getEntitiesByClass(Item.class).forEach(item -> {
+            if (podiumCenter == null || item.getLocation().distanceSquared(podiumCenter) <= 1024.0) item.remove();
+        });
+
+        battle.setPreviouslyKilled(true);
+        battle.generateEndPortal(true);
+        Location center = battle.getEndPortalLocation();
+        if (center == null) throw new IllegalStateException("End portal location is unavailable after generation");
+        podiumCenter = center.getBlock().getLocation();
+        world.getChunkAt(podiumCenter).load(true);
+
+        Block east = findCrystalBase(world, podiumCenter, 1, 0);
+        Block west = findCrystalBase(world, podiumCenter, -1, 0);
+        Block south = findCrystalBase(world, podiumCenter, 0, 1);
+        Block north = findCrystalBase(world, podiumCenter, 0, -1);
+        // Keep the fourth, player-used crystal west of X=0 so its claim can differ from the podium center claim.
+        Block[] bases = new Block[]{east, south, north, west};
+        for (int i = 0; i < 3; i++) {
+            Block base = bases[i];
+            world.spawn(base.getLocation().add(0.5, 1.0, 0.5), EnderCrystal.class, crystal -> {
+                crystal.setShowingBottom(false);
+                crystal.setInvulnerable(true);
+            });
+        }
+        podiumFourthBase = bases[3].getLocation();
+
+        Block barrelBlock = podiumCenter.getBlock();
+        barrelBlock.setType(Material.BARREL, false);
+        org.bukkit.block.Barrel barrel = (org.bukkit.block.Barrel) barrelBlock.getState();
+        barrel.getInventory().clear();
+        barrel.getInventory().setItem(0, new ItemStack(Material.NETHERITE_BLOCK, 64));
+        podiumBarrelLocation = barrelBlock.getLocation();
+
+        Map<String, Object> snapshot = podiumSnapshotMap(world, "build");
+        writeEvent("podium_build", snapshot);
+        sender.sendMessage("STACKLAB PODIUM BUILD " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private boolean podiumUse(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab podiumuse <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        if (podiumFourthBase == null || podiumBarrelLocation == null) {
+            sender.sendMessage("STACKLAB PODIUM USE invoked=false reason=not_built");
+            return true;
+        }
+
+        World world = podiumFourthBase.getWorld();
+        player.teleport(podiumFourthBase.clone().add(0.5, 1.0, 0.5));
+        player.getInventory().setItemInMainHand(new ItemStack(Material.END_CRYSTAL, 1));
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("before", podiumSnapshotMap(world, "before-use"));
+        try {
+            Object serverPlayer = player.getClass().getMethod("getHandle").invoke(player);
+            Class<?> handClass = Class.forName("net.minecraft.world.InteractionHand");
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Object mainHand = Enum.valueOf((Class<? extends Enum>) handClass, "MAIN_HAND");
+            Class<?> directionClass = Class.forName("net.minecraft.core.Direction");
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Object up = Enum.valueOf((Class<? extends Enum>) directionClass, "UP");
+            Class<?> blockPosClass = Class.forName("net.minecraft.core.BlockPos");
+            Object blockPos = blockPosClass.getConstructor(int.class, int.class, int.class).newInstance(
+                podiumFourthBase.getBlockX(), podiumFourthBase.getBlockY(), podiumFourthBase.getBlockZ());
+            Class<?> vec3Class = Class.forName("net.minecraft.world.phys.Vec3");
+            Object hitLocation = vec3Class.getConstructor(double.class, double.class, double.class).newInstance(
+                podiumFourthBase.getX() + 0.5, podiumFourthBase.getY() + 1.0, podiumFourthBase.getZ() + 0.5);
+            Class<?> hitResultClass = Class.forName("net.minecraft.world.phys.BlockHitResult");
+            Object hitResult = hitResultClass
+                .getConstructor(vec3Class, directionClass, blockPosClass, boolean.class)
+                .newInstance(hitLocation, up, blockPos, false);
+            Class<?> nmsPlayerClass = Class.forName("net.minecraft.world.entity.player.Player");
+            Class<?> contextClass = Class.forName("net.minecraft.world.item.context.UseOnContext");
+            Object context = contextClass.getConstructor(nmsPlayerClass, handClass, hitResultClass)
+                .newInstance(serverPlayer, mainHand, hitResult);
+            Object nmsStack = serverPlayer.getClass().getMethod("getItemInHand", handClass).invoke(serverPlayer, mainHand);
+            Object item = nmsStack.getClass().getMethod("getItem").invoke(nmsStack);
+            Object result = item.getClass().getMethod("useOn", contextClass).invoke(item, context);
+            evidence.put("invoked", true);
+            evidence.put("result", String.valueOf(result));
+        } catch (ReflectiveOperationException exception) {
+            evidence.put("invoked", false);
+            evidence.put("error", exception.toString());
+        }
+        evidence.put("immediate", podiumSnapshotMap(world, "immediate-after-use"));
+        writeEvent("server_podium_use", evidence);
+        Bukkit.getScheduler().runTaskLater(this, () -> writeEvent("podium_delayed_snapshot", podiumSnapshotMap(world, "after-5-ticks")), 5L);
+        Bukkit.getScheduler().runTaskLater(this, () -> writeEvent("podium_delayed_snapshot", podiumSnapshotMap(world, "after-40-ticks")), 40L);
+        sender.sendMessage("STACKLAB PODIUM USE " + gson.toJson(evidence));
+        return true;
+    }
+
+    private boolean podiumSnapshot(org.bukkit.command.CommandSender sender, String label) {
+        World world = requireEndWorld();
+        Map<String, Object> snapshot = podiumSnapshotMap(world, label);
+        writeEvent("podium_snapshot", snapshot);
+        sender.sendMessage("STACKLAB PODIUM SNAPSHOT " + label + " " + gson.toJson(snapshot));
+        return true;
+    }
+
+
+    private boolean podiumClaimSnapshot(org.bukkit.command.CommandSender sender, String label) {
+        Map<String, Object> witness = new LinkedHashMap<>();
+        witness.put("label", label);
+        if (podiumBarrelLocation == null || podiumFourthBase == null) {
+            witness.put("verified", false);
+            witness.put("error", "podium_not_built");
+        } else {
+            try {
+                Class<?> locationClass = Class.forName("dev.kitteh.factions.FLocation");
+                Constructor<?> locationConstructor = locationClass.getConstructor(String.class, int.class, int.class);
+                Class<?> boardClass = Class.forName("dev.kitteh.factions.Board");
+                Object board = boardClass.getMethod("board").invoke(null);
+                Method factionAt = boardClass.getMethod("factionAt", locationClass);
+                Object barrelLocation = locationConstructor.newInstance(
+                    podiumBarrelLocation.getWorld().getName(),
+                    podiumBarrelLocation.getBlockX() >> 4,
+                    podiumBarrelLocation.getBlockZ() >> 4);
+                Object crystalLocation = locationConstructor.newInstance(
+                    podiumFourthBase.getWorld().getName(),
+                    podiumFourthBase.getBlockX() >> 4,
+                    podiumFourthBase.getBlockZ() >> 4);
+                Object barrelFaction = factionAt.invoke(board, barrelLocation);
+                Object crystalFaction = factionAt.invoke(board, crystalLocation);
+                Method tag = barrelFaction.getClass().getMethod("tag");
+                Method isWilderness = barrelFaction.getClass().getMethod("isWilderness");
+                witness.put("barrel_tag", String.valueOf(tag.invoke(barrelFaction)));
+                witness.put("crystal_tag", String.valueOf(tag.invoke(crystalFaction)));
+                witness.put("barrel_wilderness", Boolean.TRUE.equals(isWilderness.invoke(barrelFaction)));
+                witness.put("crystal_wilderness", Boolean.TRUE.equals(isWilderness.invoke(crystalFaction)));
+                witness.put("barrel_chunk_x", podiumBarrelLocation.getBlockX() >> 4);
+                witness.put("barrel_chunk_z", podiumBarrelLocation.getBlockZ() >> 4);
+                witness.put("crystal_chunk_x", podiumFourthBase.getBlockX() >> 4);
+                witness.put("crystal_chunk_z", podiumFourthBase.getBlockZ() >> 4);
+                witness.put("verified", true);
+            } catch (ReflectiveOperationException exception) {
+                witness.put("verified", false);
+                witness.put("error", exception.toString());
+            }
+        }
+        writeEvent("podium_claim_witness", witness);
+        sender.sendMessage("STACKLAB PODIUM CLAIM WITNESS " + gson.toJson(witness));
+        return true;
+    }
+
+    private Map<String, Object> podiumSnapshotMap(World world, String label) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("label", label);
+        result.put("built", podiumBarrelLocation != null);
+        if (podiumCenter != null) {
+            result.put("center_x", podiumCenter.getBlockX());
+            result.put("center_y", podiumCenter.getBlockY());
+            result.put("center_z", podiumCenter.getBlockZ());
+        }
+        if (podiumFourthBase != null) {
+            result.put("fourth_base_x", podiumFourthBase.getBlockX());
+            result.put("fourth_base_y", podiumFourthBase.getBlockY());
+            result.put("fourth_base_z", podiumFourthBase.getBlockZ());
+        }
+        if (podiumBarrelLocation != null) {
+            Block block = podiumBarrelLocation.getBlock();
+            result.put("barrel_type", block.getType().name());
+            result.put("barrel_netherite", inventoryCount(block, Material.NETHERITE_BLOCK));
+        } else {
+            result.put("barrel_type", "MISSING");
+            result.put("barrel_netherite", 0);
+        }
+        int dropped = world.getEntitiesByClass(Item.class).stream()
+            .filter(item -> inPodiumArena(item.getLocation()))
+            .filter(item -> item.getItemStack().getType() == Material.NETHERITE_BLOCK)
+            .mapToInt(item -> item.getItemStack().getAmount())
+            .sum();
+        result.put("dropped_netherite", dropped);
+        result.put("crystal_count", world.getEntitiesByClass(EnderCrystal.class).stream()
+            .filter(crystal -> inPodiumArena(crystal.getLocation())).count());
+        DragonBattle battle = world.getEnderDragonBattle();
+        result.put("respawn_phase", battle == null ? "MISSING" : battle.getRespawnPhase().name());
+        return result;
+    }
+
+    private Block findCrystalBase(World world, Location center, int dx, int dz) {
+        for (int distance = 2; distance <= 4; distance++) {
+            for (int y = center.getBlockY(); y <= center.getBlockY() + 5; y++) {
+                Block candidate = world.getBlockAt(
+                    center.getBlockX() + dx * distance,
+                    y,
+                    center.getBlockZ() + dz * distance);
+                if (candidate.getType() == Material.BEDROCK && candidate.getRelative(0, 1, 0).isEmpty()) {
+                    return candidate;
+                }
+            }
+        }
+        throw new IllegalStateException("Could not find podium crystal base direction=" + dx + "," + dz);
+    }
+
     private boolean breakBlock(org.bukkit.command.CommandSender sender, String[] args) {
         if (args.length < 5) {
             sender.sendMessage("Usage: /stacklab break <player> <x> <y> <z>");
@@ -665,6 +888,16 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return world;
     }
 
+
+    private World requireEndWorld() {
+        World world = Bukkit.getWorlds().stream()
+            .filter(candidate -> candidate.getEnvironment() == World.Environment.THE_END)
+            .findFirst()
+            .orElseGet(() -> new WorldCreator("world_the_end").environment(World.Environment.THE_END).createWorld());
+        if (world == null) throw new IllegalStateException("End world is not loaded");
+        return world;
+    }
+
     private void writeEvent(String type, Map<String, ?> fields) {
         JsonObject object = new JsonObject();
         object.addProperty("ts", Instant.now().toString());
@@ -767,14 +1000,28 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    public void onPodiumDestroyGuard(BlockDestroyEvent event) {
+        if (!isPodiumBarrel(event.getBlock().getLocation())) return;
+        if (cancelPortalMultiPlace) event.setCancelled(true);
+        writeEvent("podium_block_destroy", Map.of(
+            "cancelled", event.isCancelled(),
+            "will_drop", event.willDrop(),
+            "block", event.getBlock().getType().name()
+        ));
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onPortalMultiPlaceGuard(BlockMultiPlaceEvent event) {
         boolean touchesBarrel = event.getReplacedBlockStates().stream()
-            .anyMatch(state -> state.getType() == Material.BARREL && inPortalArena(state.getLocation()));
+            .anyMatch(state -> state.getType() == Material.BARREL
+                && (inPortalArena(state.getLocation()) || isPodiumBarrel(state.getLocation())));
+        boolean touchesPodium = event.getReplacedBlockStates().stream()
+            .anyMatch(state -> inPodiumArena(state.getLocation()));
         if (cancelPortalMultiPlace && touchesBarrel) {
             event.setCancelled(true);
         }
-        if (event.getReplacedBlockStates().stream().anyMatch(state -> inPortalArena(state.getLocation()))) {
-            writeEvent("portal_multi_place_highest", Map.of(
+        if (event.getReplacedBlockStates().stream().anyMatch(state -> inPortalArena(state.getLocation()) || inPodiumArena(state.getLocation()))) {
+            writeEvent(touchesPodium ? "podium_multi_place_highest" : "portal_multi_place_highest", Map.of(
                 "player", event.getPlayer().getName(),
                 "cancelled", event.isCancelled(),
                 "touches_barrel", touchesBarrel,
@@ -786,8 +1033,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
     public void onPortalMultiPlaceMonitor(BlockMultiPlaceEvent event) {
-        if (event.getReplacedBlockStates().stream().noneMatch(state -> inPortalArena(state.getLocation()))) return;
-        writeEvent("portal_multi_place_monitor", Map.of(
+        boolean podium = event.getReplacedBlockStates().stream().anyMatch(state -> inPodiumArena(state.getLocation()));
+        if (event.getReplacedBlockStates().stream().noneMatch(state -> inPortalArena(state.getLocation()) || inPodiumArena(state.getLocation()))) return;
+        writeEvent(podium ? "podium_multi_place_monitor" : "portal_multi_place_monitor", Map.of(
             "player", event.getPlayer().getName(),
             "cancelled", event.isCancelled(),
             "states", event.getReplacedBlockStates().size(),
@@ -799,8 +1047,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
     public void onItemSpawn(ItemSpawnEvent event) {
-        if (!inPortalArena(event.getLocation())) return;
-        writeEvent("portal_item_spawn", Map.of(
+        boolean podium = inPodiumArena(event.getLocation());
+        if (!inPortalArena(event.getLocation()) && !podium) return;
+        writeEvent(podium ? "podium_item_spawn" : "portal_item_spawn", Map.of(
             "item", event.getEntity().getItemStack().getType().name(),
             "amount", event.getEntity().getItemStack().getAmount(),
             "cancelled", event.isCancelled(),
@@ -830,5 +1079,20 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return location.getBlockX() >= 13 && location.getBlockX() <= 21
             && location.getBlockY() >= Y - 2 && location.getBlockY() <= Y + 5
             && location.getBlockZ() >= 17 && location.getBlockZ() <= 25;
+    }
+
+    private boolean inPodiumArena(Location location) {
+        if (location == null || podiumCenter == null || location.getWorld() != podiumCenter.getWorld()) return false;
+        return Math.abs(location.getBlockX() - podiumCenter.getBlockX()) <= 8
+            && Math.abs(location.getBlockY() - podiumCenter.getBlockY()) <= 8
+            && Math.abs(location.getBlockZ() - podiumCenter.getBlockZ()) <= 8;
+    }
+
+    private boolean isPodiumBarrel(Location location) {
+        return location != null && podiumBarrelLocation != null
+            && location.getWorld() == podiumBarrelLocation.getWorld()
+            && location.getBlockX() == podiumBarrelLocation.getBlockX()
+            && location.getBlockY() == podiumBarrelLocation.getBlockY()
+            && location.getBlockZ() == podiumBarrelLocation.getBlockZ();
     }
 }
