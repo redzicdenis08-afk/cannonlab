@@ -9,6 +9,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
 import org.bukkit.World;
 import org.bukkit.block.Block;
+import org.bukkit.block.BrewingStand;
 import org.bukkit.block.Chest;
 import org.bukkit.block.Hopper;
 import org.bukkit.block.data.Directional;
@@ -30,7 +31,9 @@ import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.potion.PotionType;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -77,6 +80,8 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "claimsnapshot" -> claimSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "give" -> give(sender, args);
                     case "break" -> breakBlock(sender, args);
+                    case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
+                    case "alchemyfinal" -> alchemyFinal(sender);
                     case "tick" -> tick(sender, args);
                     case "cancelportal" -> cancelPortal(sender, args);
                     default -> false;
@@ -131,6 +136,13 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         // Physical workstation for the AuraSkills + ExcellentEnchants
         // grindstone event-priority interaction.
         set(world, 13, Y, 5, Material.GRINDSTONE);
+
+        // Brewing amplifier fixture. The side redstone block locks the hopper
+        // during brewing and is removed after AuraSkills observes BrewEvent.
+        set(world, 13, Y + 2, 9, Material.BREWING_STAND);
+        set(world, 13, Y + 1, 9, Material.HOPPER);
+        set(world, 13, Y, 9, Material.CHEST);
+        set(world, 14, Y + 1, 9, Material.REDSTONE_BLOCK);
 
         writeEvent("arena_build", snapshotMap(world, "build"));
         sender.sendMessage("STACKLAB BUILD OK boundary=15/16 y=" + Y);
@@ -314,6 +326,62 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return true;
     }
 
+    private boolean alchemyCycle(org.bukkit.command.CommandSender sender, String label) {
+        World world = requireWorld();
+        Block standBlock = world.getBlockAt(13, Y + 2, 9);
+        if (!(standBlock.getState() instanceof BrewingStand stand)) {
+            sender.sendMessage("STACKLAB ALCHEMY missing brewing stand");
+            return true;
+        }
+
+        // Lock extraction until the actual BrewEvent and AuraSkills' delayed
+        // before/after comparison have completed.
+        set(world, 14, Y + 1, 9, Material.REDSTONE_BLOCK);
+        var inventory = stand.getInventory();
+        inventory.clear();
+        for (int slot = 0; slot < 3; slot++) inventory.setItem(slot, potion(PotionType.WATER));
+        inventory.setIngredient(new ItemStack(Material.NETHER_WART));
+        stand.setFuelLevel(20);
+        stand.setBrewingTime(1);
+        stand.update(true, false);
+
+        writeEvent("alchemy_cycle_start", Map.of("label", label));
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            world.getBlockAt(14, Y + 1, 9).setType(Material.AIR, false);
+            writeEvent("alchemy_hopper_unlocked", alchemySnapshotMap(world, label));
+        }, 6L);
+        Bukkit.getScheduler().runTaskLater(this, () -> {
+            writeEvent("alchemy_cycle_end", alchemySnapshotMap(world, label));
+        }, 35L);
+        sender.sendMessage("STACKLAB ALCHEMY CYCLE " + label);
+        return true;
+    }
+
+    private boolean alchemyFinal(org.bukkit.command.CommandSender sender) {
+        World world = requireWorld();
+        world.getBlockAt(13, Y + 1, 9).setType(Material.AIR, false);
+        world.getBlockAt(14, Y + 1, 9).setType(Material.AIR, false);
+        Block standBlock = world.getBlockAt(13, Y + 2, 9);
+        if (!(standBlock.getState() instanceof BrewingStand stand)) {
+            sender.sendMessage("STACKLAB ALCHEMY missing brewing stand");
+            return true;
+        }
+        stand.getInventory().clear();
+        stand.getInventory().setItem(0, potion(PotionType.AWKWARD));
+        stand.update(true, false);
+        writeEvent("alchemy_final_ready", alchemySnapshotMap(world, "final-ready"));
+        sender.sendMessage("STACKLAB ALCHEMY FINAL READY");
+        return true;
+    }
+
+    private ItemStack potion(PotionType type) {
+        ItemStack item = new ItemStack(Material.POTION);
+        PotionMeta meta = (PotionMeta) item.getItemMeta();
+        meta.setBasePotionType(type);
+        item.setItemMeta(meta);
+        return item;
+    }
+
     private Map<String, Object> snapshotMap(World world, String label) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("label", label);
@@ -330,6 +398,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         Player attacker = Bukkit.getPlayerExact("AttackerBot");
         if (attacker != null) {
             result.put("attacker_enchanting_xp", auraEnchantingXp(attacker));
+            result.put("attacker_alchemy_xp", auraSkillXp(attacker, "ALCHEMY"));
             var top = attacker.getOpenInventory().getTopInventory();
             result.put("attacker_open_inventory", top.getType().name());
             if (top.getType() == InventoryType.GRINDSTONE) {
@@ -340,23 +409,44 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                 result.put("grindstone_result_fragility", enchantLevel(top.getItem(2), "excellentenchants:curse_of_fragility"));
             }
         }
+        result.putAll(alchemySnapshotMap(world, label));
         return result;
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
     private Object auraEnchantingXp(Player player) {
+        return auraSkillXp(player, "ENCHANTING");
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Object auraSkillXp(Player player, String skillName) {
         try {
             Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
             Object api = apiClass.getMethod("get").invoke(null);
             Object user = apiClass.getMethod("getUser", java.util.UUID.class).invoke(api, player.getUniqueId());
             Class<? extends Enum> skillsClass = (Class<? extends Enum>) Class.forName("dev.aurelium.auraskills.api.skill.Skills");
-            Object enchanting = Enum.valueOf(skillsClass, "ENCHANTING");
+            Object skill = Enum.valueOf(skillsClass, skillName);
             Class<?> skillClass = Class.forName("dev.aurelium.auraskills.api.skill.Skill");
             Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
-            return skillsUserClass.getMethod("getSkillXp", skillClass).invoke(user, enchanting);
+            return skillsUserClass.getMethod("getSkillXp", skillClass).invoke(user, skill);
         } catch (ReflectiveOperationException | RuntimeException exception) {
             return "reflection-error:" + exception.getClass().getSimpleName();
         }
+    }
+
+    private Map<String, Object> alchemySnapshotMap(World world, String label) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("alchemy_label", label);
+        Block standBlock = world.getBlockAt(13, Y + 2, 9);
+        if (standBlock.getState() instanceof BrewingStand stand) {
+            result.put("alchemy_slot_0", itemSummary(stand.getInventory().getItem(0)));
+            result.put("alchemy_slot_1", itemSummary(stand.getInventory().getItem(1)));
+            result.put("alchemy_slot_2", itemSummary(stand.getInventory().getItem(2)));
+            result.put("alchemy_ingredient", itemSummary(stand.getInventory().getIngredient()));
+            result.put("alchemy_brew_time", stand.getBrewingTime());
+        }
+        result.put("alchemy_chest_potions", inventoryCount(world.getBlockAt(13, Y, 9), Material.POTION));
+        return result;
     }
 
     private String itemSummary(ItemStack item) {
@@ -518,6 +608,22 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         data.put("input_fragility", enchantLevel(event.getView().getTopInventory().getItem(0), "excellentenchants:curse_of_fragility"));
         data.put("enchanting_xp_monitor", auraEnchantingXp(player));
         writeEvent("grindstone_result_click", data);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onBrewingResultClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (event.getView().getTopInventory().getType() != InventoryType.BREWING) return;
+        if (event.getRawSlot() < 0 || event.getRawSlot() > 2) return;
+
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("player", player.getName());
+        data.put("slot", event.getRawSlot());
+        data.put("cancelled", event.isCancelled());
+        data.put("action", event.getAction().name());
+        data.put("item", itemSummary(event.getCurrentItem()));
+        data.put("alchemy_xp_monitor", auraSkillXp(player, "ALCHEMY"));
+        writeEvent("alchemy_result_click", data);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)

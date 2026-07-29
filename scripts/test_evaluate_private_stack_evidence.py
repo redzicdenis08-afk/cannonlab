@@ -56,12 +56,35 @@ def main() -> int:
     finding = evaluator.grindstone_xp(rejected)
     assert finding["status"] == "rejected", finding
 
+    alchemy_rows = [
+        {
+            "type": "snapshot",
+            "label": "alchemy-before-take",
+            "attacker_alchemy_xp": 0.0,
+            "alchemy_chest_potions": 15,
+        },
+        {
+            "type": "alchemy_result_click",
+            "slot": 0,
+            "alchemy_xp_monitor": 50.0,
+        },
+        {
+            "type": "snapshot",
+            "label": "alchemy-after-take",
+            "attacker_alchemy_xp": 50.0,
+            "alchemy_chest_potions": 15,
+        },
+    ]
+    finding = evaluator.alchemy_amplifier(alchemy_rows)
+    assert finding["status"] == "confirmed", finding
+    assert finding["evidence"]["xp_gain"] == 50.0, finding
+
     with tempfile.TemporaryDirectory() as temporary:
         path = Path(temporary) / "evidence.jsonl"
         path.write_text("\n".join(json.dumps(row) for row in confirmed_rows()) + "\n", encoding="utf-8")
         assert len(evaluator.read_rows(path)) == 9
 
-    print("Private-stack evidence evaluator regressions passed: 4")
+    print("Private-stack evidence evaluator regressions passed: 6")
     return 0
 
 

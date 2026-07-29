@@ -171,6 +171,16 @@ async function clickGrindstoneResult (bot, window, run) {
   return state
 }
 
+async function openBrewingStand (bot, blockPos) {
+  const block = bot.blockAt(blockPos)
+  if (!block) throw new Error(`Missing brewing stand at ${blockPos}`)
+  await bot.lookAt(block.position.offset(0.5, 0.5, 0.5), true)
+  const window = await bot.openBlock(block)
+  await sleep(450)
+  if (!String(window.type).includes('brewing')) throw new Error(`Unexpected brewing window ${window.type}`)
+  return window
+}
+
 async function equipAndServerBreak (phaseBot, playerBot, itemName, blockPos) {
   const item = await waitForInventoryItem(playerBot, itemName)
   if (!item) throw new Error(`${playerBot.username} missing ${itemName}`)
@@ -267,6 +277,36 @@ async function main () {
       }
       try { window.close() } catch {}
       return { clicks }
+    })
+
+    await phase('auraskills_five_cycle_alchemy_xp_amplifier', async () => {
+      await command(phaseBot, '/stacklab build', 650)
+      await command(phaseBot, '/tp AttackerBot 12.5 67 9.5 -90 0', 500)
+
+      // Opening once assigns AuraSkills' brewing-stand owner metadata.
+      let window = await openBrewingStand(attackerBot, new Vec3(13, 67, 9))
+      try { attackerBot.closeWindow(window) } catch {}
+      await sleep(300)
+
+      for (let run = 1; run <= 5; run++) {
+        await command(phaseBot, `/stacklab alchemycycle ${run}`, 250)
+        await sleep(2300)
+        await command(phaseBot, `/stacklab snapshot alchemy-cycle-${run}`, 300)
+      }
+
+      await command(phaseBot, '/stacklab alchemyfinal', 500)
+      window = await openBrewingStand(attackerBot, new Vec3(13, 67, 9))
+      await command(phaseBot, '/stacklab snapshot alchemy-before-take', 300)
+      let clickError = null
+      try {
+        await attackerBot.clickWindow(0, 0, 0)
+      } catch (error) {
+        clickError = String(error.stack || error)
+      }
+      await sleep(700)
+      await command(phaseBot, '/stacklab snapshot alchemy-after-take', 300)
+      try { attackerBot.closeWindow(window) } catch {}
+      return { clickError }
     })
 
     for (let run = 1; run <= 3; run++) {
