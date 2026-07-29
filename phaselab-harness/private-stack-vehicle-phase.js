@@ -188,6 +188,12 @@ async function buildCourse (phaseBot, trial) {
       const material = ((x - WALL_START) % 2 === 0) ? 'minecraft:obsidian' : 'minecraft:water'
       await command(phaseBot, `/fill ${x} 65 -3 ${x} 69 3 ${material}`, 30)
     }
+  } else if (trial.kind === 'mixed') {
+    const palette = ['minecraft:obsidian', 'minecraft:water', 'minecraft:obsidian', 'minecraft:lava']
+    for (let x = WALL_START; x <= wallEnd; x++) {
+      const material = palette[(x - WALL_START) % palette.length]
+      await command(phaseBot, `/fill ${x} 65 -3 ${x} 69 3 ${material}`, 30)
+    }
   } else {
     throw new Error(`Unknown course kind ${trial.kind}`)
   }
@@ -235,22 +241,40 @@ async function waitForPlacedBoat (bot, beforeIds, timeoutMs = 5000) {
 }
 
 async function survivalPlaceAndMount (phaseBot, attackerBot) {
-  await command(phaseBot, `/tp AttackerBot 13.25 ${Y} ${Z} -90 45`, 350)
-  const beforeIds = new Set(Object.keys(attackerBot.entities).map(Number))
-  const response = await commandExpect(
-    phaseBot,
-    '/stacklab boatuse AttackerBot',
-    /STACKLAB BOAT USE .*"accepted":true/,
-    8000
-  )
-  record('server_boat_item_response', { response })
+  let boat = null
+  let response = null
+  const placementAttempts = []
 
-  const boat = await waitForPlacedBoat(attackerBot, beforeIds, 8000)
+  for (let attempt = 1; attempt <= 3 && !boat; attempt++) {
+    await command(phaseBot, '/kill @e[type=minecraft:oak_boat]', 150)
+    await command(phaseBot, `/tp AttackerBot 13.25 ${Y} ${Z} -90 45`, 350)
+    const beforeIds = new Set(Object.keys(attackerBot.entities).map(Number))
+    try {
+      response = await commandExpect(
+        phaseBot,
+        '/stacklab boatuse AttackerBot',
+        /STACKLAB BOAT USE /,
+        4500
+      )
+    } catch (error) {
+      placementAttempts.push({ attempt, accepted: false, error: String(error) })
+      record('server_boat_item_retry', { attempt, error: String(error) })
+      continue
+    }
+
+    const accepted = response.includes('"accepted":true')
+    placementAttempts.push({ attempt, accepted, response })
+    record('server_boat_item_response', { attempt, accepted, response })
+    if (!accepted) continue
+
+    boat = await waitForPlacedBoat(attackerBot, beforeIds, 5000)
+  }
+
   if (!boat) {
     const nearby = Object.values(attackerBot.entities)
       .filter(entity => entity?.position && entity.position.distanceTo(attackerBot.entity.position) < 8)
       .map(entity => ({ id: entity.id, name: entity.name, displayName: entity.displayName, position: entity.position }))
-    throw new Error(`Server BoatItem.use succeeded but client saw no nearby boat nearby=${JSON.stringify(nearby)}`)
+    throw new Error(`Player BoatItem.use failed after retries attempts=${JSON.stringify(placementAttempts)} nearby=${JSON.stringify(nearby)}`)
   }
 
   const mountChecks = []
@@ -446,12 +470,15 @@ async function main () {
   const bots = [phaseBot, victimBot, attackerBot]
 
   const trialPlan = [
-    { id: 'solid240-survival-ratchet19', kind: 'solid', thickness: 240, step: 0.25, delayMs: 0, segmentLength: 19, segmentPauseMs: 100, placement: 'survival', repeats: 3 },
-    { id: 'layered240-survival-ratchet19', kind: 'layered', thickness: 240, step: 0.10, delayMs: 0, segmentLength: 19, segmentPauseMs: 100, placement: 'survival', repeats: 2 }
+    { id: 'solid240-survival-control', kind: 'solid', thickness: 240, step: 0.25, delayMs: 0, segmentLength: 19, segmentPauseMs: 100, placement: 'survival', repeats: 1 },
+    { id: 'layered240-survival-ratchet15', kind: 'layered', thickness: 240, step: 0.25, delayMs: 0, segmentLength: 15, segmentPauseMs: 100, placement: 'survival', repeats: 3 },
+    { id: 'mixed64-survival-ratchet15', kind: 'mixed', thickness: 64, step: 0.25, delayMs: 0, segmentLength: 15, segmentPauseMs: 100, placement: 'survival', repeats: 3 },
+    { id: 'mixed240-survival-ratchet15', kind: 'mixed', thickness: 240, step: 0.25, delayMs: 0, segmentLength: 15, segmentPauseMs: 100, placement: 'survival', repeats: 2 }
   ]
 
   try {
     await command(phaseBot, '/gamerule doDaylightCycle false')
+    await command(phaseBot, '/gamerule doFireTick false')
     await command(phaseBot, '/time set day')
     await command(phaseBot, '/difficulty peaceful')
     await command(phaseBot, '/gamemode creative PhaseBot')
