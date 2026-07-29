@@ -81,6 +81,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "claimsnapshot" -> claimSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "give" -> give(sender, args);
                     case "grindstoneprep" -> grindstonePrep(sender, args);
+                    case "portaluse" -> portalUse(sender, args);
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
                     case "alchemyfinal" -> alchemyFinal(sender);
@@ -337,6 +338,64 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             "input_fragility", enchantLevel(top.getItem(0), "excellentenchants:curse_of_fragility")
         )), 1L);
         sender.sendMessage("STACKLAB GRINDSTONE PREP player=" + player.getName() + " accepted=true");
+        return true;
+    }
+
+    private boolean portalUse(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab portaluse <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        World world = requireWorld();
+        Block frame = world.getBlockAt(15, Y, 21);
+        Block barrel = world.getBlockAt(17, Y, 21);
+        player.getInventory().setItemInMainHand(new ItemStack(Material.ENDER_EYE, 1));
+
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("frame_eye_before", hasEye(frame));
+        evidence.put("barrel_count_before", inventoryCount(barrel, Material.NETHERITE_BLOCK));
+        evidence.put("held_before", player.getInventory().getItemInMainHand().getAmount());
+        try {
+            Object serverPlayer = player.getClass().getMethod("getHandle").invoke(player);
+            Class<?> handClass = Class.forName("net.minecraft.world.InteractionHand");
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Object mainHand = Enum.valueOf((Class<? extends Enum>) handClass, "MAIN_HAND");
+            Class<?> directionClass = Class.forName("net.minecraft.core.Direction");
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Object west = Enum.valueOf((Class<? extends Enum>) directionClass, "WEST");
+            Class<?> blockPosClass = Class.forName("net.minecraft.core.BlockPos");
+            Object blockPos = blockPosClass.getConstructor(int.class, int.class, int.class).newInstance(15, Y, 21);
+            Class<?> vec3Class = Class.forName("net.minecraft.world.phys.Vec3");
+            Object hitLocation = vec3Class.getConstructor(double.class, double.class, double.class).newInstance(15.0, Y + 0.5, 21.5);
+            Class<?> hitResultClass = Class.forName("net.minecraft.world.phys.BlockHitResult");
+            Object hitResult = hitResultClass
+                .getConstructor(vec3Class, directionClass, blockPosClass, boolean.class)
+                .newInstance(hitLocation, west, blockPos, false);
+            Class<?> nmsPlayerClass = Class.forName("net.minecraft.world.entity.player.Player");
+            Class<?> contextClass = Class.forName("net.minecraft.world.item.context.UseOnContext");
+            Object context = contextClass.getConstructor(nmsPlayerClass, handClass, hitResultClass)
+                .newInstance(serverPlayer, mainHand, hitResult);
+            Object nmsStack = serverPlayer.getClass().getMethod("getItemInHand", handClass).invoke(serverPlayer, mainHand);
+            Object item = nmsStack.getClass().getMethod("getItem").invoke(nmsStack);
+            Object result = item.getClass().getMethod("useOn", contextClass).invoke(item, context);
+            evidence.put("invoked", true);
+            evidence.put("result", String.valueOf(result));
+        } catch (ReflectiveOperationException exception) {
+            evidence.put("invoked", false);
+            evidence.put("error", exception.toString());
+        }
+        evidence.put("frame_eye_after", hasEye(frame));
+        evidence.put("barrel_count_after", inventoryCount(barrel, Material.NETHERITE_BLOCK));
+        evidence.put("held_after", player.getInventory().getItemInMainHand().getAmount());
+        evidence.put("dropped_after", portalSnapshotMap(world, "portal-use").get("dropped_netherite_blocks"));
+        writeEvent("server_portal_use", evidence);
+        sender.sendMessage("STACKLAB PORTAL USE " + gson.toJson(evidence));
         return true;
     }
 

@@ -329,10 +329,13 @@ async function main () {
         await command(phaseBot, '/kill @e[type=minecraft:item]', 250)
         await command(phaseBot, '/stacklab cancelportal false')
         await command(phaseBot, '/stacklab portalbuild', 700)
-        await command(phaseBot, '/clear AttackerBot')
-        await command(phaseBot, '/give AttackerBot minecraft:ender_eye 1')
         await command(phaseBot, '/tp AttackerBot 14.25 65 21.5 -90 0', 500)
-        const interaction = await equipAndActivate(attackerBot, 'ender_eye', new Vec3(15, 65, 21), new Vec3(-1, 0, 0))
+        const interaction = await commandExpect(
+          phaseBot,
+          '/stacklab portaluse AttackerBot',
+          /STACKLAB PORTAL USE .*"invoked":true/,
+          6000
+        )
         await command(phaseBot, `/stacklab portalsnapshot factions-${run}`, 400)
         return interaction
       })
@@ -343,10 +346,13 @@ async function main () {
         await command(phaseBot, '/kill @e[type=minecraft:item]', 250)
         await command(phaseBot, '/stacklab cancelportal true')
         await command(phaseBot, '/stacklab portalbuild', 700)
-        await command(phaseBot, '/clear AttackerBot')
-        await command(phaseBot, '/give AttackerBot minecraft:ender_eye 1')
         await command(phaseBot, '/tp AttackerBot 14.25 65 21.5 -90 0', 500)
-        const interaction = await equipAndActivate(attackerBot, 'ender_eye', new Vec3(15, 65, 21), new Vec3(-1, 0, 0))
+        const interaction = await commandExpect(
+          phaseBot,
+          '/stacklab portaluse AttackerBot',
+          /STACKLAB PORTAL USE .*"invoked":true/,
+          6000
+        )
         await command(phaseBot, `/stacklab portalsnapshot control-${run}`, 400)
         return interaction
       })

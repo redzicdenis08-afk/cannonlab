@@ -59,6 +59,7 @@ def portal(rows, prefix: str, count: int, fixture_mode: bool):
         recent = rows[max(0, i - 50):i]
         monitors = [e for e in recent if e.get("type") == "portal_multi_place_monitor"]
         highest = [e for e in recent if e.get("type") == "portal_multi_place_highest"]
+        uses = [e for e in recent if e.get("type") == "server_portal_use" and e.get("invoked") is True]
         duplicated = (
             state.get("barrel_type") == "BARREL"
             and state.get("barrel_netherite_blocks") == 27
@@ -71,10 +72,20 @@ def portal(rows, prefix: str, count: int, fixture_mode: bool):
             "dropped_count": state.get("dropped_netherite_blocks"),
             "cancelled_events": sum(e.get("cancelled") is True for e in monitors),
             "matching_fixture_mode": sum(e.get("fixture_cancel_mode") is fixture_mode for e in highest),
+            "server_use": uses[-1] if uses else None,
         })
     hits = sum(a.get("duplicated") is True for a in attempts)
     completed = [a for a in attempts if "duplicated" in a]
-    status = "confirmed" if hits >= 2 else "rejected" if completed and all(a["duplicated"] is False for a in completed) else "inconclusive"
+    invoked = [a for a in completed if a.get("server_use")]
+    sakura_preflight = invoked and all(
+        a["server_use"].get("frame_eye_before") is False
+        and a["server_use"].get("frame_eye_after") is False
+        and a["server_use"].get("barrel_count_before") == 27
+        and a["server_use"].get("barrel_count_after") == 27
+        and int(a["server_use"].get("dropped_after", 0)) == 0
+        for a in invoked
+    )
+    status = "confirmed" if hits >= 2 else "mitigated" if len(invoked) == count and sakura_preflight else "inconclusive"
     return result(status, "Cancelled portal creation duplicated a filled barrel", attempts=attempts, confirmed_attempts=hits, fixture_cancel_mode=fixture_mode)
 
 
