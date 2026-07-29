@@ -45,6 +45,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -85,6 +87,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "claimsnapshot" -> claimSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "give" -> give(sender, args);
                     case "boatuse" -> boatUse(sender, args);
+                    case "unloadroute" -> unloadRoute(sender, args);
                     case "grindstoneprep" -> grindstonePrep(sender, args);
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
@@ -497,6 +500,49 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             writeEvent("server_boat_item_use", evidence);
             sender.sendMessage("STACKLAB BOAT USE " + gson.toJson(evidence));
         }, 2L);
+        return true;
+    }
+
+
+    private boolean unloadRoute(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 4) {
+            sender.sendMessage("Usage: /stacklab unloadroute <chunk-x-min> <chunk-x-max> <chunk-z>");
+            return true;
+        }
+        int minX = Integer.parseInt(args[1]);
+        int maxX = Integer.parseInt(args[2]);
+        int z = Integer.parseInt(args[3]);
+        if (maxX < minX) {
+            int swap = minX;
+            minX = maxX;
+            maxX = swap;
+        }
+        minX = Math.max(-128, minX);
+        maxX = Math.min(128, maxX);
+        World world = requireWorld();
+        List<Map<String, Object>> chunks = new ArrayList<>();
+        int unloadedCount = 0;
+        for (int x = minX; x <= maxX; x++) {
+            boolean before = world.isChunkLoaded(x, z);
+            boolean requested = before && world.unloadChunk(x, z, true);
+            boolean after = world.isChunkLoaded(x, z);
+            if (before && !after) unloadedCount++;
+            chunks.add(Map.of(
+                "x", x,
+                "z", z,
+                "loaded_before", before,
+                "unload_return", requested,
+                "loaded_after", after
+            ));
+        }
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("min_x", minX);
+        evidence.put("max_x", maxX);
+        evidence.put("z", z);
+        evidence.put("unloaded_count", unloadedCount);
+        evidence.put("chunks", chunks);
+        writeEvent("route_chunk_unload", evidence);
+        sender.sendMessage("STACKLAB UNLOAD ROUTE " + gson.toJson(evidence));
         return true;
     }
 

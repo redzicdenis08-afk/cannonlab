@@ -342,6 +342,18 @@ async function sendVehicleSequence (phaseBot, bot, startX, targetX, trial, corre
 async function runTrial (phaseBot, attackerBot, trial, run) {
   await resetAttacker(phaseBot, attackerBot)
   const course = await buildCourse(phaseBot, trial)
+  let unloadResponse = null
+  if (trial.unloadRoute) {
+    await command(phaseBot, '/tp PhaseBot 1000 80 1000', 250)
+    await command(phaseBot, '/tp VictimBot 1000 80 1000', 250)
+    unloadResponse = await commandExpect(
+      phaseBot,
+      '/stacklab unloadroute 3 16 0',
+      /STACKLAB UNLOAD ROUTE .*"unloaded_count":[1-9][0-9]*/,
+      10000
+    )
+    record('route_unload_response', { trial: trial.id, run, response: unloadResponse })
+  }
   const boat = await spawnAndMount(phaseBot, attackerBot, trial)
   const startX = boat.position.x
   const corrections = captureCorrections(attackerBot, boat.id)
@@ -382,6 +394,8 @@ async function runTrial (phaseBot, attackerBot, trial, run) {
     step: trial.step,
     delayMs: trial.delayMs,
     placement: trial.placement || 'fixture',
+    unloadRoute: Boolean(trial.unloadRoute),
+    unloadResponse,
     startX,
     segmentLength: trial.segmentLength || null,
     segmentPauseMs: trial.segmentPauseMs || null,
@@ -414,8 +428,8 @@ async function main () {
   const bots = [phaseBot, victimBot, attackerBot]
 
   const trialPlan = [
-    { id: 'solid240-survival-ratchet19', kind: 'solid', thickness: 240, step: 0.25, delayMs: 0, segmentLength: 19, segmentPauseMs: 100, placement: 'survival', repeats: 3 },
-    { id: 'layered240-survival-ratchet19', kind: 'layered', thickness: 240, step: 0.10, delayMs: 0, segmentLength: 19, segmentPauseMs: 100, placement: 'survival', repeats: 2 }
+    { id: 'solid240-survival-unloaded-ratchet19', kind: 'solid', thickness: 240, step: 0.25, delayMs: 0, segmentLength: 19, segmentPauseMs: 100, placement: 'survival', unloadRoute: true, repeats: 3 },
+    { id: 'layered240-survival-unloaded-ratchet19', kind: 'layered', thickness: 240, step: 0.10, delayMs: 0, segmentLength: 19, segmentPauseMs: 100, placement: 'survival', unloadRoute: true, repeats: 2 }
   ]
 
   try {
