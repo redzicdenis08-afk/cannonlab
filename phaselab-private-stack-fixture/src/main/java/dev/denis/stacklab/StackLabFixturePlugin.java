@@ -87,6 +87,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "claimsnapshot" -> claimSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "give" -> give(sender, args);
                     case "boatuse" -> boatUse(sender, args);
+                    case "boatinteract" -> boatInteract(sender, args);
                     case "vehiclecheck" -> vehicleCheck(sender, args);
                     case "grindstoneprep" -> grindstonePrep(sender, args);
                     case "break" -> breakBlock(sender, args);
@@ -503,6 +504,52 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return true;
     }
 
+
+
+    private boolean boatInteract(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab boatinteract <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("STACKLAB BOAT INTERACT player=" + args[1] + " accepted=false reason=offline");
+            return true;
+        }
+        var boat = player.getWorld().getEntities().stream()
+            .filter(entity -> entity.getType().name().contains("BOAT"))
+            .min(java.util.Comparator.comparingDouble(entity -> entity.getLocation().distanceSquared(player.getLocation())))
+            .orElse(null);
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("boat_found", boat != null);
+        evidence.put("distance_squared", boat == null ? -1.0 : boat.getLocation().distanceSquared(player.getLocation()));
+        if (boat != null) {
+            evidence.put("boat_uuid", boat.getUniqueId().toString());
+            evidence.put("boat_type", boat.getType().name());
+        }
+        try {
+            if (boat == null) throw new IllegalStateException("No nearby boat");
+            Object serverPlayer = player.getClass().getMethod("getHandle").invoke(player);
+            Object serverBoat = boat.getClass().getMethod("getHandle").invoke(boat);
+            Class<?> handClass = Class.forName("net.minecraft.world.InteractionHand");
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Object mainHand = Enum.valueOf((Class<? extends Enum>) handClass, "MAIN_HAND");
+            Class<?> nmsPlayerClass = Class.forName("net.minecraft.world.entity.player.Player");
+            Method interact = serverBoat.getClass().getMethod("interact", nmsPlayerClass, handClass);
+            Object result = interact.invoke(serverBoat, serverPlayer, mainHand);
+            evidence.put("invoked", true);
+            evidence.put("result", String.valueOf(result));
+        } catch (ReflectiveOperationException | IllegalStateException exception) {
+            evidence.put("invoked", false);
+            evidence.put("error", exception.toString());
+        }
+        evidence.put("mounted", player.getVehicle() != null);
+        evidence.put("vehicle_type", player.getVehicle() == null ? "NONE" : player.getVehicle().getType().name());
+        writeEvent("server_boat_interact", evidence);
+        sender.sendMessage("STACKLAB BOAT INTERACT " + gson.toJson(evidence));
+        return true;
+    }
 
     private boolean vehicleCheck(org.bukkit.command.CommandSender sender, String[] args) {
         if (args.length < 2) {

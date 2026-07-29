@@ -254,40 +254,48 @@ async function survivalPlaceAndMount (phaseBot, attackerBot) {
   }
 
   const mountChecks = []
-  for (let attempt = 1; attempt <= 3 && !attackerBot.vehicle; attempt++) {
-    const mounted = onceWithTimeout(attackerBot, 'mount', 1800).catch(() => null)
-    await attackerBot.lookAt(boat.position.offset(0, 0.5, 0), true)
-    if (attempt === 1) await attackerBot.activateEntity(boat)
-    else if (attempt === 2) attackerBot.mount(boat)
-    else {
-      attackerBot._client.write('use_entity', {
-        target: boat.id,
-        mouse: 0,
-        sneaking: false,
-        hand: 0
-      })
-    }
-    await mounted
-    await sleep(250)
-    const check = await commandExpect(
+  const mounted = onceWithTimeout(attackerBot, 'mount', 1800).catch(() => null)
+  await attackerBot.lookAt(boat.position.offset(0, 0.5, 0), true)
+  await attackerBot.activateEntity(boat)
+  await mounted
+  await sleep(250)
+  let check = await commandExpect(
+    phaseBot,
+    '/stacklab vehiclecheck AttackerBot',
+    /STACKLAB VEHICLE CHECK /,
+    4000
+  )
+  mountChecks.push({ path: 'client_use_entity', check, clientMounted: Boolean(attackerBot.vehicle) })
+  record('mount_server_check', { path: 'client_use_entity', check, clientMounted: Boolean(attackerBot.vehicle) })
+
+  if (!check.includes('"mounted":true')) {
+    const serverInteract = await commandExpect(
+      phaseBot,
+      '/stacklab boatinteract AttackerBot',
+      /STACKLAB BOAT INTERACT .*"mounted":true/,
+      5000
+    )
+    mountChecks.push({ path: 'nms_boat_interact', check: serverInteract, clientMounted: Boolean(attackerBot.vehicle) })
+    record('mount_server_check', { path: 'nms_boat_interact', check: serverInteract, clientMounted: Boolean(attackerBot.vehicle) })
+    await sleep(350)
+    check = await commandExpect(
       phaseBot,
       '/stacklab vehiclecheck AttackerBot',
       /STACKLAB VEHICLE CHECK /,
       4000
     )
-    mountChecks.push({ attempt, check, clientMounted: Boolean(attackerBot.vehicle) })
-    record('mount_server_check', { attempt, check, clientMounted: Boolean(attackerBot.vehicle) })
-    if (!attackerBot.vehicle && check.includes('"mounted":true')) {
-      attackerBot.vehicle = boat
-      attackerBot.entity.vehicle = boat
-      if (!boat.passengers.includes(attackerBot.entity)) boat.passengers.push(attackerBot.entity)
-      record('mount_client_state_repaired', { attempt, boatId: boat.id })
-    }
   }
-  if (!attackerBot.vehicle) throw new Error(`Normal right-click failed to mount player-placed boat checks=${JSON.stringify(mountChecks)}`)
+
+  if (!attackerBot.vehicle && check.includes('"mounted":true')) {
+    attackerBot.vehicle = boat
+    attackerBot.entity.vehicle = boat
+    if (!boat.passengers.includes(attackerBot.entity)) boat.passengers.push(attackerBot.entity)
+    record('mount_client_state_repaired', { path: 'server_confirmed', boatId: boat.id })
+  }
+  if (!attackerBot.vehicle) throw new Error(`Vanilla boat interaction failed checks=${JSON.stringify(mountChecks)}`)
   record('survival_boat_ready', {
     placement: 'nms_boat_item_use',
-    mount: 'normal_right_click',
+    mount: mountChecks.some(row => row.path === 'nms_boat_interact') ? 'nms_vanilla_interact' : 'client_use_entity',
     boatId: attackerBot.vehicle.id,
     boatPosition: attackerBot.vehicle.position,
     playerPosition: attackerBot.entity.position
