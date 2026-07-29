@@ -29,6 +29,7 @@ import org.bukkit.event.block.BlockMultiPlaceEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.entity.EntityShootBowEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.entity.LingeringPotionSplashEvent;
 import org.bukkit.event.entity.ProjectileHitEvent;
@@ -37,6 +38,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerTeleportEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -64,6 +66,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     private int syntheticLingeringEvents;
     private String arrowEnchantId;
     private String arrowEnchantSecondaryId;
+    private String arrowEnchantEffectId;
     private boolean arrowEnchantsConflict;
 
     @Override
@@ -220,16 +223,25 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                 "su.nightexpress.excellentenchants.enchantment.EnchantRegistry", true, loader);
             Object dragonfire = registryClass.getMethod("getById", String.class).invoke(null, "dragonfire_arrows");
             Object lingering = registryClass.getMethod("getById", String.class).invoke(null, "lingering");
-            if (dragonfire == null || lingering == null) {
-                throw new IllegalStateException("Dragonfire Arrows or Lingering is not registered");
+            Object poisoned = registryClass.getMethod("getById", String.class).invoke(null, "poisoned_arrows");
+            if (dragonfire == null || lingering == null || poisoned == null) {
+                throw new IllegalStateException("Dragonfire Arrows, Lingering, or Poisoned Arrows is not registered");
             }
             Enchantment dragonfireBukkit = (Enchantment) dragonfire.getClass().getMethod("getBukkitEnchantment").invoke(dragonfire);
             Enchantment lingeringBukkit = (Enchantment) lingering.getClass().getMethod("getBukkitEnchantment").invoke(lingering);
+            Enchantment poisonedBukkit = (Enchantment) poisoned.getClass().getMethod("getBukkitEnchantment").invoke(poisoned);
             arrowEnchantId = String.valueOf(dragonfire.getClass().getMethod("getId").invoke(dragonfire));
             arrowEnchantSecondaryId = String.valueOf(lingering.getClass().getMethod("getId").invoke(lingering));
-            arrowEnchantsConflict = dragonfireBukkit.conflictsWith(lingeringBukkit) || lingeringBukkit.conflictsWith(dragonfireBukkit);
+            arrowEnchantEffectId = String.valueOf(poisoned.getClass().getMethod("getId").invoke(poisoned));
+            arrowEnchantsConflict = dragonfireBukkit.conflictsWith(lingeringBukkit)
+                || dragonfireBukkit.conflictsWith(poisonedBukkit)
+                || lingeringBukkit.conflictsWith(dragonfireBukkit)
+                || lingeringBukkit.conflictsWith(poisonedBukkit)
+                || poisonedBukkit.conflictsWith(dragonfireBukkit)
+                || poisonedBukkit.conflictsWith(lingeringBukkit);
             bow.addUnsafeEnchantment(dragonfireBukkit, 32);
             bow.addUnsafeEnchantment(lingeringBukkit, 32);
+            bow.addUnsafeEnchantment(poisonedBukkit, 32);
         } catch (ReflectiveOperationException exception) {
             throw new IllegalStateException("Could not prepare stacked arrow cloud enchantments", exception);
         }
@@ -271,21 +283,37 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                 "su.nightexpress.excellentenchants.enchantment.EnchantRegistry", true, loader);
             Object primaryEnchant = registryClass.getMethod("getById", String.class).invoke(null, arrowEnchantId);
             Object secondaryEnchant = registryClass.getMethod("getById", String.class).invoke(null, arrowEnchantSecondaryId);
-            if (primaryEnchant == null || secondaryEnchant == null) {
-                throw new IllegalStateException("Stacked arrow enchant not found: " + arrowEnchantId + ", " + arrowEnchantSecondaryId);
+            Object effectEnchant = registryClass.getMethod("getById", String.class).invoke(null, arrowEnchantEffectId);
+            if (primaryEnchant == null || secondaryEnchant == null || effectEnchant == null) {
+                throw new IllegalStateException("Stacked arrow enchant not found: " + arrowEnchantId + ", " + arrowEnchantSecondaryId + ", " + arrowEnchantEffectId);
             }
             Method primaryOnHit = primaryEnchant.getClass().getMethod(
                 "onHit", ProjectileHitEvent.class, LivingEntity.class, Arrow.class, int.class);
             Method secondaryOnHit = secondaryEnchant.getClass().getMethod(
                 "onHit", ProjectileHitEvent.class, LivingEntity.class, Arrow.class, int.class);
+            Method effectOnShoot = effectEnchant.getClass().getMethod(
+                "onShoot", EntityShootBowEvent.class, LivingEntity.class, ItemStack.class, int.class);
             Block target = player.getWorld().getBlockAt(14, Y, 30);
             target.setType(Material.OBSIDIAN, false);
 
             double beforeXp = ((Number) auraSkillXp(player, "ALCHEMY")).doubleValue();
             int beforeEvents = syntheticLingeringEvents;
+            int effectApplied = 0;
             for (int index = 0; index < count; index++) {
                 Arrow arrow = player.launchProjectile(Arrow.class);
-                arrow.addCustomEffect(new PotionEffect(PotionEffectType.POISON, 100, 0), true);
+                EntityShootBowEvent shootEvent = new EntityShootBowEvent(
+                    player,
+                    player.getInventory().getItem(0),
+                    new ItemStack(Material.ARROW, 1),
+                    arrow,
+                    EquipmentSlot.HAND,
+                    1.0F,
+                    true
+                );
+                Object effectResult = effectOnShoot.invoke(effectEnchant, shootEvent, player, player.getInventory().getItem(0), 1);
+                if (Boolean.TRUE.equals(effectResult) && arrow.hasCustomEffects()) {
+                    effectApplied++;
+                }
                 arrow.teleport(target.getLocation().add(-0.2, 1.0, 0.5));
                 ProjectileHitEvent hit = new ProjectileHitEvent(
                     arrow, null, target, org.bukkit.block.BlockFace.WEST);
@@ -298,7 +326,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             result.put("player", player.getName());
             result.put("primary_enchant_id", arrowEnchantId);
             result.put("secondary_enchant_id", arrowEnchantSecondaryId);
+            result.put("effect_enchant_id", arrowEnchantEffectId);
             result.put("enchants_conflict", arrowEnchantsConflict);
+            result.put("effect_applied", effectApplied);
             result.put("invocations", count);
             result.put("xp_before", beforeXp);
             result.put("xp_after", afterXp);
@@ -319,6 +349,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         result.put("player", player.getName());
         result.put("primary_enchant_id", arrowEnchantId == null ? "MISSING" : arrowEnchantId);
         result.put("secondary_enchant_id", arrowEnchantSecondaryId == null ? "MISSING" : arrowEnchantSecondaryId);
+        result.put("effect_enchant_id", arrowEnchantEffectId == null ? "MISSING" : arrowEnchantEffectId);
         result.put("enchants_conflict", arrowEnchantsConflict);
         result.put("alchemy_level", auraSkillLevel(player, "ALCHEMY"));
         result.put("alchemy_xp", auraSkillXp(player, "ALCHEMY"));

@@ -141,9 +141,10 @@ async function main () {
       const xpGain = Number(after.alchemy_xp) - Number(before.alchemy_xp)
       const eventGain = Number(after.synthetic_lingering_events) - Number(before.synthetic_lingering_events)
       const arrowsUsed = Number(before.arrows) - Number(after.arrows)
+      const effectApplied = Number(trigger.effect_applied)
       const compatible = before.enchants_conflict === false && after.enchants_conflict === false
-      const exploited = compatible && eventGain === 2 && xpGain >= 120 && arrowsUsed === 0
-      const trial = { index, before, trigger, after, xpGain, eventGain, arrowsUsed, compatible, shotError: null, exploited }
+      const exploited = compatible && effectApplied === 1 && eventGain === 2 && xpGain >= 120 && arrowsUsed === 0
+      const trial = { index, before, trigger, after, xpGain, eventGain, arrowsUsed, effectApplied, compatible, shotError: null, exploited }
       report.trials.push(trial)
       record('trial_result', trial)
     }
