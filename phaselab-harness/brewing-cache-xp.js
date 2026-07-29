@@ -116,13 +116,16 @@ function slotState (state, slotNumber) {
   return null
 }
 
-async function openBrewingStand (bot) {
-  const position = new Vec3(13, 67, 9)
-  const block = bot.blockAt(position)
-  if (!block) throw new Error(`Missing brewing stand at ${position}`)
-  await bot.lookAt(position.offset(0.5, 0.5, 0.5), true)
-  const window = await bot.openBlock(block)
-  await sleep(500)
+async function openBrewingStand (phaseBot, bot) {
+  const windowPromise = onceWithTimeout(bot, 'windowOpen', 20000)
+  await commandExpect(
+    phaseBot,
+    `/stacklab alchemyopen ${bot.username}`,
+    /STACKLAB ALCHEMY OPEN player=.* inventory=BREWING/,
+    10000
+  )
+  const [window] = await windowPromise
+  await sleep(350)
   if (!String(window.type).includes('brewing')) throw new Error(`Unexpected window ${window.type}`)
   return window
 }
@@ -139,7 +142,7 @@ async function main () {
     await command(phaseBot, '/tp AttackerBot 12.5 67 9.5 -90 0', 500)
 
     // Opening once assigns AuraSkills ownership metadata to this stand.
-    let window = await openBrewingStand(attackerBot)
+    let window = await openBrewingStand(phaseBot, attackerBot)
     try { attackerBot.closeWindow(window) } catch (_) {}
     await sleep(350)
 
@@ -154,7 +157,7 @@ async function main () {
     }
 
     await command(phaseBot, '/stacklab alchemyfinal', 500)
-    window = await openBrewingStand(attackerBot)
+    window = await openBrewingStand(phaseBot, attackerBot)
     report.beforeTake = await cacheState(phaseBot, 'before-take')
 
     try {

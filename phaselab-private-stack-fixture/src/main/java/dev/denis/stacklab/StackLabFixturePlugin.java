@@ -87,6 +87,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "give" -> give(sender, args);
                     case "break" -> breakBlock(sender, args);
                     case "alchemyprep" -> alchemyPrep(sender, args);
+                    case "alchemyopen" -> alchemyOpen(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
                     case "alchemyfinal" -> alchemyFinal(sender);
                     case "alchemystate" -> alchemyState(sender, args.length > 1 ? args[1] : "manual");
@@ -353,6 +354,31 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         state.put("alchemy_xp", auraSkillXp(player, "ALCHEMY"));
         writeEvent("alchemy_cache_prep", state);
         sender.sendMessage("STACKLAB ALCHEMY PREP " + gson.toJson(state));
+        return true;
+    }
+
+    private boolean alchemyOpen(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab alchemyopen <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        Block standBlock = requireWorld().getBlockAt(13, Y + 2, 9);
+        if (!(standBlock.getState() instanceof BrewingStand stand)) {
+            sender.sendMessage("STACKLAB ALCHEMY OPEN missing brewing stand");
+            return true;
+        }
+        player.openInventory(stand.getInventory());
+        writeEvent("alchemy_server_open", Map.of(
+            "player", player.getName(),
+            "inventory", player.getOpenInventory().getTopInventory().getType().name()
+        ));
+        sender.sendMessage("STACKLAB ALCHEMY OPEN player=" + player.getName() + " inventory="
+            + player.getOpenInventory().getTopInventory().getType().name());
         return true;
     }
 
