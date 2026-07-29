@@ -128,16 +128,17 @@ async function waitForInventoryItem (bot, name, timeoutMs = 7000) {
   return null
 }
 
-async function placeGravel (attackerBot) {
-  const gravel = await waitForInventoryItem(attackerBot, 'gravel')
-  if (!gravel) throw new Error('The conserved gravel item is missing before placement')
-  await attackerBot.equip(gravel, 'hand')
-  await sleep(250)
-  const support = attackerBot.blockAt(new Vec3(30, 72, 0))
-  if (!support || support.name !== 'stone') throw new Error(`Missing support block: ${support?.name}`)
-  await attackerBot.lookAt(support.position.offset(0.5, 1.0, 0.5), true)
-  await attackerBot.placeBlock(support, new Vec3(0, 1, 0))
+async function placeGravel (phaseBot) {
+  const message = await commandExpect(
+    phaseBot,
+    '/stacklab weblaunderplace AttackerBot',
+    /STACKLAB WEB PLACE \{/,
+    12000
+  )
+  const evidence = parseJsonMessage(message)
+  if (!evidence.invoked) throw new Error(`Server placement failed: ${JSON.stringify(evidence)}`)
   await sleep(500)
+  return evidence
 }
 
 async function runCycle (phaseBot, attackerBot, mode, cycle) {
@@ -152,7 +153,7 @@ async function runCycle (phaseBot, attackerBot, mode, cycle) {
   }
 
   const before = await snapshot(phaseBot, `${mode}-${cycle}-before`)
-  await placeGravel(attackerBot)
+  const placement = await placeGravel(phaseBot)
   const placed = await waitFor(
     phaseBot,
     `${mode}-${cycle}-placed`,
@@ -211,6 +212,7 @@ async function runCycle (phaseBot, attackerBot, mode, cycle) {
   const result = {
     cycle,
     before,
+    placement,
     placed,
     webWitness,
     landed,

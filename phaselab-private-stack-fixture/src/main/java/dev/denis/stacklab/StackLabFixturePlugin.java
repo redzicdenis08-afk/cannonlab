@@ -92,6 +92,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "cancelportal" -> cancelPortal(sender, args);
                     case "weblaunderbuild" -> webLaunderBuild(sender, args);
                     case "weblaunderreset" -> webLaunderReset(sender, args);
+                    case "weblaunderplace" -> webLaunderPlace(sender, args);
                     case "weblaunderdrop" -> webLaunderDrop(sender);
                     case "weblaunderrelease" -> webLaunderRelease(sender);
                     case "weblaundersnapshot" -> webLaunderSnapshot(sender, args.length > 1 ? args[1] : "manual");
@@ -237,6 +238,75 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         Map<String, Object> snapshot = webLaunderSnapshotMap(world, null, "drop");
         writeEvent("web_launder_drop", snapshot);
         sender.sendMessage("STACKLAB WEB DROP " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private boolean webLaunderPlace(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab weblaunderplace <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        int gravelSlot = player.getInventory().first(Material.GRAVEL);
+        if (gravelSlot < 0) {
+            sender.sendMessage("STACKLAB WEB PLACE invoked=false reason=no_gravel");
+            return true;
+        }
+        if (gravelSlot <= 8) {
+            player.getInventory().setHeldItemSlot(gravelSlot);
+        } else {
+            ItemStack held = player.getInventory().getItemInMainHand();
+            ItemStack gravel = player.getInventory().getItem(gravelSlot);
+            player.getInventory().setItem(gravelSlot, held);
+            player.getInventory().setItemInMainHand(gravel);
+        }
+
+        Block support = requireWorld().getBlockAt(WEB_X, WEB_SUPPORT_Y, WEB_Z);
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("before", webLaunderSnapshotMap(requireWorld(), player, "before-place"));
+        try {
+            Object serverPlayer = player.getClass().getMethod("getHandle").invoke(player);
+            Object gameMode = serverPlayer.getClass().getField("gameMode").get(serverPlayer);
+            Object level = serverPlayer.getClass().getMethod("level").invoke(serverPlayer);
+            Class<?> handClass = Class.forName("net.minecraft.world.InteractionHand");
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Object mainHand = Enum.valueOf((Class<? extends Enum>) handClass, "MAIN_HAND");
+            Class<?> directionClass = Class.forName("net.minecraft.core.Direction");
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Object up = Enum.valueOf((Class<? extends Enum>) directionClass, "UP");
+            Class<?> blockPosClass = Class.forName("net.minecraft.core.BlockPos");
+            Object blockPos = blockPosClass.getConstructor(int.class, int.class, int.class)
+                .newInstance(support.getX(), support.getY(), support.getZ());
+            Class<?> vec3Class = Class.forName("net.minecraft.world.phys.Vec3");
+            Object hitLocation = vec3Class.getConstructor(double.class, double.class, double.class)
+                .newInstance(support.getX() + 0.5, support.getY() + 1.0, support.getZ() + 0.5);
+            Class<?> hitResultClass = Class.forName("net.minecraft.world.phys.BlockHitResult");
+            Object hitResult = hitResultClass.getConstructor(vec3Class, directionClass, blockPosClass, boolean.class)
+                .newInstance(hitLocation, up, blockPos, false);
+            Object nmsStack = serverPlayer.getClass().getMethod("getItemInHand", handClass).invoke(serverPlayer, mainHand);
+            Method useItemOn = null;
+            for (Method method : gameMode.getClass().getMethods()) {
+                if (method.getName().equals("useItemOn") && method.getParameterCount() == 5) {
+                    useItemOn = method;
+                    break;
+                }
+            }
+            if (useItemOn == null) throw new NoSuchMethodException("ServerPlayerGameMode.useItemOn");
+            Object result = useItemOn.invoke(gameMode, serverPlayer, level, nmsStack, mainHand, hitResult);
+            evidence.put("invoked", true);
+            evidence.put("result", String.valueOf(result));
+        } catch (ReflectiveOperationException exception) {
+            evidence.put("invoked", false);
+            evidence.put("error", exception.toString());
+        }
+        evidence.put("after", webLaunderSnapshotMap(requireWorld(), player, "after-place"));
+        writeEvent("web_launder_server_place", evidence);
+        sender.sendMessage("STACKLAB WEB PLACE " + gson.toJson(evidence));
         return true;
     }
 
