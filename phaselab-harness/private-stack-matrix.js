@@ -127,22 +127,20 @@ async function equipAndDig (bot, itemName, blockPos) {
   return { target: block.name }
 }
 
-async function openGrindstoneAndLoadSword (bot, blockPos) {
+async function openGrindstoneAndLoadSword (phaseBot, bot, blockPos) {
   const block = bot.blockAt(blockPos)
   if (!block) throw new Error(`Missing grindstone at ${blockPos}`)
   await bot.lookAt(block.position.offset(0.5, 0.5, 0.5), true)
   const window = await bot.openBlock(block)
   await sleep(450)
 
-  const swordSlot = window.slots.findIndex((entry, slot) => {
-    return slot >= window.inventoryStart && entry?.name === 'diamond_sword'
-  })
-  if (swordSlot < 0) {
-    throw new Error(`Cursed sword not found; window=${window.type} inventoryStart=${window.inventoryStart}`)
-  }
-
-  await bot.clickWindow(swordSlot, 0, 1)
-  await sleep(700)
+  await commandExpect(
+    phaseBot,
+    `/stacklab grindstoneprep ${bot.username}`,
+    /STACKLAB GRINDSTONE PREP .*accepted=true/,
+    5000
+  )
+  await sleep(900)
   record('grindstone_loaded', {
     windowType: window.type,
     input0: window.slots[0]?.name || null,
@@ -265,7 +263,7 @@ async function main () {
       // curse remains on the result and triggers ExcellentEnchants' cancel.
       await command(phaseBot, '/enchant AttackerBot minecraft:sharpness 5', 650)
       await command(phaseBot, '/tp AttackerBot 12.5 65 5.5 -90 0', 500)
-      const window = await openGrindstoneAndLoadSword(attackerBot, new Vec3(13, 65, 5))
+      const window = await openGrindstoneAndLoadSword(phaseBot, attackerBot, new Vec3(13, 65, 5))
       const clicks = []
       for (let run = 1; run <= 3; run++) {
         await command(phaseBot, `/stacklab snapshot grindstone-before-${run}`, 300)

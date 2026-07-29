@@ -7,7 +7,7 @@ description: Deterministic server-side fixture and witness logger for an authori
 commands:
   stacklab:
     description: Build, reset, inspect, or equip the private stack test arena.
-    usage: /stacklab <build|portalbuild|reset|snapshot|portalsnapshot|claimsnapshot|give|break|tick|cancelportal>
+    usage: /stacklab <build|portalbuild|reset|snapshot|portalsnapshot|claimsnapshot|give|grindstoneprep|break|tick|cancelportal>
     permission: stacklab.admin
 permissions:
   stacklab.admin:

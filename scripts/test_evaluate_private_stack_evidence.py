@@ -37,6 +37,26 @@ def confirmed_rows():
     return rows
 
 
+def confirmed_terraform_rows():
+    rows = []
+    for run in range(1, 4):
+        rows.append({
+            "type": "snapshot",
+            "label": f"aura-terraform-before-{run}",
+            "terraform_target_1": "DIRT",
+            "terraform_target_2": "DIRT",
+            "terraform_target_3": "DIRT",
+        })
+        rows.append({
+            "type": "snapshot",
+            "label": f"aura-terraform-after-{run}",
+            "terraform_target_1": "AIR",
+            "terraform_target_2": "AIR",
+            "terraform_target_3": "AIR",
+        })
+    return rows
+
+
 def main() -> int:
     finding = evaluator.grindstone_xp(confirmed_rows())
     assert finding["status"] == "confirmed", finding
@@ -56,12 +76,16 @@ def main() -> int:
     finding = evaluator.grindstone_xp(rejected)
     assert finding["status"] == "rejected", finding
 
+    finding = evaluator.aura_terraform(confirmed_terraform_rows())
+    assert finding["status"] == "confirmed", finding
+    assert finding["evidence"]["confirmed_attempts"] == 3, finding
+
     with tempfile.TemporaryDirectory() as temporary:
         path = Path(temporary) / "evidence.jsonl"
         path.write_text("\n".join(json.dumps(row) for row in confirmed_rows()) + "\n", encoding="utf-8")
         assert len(evaluator.read_rows(path)) == 9
 
-    print("Private-stack evidence evaluator regressions passed: 4")
+    print("Private-stack evidence evaluator regressions passed: 5")
     return 0
 
 

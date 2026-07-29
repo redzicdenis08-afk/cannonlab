@@ -76,6 +76,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "portalsnapshot" -> portalSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "claimsnapshot" -> claimSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "give" -> give(sender, args);
+                    case "grindstoneprep" -> grindstonePrep(sender, args);
                     case "break" -> breakBlock(sender, args);
                     case "tick" -> tick(sender, args);
                     case "cancelportal" -> cancelPortal(sender, args);
@@ -106,6 +107,13 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             for (int y = Y; y <= Y + 2; y++) {
                 set(world, x, y, 4, Material.STONE);
             }
+        }
+
+        // Connected excavation lane. Terraform begins on attacker-side X=15
+        // and can fan into the neighboring claim if secondary breaks bypass
+        // ordinary BlockBreakEvent protection.
+        for (int x = 15; x <= 18; x++) {
+            set(world, x, Y, 2, Material.DIRT);
         }
 
         // Cross-border automation fixture. Hopper is attacker-side, chest is target-side.
@@ -287,6 +295,38 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return true;
     }
 
+    private boolean grindstonePrep(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab grindstoneprep <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        var top = player.getOpenInventory().getTopInventory();
+        if (top.getType() != InventoryType.GRINDSTONE) {
+            sender.sendMessage("STACKLAB GRINDSTONE PREP player=" + player.getName() + " accepted=false reason=not_open");
+            return true;
+        }
+        ItemStack held = player.getInventory().getItemInMainHand();
+        if (held.getType().isAir()) {
+            sender.sendMessage("STACKLAB GRINDSTONE PREP player=" + player.getName() + " accepted=false reason=no_item");
+            return true;
+        }
+        top.setItem(0, held.clone());
+        player.getInventory().setItemInMainHand(null);
+        Bukkit.getScheduler().runTaskLater(this, () -> writeEvent("grindstone_prepared", Map.of(
+            "player", player.getName(),
+            "input", itemSummary(top.getItem(0)),
+            "result", itemSummary(top.getItem(2)),
+            "input_fragility", enchantLevel(top.getItem(0), "excellentenchants:curse_of_fragility")
+        )), 1L);
+        sender.sendMessage("STACKLAB GRINDSTONE PREP player=" + player.getName() + " accepted=true");
+        return true;
+    }
+
     private boolean breakBlock(org.bukkit.command.CommandSender sender, String[] args) {
         if (args.length < 5) {
             sender.sendMessage("Usage: /stacklab break <player> <x> <y> <z>");
@@ -322,6 +362,10 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         result.put("tree_target_2", type(world, 17, Y, 0));
         result.put("tunnel_source", type(world, 15, Y + 1, 4));
         result.put("tunnel_target", type(world, 16, Y + 1, 4));
+        result.put("terraform_source", type(world, 15, Y, 2));
+        result.put("terraform_target_1", type(world, 16, Y, 2));
+        result.put("terraform_target_2", type(world, 17, Y, 2));
+        result.put("terraform_target_3", type(world, 18, Y, 2));
         result.put("piston_payload_source", type(world, 15, Y, 12));
         result.put("piston_payload_target", type(world, 16, Y, 12));
         result.put("hopper_count", inventoryCount(world.getBlockAt(15, Y, 8), Material.DIAMOND));

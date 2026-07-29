@@ -95,6 +95,26 @@ def aura_tree(rows):
     return result(status, "AuraSkills Treecapitator removed enemy-claim blocks without BlockBreakEvent", attempts=attempts, confirmed_attempts=hits)
 
 
+def aura_terraform(rows):
+    attempts = []
+    for n in range(1, 4):
+        w = window(rows, f"aura-terraform-before-{n}", f"aura-terraform-after-{n}")
+        if not w:
+            attempts.append({"run": n, "missing": True})
+            continue
+        before, after, events = w
+        enemy_events = [e for e in events if e.get("type") == "block_break" and isinstance(e.get("x"), int) and e["x"] >= 16]
+        removed = (
+            before.get("terraform_target_1") == before.get("terraform_target_2") == before.get("terraform_target_3") == "DIRT"
+            and after.get("terraform_target_1") == after.get("terraform_target_2") == after.get("terraform_target_3") == "AIR"
+        )
+        attempts.append({"run": n, "bypass": removed and not enemy_events, "removed": removed, "enemy_break_events": enemy_events})
+    hits = sum(a.get("bypass") is True for a in attempts)
+    completed = [a for a in attempts if "removed" in a]
+    status = "confirmed" if hits == 3 else "rejected" if len(completed) == 3 and all(a["removed"] is False for a in completed) else "inconclusive"
+    return result(status, "AuraSkills Terraform removed enemy-claim blocks without BlockBreakEvent", attempts=attempts, confirmed_attempts=hits)
+
+
 def grindstone_xp(rows):
     attempts = []
     for n in range(1, 4):
@@ -175,6 +195,7 @@ def main() -> int:
             "auraskills_excellentenchants_grindstone_xp": grindstone_xp(rows),
             "portal_factions": portal(rows, "factions", 3, False) if claims_ok else blocked("Cancelled portal creation duplicated a filled barrel"),
             "portal_cancel_control": portal(rows, "control", 2, True),
+            "auraskills_terraform": aura_terraform(rows) if claims_ok else blocked("AuraSkills Terraform removed enemy-claim blocks without BlockBreakEvent"),
             "auraskills_treecapitator": aura_tree(rows) if claims_ok else blocked("AuraSkills Treecapitator removed enemy-claim blocks without BlockBreakEvent"),
             "excellentenchants_treefeller": simple(rows, "tree-before", "tree-after", "tree_target_1", "AIR", "ExcellentEnchants Treefeller crossed enemy claim") if claims_ok else blocked("ExcellentEnchants Treefeller crossed enemy claim"),
             "excellentenchants_tunnel": simple(rows, "tunnel-before", "tunnel-after", "tunnel_target", "AIR", "ExcellentEnchants Tunnel crossed enemy claim") if claims_ok else blocked("ExcellentEnchants Tunnel crossed enemy claim"),
