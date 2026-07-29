@@ -100,8 +100,9 @@ jobs:
           SHA="$(sha256sum "$JAR" | awk '{print $1}')"
           SIZE="$(stat -c '%s' "$JAR")"
           mkdir -p ../phaselab-evidence
-          printf '{"version":"4.1.0","minecraft":"1.21.11","artifact":"phaselab-client-4.1.0.jar","sha256":"%s","bytes":%s,"step":0.25,"segment_blocks":19.0,"pause_ticks":2,"verified":true}
-' "$SHA" "$SIZE" > ../phaselab-evidence/latest-client-build.json
+          cat > ../phaselab-evidence/latest-client-build.json <<EOF
+          {"version":"4.1.0","minecraft":"1.21.11","artifact":"phaselab-client-4.1.0.jar","sha256":"$SHA","bytes":$SIZE,"step":0.25,"segment_blocks":19.0,"pause_ticks":2,"verified":true}
+          EOF
           cd ..
           git config user.name 'phaselab-bot'
           git config user.email 'phaselab-bot@users.noreply.github.com'
