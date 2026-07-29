@@ -243,11 +243,13 @@ jobs:
           print({
               'confirmed': result.get('confirmed'),
               'web_total_xp': web.get('totalXpGain'),
+              'web_total_gravel_gain': web.get('totalGravelGain'),
               'web_marker_lost': web.get('allMarkerLost'),
-              'web_conserved': web.get('allConserved'),
+              'web_pre_break_conserved': web.get('allPreBreakConserved'),
               'control_total_xp': control.get('totalXpGain'),
+              'control_total_gravel_gain': control.get('totalGravelGain'),
               'control_marker_preserved': control.get('allMarkerPreserved'),
-              'control_conserved': control.get('allConserved'),
+              'control_pre_break_conserved': control.get('allPreBreakConserved'),
               'fatal': result.get('fatal'),
           })
           if result.get('fatal') or not result.get('confirmed'):

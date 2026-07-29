@@ -201,7 +201,7 @@ async function runCycle (phaseBot, attackerBot, mode, cycle) {
   const after = await waitFor(
     phaseBot,
     `${mode}-${cycle}-after`,
-    value => value.landing_type === 'AIR' && Number(value.total_gravel) === 1 && Number(value.inventory_gravel) === 1,
+    value => value.landing_type === 'AIR' && Number(value.inventory_gravel) >= 1 && Number(value.dropped_gravel) === 0,
     10000,
     400
   )
@@ -209,6 +209,9 @@ async function runCycle (phaseBot, attackerBot, mode, cycle) {
   const xpBefore = Number(before.excavation_xp)
   const xpAfter = Number(after.excavation_xp)
   const xpGain = xpAfter - xpBefore
+  const gravelGain = Number(after.total_gravel) - Number(before.total_gravel)
+  const preBreakConserved = Number(placed.total_gravel) === Number(before.total_gravel) &&
+    Number(landed.total_gravel) === Number(before.total_gravel)
   const result = {
     cycle,
     before,
@@ -219,8 +222,10 @@ async function runCycle (phaseBot, attackerBot, mode, cycle) {
     breakEvidence,
     after,
     xpGain,
+    gravelGain,
     markerLost: placed.top_placed === true && landed.landing_placed === false,
-    conserved: [placed, landed, after].every(value => Number(value.total_gravel) === 1)
+    markerPreserved: placed.top_placed === true && landed.landing_placed === true,
+    preBreakConserved
   }
   record('cycle_result', { mode, ...result })
   return result
@@ -242,9 +247,10 @@ async function runMode (phaseBot, attackerBot, mode, cycles) {
     mode,
     cycles: results,
     totalXpGain: results.reduce((sum, entry) => sum + entry.xpGain, 0),
-    allConserved: results.every(entry => entry.conserved),
+    totalGravelGain: results.reduce((sum, entry) => sum + entry.gravelGain, 0),
+    allPreBreakConserved: results.every(entry => entry.preBreakConserved),
     allMarkerLost: results.every(entry => entry.markerLost),
-    allMarkerPreserved: results.every(entry => entry.landed.landing_placed === true)
+    allMarkerPreserved: results.every(entry => entry.markerPreserved)
   }
 }
 
@@ -262,13 +268,13 @@ async function main () {
     const web = report.modes.web
     const control = report.modes.control
     report.confirmed = Boolean(
-      web.allConserved &&
+      web.allPreBreakConserved &&
       web.allMarkerLost &&
       web.cycles.every(entry => entry.xpGain > 0) &&
       web.totalXpGain > 0 &&
-      control.allConserved &&
+      control.allPreBreakConserved &&
       control.allMarkerPreserved &&
-      control.cycles.every(entry => entry.xpGain === 0)
+      control.cycles.every(entry => entry.xpGain === 0 && entry.gravelGain === 0)
     )
   } catch (error) {
     report.fatal = String(error.stack || error)
