@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "startedAt": "2026-07-29T09:21:11.222Z",
+  "startedAt": "2026-07-29T09:36:16.506Z",
   "host": "127.0.0.1",
   "port": 25566,
   "version": "1.21.11",
@@ -8,7 +8,7 @@
   "claimsVerified": true,
   "trials": [
     {
-      "id": "solid240-survival-ratchet19",
+      "id": "solid240-survival-control",
       "run": 1,
       "kind": "solid",
       "thickness": 240,
@@ -18,7 +18,7 @@
       "startX": 14.870000004768372,
       "segmentLength": 19,
       "segmentPauseMs": 100,
-      "elapsedMs": 2382,
+      "elapsedMs": 2355,
       "packetCount": 974,
       "segmentWitnesses": [
         {
@@ -147,336 +147,539 @@
       "serverAuthoritativeSuccess": true
     },
     {
-      "id": "solid240-survival-ratchet19",
-      "run": 2,
-      "kind": "solid",
-      "thickness": 240,
-      "step": 0.25,
-      "delayMs": 0,
-      "placement": "survival",
-      "startX": 14.870000004768372,
-      "segmentLength": 19,
-      "segmentPauseMs": 100,
-      "elapsedMs": 2353,
-      "packetCount": 974,
-      "segmentWitnesses": [
-        {
-          "segment": 1,
-          "fromX": 14.870000004768372,
-          "targetX": 33.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 2,
-          "fromX": 33.87000000476837,
-          "targetX": 52.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 3,
-          "fromX": 52.87000000476837,
-          "targetX": 71.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 4,
-          "fromX": 71.87000000476837,
-          "targetX": 90.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 5,
-          "fromX": 90.87000000476837,
-          "targetX": 109.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 6,
-          "fromX": 109.87000000476837,
-          "targetX": 128.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 7,
-          "fromX": 128.87000000476837,
-          "targetX": 147.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 8,
-          "fromX": 147.87000000476837,
-          "targetX": 166.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 9,
-          "fromX": 166.87000000476837,
-          "targetX": 185.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 10,
-          "fromX": 185.87000000476837,
-          "targetX": 204.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 11,
-          "fromX": 204.87000000476837,
-          "targetX": 223.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 12,
-          "fromX": 223.87000000476837,
-          "targetX": 242.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 13,
-          "fromX": 242.87000000476837,
-          "targetX": 258.35,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        }
-      ],
-      "playerBeyondMounted": true,
-      "boatBeyond": true,
-      "playerBeyondDismounted": true,
-      "netheriteCount": 1,
-      "mountedAfter": true,
-      "dismountError": null,
-      "correctionCount": 0,
-      "firstCorrection": null,
-      "clientPlayerPosition": {
-        "x": 258.35,
-        "y": 65,
-        "z": 0.5
-      },
-      "clientBoatPosition": {
-        "x": 258.35,
-        "y": 65,
-        "z": 0.5
-      },
-      "serverAuthoritativeSuccess": true
-    },
-    {
-      "id": "solid240-survival-ratchet19",
-      "run": 3,
-      "kind": "solid",
-      "thickness": 240,
-      "step": 0.25,
-      "delayMs": 0,
-      "placement": "survival",
-      "startX": 14.870000004768372,
-      "segmentLength": 19,
-      "segmentPauseMs": 100,
-      "elapsedMs": 2353,
-      "packetCount": 974,
-      "segmentWitnesses": [
-        {
-          "segment": 1,
-          "fromX": 14.870000004768372,
-          "targetX": 33.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 2,
-          "fromX": 33.87000000476837,
-          "targetX": 52.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 3,
-          "fromX": 52.87000000476837,
-          "targetX": 71.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 4,
-          "fromX": 71.87000000476837,
-          "targetX": 90.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 5,
-          "fromX": 90.87000000476837,
-          "targetX": 109.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 6,
-          "fromX": 109.87000000476837,
-          "targetX": 128.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 7,
-          "fromX": 128.87000000476837,
-          "targetX": 147.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 8,
-          "fromX": 147.87000000476837,
-          "targetX": 166.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 9,
-          "fromX": 166.87000000476837,
-          "targetX": 185.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 10,
-          "fromX": 185.87000000476837,
-          "targetX": 204.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 11,
-          "fromX": 204.87000000476837,
-          "targetX": 223.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 12,
-          "fromX": 223.87000000476837,
-          "targetX": 242.87000000476837,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        },
-        {
-          "segment": 13,
-          "fromX": 242.87000000476837,
-          "targetX": 258.35,
-          "playerAccepted": true,
-          "boatAccepted": true,
-          "correctionsSoFar": false
-        }
-      ],
-      "playerBeyondMounted": true,
-      "boatBeyond": true,
-      "playerBeyondDismounted": true,
-      "netheriteCount": 1,
-      "mountedAfter": true,
-      "dismountError": null,
-      "correctionCount": 0,
-      "firstCorrection": null,
-      "clientPlayerPosition": {
-        "x": 258.35,
-        "y": 65,
-        "z": 0.5
-      },
-      "clientBoatPosition": {
-        "x": 258.35,
-        "y": 65,
-        "z": 0.5
-      },
-      "serverAuthoritativeSuccess": true
-    },
-    {
-      "id": "layered240-survival-ratchet19",
+      "id": "layered240-survival-ratchet15",
       "run": 1,
       "kind": "layered",
       "thickness": 240,
-      "step": 0.1,
+      "step": 0.25,
       "delayMs": 0,
       "placement": "survival",
       "startX": 14.870000004768372,
-      "segmentLength": 19,
+      "segmentLength": 15,
       "segmentPauseMs": 100,
-      "elapsedMs": 14038,
-      "packetCount": 953,
+      "elapsedMs": 2755,
+      "packetCount": 974,
       "segmentWitnesses": [
         {
           "segment": 1,
           "fromX": 14.870000004768372,
-          "targetX": 33.87000000476837,
+          "targetX": 29.87000000476837,
           "playerAccepted": true,
           "boatAccepted": true,
           "correctionsSoFar": false
         },
         {
           "segment": 2,
-          "fromX": 33.87000000476837,
-          "targetX": 52.87000000476837,
+          "fromX": 29.87000000476837,
+          "targetX": 44.87000000476837,
           "playerAccepted": true,
           "boatAccepted": true,
           "correctionsSoFar": false
         },
         {
           "segment": 3,
-          "fromX": 52.87000000476837,
-          "targetX": 71.87000000476837,
+          "fromX": 44.87000000476837,
+          "targetX": 59.87000000476837,
           "playerAccepted": true,
           "boatAccepted": true,
           "correctionsSoFar": false
         },
         {
           "segment": 4,
-          "fromX": 71.87000000476837,
-          "targetX": 90.87000000476837,
+          "fromX": 59.87000000476837,
+          "targetX": 74.87000000476837,
           "playerAccepted": true,
           "boatAccepted": true,
           "correctionsSoFar": false
         },
         {
           "segment": 5,
-          "fromX": 90.87000000476837,
-          "targetX": 109.87000000476837,
-          "playerAccepted": false,
-          "boatAccepted": false,
+          "fromX": 74.87000000476837,
+          "targetX": 89.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
           "correctionsSoFar": false
+        },
+        {
+          "segment": 6,
+          "fromX": 89.87000000476837,
+          "targetX": 104.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 7,
+          "fromX": 104.87000000476837,
+          "targetX": 119.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 8,
+          "fromX": 119.87000000476837,
+          "targetX": 134.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 9,
+          "fromX": 134.87000000476837,
+          "targetX": 149.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 10,
+          "fromX": 149.87000000476837,
+          "targetX": 164.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 11,
+          "fromX": 164.87000000476837,
+          "targetX": 179.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 12,
+          "fromX": 179.87000000476837,
+          "targetX": 194.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 13,
+          "fromX": 194.87000000476837,
+          "targetX": 209.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 14,
+          "fromX": 209.87000000476837,
+          "targetX": 224.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 15,
+          "fromX": 224.87000000476837,
+          "targetX": 239.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 16,
+          "fromX": 239.87000000476837,
+          "targetX": 254.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 17,
+          "fromX": 254.87000000476837,
+          "targetX": 258.35,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        }
+      ],
+      "playerBeyondMounted": true,
+      "boatBeyond": true,
+      "playerBeyondDismounted": true,
+      "netheriteCount": 1,
+      "mountedAfter": true,
+      "dismountError": null,
+      "correctionCount": 0,
+      "firstCorrection": null,
+      "clientPlayerPosition": {
+        "x": 258.35,
+        "y": 65,
+        "z": 0.5
+      },
+      "clientBoatPosition": {
+        "x": 258.35,
+        "y": 65,
+        "z": 0.5
+      },
+      "serverAuthoritativeSuccess": true
+    },
+    {
+      "id": "layered240-survival-ratchet15",
+      "run": 2,
+      "kind": "layered",
+      "thickness": 240,
+      "step": 0.25,
+      "delayMs": 0,
+      "placement": "survival",
+      "startX": 14.870000004768372,
+      "segmentLength": 15,
+      "segmentPauseMs": 100,
+      "elapsedMs": 2730,
+      "packetCount": 974,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromX": 14.870000004768372,
+          "targetX": 29.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 2,
+          "fromX": 29.87000000476837,
+          "targetX": 44.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 3,
+          "fromX": 44.87000000476837,
+          "targetX": 59.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 4,
+          "fromX": 59.87000000476837,
+          "targetX": 74.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 5,
+          "fromX": 74.87000000476837,
+          "targetX": 89.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 6,
+          "fromX": 89.87000000476837,
+          "targetX": 104.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 7,
+          "fromX": 104.87000000476837,
+          "targetX": 119.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 8,
+          "fromX": 119.87000000476837,
+          "targetX": 134.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 9,
+          "fromX": 134.87000000476837,
+          "targetX": 149.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 10,
+          "fromX": 149.87000000476837,
+          "targetX": 164.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 11,
+          "fromX": 164.87000000476837,
+          "targetX": 179.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 12,
+          "fromX": 179.87000000476837,
+          "targetX": 194.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 13,
+          "fromX": 194.87000000476837,
+          "targetX": 209.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 14,
+          "fromX": 209.87000000476837,
+          "targetX": 224.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 15,
+          "fromX": 224.87000000476837,
+          "targetX": 239.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 16,
+          "fromX": 239.87000000476837,
+          "targetX": 254.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 17,
+          "fromX": 254.87000000476837,
+          "targetX": 258.35,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        }
+      ],
+      "playerBeyondMounted": true,
+      "boatBeyond": true,
+      "playerBeyondDismounted": true,
+      "netheriteCount": 1,
+      "mountedAfter": true,
+      "dismountError": null,
+      "correctionCount": 0,
+      "firstCorrection": null,
+      "clientPlayerPosition": {
+        "x": 258.35,
+        "y": 65,
+        "z": 0.5
+      },
+      "clientBoatPosition": {
+        "x": 258.35,
+        "y": 65,
+        "z": 0.5
+      },
+      "serverAuthoritativeSuccess": true
+    },
+    {
+      "id": "layered240-survival-ratchet15",
+      "run": 3,
+      "kind": "layered",
+      "thickness": 240,
+      "step": 0.25,
+      "delayMs": 0,
+      "placement": "survival",
+      "startX": 14.870000004768372,
+      "segmentLength": 15,
+      "segmentPauseMs": 100,
+      "elapsedMs": 2736,
+      "packetCount": 974,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromX": 14.870000004768372,
+          "targetX": 29.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 2,
+          "fromX": 29.87000000476837,
+          "targetX": 44.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 3,
+          "fromX": 44.87000000476837,
+          "targetX": 59.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 4,
+          "fromX": 59.87000000476837,
+          "targetX": 74.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 5,
+          "fromX": 74.87000000476837,
+          "targetX": 89.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 6,
+          "fromX": 89.87000000476837,
+          "targetX": 104.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 7,
+          "fromX": 104.87000000476837,
+          "targetX": 119.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 8,
+          "fromX": 119.87000000476837,
+          "targetX": 134.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 9,
+          "fromX": 134.87000000476837,
+          "targetX": 149.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 10,
+          "fromX": 149.87000000476837,
+          "targetX": 164.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 11,
+          "fromX": 164.87000000476837,
+          "targetX": 179.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 12,
+          "fromX": 179.87000000476837,
+          "targetX": 194.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 13,
+          "fromX": 194.87000000476837,
+          "targetX": 209.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 14,
+          "fromX": 209.87000000476837,
+          "targetX": 224.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 15,
+          "fromX": 224.87000000476837,
+          "targetX": 239.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 16,
+          "fromX": 239.87000000476837,
+          "targetX": 254.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        },
+        {
+          "segment": 17,
+          "fromX": 254.87000000476837,
+          "targetX": 258.35,
+          "playerAccepted": true,
+          "boatAccepted": true,
+          "correctionsSoFar": false
+        }
+      ],
+      "playerBeyondMounted": true,
+      "boatBeyond": true,
+      "playerBeyondDismounted": true,
+      "netheriteCount": 1,
+      "mountedAfter": true,
+      "dismountError": null,
+      "correctionCount": 0,
+      "firstCorrection": null,
+      "clientPlayerPosition": {
+        "x": 258.35,
+        "y": 65,
+        "z": 0.5
+      },
+      "clientBoatPosition": {
+        "x": 258.35,
+        "y": 65,
+        "z": 0.5
+      },
+      "serverAuthoritativeSuccess": true
+    },
+    {
+      "id": "mixed64-survival-ratchet15",
+      "run": 1,
+      "kind": "mixed",
+      "thickness": 64,
+      "step": 0.25,
+      "delayMs": 0,
+      "placement": "survival",
+      "startX": 14.870000004768372,
+      "segmentLength": 15,
+      "segmentPauseMs": 100,
+      "elapsedMs": 11105,
+      "packetCount": 60,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromX": 14.870000004768372,
+          "targetX": 29.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": false,
+          "correctionsSoFar": true
         }
       ],
       "playerBeyondMounted": false,
@@ -485,41 +688,341 @@
       "netheriteCount": 0,
       "mountedAfter": true,
       "dismountError": null,
-      "correctionCount": 0,
-      "firstCorrection": null,
+      "correctionCount": 1,
+      "firstCorrection": {
+        "type": "player_position",
+        "elapsedMs": 52.977586,
+        "packet": {
+          "teleportId": 23,
+          "x": 29.69999998807907,
+          "y": 65,
+          "z": 0.5,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        }
+      },
       "clientPlayerPosition": {
-        "x": 109.87000000476837,
+        "x": 29.69999998807907,
         "y": 65,
         "z": 0.5
       },
       "clientBoatPosition": {
-        "x": 109.87000000476837,
+        "x": 29.87000000476837,
         "y": 65,
         "z": 0.5
       },
       "serverAuthoritativeSuccess": false
     },
     {
-      "id": "layered240-survival-ratchet19",
+      "id": "mixed64-survival-ratchet15",
       "run": 2,
-      "kind": "layered",
-      "thickness": 240,
-      "step": 0.1,
+      "kind": "mixed",
+      "thickness": 64,
+      "step": 0.25,
       "delayMs": 0,
-      "serverAuthoritativeSuccess": false,
-      "error": "Error: Timeout waiting for /STACKLAB BOAT USE .*\"accepted\":true/ after /stacklab boatuse AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vehicle-phase.js:82:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+      "placement": "survival",
+      "startX": 14.870000004768372,
+      "segmentLength": 15,
+      "segmentPauseMs": 100,
+      "elapsedMs": 11101,
+      "packetCount": 60,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromX": 14.870000004768372,
+          "targetX": 29.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": false,
+          "correctionsSoFar": true
+        }
+      ],
+      "playerBeyondMounted": false,
+      "boatBeyond": false,
+      "playerBeyondDismounted": false,
+      "netheriteCount": 0,
+      "mountedAfter": true,
+      "dismountError": null,
+      "correctionCount": 1,
+      "firstCorrection": {
+        "type": "player_position",
+        "elapsedMs": 43.746077,
+        "packet": {
+          "teleportId": 27,
+          "x": 29.69999998807907,
+          "y": 65,
+          "z": 0.5,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        }
+      },
+      "clientPlayerPosition": {
+        "x": 29.69999998807907,
+        "y": 65,
+        "z": 0.5
+      },
+      "clientBoatPosition": {
+        "x": 29.87000000476837,
+        "y": 65,
+        "z": 0.5
+      },
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "mixed64-survival-ratchet15",
+      "run": 3,
+      "kind": "mixed",
+      "thickness": 64,
+      "step": 0.25,
+      "delayMs": 0,
+      "placement": "survival",
+      "startX": 14.870000004768372,
+      "segmentLength": 15,
+      "segmentPauseMs": 100,
+      "elapsedMs": 11106,
+      "packetCount": 60,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromX": 14.870000004768372,
+          "targetX": 29.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": false,
+          "correctionsSoFar": true
+        }
+      ],
+      "playerBeyondMounted": false,
+      "boatBeyond": false,
+      "playerBeyondDismounted": false,
+      "netheriteCount": 0,
+      "mountedAfter": true,
+      "dismountError": null,
+      "correctionCount": 1,
+      "firstCorrection": {
+        "type": "player_position",
+        "elapsedMs": 44.396597,
+        "packet": {
+          "teleportId": 31,
+          "x": 29.69999998807907,
+          "y": 65,
+          "z": 0.5,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        }
+      },
+      "clientPlayerPosition": {
+        "x": 29.69999998807907,
+        "y": 65,
+        "z": 0.5
+      },
+      "clientBoatPosition": {
+        "x": 29.87000000476837,
+        "y": 65,
+        "z": 0.5
+      },
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "mixed240-survival-ratchet15",
+      "run": 1,
+      "kind": "mixed",
+      "thickness": 240,
+      "step": 0.25,
+      "delayMs": 0,
+      "placement": "survival",
+      "startX": 14.870000004768372,
+      "segmentLength": 15,
+      "segmentPauseMs": 100,
+      "elapsedMs": 11102,
+      "packetCount": 60,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromX": 14.870000004768372,
+          "targetX": 29.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": false,
+          "correctionsSoFar": true
+        }
+      ],
+      "playerBeyondMounted": false,
+      "boatBeyond": false,
+      "playerBeyondDismounted": false,
+      "netheriteCount": 0,
+      "mountedAfter": true,
+      "dismountError": null,
+      "correctionCount": 1,
+      "firstCorrection": {
+        "type": "player_position",
+        "elapsedMs": 43.354801,
+        "packet": {
+          "teleportId": 35,
+          "x": 29.69999998807907,
+          "y": 65,
+          "z": 0.5,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        }
+      },
+      "clientPlayerPosition": {
+        "x": 29.69999998807907,
+        "y": 65,
+        "z": 0.5
+      },
+      "clientBoatPosition": {
+        "x": 29.87000000476837,
+        "y": 65,
+        "z": 0.5
+      },
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "mixed240-survival-ratchet15",
+      "run": 2,
+      "kind": "mixed",
+      "thickness": 240,
+      "step": 0.25,
+      "delayMs": 0,
+      "placement": "survival",
+      "startX": 14.870000004768372,
+      "segmentLength": 15,
+      "segmentPauseMs": 100,
+      "elapsedMs": 11105,
+      "packetCount": 60,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromX": 14.870000004768372,
+          "targetX": 29.87000000476837,
+          "playerAccepted": true,
+          "boatAccepted": false,
+          "correctionsSoFar": true
+        }
+      ],
+      "playerBeyondMounted": false,
+      "boatBeyond": false,
+      "playerBeyondDismounted": false,
+      "netheriteCount": 0,
+      "mountedAfter": true,
+      "dismountError": null,
+      "correctionCount": 1,
+      "firstCorrection": {
+        "type": "player_position",
+        "elapsedMs": 46.165058,
+        "packet": {
+          "teleportId": 39,
+          "x": 29.69999998807907,
+          "y": 65,
+          "z": 0.5,
+          "dx": 0,
+          "dy": 0,
+          "dz": 0,
+          "yaw": 0,
+          "pitch": 0,
+          "flags": {
+            "_value": 504,
+            "x": false,
+            "y": false,
+            "z": false,
+            "yaw": true,
+            "pitch": true,
+            "dx": true,
+            "dy": true,
+            "dz": true,
+            "yawDelta": true
+          }
+        }
+      },
+      "clientPlayerPosition": {
+        "x": 29.69999998807907,
+        "y": 65,
+        "z": 0.5
+      },
+      "clientBoatPosition": {
+        "x": 29.87000000476837,
+        "y": 65,
+        "z": 0.5
+      },
+      "serverAuthoritativeSuccess": false
     }
   ],
   "fatal": null,
-  "finishedAt": "2026-07-29T09:22:40.519Z",
-  "successCount": 3,
-  "totalCount": 5,
+  "finishedAt": "2026-07-29T09:39:13.370Z",
+  "successCount": 4,
+  "totalCount": 9,
   "byFamily": {
-    "solid240-survival-ratchet19": {
+    "solid240-survival-control": {
+      "successes": 1,
+      "attempts": 1
+    },
+    "layered240-survival-ratchet15": {
       "successes": 3,
       "attempts": 3
     },
-    "layered240-survival-ratchet19": {
+    "mixed64-survival-ratchet15": {
+      "successes": 0,
+      "attempts": 3
+    },
+    "mixed240-survival-ratchet15": {
       "successes": 0,
       "attempts": 2
     }
