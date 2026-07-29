@@ -1,0 +1,28 @@
+name: c36-r65
+# c36 measured 71.5 blocks forward with zero self-damage and 625/625 integrity
+# in run 30431649268, but the 40-block target was overshot. This brackets the
+# range to find where the payload actually lands.
+cannon:
+  file: basic-cannon-c36.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: redstone
+  fire-input: {x: 0, y: 2, z: 0}
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: false
+target:
+  type: dry
+  direction: east
+  distance: 65
+  width: 15
+  height: 15
+  y-offset: 0
+  lateral-offset: 0
+  layers: 1
+  spacing: 3
+run:
+  shots: 3
+  warmup-ticks: 60
+  max-shot-ticks: 300
+  quiet-ticks: 160
+  shutdown-when-finished: true

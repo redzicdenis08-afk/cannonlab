@@ -16,14 +16,11 @@ on:
       - 'cannons/perfectone-v2-watered.schem.b64'
       - 'scenarios/perfectone-live.yml'
       - 'scenarios/perfectone-v2-watered.yml'
-      - 'cannons/basic-cannon-c6.schem.b64'
-      - 'scenarios/basic-cannon-c6.yml'
-      - 'cannons/basic-cannon-c12.schem.b64'
-      - 'scenarios/basic-cannon-c12.yml'
-      - 'cannons/basic-cannon-c24.schem.b64'
-      - 'scenarios/basic-cannon-c24.yml'
       - 'cannons/basic-cannon-c36.schem.b64'
-      - 'scenarios/basic-cannon-c36.yml'
+      - 'scenarios/c36-r55.yml'
+      - 'scenarios/c36-r65.yml'
+      - 'scenarios/c36-r72.yml'
+      - 'scenarios/c36-r80.yml'
       - '.github/workflows/perfectone-live.yml'
 
 concurrency:
@@ -43,16 +40,22 @@ jobs:
         variant:
           - scenario: perfectone-live.yml
             fixture: perfectone-loaded
+            tag: perfectone-loaded
           - scenario: perfectone-v2-watered.yml
             fixture: perfectone-v2-watered
-          - scenario: basic-cannon-c6.yml
-            fixture: basic-cannon-c6
-          - scenario: basic-cannon-c12.yml
-            fixture: basic-cannon-c12
-          - scenario: basic-cannon-c24.yml
-            fixture: basic-cannon-c24
-          - scenario: basic-cannon-c36.yml
+            tag: perfectone-v2-watered
+          - scenario: c36-r55.yml
             fixture: basic-cannon-c36
+            tag: c36-r55
+          - scenario: c36-r65.yml
+            fixture: basic-cannon-c36
+            tag: c36-r65
+          - scenario: c36-r72.yml
+            fixture: basic-cannon-c36
+            tag: c36-r72
+          - scenario: c36-r80.yml
+            fixture: basic-cannon-c36
+            tag: c36-r80
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -106,7 +109,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: PerfectOne-diagnostic-${{ matrix.variant.fixture }}-${{ github.run_number }}
+          name: PerfectOne-diagnostic-${{ matrix.variant.tag }}-${{ github.run_number }}
           path: |
             lab-artifacts/**
             ${{ matrix.variant.fixture }}-static-audit.json
