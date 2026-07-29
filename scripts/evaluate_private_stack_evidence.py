@@ -228,6 +228,29 @@ def border_chest(rows):
     return result(status, "Attacker merged and looted an enemy-claim chest", before=before, after=after, merge_events=merges, open_events=opens)
 
 
+def boundary_bed(rows):
+    attempts = []
+    for run in range(1, 4):
+        w = window(rows, f"bed-before-{run}", f"bed-after-{run}")
+        if not w:
+            attempts.append({"run": run, "missing": True})
+            continue
+        before, after, events = w
+        placements = [e for e in events if e.get("type") == "server_bed_place" and e.get("invoked") is True]
+        multiplace = [e for e in events if e.get("type") == "boundary_multi_place"]
+        crossed = (
+            before.get("bed_attacker_type") == "AIR"
+            and before.get("bed_victim_type") == "AIR"
+            and after.get("bed_attacker_type") == "RED_BED"
+            and after.get("bed_victim_type") == "RED_BED"
+        )
+        attempts.append({"run": run, "crossed": crossed, "placement_events": placements, "multi_place_events": multiplace})
+    hits = sum(a.get("crossed") is True and a.get("placement_events") for a in attempts)
+    completed = [a for a in attempts if "crossed" in a]
+    status = "confirmed" if hits == 3 else "rejected" if len(completed) == 3 and all(a["crossed"] is False for a in completed) else "inconclusive"
+    return result(status, "Bed primary half placed a secondary half inside enemy claim", attempts=attempts, confirmed_attempts=hits)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("evidence", type=Path)
@@ -257,6 +280,7 @@ def main() -> int:
             "factions_piston": simple(rows, "piston-before", "piston-after", "piston_payload_target", "DIAMOND_BLOCK", "Piston moved block into enemy claim") if claims_ok else blocked("Piston moved block into enemy claim"),
             "factions_hopper": hopper(rows) if claims_ok else blocked("Cross-claim hopper transfer"),
             "factions_cross_claim_double_chest": border_chest(rows) if claims_ok else blocked("Attacker merged and looted an enemy-claim chest"),
+            "factions_cross_claim_bed": boundary_bed(rows) if claims_ok else blocked("Bed primary half placed a secondary half inside enemy claim"),
         },
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)

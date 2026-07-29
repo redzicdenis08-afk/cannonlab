@@ -321,6 +321,22 @@ async function main () {
       return { merge, visibleNetherite, openError }
     })
 
+    for (let run = 1; run <= 3; run++) {
+      await phase(`factions_cross_claim_bed_${run}`, async () => {
+        await command(phaseBot, '/stacklab build', 650)
+        await command(phaseBot, `/stacklab snapshot bed-before-${run}`, 300)
+        await command(phaseBot, '/tp AttackerBot 14.5 65 -0.5 -90 0', 500)
+        const placement = await commandExpect(
+          phaseBot,
+          '/stacklab bedplace AttackerBot',
+          /STACKLAB BED PLACE .*"invoked":true/,
+          6000
+        )
+        await command(phaseBot, `/stacklab snapshot bed-after-${run}`, 300)
+        return { placement }
+      })
+    }
+
     if (attackerBot.currentWindow) {
       try { attackerBot.closeWindow(attackerBot.currentWindow) } catch {}
       await sleep(250)

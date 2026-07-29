@@ -88,6 +88,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
                     case "alchemyfinal" -> alchemyFinal(sender);
                     case "chestmerge" -> chestMerge(sender, args);
+                    case "bedplace" -> bedPlace(sender, args);
                     case "tick" -> tick(sender, args);
                     case "cancelportal" -> cancelPortal(sender, args);
                     default -> false;
@@ -170,6 +171,8 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         world.getBlockAt(15, Y, 14).setType(Material.AIR, false);
         Block borderHopperBlock = set(world, 15, Y - 1, 14, Material.HOPPER);
         ((Hopper) borderHopperBlock.getState()).getInventory().clear();
+        world.getBlockAt(15, Y, -1).setType(Material.AIR, false);
+        world.getBlockAt(16, Y, -1).setType(Material.AIR, false);
 
         writeEvent("arena_build", snapshotMap(world, "build"));
         sender.sendMessage("STACKLAB BUILD OK boundary=15/16 y=" + Y);
@@ -492,6 +495,61 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return true;
     }
 
+    private boolean bedPlace(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab bedplace <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        World world = requireWorld();
+        world.getBlockAt(15, Y, -1).setType(Material.AIR, false);
+        world.getBlockAt(16, Y, -1).setType(Material.AIR, false);
+        player.getInventory().setItemInMainHand(new ItemStack(Material.RED_BED, 1));
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("attacker_before", type(world, 15, Y, -1));
+        evidence.put("victim_before", type(world, 16, Y, -1));
+        try {
+            Object serverPlayer = player.getClass().getMethod("getHandle").invoke(player);
+            Class<?> handClass = Class.forName("net.minecraft.world.InteractionHand");
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Object mainHand = Enum.valueOf((Class<? extends Enum>) handClass, "MAIN_HAND");
+            Class<?> directionClass = Class.forName("net.minecraft.core.Direction");
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Object up = Enum.valueOf((Class<? extends Enum>) directionClass, "UP");
+            Class<?> blockPosClass = Class.forName("net.minecraft.core.BlockPos");
+            Object blockPos = blockPosClass.getConstructor(int.class, int.class, int.class).newInstance(15, Y - 1, -1);
+            Class<?> vec3Class = Class.forName("net.minecraft.world.phys.Vec3");
+            Object hitLocation = vec3Class.getConstructor(double.class, double.class, double.class).newInstance(15.5, Y, -0.5);
+            Class<?> hitResultClass = Class.forName("net.minecraft.world.phys.BlockHitResult");
+            Object hitResult = hitResultClass.getConstructor(vec3Class, directionClass, blockPosClass, boolean.class)
+                .newInstance(hitLocation, up, blockPos, false);
+            Class<?> nmsPlayerClass = Class.forName("net.minecraft.world.entity.player.Player");
+            Class<?> contextClass = Class.forName("net.minecraft.world.item.context.UseOnContext");
+            Object context = contextClass.getConstructor(nmsPlayerClass, handClass, hitResultClass)
+                .newInstance(serverPlayer, mainHand, hitResult);
+            Object nmsStack = serverPlayer.getClass().getMethod("getItemInHand", handClass).invoke(serverPlayer, mainHand);
+            Object item = nmsStack.getClass().getMethod("getItem").invoke(nmsStack);
+            Object result = item.getClass().getMethod("useOn", contextClass).invoke(item, context);
+            evidence.put("invoked", true);
+            evidence.put("result", String.valueOf(result));
+        } catch (ReflectiveOperationException exception) {
+            evidence.put("invoked", false);
+            evidence.put("error", exception.toString());
+        }
+        evidence.put("attacker_after", type(world, 15, Y, -1));
+        evidence.put("victim_after", type(world, 16, Y, -1));
+        evidence.put("attacker_data", world.getBlockAt(15, Y, -1).getBlockData().getAsString());
+        evidence.put("victim_data", world.getBlockAt(16, Y, -1).getBlockData().getAsString());
+        writeEvent("server_bed_place", evidence);
+        sender.sendMessage("STACKLAB BED PLACE " + gson.toJson(evidence));
+        return true;
+    }
+
     private ItemStack potion(PotionType type) {
         ItemStack item = new ItemStack(Material.POTION);
         PotionMeta meta = (PotionMeta) item.getItemMeta();
@@ -522,6 +580,10 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         result.put("border_hopper_netherite_count", inventoryCount(world.getBlockAt(15, Y - 1, 14), Material.NETHERITE_BLOCK));
         result.put("border_attacker_chest_data", world.getBlockAt(15, Y, 14).getBlockData().getAsString());
         result.put("border_victim_chest_data", world.getBlockAt(16, Y, 14).getBlockData().getAsString());
+        result.put("bed_attacker_type", type(world, 15, Y, -1));
+        result.put("bed_victim_type", type(world, 16, Y, -1));
+        result.put("bed_attacker_data", world.getBlockAt(15, Y, -1).getBlockData().getAsString());
+        result.put("bed_victim_data", world.getBlockAt(16, Y, -1).getBlockData().getAsString());
 
         Player attacker = Bukkit.getPlayerExact("AttackerBot");
         if (attacker != null) {
@@ -737,6 +799,20 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         data.put("input_fragility", enchantLevel(event.getView().getTopInventory().getItem(0), "excellentenchants:curse_of_fragility"));
         data.put("enchanting_xp_monitor", auraEnchantingXp(player));
         writeEvent("grindstone_result_click", data);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onBoundaryMultiPlace(BlockMultiPlaceEvent event) {
+        if (event.getBlock().getZ() != -1) return;
+        writeEvent("boundary_multi_place", Map.of(
+            "player", event.getPlayer().getName(),
+            "cancelled", event.isCancelled(),
+            "primary_x", event.getBlock().getX(),
+            "replaced_count", event.getReplacedBlockStates().size(),
+            "replaced", event.getReplacedBlockStates().stream().map(state -> Map.of(
+                "x", state.getX(), "y", state.getY(), "z", state.getZ(), "type", state.getType().name()
+            )).toList()
+        ));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
