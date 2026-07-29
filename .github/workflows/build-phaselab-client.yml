@@ -49,24 +49,44 @@ jobs:
         working-directory: phaselab-client
         shell: bash
         run: |
-          JAR='build/libs/phaselab-client-4.1.0.jar'
-          test -f "$JAR"
+          set -euo pipefail
+          JAR="$(find build/libs -maxdepth 1 -type f -name 'phaselab-client-4.1.0.jar' -print -quit)"
+          test -n "$JAR"
           jar tf "$JAR" | tee jar-contents.txt
-          jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseLabClient.class'
-          jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseTelemetryClient.class'
-          jar tf "$JAR" | grep -F 'dev/denis/phaselab/BoatPhaseClient.class'
-          jar tf "$JAR" | grep -F 'dev/denis/phaselab/mixin/ClientPacketListenerMixin.class'
-          jar tf "$JAR" | grep -F 'phaselab.client.mixins.json'
-          jar tf "$JAR" | grep -F 'assets/phaselab/lang/en_us.json'
+          python - "$JAR" <<'PY'
+          import json
+          import sys
+          import zipfile
+
+          jar = sys.argv[1]
+          required = {
+              'dev/denis/phaselab/PhaseLabClient.class',
+              'dev/denis/phaselab/PhaseTelemetryClient.class',
+              'dev/denis/phaselab/BoatPhaseClient.class',
+              'dev/denis/phaselab/mixin/ClientPacketListenerMixin.class',
+              'phaselab.client.mixins.json',
+              'assets/phaselab/lang/en_us.json',
+              'fabric.mod.json',
+          }
+          with zipfile.ZipFile(jar) as zf:
+              names = set(zf.namelist())
+              missing = sorted(required - names)
+              if missing:
+                  raise SystemExit(f'missing JAR entries: {missing}')
+              mod = json.loads(zf.read('fabric.mod.json'))
+          if mod.get('version') != '4.1.0':
+              raise SystemExit(f"wrong mod version: {mod.get('version')!r}")
+          if 'dev.denis.phaselab.BoatPhaseClient' not in mod.get('entrypoints', {}).get('client', []):
+              raise SystemExit('BoatPhaseClient entrypoint missing')
+          if mod.get('depends', {}).get('minecraft') != '~1.21.11':
+              raise SystemExit('wrong Minecraft dependency')
+          print(json.dumps({'jar': jar, 'version': mod['version'], 'verified_entries': len(required)}, sort_keys=True))
+          PY
           unzip -p "$JAR" fabric.mod.json | tee built-fabric.mod.json
-          grep -F '"version": "4.1.0"' built-fabric.mod.json
-          grep -F '"fabricloader": ">=0.19.2"' built-fabric.mod.json
-          grep -F 'dev.denis.phaselab.BoatPhaseClient' built-fabric.mod.json
-          javap -classpath "$JAR" -p -v dev.denis.phaselab.mixin.ClientPacketListenerMixin > mixin-javap.txt
-          grep -F 'onCorrectionHead' mixin-javap.txt
-          grep -F 'onCorrectionTail' mixin-javap.txt
-          grep -F 'onServerVehicleCorrection' mixin-javap.txt
-          grep -F 'onServerOpenScreen' mixin-javap.txt
+          javap -classpath "$JAR" -p dev.denis.phaselab.BoatPhaseClient | tee boat-phase-javap.txt
+          grep -F 'SEGMENT_LENGTH' boat-phase-javap.txt
+          grep -F 'PACKETS_PER_SEGMENT' boat-phase-javap.txt
+          grep -F 'SEGMENT_PAUSE_TICKS' boat-phase-javap.txt
 
       - name: Upload build log
         if: always()
@@ -77,7 +97,7 @@ jobs:
             phaselab-client/build.log
             phaselab-client/jar-contents.txt
             phaselab-client/built-fabric.mod.json
-            phaselab-client/mixin-javap.txt
+            phaselab-client/boat-phase-javap.txt
           if-no-files-found: warn
 
       - name: Upload JAR
