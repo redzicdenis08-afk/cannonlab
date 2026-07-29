@@ -218,7 +218,12 @@ def chest_raft_theft(rows):
     attacker_count = int(after.get("attacker_netherite_count", 0))
     opened = any(e.get("cancelled") is False for e in interactions)
     stolen = before_count >= 27 and after_count < before_count and attacker_count > 0
-    denied = before_count >= 27 and after_count == before_count and attacker_count == 0
+    denied = (
+        before_count >= 27
+        and after_count == before_count
+        and attacker_count == 0
+        and any(e.get("cancelled") is True for e in interactions)
+    )
     status = "confirmed" if opened and stolen else "rejected" if denied else "inconclusive"
     return result(
         status,

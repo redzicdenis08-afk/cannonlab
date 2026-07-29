@@ -283,6 +283,8 @@ async function main () {
       let clickError = null
       let visibleNetherite = 0
       try {
+        attackerBot.setControlState('sneak', true)
+        await sleep(200)
         window = await attackerBot.openEntity(raft)
         await sleep(700)
         visibleNetherite = window.slots
@@ -300,6 +302,7 @@ async function main () {
         if (window) clickError = String(error.stack || error)
         else openError = String(error.stack || error)
       } finally {
+        attackerBot.setControlState('sneak', false)
         if (window) {
           try { attackerBot.closeWindow(window) } catch {}
         }
