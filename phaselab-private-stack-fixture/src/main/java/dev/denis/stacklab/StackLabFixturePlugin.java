@@ -26,24 +26,29 @@ import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
+import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.plugin.RegisteredListener;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionType;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
+import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 public final class StackLabFixturePlugin extends JavaPlugin implements Listener {
@@ -51,6 +56,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     private final Gson gson = new Gson();
     private Path evidencePath;
     private boolean cancelPortalMultiPlace;
+    private int observedAlchemyBrewEvents;
 
     @Override
     public void onEnable() {
@@ -80,8 +86,10 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "claimsnapshot" -> claimSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "give" -> give(sender, args);
                     case "break" -> breakBlock(sender, args);
+                    case "alchemyprep" -> alchemyPrep(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
                     case "alchemyfinal" -> alchemyFinal(sender);
+                    case "alchemystate" -> alchemyState(sender, args.length > 1 ? args[1] : "manual");
                     case "tick" -> tick(sender, args);
                     case "cancelportal" -> cancelPortal(sender, args);
                     default -> false;
@@ -326,6 +334,28 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return true;
     }
 
+    private boolean alchemyPrep(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab alchemyprep <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        setAuraSkillState(player, "ALCHEMY", 50, 0D);
+        observedAlchemyBrewEvents = 0;
+        clearAuraBrewingCache();
+        Map<String, Object> state = brewingCacheSnapshot("prep");
+        state.put("player", player.getName());
+        state.put("alchemy_level", auraSkillLevel(player, "ALCHEMY"));
+        state.put("alchemy_xp", auraSkillXp(player, "ALCHEMY"));
+        writeEvent("alchemy_cache_prep", state);
+        sender.sendMessage("STACKLAB ALCHEMY PREP " + gson.toJson(state));
+        return true;
+    }
+
     private boolean alchemyCycle(org.bukkit.command.CommandSender sender, String label) {
         World world = requireWorld();
         Block standBlock = world.getBlockAt(13, Y + 2, 9);
@@ -372,10 +402,85 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             return true;
         }
         stand.getInventory().clear();
-        stand.getInventory().setItem(0, potion(PotionType.AWKWARD));
+        stand.getInventory().setItem(0, potion(PotionType.WATER));
         writeEvent("alchemy_final_ready", alchemySnapshotMap(world, "final-ready"));
         sender.sendMessage("STACKLAB ALCHEMY FINAL READY");
         return true;
+    }
+
+    private boolean alchemyState(org.bukkit.command.CommandSender sender, String label) {
+        Map<String, Object> state = brewingCacheSnapshot(label);
+        Player player = Bukkit.getPlayerExact("AttackerBot");
+        if (player != null) {
+            state.put("alchemy_level", auraSkillLevel(player, "ALCHEMY"));
+            state.put("alchemy_xp", auraSkillXp(player, "ALCHEMY"));
+        }
+        writeEvent("alchemy_cache_state", state);
+        sender.sendMessage("STACKLAB ALCHEMY STATE " + label + " " + gson.toJson(state));
+        return true;
+    }
+
+    private Object findBrewingLeveler() {
+        for (RegisteredListener registered : BrewEvent.getHandlerList().getRegisteredListeners()) {
+            Listener listener = registered.getListener();
+            if (listener.getClass().getName().equals("dev.aurelium.auraskills.bukkit.source.BrewingLeveler")) {
+                return listener;
+            }
+        }
+        throw new IllegalStateException("AuraSkills BrewingLeveler listener not registered");
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<Object, Object> auraBrewingCache() {
+        Object leveler = findBrewingLeveler();
+        try {
+            Field field = leveler.getClass().getDeclaredField("brewingStands");
+            field.setAccessible(true);
+            return (Map<Object, Object>) field.get(leveler);
+        } catch (ReflectiveOperationException exception) {
+            throw new IllegalStateException("Could not inspect AuraSkills brewing cache", exception);
+        }
+    }
+
+    private void clearAuraBrewingCache() {
+        auraBrewingCache().clear();
+    }
+
+    private Map<String, Object> brewingCacheSnapshot(String label) {
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("label", label);
+        result.put("observed_brew_events", observedAlchemyBrewEvents);
+        Map<Object, Object> cache = auraBrewingCache();
+        result.put("stand_count", cache.size());
+        List<Map<String, Object>> stands = new java.util.ArrayList<>();
+        for (Map.Entry<Object, Object> entry : cache.entrySet()) {
+            Map<String, Object> stand = new LinkedHashMap<>();
+            stand.put("position", String.valueOf(entry.getKey()));
+            try {
+                Field slotsField = entry.getValue().getClass().getDeclaredField("slots");
+                slotsField.setAccessible(true);
+                Map<?, ?> slots = (Map<?, ?>) slotsField.get(entry.getValue());
+                stand.put("slot_count", slots.size());
+                List<Map<String, Object>> slotRows = new java.util.ArrayList<>();
+                for (Map.Entry<?, ?> slotEntry : slots.entrySet()) {
+                    Object slot = slotEntry.getValue();
+                    boolean brewed = (boolean) slot.getClass().getMethod("isBrewed").invoke(slot);
+                    Collection<?> ingredients = (Collection<?>) slot.getClass().getMethod("getIngredients").invoke(slot);
+                    Map<String, Object> slotRow = new LinkedHashMap<>();
+                    slotRow.put("slot", slotEntry.getKey());
+                    slotRow.put("brewed", brewed);
+                    slotRow.put("ingredient_count", ingredients.size());
+                    slotRow.put("ingredients", ingredients.stream().map(String::valueOf).toList());
+                    slotRows.add(slotRow);
+                }
+                stand.put("slots", slotRows);
+            } catch (ReflectiveOperationException exception) {
+                stand.put("error", exception.getClass().getSimpleName() + ":" + exception.getMessage());
+            }
+            stands.add(stand);
+        }
+        result.put("stands", stands);
+        return result;
     }
 
     private ItemStack potion(PotionType type) {
@@ -423,6 +528,39 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void setAuraSkillState(Player player, String skillName, int level, double value) {
+        try {
+            Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
+            Object api = apiClass.getMethod("get").invoke(null);
+            Object user = apiClass.getMethod("getUser", java.util.UUID.class).invoke(api, player.getUniqueId());
+            Class<? extends Enum> skillsClass = (Class<? extends Enum>) Class.forName("dev.aurelium.auraskills.api.skill.Skills");
+            Object skill = Enum.valueOf(skillsClass, skillName);
+            Class<?> skillClass = Class.forName("dev.aurelium.auraskills.api.skill.Skill");
+            Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
+            skillsUserClass.getMethod("setSkillLevel", skillClass, int.class, boolean.class).invoke(user, skill, level, true);
+            skillsUserClass.getMethod("setSkillXp", skillClass, double.class).invoke(user, skill, value);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            throw new IllegalStateException("Could not reset AuraSkills " + skillName + " state", exception);
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Object auraSkillLevel(Player player, String skillName) {
+        try {
+            Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
+            Object api = apiClass.getMethod("get").invoke(null);
+            Object user = apiClass.getMethod("getUser", java.util.UUID.class).invoke(api, player.getUniqueId());
+            Class<? extends Enum> skillsClass = (Class<? extends Enum>) Class.forName("dev.aurelium.auraskills.api.skill.Skills");
+            Object skill = Enum.valueOf(skillsClass, skillName);
+            Class<?> skillClass = Class.forName("dev.aurelium.auraskills.api.skill.Skill");
+            Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
+            return skillsUserClass.getMethod("getSkillLevel", skillClass).invoke(user, skill);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            return "reflection-error:" + exception.getClass().getSimpleName();
+        }
+    }
+
     private Object auraSkillXp(Player player, String skillName) {
         try {
             Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
@@ -612,6 +750,20 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         data.put("input_fragility", enchantLevel(event.getView().getTopInventory().getItem(0), "excellentenchants:curse_of_fragility"));
         data.put("enchanting_xp_monitor", auraEnchantingXp(player));
         writeEvent("grindstone_result_click", data);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onBrewObserved(BrewEvent event) {
+        if (event.getBlock().getX() != 13 || event.getBlock().getY() != Y + 2 || event.getBlock().getZ() != 9) return;
+        observedAlchemyBrewEvents++;
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("cancelled", event.isCancelled());
+        data.put("ingredient", itemSummary(event.getContents().getIngredient()));
+        data.put("slot_0_before", itemSummary(event.getContents().getItem(0)));
+        data.put("slot_1_before", itemSummary(event.getContents().getItem(1)));
+        data.put("slot_2_before", itemSummary(event.getContents().getItem(2)));
+        data.put("event_count", observedAlchemyBrewEvents);
+        writeEvent("brew_event", data);
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
