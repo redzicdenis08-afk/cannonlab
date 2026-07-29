@@ -475,7 +475,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         }
 
         World world = podiumFourthBase.getWorld();
-        player.teleport(podiumFourthBase.clone().add(0.5, 1.0, 0.5));
+        double awayX = Math.signum(podiumFourthBase.getBlockX() - podiumCenter.getBlockX()) * 3.0;
+        double awayZ = Math.signum(podiumFourthBase.getBlockZ() - podiumCenter.getBlockZ()) * 3.0;
+        player.teleport(podiumFourthBase.clone().add(0.5 + awayX, 1.0, 0.5 + awayZ));
         player.getInventory().setItemInMainHand(new ItemStack(Material.END_CRYSTAL, 1));
         Map<String, Object> evidence = new LinkedHashMap<>();
         evidence.put("player", player.getName());
