@@ -9,7 +9,7 @@ const HOST = process.env.PHASELAB_HOST || '127.0.0.1'
 const PORT = Number(process.env.PHASELAB_PORT || 25566)
 const OUTPUT_DIR = path.resolve(process.env.PHASELAB_OUTPUT || 'output-private-stack')
 const VERSION = '1.21.11'
-const ONLY_CRAFTER = process.env.PHASELAB_ONLY_CRAFTER === '1'
+const ONLY_MODERN_SURFACES = process.env.PHASELAB_ONLY_MODERN_SURFACES === '1'
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 fs.mkdirSync(OUTPUT_DIR, { recursive: true })
@@ -306,7 +306,23 @@ async function main () {
       return { block: block.name, visibleNetherite, openError, clickError }
     })
 
-    if (ONLY_CRAFTER) return
+    await phase('factions_enemy_decorated_pot_projectile_theft', async () => {
+      await command(phaseBot, '/stacklab build', 650)
+      await command(phaseBot, '/kill @e[type=minecraft:item]', 250)
+      await command(phaseBot, '/stacklab snapshot pot-before', 300)
+      await command(phaseBot, '/tp AttackerBot 14.5 65 10.5 -90 0', 400)
+      const response = await commandExpect(
+        phaseBot,
+        '/stacklab potshot AttackerBot',
+        /STACKLAB POT SHOT player=AttackerBot/,
+        5000
+      )
+      await sleep(1800)
+      await command(phaseBot, '/stacklab snapshot pot-after', 300)
+      return { response }
+    })
+
+    if (ONLY_MODERN_SURFACES) return
 
     await phase('auraskills_excellentenchants_infinite_grindstone_xp', async () => {
       await command(phaseBot, '/stacklab build', 650)

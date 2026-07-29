@@ -3,4 +3,4 @@ version: '${version}'
 main: dev.denis.phaselab.guard.ModernContainerGuardPlugin
 api-version: '1.21'
 depend: [FactionsUUID]
-description: Adds modern persistent containers to FactionsUUID protection at runtime.
+description: Adds modern containers and projectile-change protection to FactionsUUID at runtime.

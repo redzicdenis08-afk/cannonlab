@@ -11,12 +11,14 @@ import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.BrewingStand;
 import org.bukkit.block.Chest;
+import org.bukkit.block.DecoratedPot;
 import org.bukkit.block.Hopper;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.EndPortalFrame;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Arrow;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -25,6 +27,7 @@ import org.bukkit.event.block.BlockMultiPlaceEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
+import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
@@ -36,6 +39,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionType;
+import org.bukkit.util.Vector;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -85,6 +89,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
                     case "alchemyfinal" -> alchemyFinal(sender);
+                    case "potshot" -> potShot(sender, args);
                     case "tick" -> tick(sender, args);
                     case "cancelportal" -> cancelPortal(sender, args);
                     default -> false;
@@ -161,6 +166,11 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         if (crafterBlock.getState() instanceof org.bukkit.inventory.InventoryHolder holder) {
             holder.getInventory().clear();
             holder.getInventory().setItem(0, new ItemStack(Material.NETHERITE_BLOCK, 27));
+        }
+
+        Block potBlock = set(world, 16, Y, 10, Material.DECORATED_POT);
+        if (potBlock.getState() instanceof DecoratedPot pot) {
+            pot.getInventory().setItem(new ItemStack(Material.NETHERITE_BLOCK, 64));
         }
 
         writeEvent("arena_build", snapshotMap(world, "build"));
@@ -438,6 +448,31 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return item;
     }
 
+    private boolean potShot(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab potshot <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        World world = requireWorld();
+        Location spawn = new Location(world, 14.5, Y + 1.4, 10.5);
+        Vector direction = new Location(world, 16.5, Y + 0.5, 10.5).toVector()
+            .subtract(spawn.toVector()).normalize();
+        Arrow arrow = world.spawnArrow(spawn, direction, 3.0F, 0.0F);
+        arrow.setShooter(player);
+        writeEvent("pot_shot", Map.of(
+            "player", player.getName(),
+            "arrow", arrow.getUniqueId().toString(),
+            "from_x", spawn.getX(), "from_y", spawn.getY(), "from_z", spawn.getZ()
+        ));
+        sender.sendMessage("STACKLAB POT SHOT player=" + player.getName());
+        return true;
+    }
+
     private Map<String, Object> snapshotMap(World world, String label) {
         Map<String, Object> result = new LinkedHashMap<>();
         result.put("label", label);
@@ -456,6 +491,13 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         result.put("target_chest_count", inventoryCount(world.getBlockAt(16, Y, 8), Material.DIAMOND));
         result.put("victim_crafter_type", type(world, 16, Y, 6));
         result.put("victim_crafter_netherite_count", inventoryCount(world.getBlockAt(16, Y, 6), Material.NETHERITE_BLOCK));
+        result.put("victim_pot_type", type(world, 16, Y, 10));
+        result.put("victim_pot_netherite_count", inventoryCount(world.getBlockAt(16, Y, 10), Material.NETHERITE_BLOCK));
+        result.put("arena_dropped_netherite_count", world.getEntitiesByClass(Item.class).stream()
+            .filter(item -> inArena(item.getLocation()))
+            .filter(item -> item.getItemStack().getType() == Material.NETHERITE_BLOCK)
+            .mapToInt(item -> item.getItemStack().getAmount())
+            .sum());
 
         Player attacker = Bukkit.getPlayerExact("AttackerBot");
         if (attacker != null) {
@@ -734,6 +776,29 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     public void onExplosion(EntityExplodeEvent event) {
         if (!inArena(event.getLocation())) return;
         writeEvent("entity_explode", Map.of("cancelled", event.isCancelled(), "blocks", event.blockList().size(), "entity", event.getEntityType().name()));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onArenaEntityChangeBlock(EntityChangeBlockEvent event) {
+        if (!inArena(event.getBlock().getLocation())) return;
+        writeEvent("arena_entity_change_block", Map.of(
+            "entity", event.getEntityType().name(),
+            "block", event.getBlock().getType().name(),
+            "to", event.getTo().name(),
+            "x", event.getBlock().getX(), "y", event.getBlock().getY(), "z", event.getBlock().getZ(),
+            "cancelled", event.isCancelled()
+        ));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onArenaItemSpawn(ItemSpawnEvent event) {
+        if (!inArena(event.getLocation())) return;
+        writeEvent("arena_item_spawn", Map.of(
+            "item", event.getEntity().getItemStack().getType().name(),
+            "amount", event.getEntity().getItemStack().getAmount(),
+            "cancelled", event.isCancelled(),
+            "x", event.getLocation().getX(), "y", event.getLocation().getY(), "z", event.getLocation().getZ()
+        ));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
