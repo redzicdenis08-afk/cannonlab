@@ -55,6 +55,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     private static final int WEB_Y = 68;
     private static final int WEB_SUPPORT_Y = 72;
     private static final int WEB_PLACE_Y = 73;
+    private static final int GENERATOR_X = 50;
+    private static final int GENERATOR_Y = 65;
+    private static final int GENERATOR_Z = 0;
     private final Gson gson = new Gson();
     private Path evidencePath;
     private boolean cancelPortalMultiPlace;
@@ -97,6 +100,11 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "weblaunderrelease" -> webLaunderRelease(sender);
                     case "weblaundersnapshot" -> webLaunderSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "weblaunderbreak" -> webLaunderBreak(sender, args);
+                    case "generatorprep" -> generatorPrep(sender, args);
+                    case "generatorplace" -> generatorPlace(sender, args);
+                    case "generatorreset" -> generatorReset(sender, args);
+                    case "generatorsnapshot" -> generatorSnapshot(sender, args);
+                    case "generatorbreak" -> generatorBreak(sender, args);
                     default -> false;
                 };
             } catch (RuntimeException exception) {
@@ -162,6 +170,198 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return true;
     }
 
+
+
+    private boolean generatorPrep(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("Usage: /stacklab generatorprep <player> <generated|control>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        boolean generated = args[2].equalsIgnoreCase("generated");
+        prepareGeneratorRig(player, generated);
+        Map<String, Object> snapshot = generatorSnapshotMap(requireWorld(), player, "prep-" + (generated ? "generated" : "control"));
+        writeEvent("generator_xp_prep", snapshot);
+        sender.sendMessage("STACKLAB GENERATOR PREP " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private boolean generatorReset(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("Usage: /stacklab generatorreset <player> <generated|control>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        boolean generated = args[2].equalsIgnoreCase("generated");
+        prepareGeneratorRig(player, generated);
+        Map<String, Object> snapshot = generatorSnapshotMap(requireWorld(), player, "reset-" + (generated ? "generated" : "control"));
+        writeEvent("generator_xp_reset", snapshot);
+        sender.sendMessage("STACKLAB GENERATOR RESET " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private void prepareGeneratorRig(Player player, boolean generated) {
+        World world = requireWorld();
+        Location center = new Location(world, GENERATOR_X, GENERATOR_Y, GENERATOR_Z);
+        for (Item item : world.getEntitiesByClass(Item.class)) {
+            if (item.getLocation().distanceSquared(center) <= 100.0) item.remove();
+        }
+        for (int x = GENERATOR_X - 2; x <= GENERATOR_X + 2; x++) {
+            for (int y = GENERATOR_Y - 1; y <= GENERATOR_Y + 3; y++) {
+                for (int z = GENERATOR_Z - 2; z <= GENERATOR_Z + 2; z++) {
+                    world.getBlockAt(x, y, z).setType(Material.AIR, false);
+                }
+            }
+        }
+        for (int x = GENERATOR_X - 2; x <= GENERATOR_X + 2; x++) {
+            for (int z = GENERATOR_Z - 2; z <= GENERATOR_Z + 2; z++) {
+                world.getBlockAt(x, GENERATOR_Y - 1, z).setType(Material.STONE, false);
+            }
+        }
+        player.closeInventory();
+        player.getInventory().clear();
+        player.setItemOnCursor(null);
+        player.getInventory().setItem(0, new ItemStack(Material.DIAMOND_PICKAXE, 1));
+        if (!generated) player.getInventory().setItem(1, new ItemStack(Material.ANCIENT_DEBRIS, 1));
+        player.getInventory().setHeldItemSlot(generated ? 0 : 1);
+        setAuraSkillState(player, "MINING", 50, 0.0);
+        Block target = world.getBlockAt(GENERATOR_X, GENERATOR_Y, GENERATOR_Z);
+        target.setType(generated ? Material.ANCIENT_DEBRIS : Material.AIR, false);
+        player.teleport(new Location(world, GENERATOR_X - 1.5, GENERATOR_Y, GENERATOR_Z + 0.5, -90F, 0F));
+    }
+
+    private boolean generatorPlace(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab generatorplace <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        int debrisSlot = player.getInventory().first(Material.ANCIENT_DEBRIS);
+        if (debrisSlot < 0) {
+            sender.sendMessage("STACKLAB GENERATOR PLACE invoked=false reason=no_debris");
+            return true;
+        }
+        if (debrisSlot <= 8) {
+            player.getInventory().setHeldItemSlot(debrisSlot);
+        }
+        Block support = requireWorld().getBlockAt(GENERATOR_X, GENERATOR_Y - 1, GENERATOR_Z);
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("before", generatorSnapshotMap(requireWorld(), player, "before-place"));
+        try {
+            Object serverPlayer = player.getClass().getMethod("getHandle").invoke(player);
+            Object gameMode = serverPlayer.getClass().getField("gameMode").get(serverPlayer);
+            Object level = serverPlayer.getClass().getMethod("level").invoke(serverPlayer);
+            Class<?> handClass = Class.forName("net.minecraft.world.InteractionHand");
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Object mainHand = Enum.valueOf((Class<? extends Enum>) handClass, "MAIN_HAND");
+            Class<?> directionClass = Class.forName("net.minecraft.core.Direction");
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Object up = Enum.valueOf((Class<? extends Enum>) directionClass, "UP");
+            Class<?> blockPosClass = Class.forName("net.minecraft.core.BlockPos");
+            Object blockPos = blockPosClass.getConstructor(int.class, int.class, int.class)
+                .newInstance(support.getX(), support.getY(), support.getZ());
+            Class<?> vec3Class = Class.forName("net.minecraft.world.phys.Vec3");
+            Object hitLocation = vec3Class.getConstructor(double.class, double.class, double.class)
+                .newInstance(support.getX() + 0.5, support.getY() + 1.0, support.getZ() + 0.5);
+            Class<?> hitResultClass = Class.forName("net.minecraft.world.phys.BlockHitResult");
+            Object hitResult = hitResultClass.getConstructor(vec3Class, directionClass, blockPosClass, boolean.class)
+                .newInstance(hitLocation, up, blockPos, false);
+            Object nmsStack = serverPlayer.getClass().getMethod("getItemInHand", handClass).invoke(serverPlayer, mainHand);
+            Method useItemOn = null;
+            for (Method method : gameMode.getClass().getMethods()) {
+                if (method.getName().equals("useItemOn") && method.getParameterCount() == 5) {
+                    useItemOn = method;
+                    break;
+                }
+            }
+            if (useItemOn == null) throw new NoSuchMethodException("ServerPlayerGameMode.useItemOn");
+            Object result = useItemOn.invoke(gameMode, serverPlayer, level, nmsStack, mainHand, hitResult);
+            evidence.put("invoked", true);
+            evidence.put("result", String.valueOf(result));
+        } catch (ReflectiveOperationException exception) {
+            evidence.put("invoked", false);
+            evidence.put("error", exception.toString());
+        }
+        evidence.put("after", generatorSnapshotMap(requireWorld(), player, "after-place"));
+        writeEvent("generator_xp_place", evidence);
+        sender.sendMessage("STACKLAB GENERATOR PLACE " + gson.toJson(evidence));
+        return true;
+    }
+
+    private boolean generatorSnapshot(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab generatorsnapshot <player> [label]");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        String label = args.length > 2 ? args[2] : "manual";
+        Map<String, Object> snapshot = generatorSnapshotMap(requireWorld(), player, label);
+        writeEvent("generator_xp_snapshot", snapshot);
+        sender.sendMessage("STACKLAB GENERATOR SNAPSHOT " + label + " " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private boolean generatorBreak(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab generatorbreak <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        World world = requireWorld();
+        Block block = world.getBlockAt(GENERATOR_X, GENERATOR_Y, GENERATOR_Z);
+        player.getInventory().setHeldItemSlot(0);
+        Map<String, Object> before = generatorSnapshotMap(world, player, "before-break");
+        boolean accepted = player.breakBlock(block);
+        Map<String, Object> immediate = generatorSnapshotMap(world, player, "immediate-after-break");
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("accepted", accepted);
+        evidence.put("before", before);
+        evidence.put("immediate", immediate);
+        writeEvent("generator_xp_break", evidence);
+        sender.sendMessage("STACKLAB GENERATOR BREAK " + gson.toJson(evidence));
+        return true;
+    }
+
+    private Map<String, Object> generatorSnapshotMap(World world, Player player, String label) {
+        Block block = world.getBlockAt(GENERATOR_X, GENERATOR_Y, GENERATOR_Z);
+        int dropped = world.getEntitiesByClass(Item.class).stream()
+            .filter(item -> item.getLocation().distanceSquared(block.getLocation()) <= 100.0)
+            .filter(item -> item.getItemStack().getType() == Material.ANCIENT_DEBRIS)
+            .mapToInt(item -> item.getItemStack().getAmount()).sum();
+        int inventory = countMaterial(player, Material.ANCIENT_DEBRIS);
+        int blockCount = block.getType() == Material.ANCIENT_DEBRIS ? 1 : 0;
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("label", label);
+        result.put("block_type", block.getType().name());
+        result.put("block_placed", auraPlaced(block));
+        result.put("dropped_debris", dropped);
+        result.put("inventory_debris", inventory);
+        result.put("total_debris", blockCount + dropped + inventory);
+        result.put("mining_level", auraSkillLevel(player, "MINING"));
+        result.put("mining_xp", auraSkillXp(player, "MINING"));
+        return result;
+    }
 
     private boolean webLaunderBuild(org.bukkit.command.CommandSender sender, String[] args) {
         if (args.length < 3) {
