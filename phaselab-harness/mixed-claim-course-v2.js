@@ -100,18 +100,49 @@ async function setup (bot) {
   await command(bot, '/claimlab zone 0 239.999')
 }
 
-async function reset (bot) {
-  if (bot.vehicle) {
-    const dismounted = onceWithTimeout(bot, 'dismount', 1200)
-    bot.chat('/ride @s dismount')
-    await dismounted
+const RESET_EPSILON = 0.75
+const RESET_ATTEMPTS = 4
+
+// Retired false-positive rule 3: a relative zero-delta /tp is not an authoritative
+// coordinate snapshot, and rule 1: a missing packet is not a state claim. The reset
+// verdict therefore comes from the server snapshot, never from the position packet.
+async function verifyReset (bot) {
+  const snap = await serverSnapshot(bot)
+  if (!snap.ok || !snap.position) return { ok: false, reason: 'snapshot_unavailable', snap }
+  if (snap.vehicle) return { ok: false, reason: 'still_mounted', snap }
+  if (Math.abs(snap.position.x - RESET_X) > RESET_EPSILON) {
+    return { ok: false, reason: `off_anchor:${snap.position.x.toFixed(3)}`, snap }
   }
-  await command(bot, '/kill @e[type=minecraft:oak_boat]', 100)
-  const position = onceWithTimeout(bot._client, 'position', 2500)
-  bot.chat(`/tp @s ${RESET_X} ${Y} ${Z}`)
-  if (!await position) throw new Error('Reset position packet missing')
-  await command(bot, '/claimlab reset', 60)
-  await command(bot, '/courselab reset', 60)
+  return { ok: true, reason: 'clean', snap }
+}
+
+async function reset (bot, attempts = RESET_ATTEMPTS) {
+  let last = { ok: false, reason: 'not_attempted', snap: null, attempt: 0, positionPacket: false }
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    if (bot.vehicle) {
+      const dismounted = onceWithTimeout(bot, 'dismount', 1200)
+      bot.chat('/ride @s dismount')
+      await dismounted
+    }
+    await command(bot, '/kill @e[type=minecraft:oak_boat]', 100)
+
+    const position = onceWithTimeout(bot._client, 'position', 2500)
+    bot.chat(`/tp @s ${RESET_X} ${Y} ${Z}`)
+    const packet = await position
+    if (!packet) await sleep(400)
+
+    await command(bot, '/claimlab reset', 60)
+    await command(bot, '/courselab reset', 60)
+
+    last = await verifyReset(bot)
+    last.attempt = attempt
+    last.positionPacket = Boolean(packet)
+    if (last.ok) return last
+    console.warn(`[MixedCourse reset] attempt ${attempt}/${attempts} unclean: ${last.reason}` +
+      ` positionPacket=${Boolean(packet)}`)
+    await sleep(500)
+  }
+  return last
 }
 
 async function prepareCourse (bot, profile, mode) {
@@ -286,10 +317,21 @@ async function openWitness (bot) {
 }
 
 async function runTrial (bot, plan, id) {
-  await reset(bot)
+  const resetState = await reset(bot)
   await prepareCourse(bot, plan.profile, plan.mode)
   const boat = await summonAndMount(bot, plan.invulnerable)
-  if (!boat) return { ...plan, id, mounted: false, verified: false, reason: 'mount_failed' }
+  if (!boat) {
+    return {
+      ...plan,
+      id,
+      mounted: false,
+      verified: false,
+      reason: 'mount_failed',
+      resetOk: resetState.ok,
+      resetReason: resetState.reason,
+      resetAttempts: resetState.attempt
+    }
+  }
 
   await command(bot, `/courselab start ${id}-${plan.profile}-${plan.mode}`, 90)
   const capture = captureRuntime(bot, boat.id)
@@ -325,7 +367,10 @@ async function runTrial (bot, plan, id) {
     beyondCourse,
     alive,
     witness,
-    verified: snapshot.ok && beyondCourse && alive && didDismount && witness.opened
+    resetOk: resetState.ok,
+    resetReason: resetState.reason,
+    resetAttempts: resetState.attempt,
+    verified: resetState.ok && snapshot.ok && beyondCourse && alive && didDismount && witness.opened
   }
 }
 
@@ -343,7 +388,7 @@ function writeReport (results, bot) {
     results
   }, null, 2))
 
-  const rows = ['id,profile,mode,batch,invulnerable,mounted,packets,ticks,send_ms,max_requested_x,player_corrections,vehicle_corrections,boat_teleports,dismount_events,boat_gone,still_mounted,boat_exists,did_dismount,snapshot_ok,server_x,server_y,server_z,server_health,server_fire,beyond,witness,verified']
+  const rows = ['id,profile,mode,batch,invulnerable,mounted,packets,ticks,send_ms,max_requested_x,player_corrections,vehicle_corrections,boat_teleports,dismount_events,boat_gone,still_mounted,boat_exists,did_dismount,snapshot_ok,server_x,server_y,server_z,server_health,server_fire,beyond,witness,reset_ok,reset_reason,trial_error,verified']
   for (const result of results) {
     rows.push([
       result.id,
@@ -372,6 +417,9 @@ function writeReport (results, bot) {
       result.snapshot?.fire ?? '',
       result.beyondCourse ?? '',
       result.witness?.opened ?? '',
+      result.resetOk ?? '',
+      result.resetReason ?? '',
+      result.trialError ? JSON.stringify(result.trialError) : '',
       result.verified
     ].join(','))
   }
@@ -418,7 +466,27 @@ async function main () {
 
     const results = []
     for (let id = 0; id < plans.length; id++) {
-      const result = await runTrial(bot, plans[id], id)
+      let result
+      try {
+        result = await runTrial(bot, plans[id], id)
+      } catch (error) {
+        console.error(`[MixedCourse trial ${id} error]`, error && error.message ? error.message : error)
+        result = {
+          ...plans[id],
+          id,
+          mounted: false,
+          verified: false,
+          trialError: String(error && error.message ? error.message : error)
+        }
+        try {
+          const recovery = await reset(bot)
+          result.resetOk = recovery.ok
+          result.resetReason = `recovery:${recovery.reason}`
+        } catch (recoveryError) {
+          result.resetOk = false
+          result.resetReason = `recovery_failed:${recoveryError.message}`
+        }
+      }
       results.push(result)
       writeReport(results, bot)
       console.log(`[MixedCourse] ${id + 1}/${plans.length}` +
@@ -428,10 +496,24 @@ async function main () {
         ` corrections=${result.runtime?.playerCorrections?.length ?? 0}/${result.runtime?.vehicleCorrections?.length ?? 0}` +
         ` boatGone=${result.runtime?.gone?.length ?? 0}` +
         ` witness=${result.witness?.opened ?? false}` +
+        ` reset=${result.resetOk ?? 'n/a'}` +
+        (result.trialError ? ` error=${JSON.stringify(result.trialError)}` : '') +
         ` verified=${result.verified}`)
     }
 
-    console.log(`[MixedCourse] completed=${results.length} verified=${results.filter(r => r.verified).length}`)
+    const breaches = results.filter(r => r.verified)
+    const uncleanResets = results.filter(r => r.resetOk === false)
+    const errored = results.filter(r => r.trialError)
+    console.log(`[MixedCourse] completed=${results.length}/${plans.length}` +
+      ` verified=${breaches.length} uncleanResets=${uncleanResets.length} erroredTrials=${errored.length}`)
+    for (const r of results) {
+      const x = r.snapshot?.position?.x
+      if (typeof x === 'number' && x > 0 && x <= COURSE_END && !r.trialError) {
+        console.log(`[MixedCourse INSIDE-CLAIM] id=${r.id} profile=${r.profile} mode=${r.mode}` +
+          ` batch=${r.batchSize} finalX=${x.toFixed(6)} corrections=` +
+          `${r.runtime?.playerCorrections?.length ?? 0}/${r.runtime?.vehicleCorrections?.length ?? 0}`)
+      }
+    }
     await shutdown(bot, 0)
   } catch (error) {
     console.error('[MixedCourse fatal]', error)
