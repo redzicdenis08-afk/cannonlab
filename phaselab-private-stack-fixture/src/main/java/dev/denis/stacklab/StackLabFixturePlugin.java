@@ -650,7 +650,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             forward.normalize();
         }
         location.add(forward.multiply(1.5D));
-        location.setY(Y);
+        location.setY(player.getLocation().getY());
         location.setPitch(0.0F);
         Horse horse = (Horse) world.spawnEntity(location, EntityType.HORSE);
         horse.setTamed(true);
