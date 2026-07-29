@@ -35,8 +35,11 @@ import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryView;
+import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.Repairable;
+import org.bukkit.inventory.view.AnvilView;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -94,6 +97,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "give" -> give(sender, args);
                     case "grindstoneprep" -> grindstonePrep(sender, args);
                     case "anvilprep" -> anvilPrep(sender, args);
+                    case "anvilxpprep" -> anvilXpPrep(sender, args);
                     case "anvilsnapshot" -> anvilSnapshot(sender, args);
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
@@ -225,6 +229,63 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return true;
     }
 
+    private boolean anvilXpPrep(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab anvilxpprep <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+
+        World world = requireWorld();
+        Location location = new Location(world, 13, Y, 6);
+        location.getBlock().setType(Material.ANVIL, false);
+        player.closeInventory();
+        player.getInventory().clear();
+        player.setItemOnCursor(null);
+        player.setLevel(200);
+        setAuraSkillState(player, "ENCHANTING", 100, 0.0);
+
+        ItemStack tool = new ItemStack(Material.DIAMOND_PICKAXE, 1);
+        anvilToken = UUID.randomUUID().toString();
+        ItemMeta rawToolMeta = tool.getItemMeta();
+        rawToolMeta.getPersistentDataContainer().set(anvilTokenKey, PersistentDataType.STRING, anvilToken);
+        if (!(rawToolMeta instanceof Repairable repairable)) {
+            throw new IllegalStateException("Diamond pickaxe metadata is not repairable");
+        }
+        repairable.setRepairCost(63);
+        tool.setItemMeta(rawToolMeta);
+
+        ItemStack book = new ItemStack(Material.ENCHANTED_BOOK, 1);
+        Enchantment efficiency = Registry.ENCHANTMENT.get(NamespacedKey.minecraft("efficiency"));
+        if (efficiency == null) throw new IllegalStateException("Efficiency enchantment is unavailable");
+        EnchantmentStorageMeta bookMeta = (EnchantmentStorageMeta) book.getItemMeta();
+        bookMeta.addStoredEnchant(efficiency, 1, true);
+        book.setItemMeta(bookMeta);
+        anvilEnchantId = "minecraft:efficiency";
+
+        InventoryView view = player.openAnvil(location, true);
+        if (view == null) throw new IllegalStateException("Could not open anvil for " + player.getName());
+        Inventory top = view.getTopInventory();
+        top.setItem(0, tool);
+        top.setItem(1, book);
+
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("token", anvilToken);
+        evidence.put("left_repair_cost", repairable.getRepairCost());
+        evidence.put("book", itemSummary(book));
+        evidence.put("snapshot", anvilSnapshotMap(player, "xp-prep-immediate"));
+        writeEvent("anvil_xp_prep", evidence);
+        Bukkit.getScheduler().runTaskLater(this, () -> writeEvent(
+            "anvil_xp_ready", anvilSnapshotMap(player, "xp-prep-after-5-ticks")), 5L);
+        sender.sendMessage("STACKLAB ANVIL XP PREP " + gson.toJson(evidence));
+        return true;
+    }
+
     private Map<String, Object> configureChargeableEnchant(ItemStack tool) {
         Plugin plugin = Bukkit.getPluginManager().getPlugin("ExcellentEnchants");
         if (plugin == null || !plugin.isEnabled()) {
@@ -290,7 +351,12 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         result.put("token", anvilToken == null ? "MISSING" : anvilToken);
         result.put("enchant_id", anvilEnchantId == null ? "MISSING" : anvilEnchantId);
         result.put("level", player.getLevel());
+        result.put("enchanting_xp", auraEnchantingXp(player));
         result.put("open_type", player.getOpenInventory().getTopInventory().getType().name());
+        if (player.getOpenInventory() instanceof AnvilView anvilView) {
+            result.put("repair_cost", anvilView.getRepairCost());
+            result.put("maximum_repair_cost", anvilView.getMaximumRepairCost());
+        }
 
         int inventory = countToken(player.getInventory().getContents());
         int cursor = isToken(player.getItemOnCursor()) ? player.getItemOnCursor().getAmount() : 0;
@@ -653,6 +719,23 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             return skillsUserClass.getMethod("getSkillXp", skillClass).invoke(user, skill);
         } catch (ReflectiveOperationException | RuntimeException exception) {
             return "reflection-error:" + exception.getClass().getSimpleName();
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private void setAuraSkillState(Player player, String skillName, int level, double value) {
+        try {
+            Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
+            Object api = apiClass.getMethod("get").invoke(null);
+            Object user = apiClass.getMethod("getUser", java.util.UUID.class).invoke(api, player.getUniqueId());
+            Class<? extends Enum> skillsClass = (Class<? extends Enum>) Class.forName("dev.aurelium.auraskills.api.skill.Skills");
+            Object skill = Enum.valueOf(skillsClass, skillName);
+            Class<?> skillClass = Class.forName("dev.aurelium.auraskills.api.skill.Skill");
+            Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
+            skillsUserClass.getMethod("setSkillLevel", skillClass, int.class, boolean.class).invoke(user, skill, level, true);
+            skillsUserClass.getMethod("setSkillXp", skillClass, double.class).invoke(user, skill, value);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            throw new IllegalStateException("Could not reset AuraSkills " + skillName + " state", exception);
         }
     }
 
