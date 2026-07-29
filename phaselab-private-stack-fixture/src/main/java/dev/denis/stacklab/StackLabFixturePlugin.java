@@ -90,6 +90,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "snapshot" -> snapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "portalsnapshot" -> portalSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "claimsnapshot" -> claimSnapshot(sender, args.length > 1 ? args[1] : "manual");
+                    case "directionclaimsnapshot" -> directionClaimSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "give" -> give(sender, args);
                     case "boatuse" -> boatUse(sender, args);
                     case "boatinteract" -> boatInteract(sender, args);
@@ -378,6 +379,53 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return true;
     }
 
+    private boolean directionClaimSnapshot(org.bukkit.command.CommandSender sender, String label) {
+        Map<String, Object> witness = new LinkedHashMap<>();
+        witness.put("label", label);
+        try {
+            Class<?> locationClass = Class.forName("dev.kitteh.factions.FLocation");
+            Constructor<?> locationConstructor = locationClass.getConstructor(String.class, int.class, int.class);
+            Class<?> boardClass = Class.forName("dev.kitteh.factions.Board");
+            Method boardFactory = boardClass.getMethod("board");
+            Object board = boardFactory.invoke(null);
+            Method factionAt = boardClass.getMethod("factionAt", locationClass);
+
+            Map<String, int[]> points = new LinkedHashMap<>();
+            points.put("center", new int[]{0, 0});
+            points.put("east_near", new int[]{1, 0});
+            points.put("east_far", new int[]{5, 0});
+            points.put("west_near", new int[]{-1, 0});
+            points.put("west_far", new int[]{-5, 0});
+            points.put("south_near", new int[]{0, 1});
+            points.put("south_far", new int[]{0, 5});
+            points.put("north_near", new int[]{0, -1});
+            points.put("north_far", new int[]{0, -5});
+
+            Method tag = null;
+            Method isWilderness = null;
+            for (Map.Entry<String, int[]> entry : points.entrySet()) {
+                int[] chunk = entry.getValue();
+                Object location = locationConstructor.newInstance("world", chunk[0], chunk[1]);
+                Object faction = factionAt.invoke(board, location);
+                if (tag == null) {
+                    tag = faction.getClass().getMethod("tag");
+                    isWilderness = faction.getClass().getMethod("isWilderness");
+                }
+                witness.put(entry.getKey() + "_chunk_x", chunk[0]);
+                witness.put(entry.getKey() + "_chunk_z", chunk[1]);
+                witness.put(entry.getKey() + "_tag", String.valueOf(tag.invoke(faction)));
+                witness.put(entry.getKey() + "_wilderness", Boolean.TRUE.equals(isWilderness.invoke(faction)));
+            }
+            witness.put("verified", true);
+        } catch (ReflectiveOperationException exception) {
+            witness.put("verified", false);
+            witness.put("error", exception.toString());
+        }
+        writeEvent("direction_claim_witness", witness);
+        sender.sendMessage("STACKLAB DIRECTION CLAIM WITNESS " + gson.toJson(witness));
+        return true;
+    }
+
     private boolean cancelPortal(org.bukkit.command.CommandSender sender, String[] args) {
         if (args.length < 2) {
             sender.sendMessage("STACKLAB CANCELPORTAL " + cancelPortalMultiPlace);
@@ -526,7 +574,16 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         }
         World world = player.getWorld();
         world.getEntitiesByClass(Horse.class).forEach(Horse::remove);
-        Location location = new Location(world, 14.87, Y, 0.5, -90.0F, 0.0F);
+        Location location = player.getLocation().clone();
+        org.bukkit.util.Vector forward = location.getDirection().setY(0.0D);
+        if (forward.lengthSquared() < 1.0E-6D) {
+            forward = new org.bukkit.util.Vector(1.0D, 0.0D, 0.0D);
+        } else {
+            forward.normalize();
+        }
+        location.add(forward.multiply(1.5D));
+        location.setY(Y);
+        location.setPitch(0.0F);
         Horse horse = (Horse) world.spawnEntity(location, EntityType.HORSE);
         horse.setTamed(true);
         horse.setOwner(player);
