@@ -3,6 +3,7 @@
 const fs = require('fs')
 const path = require('path')
 const mineflayer = require('mineflayer')
+const { Vec3 } = require('vec3')
 
 const HOST = process.env.PHASELAB_HOST || '127.0.0.1'
 const PORT = Number(process.env.PHASELAB_PORT || 25566)
@@ -209,7 +210,63 @@ async function resetAttacker (phaseBot, attackerBot) {
   await command(phaseBot, `/tp AttackerBot 14.25 ${Y} ${Z} -90 0`, 350)
 }
 
-async function spawnAndMount (phaseBot, attackerBot) {
+async function waitForInventoryItem (bot, itemName, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const item = bot.inventory.items().find(entry => entry.name === itemName)
+    if (item) return item
+    await sleep(100)
+  }
+  return null
+}
+
+async function waitForPlacedBoat (bot, beforeIds, timeoutMs = 5000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const candidate = Object.values(bot.entities).find(entity => {
+      if (!entity || beforeIds.has(entity.id) || !entity.position) return false
+      const label = `${entity.name || ''} ${entity.displayName || ''}`.toLowerCase()
+      return label.includes('boat') && entity.position.distanceTo(bot.entity.position) < 6
+    })
+    if (candidate) return candidate
+    await sleep(100)
+  }
+  return null
+}
+
+async function survivalPlaceAndMount (phaseBot, attackerBot) {
+  await command(phaseBot, '/give AttackerBot minecraft:oak_boat 1', 350)
+  const item = await waitForInventoryItem(attackerBot, 'oak_boat')
+  if (!item) throw new Error('AttackerBot did not receive oak boat')
+  await attackerBot.equip(item, 'hand')
+  await sleep(150)
+
+  const ground = attackerBot.blockAt(new Vec3(15, 64, 0))
+  if (!ground) throw new Error('Boat placement ground is unloaded')
+  const beforeIds = new Set(Object.keys(attackerBot.entities).map(Number))
+  await attackerBot.lookAt(ground.position.offset(0.5, 1.0, 0.5), true)
+  await attackerBot.activateBlock(ground, new Vec3(0, 1, 0))
+  const boat = await waitForPlacedBoat(attackerBot, beforeIds)
+  if (!boat) throw new Error('Survival boat placement produced no nearby boat entity')
+
+  for (let attempt = 1; attempt <= 3 && !attackerBot.vehicle; attempt++) {
+    const mounted = onceWithTimeout(attackerBot, 'mount', 2500).catch(() => null)
+    await attackerBot.lookAt(boat.position.offset(0, 0.5, 0), true)
+    attackerBot.activateEntity(boat)
+    await mounted
+    await sleep(150)
+  }
+  if (!attackerBot.vehicle) throw new Error('Normal right-click failed to mount survival-placed boat')
+  record('survival_boat_ready', {
+    boatId: attackerBot.vehicle.id,
+    boatPosition: attackerBot.vehicle.position,
+    playerPosition: attackerBot.entity.position
+  })
+  return attackerBot.vehicle
+}
+
+async function spawnAndMount (phaseBot, attackerBot, trial) {
+  if (trial.placement === 'survival') return await survivalPlaceAndMount(phaseBot, attackerBot)
   await command(phaseBot, `/summon minecraft:oak_boat ${BOAT_START} ${Y} ${Z} {Rotation:[-90f,0f],Invulnerable:1b}`, 250)
   const mounted = onceWithTimeout(attackerBot, 'mount', 3000).catch(() => null)
   await command(phaseBot, '/ride AttackerBot mount @e[type=minecraft:oak_boat,limit=1,sort=nearest]', 200)
@@ -237,16 +294,16 @@ async function sendVehicleRange (bot, startX, targetX, step, delayMs, correction
   return packets
 }
 
-async function sendVehicleSequence (phaseBot, bot, targetX, trial, correctionRef) {
+async function sendVehicleSequence (phaseBot, bot, startX, targetX, trial, correctionRef) {
   if (!trial.segmentLength) {
     return {
-      packetCount: await sendVehicleRange(bot, BOAT_START, targetX, trial.step, trial.delayMs, correctionRef),
+      packetCount: await sendVehicleRange(bot, startX, targetX, trial.step, trial.delayMs, correctionRef),
       segmentWitnesses: []
     }
   }
 
   let packetCount = 0
-  let acceptedX = BOAT_START
+  let acceptedX = startX
   const segmentWitnesses = []
   let segment = 0
   while (acceptedX < targetX - 1e-9 && bot.vehicle && !correctionRef.value) {
@@ -279,7 +336,8 @@ async function sendVehicleSequence (phaseBot, bot, targetX, trial, correctionRef
 async function runTrial (phaseBot, attackerBot, trial, run) {
   await resetAttacker(phaseBot, attackerBot)
   const course = await buildCourse(phaseBot, trial)
-  const boat = await spawnAndMount(phaseBot, attackerBot)
+  const boat = await spawnAndMount(phaseBot, attackerBot, trial)
+  const startX = boat.position.x
   const corrections = captureCorrections(attackerBot, boat.id)
   const correctionRef = { value: false }
   const correctionWatcher = setInterval(() => {
@@ -287,7 +345,7 @@ async function runTrial (phaseBot, attackerBot, trial, run) {
   }, 1)
 
   const started = Date.now()
-  const sequence = await sendVehicleSequence(phaseBot, attackerBot, course.targetX, trial, correctionRef)
+  const sequence = await sendVehicleSequence(phaseBot, attackerBot, startX, course.targetX, trial, correctionRef)
   const packetCount = sequence.packetCount
   await sleep(350)
   clearInterval(correctionWatcher)
@@ -317,8 +375,13 @@ async function runTrial (phaseBot, attackerBot, trial, run) {
     thickness: trial.thickness,
     step: trial.step,
     delayMs: trial.delayMs,
+    placement: trial.placement || 'fixture',
+    startX,
+    segmentLength: trial.segmentLength || null,
+    segmentPauseMs: trial.segmentPauseMs || null,
     elapsedMs: Date.now() - started,
     packetCount,
+    segmentWitnesses: sequence.segmentWitnesses,
     playerBeyondMounted,
     boatBeyond,
     playerBeyondDismounted,
@@ -345,10 +408,8 @@ async function main () {
   const bots = [phaseBot, victimBot, attackerBot]
 
   const trialPlan = [
-    { id: 'solid16-fast025', kind: 'solid', thickness: 16, step: 0.25, delayMs: 0, repeats: 2 },
-    { id: 'solid64-ratchet19', kind: 'solid', thickness: 64, step: 0.25, delayMs: 0, segmentLength: 19, segmentPauseMs: 100, repeats: 3 },
-    { id: 'layered64-ratchet19', kind: 'layered', thickness: 64, step: 0.10, delayMs: 0, segmentLength: 19, segmentPauseMs: 100, repeats: 3 },
-    { id: 'solid240-ratchet19', kind: 'solid', thickness: 240, step: 0.25, delayMs: 0, segmentLength: 19, segmentPauseMs: 100, repeats: 2 }
+    { id: 'solid240-survival-ratchet19', kind: 'solid', thickness: 240, step: 0.25, delayMs: 0, segmentLength: 19, segmentPauseMs: 100, placement: 'survival', repeats: 3 },
+    { id: 'layered240-survival-ratchet19', kind: 'layered', thickness: 240, step: 0.10, delayMs: 0, segmentLength: 19, segmentPauseMs: 100, placement: 'survival', repeats: 2 }
   ]
 
   try {
