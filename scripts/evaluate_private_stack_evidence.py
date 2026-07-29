@@ -207,6 +207,33 @@ def hopper(rows):
     return result("observed_low_impact" if moved else "rejected", "Cross-claim hopper transfer", before=before, after=after, move_events=[e for e in events if e.get("type") == "inventory_move"])
 
 
+def decorated_pot_projectile(rows):
+    w = window(rows, "pot-before", "pot-after")
+    if not w:
+        return result("inconclusive", "Attacker projectile broke an enemy-claim decorated pot and released storage", reason="missing_window")
+    before, after, events = w
+    changes = [e for e in events if e.get("type") == "arena_entity_change_block" and e.get("x") == 16 and e.get("z") == 10]
+    spawns = [e for e in events if e.get("type") == "arena_item_spawn" and e.get("item") == "NETHERITE_BLOCK"]
+    before_count = int(before.get("victim_pot_netherite_count", 0))
+    after_count = int(after.get("victim_pot_netherite_count", 0))
+    dropped = int(after.get("arena_dropped_netherite_count", 0))
+    broken = before.get("victim_pot_type") == "DECORATED_POT" and after.get("victim_pot_type") == "AIR"
+    released = before_count >= 64 and after_count < before_count and dropped >= 64
+    allowed_change = any(e.get("cancelled") is False and e.get("entity") == "ARROW" for e in changes)
+    denied = before.get("victim_pot_type") == after.get("victim_pot_type") == "DECORATED_POT" and before_count == after_count
+    status = "confirmed" if broken and released and allowed_change else "rejected" if denied else "inconclusive"
+    return result(
+        status,
+        "Attacker projectile broke an enemy-claim decorated pot and released storage",
+        before=before,
+        after=after,
+        change_events=changes,
+        spawn_events=spawns,
+        broken=broken,
+        released=released,
+    )
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("evidence", type=Path)
@@ -233,6 +260,7 @@ def main() -> int:
             "excellentenchants_treefeller": simple(rows, "tree-before", "tree-after", "tree_target_1", "AIR", "ExcellentEnchants Treefeller crossed enemy claim") if claims_ok else blocked("ExcellentEnchants Treefeller crossed enemy claim"),
             "excellentenchants_tunnel": simple(rows, "tunnel-before", "tunnel-after", "tunnel_target", "AIR", "ExcellentEnchants Tunnel crossed enemy claim") if claims_ok else blocked("ExcellentEnchants Tunnel crossed enemy claim"),
             "excellentenchants_blast": simple(rows, "blast-before", "blast-after", "tunnel_target", "AIR", "ExcellentEnchants Blast Mining crossed enemy claim") if claims_ok else blocked("ExcellentEnchants Blast Mining crossed enemy claim"),
+            "factions_enemy_decorated_pot_projectile": decorated_pot_projectile(rows) if claims_ok else blocked("Attacker projectile broke an enemy-claim decorated pot and released storage"),
             "factions_piston": simple(rows, "piston-before", "piston-after", "piston_payload_target", "DIAMOND_BLOCK", "Piston moved block into enemy claim") if claims_ok else blocked("Piston moved block into enemy claim"),
             "factions_hopper": hopper(rows) if claims_ok else blocked("Cross-claim hopper transfer"),
         },

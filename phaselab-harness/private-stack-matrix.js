@@ -264,6 +264,22 @@ async function main () {
       return { victim: victimBot.entity.position, attacker: attackerBot.entity.position, witness }
     })
 
+    await phase('factions_enemy_decorated_pot_projectile_theft', async () => {
+      await command(phaseBot, '/stacklab build', 650)
+      await command(phaseBot, '/kill @e[type=minecraft:item]', 250)
+      await command(phaseBot, '/stacklab snapshot pot-before', 300)
+      await command(phaseBot, '/tp AttackerBot 14.5 65 10.5 -90 0', 400)
+      const response = await commandExpect(
+        phaseBot,
+        '/stacklab potshot AttackerBot',
+        /STACKLAB POT SHOT player=AttackerBot/,
+        5000
+      )
+      await sleep(1800)
+      await command(phaseBot, '/stacklab snapshot pot-after', 300)
+      return { response }
+    })
+
     await phase('auraskills_excellentenchants_infinite_grindstone_xp', async () => {
       await command(phaseBot, '/stacklab build', 650)
       await command(phaseBot, '/clear AttackerBot')

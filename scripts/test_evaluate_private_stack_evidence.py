@@ -110,12 +110,45 @@ def main() -> int:
     assert finding["status"] == "confirmed", finding
     assert finding["evidence"]["xp_gain"] == 50.0, finding
 
+    pot_rows = [
+        {
+            "type": "snapshot",
+            "label": "pot-before",
+            "victim_pot_type": "DECORATED_POT",
+            "victim_pot_netherite_count": 64,
+            "arena_dropped_netherite_count": 0,
+        },
+        {
+            "type": "arena_entity_change_block",
+            "entity": "ARROW",
+            "x": 16,
+            "z": 10,
+            "cancelled": False,
+        },
+        {
+            "type": "arena_item_spawn",
+            "item": "NETHERITE_BLOCK",
+            "amount": 64,
+            "cancelled": False,
+        },
+        {
+            "type": "snapshot",
+            "label": "pot-after",
+            "victim_pot_type": "AIR",
+            "victim_pot_netherite_count": -1,
+            "arena_dropped_netherite_count": 64,
+        },
+    ]
+    finding = evaluator.decorated_pot_projectile(pot_rows)
+    assert finding["status"] == "confirmed", finding
+    assert finding["evidence"]["released"] is True, finding
+
     with tempfile.TemporaryDirectory() as temporary:
         path = Path(temporary) / "evidence.jsonl"
         path.write_text("\n".join(json.dumps(row) for row in confirmed_rows()) + "\n", encoding="utf-8")
         assert len(evaluator.read_rows(path)) == 9
 
-    print("Private-stack evidence evaluator regressions passed: 6")
+    print("Private-stack evidence evaluator regressions passed: 7")
     return 0
 
 
