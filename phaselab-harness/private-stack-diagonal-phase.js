@@ -194,7 +194,13 @@ async function setupFactions (phaseBot, victimBot, attackerBot) {
 
   await command(phaseBot, '/tp VictimBot 24.5 65 -7.5')
   await command(victimBot, '/f create Victims', 900)
-  await command(phaseBot, '/fa power set VictimBot 10000', 500)
+  await command(phaseBot, '/fa power set VictimBot 10', 500)
+  await commandExpect(
+    phaseBot,
+    '/stacklab factionboost Victims 5000',
+    /STACKLAB FACTION BOOST .*"actual":5000.*"verified":true/,
+    6000
+  )
 
   const claimed = new Set()
   const signs = [
