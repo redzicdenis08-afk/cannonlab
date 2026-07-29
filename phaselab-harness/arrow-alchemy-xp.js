@@ -9,6 +9,7 @@ const HOST = process.env.PHASELAB_HOST || '127.0.0.1'
 const PORT = Number(process.env.PHASELAB_PORT || 25566)
 const VERSION = '1.21.11'
 const OUTPUT_DIR = path.resolve(process.env.PHASELAB_OUTPUT || 'output-arrow-alchemy-xp')
+const EXPECT_GUARDED = process.env.PHASELAB_EXPECT_GUARDED === 'true'
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 
 fs.mkdirSync(OUTPUT_DIR, { recursive: true })
@@ -17,7 +18,9 @@ const report = {
   schemaVersion: 1,
   startedAt: new Date().toISOString(),
   trials: [],
+  expectedGuarded: EXPECT_GUARDED,
   confirmed: false,
+  guardBlocked: false,
   fatal: null
 }
 
@@ -147,6 +150,9 @@ async function main () {
       record('trial_result', trial)
     }
     report.confirmed = report.trials.filter(trial => trial.exploited).length >= 2
+    report.guardBlocked = EXPECT_GUARDED && report.trials.length === 5 && report.trials.every(trial =>
+      trial.eventGain === 1 && trial.xpGain === 0 && trial.arrowsUsed === 0
+    )
   } catch (error) {
     report.fatal = String(error.stack || error)
     record('fatal', { error: report.fatal })

@@ -192,7 +192,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         player.teleport(new Location(world, 5.5, Y, 30.5, -90F, 0F));
         player.getInventory().clear();
         player.setItemOnCursor(null);
-        setAuraSkillXp(player, "ALCHEMY", 0D);
+        setAuraSkillState(player, "ALCHEMY", 50, 0D);
         syntheticLingeringEvents = 0;
 
         ItemStack bow = new ItemStack(Material.BOW, 1);
@@ -309,6 +309,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         result.put("label", label);
         result.put("player", player.getName());
         result.put("enchant_id", arrowEnchantId == null ? "MISSING" : arrowEnchantId);
+        result.put("alchemy_level", auraSkillLevel(player, "ALCHEMY"));
         result.put("alchemy_xp", auraSkillXp(player, "ALCHEMY"));
         result.put("arrows", player.getInventory().all(Material.ARROW).values().stream().mapToInt(ItemStack::getAmount).sum());
         result.put("bow", itemSummary(player.getInventory().getItem(0)));
@@ -319,7 +320,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     }
 
     @SuppressWarnings({"unchecked", "rawtypes"})
-    private void setAuraSkillXp(Player player, String skillName, double value) {
+    private void setAuraSkillState(Player player, String skillName, int level, double value) {
         try {
             Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
             Object api = apiClass.getMethod("get").invoke(null);
@@ -328,9 +329,10 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             Object skill = Enum.valueOf(skillsClass, skillName);
             Class<?> skillClass = Class.forName("dev.aurelium.auraskills.api.skill.Skill");
             Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
+            skillsUserClass.getMethod("setSkillLevel", skillClass, int.class, boolean.class).invoke(user, skill, level, true);
             skillsUserClass.getMethod("setSkillXp", skillClass, double.class).invoke(user, skill, value);
         } catch (ReflectiveOperationException | RuntimeException exception) {
-            throw new IllegalStateException("Could not reset AuraSkills " + skillName + " XP", exception);
+            throw new IllegalStateException("Could not reset AuraSkills " + skillName + " state", exception);
         }
     }
 
@@ -655,6 +657,22 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             Class<?> skillClass = Class.forName("dev.aurelium.auraskills.api.skill.Skill");
             Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
             return skillsUserClass.getMethod("getSkillXp", skillClass).invoke(user, skill);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            return "reflection-error:" + exception.getClass().getSimpleName();
+        }
+    }
+
+    @SuppressWarnings({"unchecked", "rawtypes"})
+    private Object auraSkillLevel(Player player, String skillName) {
+        try {
+            Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
+            Object api = apiClass.getMethod("get").invoke(null);
+            Object user = apiClass.getMethod("getUser", java.util.UUID.class).invoke(api, player.getUniqueId());
+            Class<? extends Enum> skillsClass = (Class<? extends Enum>) Class.forName("dev.aurelium.auraskills.api.skill.Skills");
+            Object skill = Enum.valueOf(skillsClass, skillName);
+            Class<?> skillClass = Class.forName("dev.aurelium.auraskills.api.skill.Skill");
+            Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
+            return skillsUserClass.getMethod("getSkillLevel", skillClass).invoke(user, skill);
         } catch (ReflectiveOperationException | RuntimeException exception) {
             return "reflection-error:" + exception.getClass().getSimpleName();
         }

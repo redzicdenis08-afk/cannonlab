@@ -1,0 +1,5 @@
+name: PhaseLabSyntheticPotionXpGuard
+version: '${version}'
+main: dev.denis.phaselab.guard.SyntheticPotionXpGuardPlugin
+api-version: '1.21'
+description: Prevents plugin-launched synthetic potion events from granting player-action XP.
