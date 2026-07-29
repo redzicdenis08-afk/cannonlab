@@ -126,7 +126,7 @@ jobs:
           view-distance=3
           simulation-distance=3
           max-players=4
-          allow-flight=false
+          allow-flight=true
           motd=PhaseLab mixed hostile defense runtime
           EOF
           cat > "$RUNTIME/ops.json" <<'EOF'
