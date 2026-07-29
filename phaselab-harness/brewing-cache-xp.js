@@ -161,7 +161,7 @@ async function main () {
     report.beforeTake = await cacheState(phaseBot, 'before-take')
 
     try {
-      await attackerBot.clickWindow(0, 0, 0)
+      await attackerBot.clickWindow(1, 0, 0)
     } catch (error) {
       report.clickError = String(error.stack || error)
     }
@@ -169,8 +169,8 @@ async function main () {
     report.afterTake = await cacheState(phaseBot, 'after-take')
     try { attackerBot.closeWindow(window) } catch (_) {}
 
-    const beforeSlot = slotState(report.beforeTake, 0)
-    const afterSlot = slotState(report.afterTake, 0)
+    const beforeSlot = slotState(report.beforeTake, 1)
+    const afterSlot = slotState(report.afterTake, 1)
     const xpGain = Number(report.afterTake.alchemy_xp) - Number(report.beforeTake.alchemy_xp)
     report.analysis = {
       observedBrewEvents: Number(report.beforeTake.observed_brew_events),
