@@ -22,7 +22,7 @@ dependencies {
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 }
 
-processResources {
+tasks.named("processClientResources").configure {
     inputs.property "version", project.version
 
     filesMatching("fabric.mod.json") {
