@@ -33,6 +33,9 @@ import java.util.Locale;
  */
 public final class BoatPhaseClient implements ClientModInitializer {
     private static final double STEP = 0.25D;
+    private static final double SEGMENT_LENGTH = 19.0D;
+    private static final int PACKETS_PER_SEGMENT = (int) Math.round(SEGMENT_LENGTH / STEP);
+    private static final int SEGMENT_PAUSE_TICKS = 2;
     private static final double MAX_DISTANCE = 512.0D;
 
     private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
@@ -48,6 +51,8 @@ public final class BoatPhaseClient implements ClientModInitializer {
     private static boolean originalVehicleNoPhysics;
     private static int sentPackets;
     private static int activeTicks;
+    private static int segmentsCompleted;
+    private static int pauseTicksRemaining;
     private static BufferedWriter logWriter;
 
     @Override
@@ -107,34 +112,54 @@ public final class BoatPhaseClient implements ClientModInitializer {
             return;
         }
 
+        if (pauseTicksRemaining > 0) {
+            pauseTicksRemaining--;
+            activeTicks++;
+            return;
+        }
+
         if (travelled + STEP > MAX_DISTANCE) {
             stop(player, String.format(Locale.ROOT, "Safety limit reached at %.1f blocks.", travelled), false);
             return;
         }
 
-        Vec3 next = vehicle.position().add(direction.scale(STEP));
-        vehicle.noPhysics = true;
-        vehicle.setPos(next.x, next.y, next.z);
-        player.setPos(next.x, next.y, next.z);
-        player.connection.send(new ServerboundMoveVehiclePacket(
-            next,
-            vehicle.getYRot(),
-            vehicle.getXRot(),
-            vehicle.onGround()
-        ));
-
-        travelled += STEP;
-        sentPackets++;
-        activeTicks++;
-        log("SEND_0_25", player, next);
-
-        if (activeTicks % 20 == 0) {
-            message(player, String.format(Locale.ROOT,
-                "Boat phase active: %.1f blocks | %d packets | F11 stop | F12 abort",
-                travelled,
-                sentPackets
-            ));
+        int packetsThisSegment = Math.min(
+            PACKETS_PER_SEGMENT,
+            (int) Math.floor((MAX_DISTANCE - travelled) / STEP)
+        );
+        if (packetsThisSegment <= 0) {
+            stop(player, String.format(Locale.ROOT, "Safety limit reached at %.1f blocks.", travelled), false);
+            return;
         }
+
+        log("SEGMENT_START", player, vehicle.position());
+        for (int packetIndex = 0; packetIndex < packetsThisSegment; packetIndex++) {
+            Vec3 next = vehicle.position().add(direction.scale(STEP));
+            vehicle.noPhysics = true;
+            vehicle.setPos(next.x, next.y, next.z);
+            player.setPos(next.x, next.y, next.z);
+            player.connection.send(new ServerboundMoveVehiclePacket(
+                next,
+                vehicle.getYRot(),
+                vehicle.getXRot(),
+                vehicle.onGround()
+            ));
+
+            travelled += STEP;
+            sentPackets++;
+            log("SEND_0_25", player, next);
+        }
+
+        segmentsCompleted++;
+        pauseTicksRemaining = SEGMENT_PAUSE_TICKS;
+        activeTicks++;
+        log("SEGMENT_END", player, vehicle.position());
+        message(player, String.format(Locale.ROOT,
+            "Ratchet segment %d accepted locally: %.1f blocks | %d packets | F11 stop | F12 abort",
+            segmentsCompleted,
+            travelled,
+            sentPackets
+        ));
     }
 
     private static void start(LocalPlayer player) {
@@ -159,11 +184,13 @@ public final class BoatPhaseClient implements ClientModInitializer {
         travelled = 0.0D;
         sentPackets = 0;
         activeTicks = 0;
+        segmentsCompleted = 0;
+        pauseTicksRemaining = 0;
         originalVehicleNoPhysics = vehicle.noPhysics;
         vehicle.noPhysics = true;
         openLog();
         log("START", player, vehicle.position());
-        message(player, "Boat phase started in your look direction. F11 stops; F12 aborts.");
+        message(player, "Boat ratchet started: 19-block bursts, 0.25 steps, 100 ms pauses. F11 stops; F12 aborts.");
     }
 
     private static Entity controlledVehicle(LocalPlayer player) {
@@ -200,6 +227,8 @@ public final class BoatPhaseClient implements ClientModInitializer {
         travelled = 0.0D;
         sentPackets = 0;
         activeTicks = 0;
+        segmentsCompleted = 0;
+        pauseTicksRemaining = 0;
         closeLog();
     }
 
