@@ -1,0 +1,84 @@
+name: PerfectOne Live Diagnostic
+
+# Fast iteration loop for the operator-supplied PerfectOne cannon.
+#
+# This runs on Paper 26.1.2, not pinned Sakura, on purpose: Paper resolves in
+# minutes where Sakura takes about an hour to patch and build. That makes this
+# usable for observe-fix-repeat. Paper is NOT Sakura for cannon mechanics, so
+# nothing here is promotable evidence -- confirm any result on the Exact Sakura
+# Runtime workflow before believing it.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  perfectone-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Build CannonLab plugin
+        run: gradle clean build --stacktrace
+
+      - name: Static audit of the loaded fixture
+        run: |
+          base64 --decode cannons/perfectone-loaded.schem.b64 > /tmp/perfectone-loaded.schem
+          python scripts/schem-audit.py /tmp/perfectone-loaded.schem \
+            --json-out perfectone-static-audit.json || true
+          python scripts/cannon-module-map.py /tmp/perfectone-loaded.schem \
+            --json-out perfectone-module-map.json || true
+
+      - name: Fire PerfectOne
+        env:
+          CANNONLAB_SCENARIO: perfectone-live.yml
+          CANNONLAB_SERVER_LABEL: Paper 26.1.2 PerfectOne diagnostic
+          CANNONLAB_EXPECTED_SHOTS: '3'
+          # 510 dispensers fire together; the single-TNT assumption does not hold.
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '1'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '1'
+          # Water and collisions perturb fuse lifetime; observe it, do not gate on it.
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '79'
+          CANNONLAB_ARENA_RADIUS_X: '72'
+          CANNONLAB_ARENA_RADIUS_Y: '40'
+          CANNONLAB_ARENA_RADIUS_Z: '56'
+          CANNONLAB_TIMEOUT_SECONDS: '1200'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PerfectOne-diagnostic-${{ github.run_number }}
+          path: |
+            lab-artifacts/**
+            perfectone-static-audit.json
+            perfectone-module-map.json
+          if-no-files-found: warn
+          retention-days: 30

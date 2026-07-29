@@ -1,0 +1,38 @@
+name: perfectone-live
+# First live diagnostic for the operator-supplied PerfectOne cannon.
+# Purpose is observation, not qualification: does it fire, how much TNT leaves
+# the banks, and does it survive its own shot. Gates are deliberately loose so
+# the run produces telemetry instead of failing closed on shot one.
+#
+# EC160 is not enforced here. The 160-dispensers-per-chunk-column rule is
+# field-reported from ExtremeCraft, not a public Sakura 26.1.2 mechanic.
+cannon:
+  file: perfectone-loaded.schem
+  origin:
+    x: 0
+    y: 0
+    z: 0
+  fire-mode: redstone
+  fire-input:
+    x: 2
+    y: 2
+    z: 9
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: false
+target:
+  type: dry
+  direction: west
+  distance: 24
+  width: 9
+  height: 9
+  y-offset: 7
+  lateral-offset: 0
+  layers: 1
+  spacing: 3
+run:
+  shots: 3
+  warmup-ticks: 60
+  max-shot-ticks: 220
+  quiet-ticks: 140
+  shutdown-when-finished: true
