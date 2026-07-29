@@ -9,6 +9,7 @@ on:
       - research/phaselab-deep-hunt
       - research/phaselab-ability-witness
       - research/phaselab-op-phase-dupe-v2
+      - research/phaselab-phase-unloaded-route
     paths:
       - 'phaselab-private-stack-fixture/**'
       - 'phaselab-harness/private-stack-matrix.js'
