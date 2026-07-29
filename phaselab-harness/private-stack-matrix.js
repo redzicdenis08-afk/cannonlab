@@ -284,6 +284,42 @@ async function main () {
       return { clicks }
     })
 
+    await phase('factions_cross_claim_double_chest_theft', async () => {
+      await command(phaseBot, '/stacklab build', 650)
+      await command(phaseBot, '/clear AttackerBot')
+      await command(phaseBot, '/stacklab snapshot border-chest-before', 300)
+      await command(phaseBot, '/tp AttackerBot 14.5 65 14.5 -90 0', 500)
+      const merge = await commandExpect(
+        phaseBot,
+        '/stacklab chestmerge AttackerBot',
+        /STACKLAB CHEST MERGE .*"invoked":true/,
+        6000
+      )
+      let openError = null
+      let visibleNetherite = 0
+      try {
+        const chest = attackerBot.blockAt(new Vec3(15, 65, 14))
+        if (!chest) throw new Error('Attacker-side chest missing')
+        const window = await attackerBot.openBlock(chest, new Vec3(-1, 0, 0))
+        await sleep(450)
+        const containerEnd = window.inventoryStart ?? 54
+        const targetSlot = window.slots.findIndex((entry, slot) => slot < containerEnd && entry?.name === 'netherite_block')
+        visibleNetherite = window.slots
+          .slice(0, containerEnd)
+          .filter(entry => entry?.name === 'netherite_block')
+          .reduce((sum, entry) => sum + entry.count, 0)
+        if (targetSlot >= 0) {
+          await attackerBot.clickWindow(targetSlot, 0, 1)
+          await sleep(650)
+        }
+        try { attackerBot.closeWindow(window) } catch {}
+      } catch (error) {
+        openError = String(error.stack || error)
+      }
+      await command(phaseBot, '/stacklab snapshot border-chest-after', 300)
+      return { merge, visibleNetherite, openError }
+    })
+
     if (attackerBot.currentWindow) {
       try { attackerBot.closeWindow(attackerBot.currentWindow) } catch {}
       await sleep(250)

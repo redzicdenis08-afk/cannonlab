@@ -207,6 +207,24 @@ def hopper(rows):
     return result("observed_low_impact" if moved else "rejected", "Cross-claim hopper transfer", before=before, after=after, move_events=[e for e in events if e.get("type") == "inventory_move"])
 
 
+def border_chest(rows):
+    w = window(rows, "border-chest-before", "border-chest-after")
+    if not w:
+        return result("inconclusive", "Attacker merged and looted an enemy-claim chest", reason="missing_window")
+    before, after, events = w
+    merges = [e for e in events if e.get("type") == "server_chest_merge" and e.get("invoked") is True]
+    opens = [e for e in events if e.get("type") == "border_chest_open"]
+    placed = after.get("border_attacker_chest_type") == "CHEST"
+    stolen = (
+        int(before.get("border_victim_netherite_count", 0)) >= 27
+        and int(after.get("border_victim_netherite_count", 0)) < int(before.get("border_victim_netherite_count", 0))
+        and int(after.get("attacker_netherite_count", 0)) > 0
+    )
+    denied = opens and all(e.get("cancelled") is True for e in opens)
+    status = "confirmed" if merges and placed and stolen else "rejected" if merges and placed and denied else "inconclusive"
+    return result(status, "Attacker merged and looted an enemy-claim chest", before=before, after=after, merge_events=merges, open_events=opens)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("evidence", type=Path)
@@ -235,6 +253,7 @@ def main() -> int:
             "excellentenchants_blast": simple(rows, "blast-before", "blast-after", "tunnel_target", "AIR", "ExcellentEnchants Blast Mining crossed enemy claim") if claims_ok else blocked("ExcellentEnchants Blast Mining crossed enemy claim"),
             "factions_piston": simple(rows, "piston-before", "piston-after", "piston_payload_target", "DIAMOND_BLOCK", "Piston moved block into enemy claim") if claims_ok else blocked("Piston moved block into enemy claim"),
             "factions_hopper": hopper(rows) if claims_ok else blocked("Cross-claim hopper transfer"),
+            "factions_cross_claim_double_chest": border_chest(rows) if claims_ok else blocked("Attacker merged and looted an enemy-claim chest"),
         },
     }
     args.output.parent.mkdir(parents=True, exist_ok=True)
