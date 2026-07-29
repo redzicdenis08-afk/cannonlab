@@ -1,0 +1,405 @@
+{
+  "schemaVersion": 1,
+  "startedAt": "2026-07-29T15:06:56.200Z",
+  "scope": "authorized exact private Sakura/Factions vertical vehicle phase matrix",
+  "claimsVerified": true,
+  "trials": [
+    {
+      "id": "boat-direct-air-4",
+      "run": 1,
+      "vehicle": "boat",
+      "pulse": "none",
+      "onGround": false,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "start": {
+        "x": 0.5000000000000002,
+        "y": 128,
+        "z": 2.8226046167085315
+      },
+      "targetY": 59.5,
+      "acceptedY": 128,
+      "packetCount": 16,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromY": 128,
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleAccepted": false,
+          "corrections": 0
+        }
+      ],
+      "pulses": [],
+      "correctionCount": 0,
+      "firstCorrection": null,
+      "playerMountedBelow": false,
+      "vehicleBelow": false,
+      "playerDismountedBelow": false,
+      "netheriteCount": 0,
+      "dismountResponse": "STACKLAB VEHICLE DISMOUNT {\"player\":\"AttackerBot\",\"online\":true,\"mounted_before\":false,\"invoked\":true,\"path\":\"ServerboundPlayerInputPacket(shift\\u003dtrue)-\\u003ehandlePlayerInput\",\"mounted\":false,\"x\":0.5000000000000002,\"y\":124.0,\"z\":2.8226046167085315}",
+      "dismountError": null,
+      "elapsedMs": 13112,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "boat-direct-air-4",
+      "run": 2,
+      "vehicle": "boat",
+      "pulse": "none",
+      "onGround": false,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "start": {
+        "x": 0.5000000000000002,
+        "y": 128,
+        "z": 2.8799999952316284
+      },
+      "targetY": 59.5,
+      "acceptedY": 128,
+      "packetCount": 16,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromY": 128,
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleAccepted": false,
+          "corrections": 0
+        }
+      ],
+      "pulses": [],
+      "correctionCount": 0,
+      "firstCorrection": null,
+      "playerMountedBelow": false,
+      "vehicleBelow": false,
+      "playerDismountedBelow": false,
+      "netheriteCount": 0,
+      "dismountResponse": "STACKLAB VEHICLE DISMOUNT {\"player\":\"AttackerBot\",\"online\":true,\"mounted_before\":false,\"invoked\":true,\"path\":\"ServerboundPlayerInputPacket(shift\\u003dtrue)-\\u003ehandlePlayerInput\",\"mounted\":false,\"x\":0.5000000000000002,\"y\":124.0,\"z\":2.8799999952316284}",
+      "dismountError": null,
+      "elapsedMs": 13106,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "boat-direct-ground-4",
+      "run": 1,
+      "vehicle": "boat",
+      "pulse": "none",
+      "onGround": true,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "start": {
+        "x": 0.5000000000000003,
+        "y": 128,
+        "z": 2.0251066958832666
+      },
+      "targetY": 59.5,
+      "acceptedY": 128,
+      "packetCount": 16,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromY": 128,
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleAccepted": false,
+          "corrections": 0
+        }
+      ],
+      "pulses": [],
+      "correctionCount": 0,
+      "firstCorrection": null,
+      "playerMountedBelow": false,
+      "vehicleBelow": false,
+      "playerDismountedBelow": false,
+      "netheriteCount": 0,
+      "dismountResponse": "STACKLAB VEHICLE DISMOUNT {\"player\":\"AttackerBot\",\"online\":true,\"mounted_before\":false,\"invoked\":true,\"path\":\"ServerboundPlayerInputPacket(shift\\u003dtrue)-\\u003ehandlePlayerInput\",\"mounted\":false,\"x\":0.5000000000000003,\"y\":124.0,\"z\":2.0251066958832666}",
+      "dismountError": null,
+      "elapsedMs": 13104,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "boat-direct-ground-4",
+      "run": 2,
+      "vehicle": "boat",
+      "pulse": "none",
+      "onGround": true,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "start": {
+        "x": 0.5000000000000003,
+        "y": 128,
+        "z": 2.4726045928666736
+      },
+      "targetY": 59.5,
+      "acceptedY": 128,
+      "packetCount": 16,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromY": 128,
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleAccepted": false,
+          "corrections": 0
+        }
+      ],
+      "pulses": [],
+      "correctionCount": 0,
+      "firstCorrection": null,
+      "playerMountedBelow": false,
+      "vehicleBelow": false,
+      "playerDismountedBelow": false,
+      "netheriteCount": 0,
+      "dismountResponse": "STACKLAB VEHICLE DISMOUNT {\"player\":\"AttackerBot\",\"online\":true,\"mounted_before\":false,\"invoked\":true,\"path\":\"ServerboundPlayerInputPacket(shift\\u003dtrue)-\\u003ehandlePlayerInput\",\"mounted\":false,\"x\":0.5000000000000003,\"y\":124.0,\"z\":2.4726045928666736}",
+      "dismountError": null,
+      "elapsedMs": 13105,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "boat-prepulse-air-4",
+      "vehicle": "boat",
+      "pulse": "pre",
+      "onGround": false,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "repeats": 2,
+      "run": 1,
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vertical-phase.js:78:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    },
+    {
+      "id": "boat-prepulse-air-4",
+      "vehicle": "boat",
+      "pulse": "pre",
+      "onGround": false,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "repeats": 2,
+      "run": 2,
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB VEHICLE DISMOUNT .*\"mounted\":false/ after /stacklab vehicledismount AttackerBot\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vertical-phase.js:78:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    },
+    {
+      "id": "boat-segmentpulse-air-4",
+      "run": 1,
+      "vehicle": "boat",
+      "pulse": "segment",
+      "onGround": false,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "start": {
+        "x": 0.5000000000000003,
+        "y": 128,
+        "z": 2.4726045928666736
+      },
+      "targetY": 59.5,
+      "acceptedY": 128,
+      "packetCount": 16,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromY": 128,
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleAccepted": false,
+          "corrections": 0
+        }
+      ],
+      "pulses": [],
+      "correctionCount": 0,
+      "firstCorrection": null,
+      "playerMountedBelow": false,
+      "vehicleBelow": false,
+      "playerDismountedBelow": false,
+      "netheriteCount": 0,
+      "dismountResponse": "STACKLAB VEHICLE DISMOUNT {\"player\":\"AttackerBot\",\"online\":true,\"mounted_before\":false,\"invoked\":true,\"path\":\"ServerboundPlayerInputPacket(shift\\u003dtrue)-\\u003ehandlePlayerInput\",\"mounted\":false,\"x\":0.5000000000000003,\"y\":124.0,\"z\":2.4726045928666736}",
+      "dismountError": null,
+      "elapsedMs": 13108,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "boat-segmentpulse-air-4",
+      "run": 2,
+      "vehicle": "boat",
+      "pulse": "segment",
+      "onGround": false,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "start": {
+        "x": 0.5000000000000003,
+        "y": 128,
+        "z": 2.4726045928666736
+      },
+      "targetY": 59.5,
+      "acceptedY": 128,
+      "packetCount": 16,
+      "segmentWitnesses": [
+        {
+          "segment": 1,
+          "fromY": 128,
+          "targetY": 124,
+          "playerAccepted": true,
+          "vehicleAccepted": false,
+          "corrections": 0
+        }
+      ],
+      "pulses": [],
+      "correctionCount": 0,
+      "firstCorrection": null,
+      "playerMountedBelow": false,
+      "vehicleBelow": false,
+      "playerDismountedBelow": false,
+      "netheriteCount": 0,
+      "dismountResponse": "STACKLAB VEHICLE DISMOUNT {\"player\":\"AttackerBot\",\"online\":true,\"mounted_before\":false,\"invoked\":true,\"path\":\"ServerboundPlayerInputPacket(shift\\u003dtrue)-\\u003ehandlePlayerInput\",\"mounted\":false,\"x\":0.5000000000000003,\"y\":124.0,\"z\":2.4726045928666736}",
+      "dismountError": null,
+      "elapsedMs": 13105,
+      "serverAuthoritativeSuccess": false
+    },
+    {
+      "id": "horse-direct-air-4",
+      "vehicle": "horse",
+      "pulse": "none",
+      "onGround": false,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "repeats": 2,
+      "run": 1,
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB VEHICLE INTERACT .*\"mounted\":true.*\"vehicle_type\":\"HORSE\"/ after /stacklab vehicleinteract AttackerBot HORSE\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vertical-phase.js:78:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    },
+    {
+      "id": "horse-direct-air-4",
+      "vehicle": "horse",
+      "pulse": "none",
+      "onGround": false,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "repeats": 2,
+      "run": 2,
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB VEHICLE INTERACT .*\"mounted\":true.*\"vehicle_type\":\"HORSE\"/ after /stacklab vehicleinteract AttackerBot HORSE\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vertical-phase.js:78:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    },
+    {
+      "id": "horse-direct-ground-4",
+      "vehicle": "horse",
+      "pulse": "none",
+      "onGround": true,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "repeats": 2,
+      "run": 1,
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB VEHICLE INTERACT .*\"mounted\":true.*\"vehicle_type\":\"HORSE\"/ after /stacklab vehicleinteract AttackerBot HORSE\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vertical-phase.js:78:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    },
+    {
+      "id": "horse-direct-ground-4",
+      "vehicle": "horse",
+      "pulse": "none",
+      "onGround": true,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "repeats": 2,
+      "run": 2,
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB VEHICLE INTERACT .*\"mounted\":true.*\"vehicle_type\":\"HORSE\"/ after /stacklab vehicleinteract AttackerBot HORSE\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vertical-phase.js:78:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    },
+    {
+      "id": "horse-prepulse-air-4",
+      "vehicle": "horse",
+      "pulse": "pre",
+      "onGround": false,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "repeats": 2,
+      "run": 1,
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB VEHICLE INTERACT .*\"mounted\":true.*\"vehicle_type\":\"HORSE\"/ after /stacklab vehicleinteract AttackerBot HORSE\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vertical-phase.js:78:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    },
+    {
+      "id": "horse-prepulse-air-4",
+      "vehicle": "horse",
+      "pulse": "pre",
+      "onGround": false,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "repeats": 2,
+      "run": 2,
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB VEHICLE INTERACT .*\"mounted\":true.*\"vehicle_type\":\"HORSE\"/ after /stacklab vehicleinteract AttackerBot HORSE\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vertical-phase.js:78:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    },
+    {
+      "id": "horse-segmentpulse-air-4",
+      "vehicle": "horse",
+      "pulse": "segment",
+      "onGround": false,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "repeats": 2,
+      "run": 1,
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB VEHICLE INTERACT .*\"mounted\":true.*\"vehicle_type\":\"HORSE\"/ after /stacklab vehicleinteract AttackerBot HORSE\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vertical-phase.js:78:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    },
+    {
+      "id": "horse-segmentpulse-air-4",
+      "vehicle": "horse",
+      "pulse": "segment",
+      "onGround": false,
+      "segmentLength": 4,
+      "pauseMs": 100,
+      "repeats": 2,
+      "run": 2,
+      "serverAuthoritativeSuccess": false,
+      "error": "Error: Timeout waiting for /STACKLAB VEHICLE INTERACT .*\"mounted\":true.*\"vehicle_type\":\"HORSE\"/ after /stacklab vehicleinteract AttackerBot HORSE\n    at Timeout.<anonymous> (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-vertical-phase.js:78:43)\n    at listOnTimeout (node:internal/timers:605:17)\n    at process.processTimers (node:internal/timers:541:7)"
+    }
+  ],
+  "fatal": null,
+  "claimWitness": "STACKLAB CLAIM SET {\"tag\":\"Victims\",\"chunk_x\":0,\"chunk_z\":0,\"actual_tag\":\"Victims\",\"verified\":true}",
+  "finishedAt": "2026-07-29T15:10:42.661Z",
+  "successCount": 0,
+  "totalCount": 16,
+  "byFamily": {
+    "boat-direct-air-4": {
+      "successes": 0,
+      "attempts": 2
+    },
+    "boat-direct-ground-4": {
+      "successes": 0,
+      "attempts": 2
+    },
+    "boat-prepulse-air-4": {
+      "successes": 0,
+      "attempts": 2
+    },
+    "boat-segmentpulse-air-4": {
+      "successes": 0,
+      "attempts": 2
+    },
+    "horse-direct-air-4": {
+      "successes": 0,
+      "attempts": 2
+    },
+    "horse-direct-ground-4": {
+      "successes": 0,
+      "attempts": 2
+    },
+    "horse-prepulse-air-4": {
+      "successes": 0,
+      "attempts": 2
+    },
+    "horse-segmentpulse-air-4": {
+      "successes": 0,
+      "attempts": 2
+    }
+  },
+  "byVehicle": {
+    "boat": {
+      "successes": 0,
+      "attempts": 8
+    },
+    "horse": {
+      "successes": 0,
+      "attempts": 8
+    }
+  }
+}
