@@ -207,10 +207,12 @@ async function setupFactions (phaseBot, victimBot, attackerBot) {
     armChunks.push([i, 0], [-i, 0], [0, i], [0, -i])
   }
   for (const [chunkX, chunkZ] of armChunks) {
-    const x = chunkX * 16 + 8.5
-    const z = chunkZ * 16 + 8.5
-    await command(phaseBot, `/tp VictimBot ${x} 65 ${z}`, 220)
-    await command(victimBot, '/f claim', 380)
+    await commandExpect(
+      phaseBot,
+      `/stacklab claimset Victims ${chunkX} ${chunkZ}`,
+      /STACKLAB CLAIM SET .*"actual_tag":"Victims".*"verified":true/,
+      6000
+    )
   }
 
   const response = await commandExpect(

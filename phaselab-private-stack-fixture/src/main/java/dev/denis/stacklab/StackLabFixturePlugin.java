@@ -92,6 +92,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "claimsnapshot" -> claimSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "directionclaimsnapshot" -> directionClaimSnapshot(sender, args.length > 1 ? args[1] : "manual");
                     case "factionboost" -> factionBoost(sender, args);
+                    case "claimset" -> claimSet(sender, args);
                     case "give" -> give(sender, args);
                     case "boatuse" -> boatUse(sender, args);
                     case "boatinteract" -> boatInteract(sender, args);
@@ -452,6 +453,44 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         }
         writeEvent("faction_power_boost", evidence);
         sender.sendMessage("STACKLAB FACTION BOOST " + gson.toJson(evidence));
+        return true;
+    }
+
+    private boolean claimSet(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 4) {
+            sender.sendMessage("Usage: /stacklab claimset <faction-tag> <chunk-x> <chunk-z>");
+            return true;
+        }
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("tag", args[1]);
+        try {
+            int chunkX = Integer.parseInt(args[2]);
+            int chunkZ = Integer.parseInt(args[3]);
+            Class<?> factionsClass = Class.forName("dev.kitteh.factions.Factions");
+            Object factions = factionsClass.getMethod("factions").invoke(null);
+            Object faction = factionsClass.getMethod("get", String.class).invoke(factions, args[1]);
+            if (faction == null) throw new IllegalStateException("Faction not found: " + args[1]);
+
+            Class<?> locationClass = Class.forName("dev.kitteh.factions.FLocation");
+            Object location = locationClass.getConstructor(String.class, int.class, int.class)
+                .newInstance("world", chunkX, chunkZ);
+            Class<?> boardClass = Class.forName("dev.kitteh.factions.Board");
+            Object board = boardClass.getMethod("board").invoke(null);
+            boardClass.getMethod("claim", locationClass, Class.forName("dev.kitteh.factions.Faction"))
+                .invoke(board, location, faction);
+            Object actual = boardClass.getMethod("factionAt", locationClass).invoke(board, location);
+            Method tag = actual.getClass().getMethod("tag");
+
+            evidence.put("chunk_x", chunkX);
+            evidence.put("chunk_z", chunkZ);
+            evidence.put("actual_tag", String.valueOf(tag.invoke(actual)));
+            evidence.put("verified", args[1].equals(String.valueOf(tag.invoke(actual))));
+        } catch (NumberFormatException | ReflectiveOperationException | IllegalStateException exception) {
+            evidence.put("verified", false);
+            evidence.put("error", exception.toString());
+        }
+        writeEvent("claim_set", evidence);
+        sender.sendMessage("STACKLAB CLAIM SET " + gson.toJson(evidence));
         return true;
     }
 
