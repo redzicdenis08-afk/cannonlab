@@ -10,6 +10,7 @@ import org.bukkit.Registry;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.Chest;
+import org.bukkit.block.CreatureSpawner;
 import org.bukkit.block.Hopper;
 import org.bukkit.block.data.Directional;
 import org.bukkit.block.data.type.EndPortalFrame;
@@ -17,6 +18,7 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.FallingBlock;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.EntityType;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -58,9 +60,14 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
     private static final int GENERATOR_X = 50;
     private static final int GENERATOR_Y = 65;
     private static final int GENERATOR_Z = 0;
+    private static final int SILK_SPAWNER_X = 70;
+    private static final int SILK_SPAWNER_Y = 65;
+    private static final int SILK_SPAWNER_Z = 0;
     private final Gson gson = new Gson();
     private Path evidencePath;
     private boolean cancelPortalMultiPlace;
+    private boolean cancelSilkSpawnerBreak;
+    private int silkSpawnerCancelledBreaks;
 
     @Override
     public void onEnable() {
@@ -105,6 +112,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "generatorreset" -> generatorReset(sender, args);
                     case "generatorsnapshot" -> generatorSnapshot(sender, args);
                     case "generatorbreak" -> generatorBreak(sender, args);
+                    case "silkspawnerprep" -> silkSpawnerPrep(sender, args);
+                    case "silkspawnerbreak" -> silkSpawnerBreak(sender, args);
+                    case "silkspawnersnapshot" -> silkSpawnerSnapshot(sender, args);
                     default -> false;
                 };
             } catch (RuntimeException exception) {
@@ -168,6 +178,128 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         writeEvent("arena_build", snapshotMap(world, "build"));
         sender.sendMessage("STACKLAB BUILD OK boundary=15/16 y=" + Y);
         return true;
+    }
+
+    private boolean silkSpawnerPrep(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab silkspawnerprep <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+
+        World world = requireWorld();
+        Location center = new Location(world, SILK_SPAWNER_X, SILK_SPAWNER_Y, SILK_SPAWNER_Z);
+        for (Item item : world.getEntitiesByClass(Item.class)) {
+            if (item.getLocation().distanceSquared(center) <= 256.0) item.remove();
+        }
+        for (int x = SILK_SPAWNER_X - 3; x <= SILK_SPAWNER_X + 3; x++) {
+            for (int y = SILK_SPAWNER_Y - 1; y <= SILK_SPAWNER_Y + 3; y++) {
+                for (int z = SILK_SPAWNER_Z - 3; z <= SILK_SPAWNER_Z + 3; z++) {
+                    world.getBlockAt(x, y, z).setType(Material.AIR, false);
+                }
+            }
+        }
+        for (int x = SILK_SPAWNER_X - 3; x <= SILK_SPAWNER_X + 3; x++) {
+            for (int z = SILK_SPAWNER_Z - 3; z <= SILK_SPAWNER_Z + 3; z++) {
+                world.getBlockAt(x, SILK_SPAWNER_Y - 1, z).setType(Material.STONE, false);
+            }
+        }
+
+        Block target = world.getBlockAt(SILK_SPAWNER_X, SILK_SPAWNER_Y, SILK_SPAWNER_Z);
+        target.setType(Material.SPAWNER, false);
+        CreatureSpawner spawner = (CreatureSpawner) target.getState();
+        spawner.setSpawnedType(EntityType.ZOMBIE);
+        spawner.update(true);
+
+        Enchantment silkSpawner = Registry.ENCHANTMENT.get(NamespacedKey.fromString("excellentenchants:silk_spawner"));
+        if (silkSpawner == null) {
+            sender.sendMessage("STACKLAB SILKSPAWNER PREP accepted=false reason=enchant_missing");
+            return true;
+        }
+
+        player.closeInventory();
+        player.getInventory().clear();
+        player.setItemOnCursor(null);
+        ItemStack pickaxe = new ItemStack(Material.DIAMOND_PICKAXE, 1);
+        pickaxe.addUnsafeEnchantment(silkSpawner, 32);
+        player.getInventory().setItem(0, pickaxe);
+        player.getInventory().setHeldItemSlot(0);
+        player.teleport(new Location(world, SILK_SPAWNER_X - 1.5, SILK_SPAWNER_Y, SILK_SPAWNER_Z + 0.5, -90F, 0F));
+
+        cancelSilkSpawnerBreak = true;
+        silkSpawnerCancelledBreaks = 0;
+        Map<String, Object> snapshot = silkSpawnerSnapshotMap(world, player, "prepared");
+        snapshot.put("accepted", true);
+        writeEvent("silk_spawner_prepared", snapshot);
+        sender.sendMessage("STACKLAB SILKSPAWNER PREP " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private boolean silkSpawnerBreak(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab silkspawnerbreak <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        World world = requireWorld();
+        Block target = world.getBlockAt(SILK_SPAWNER_X, SILK_SPAWNER_Y, SILK_SPAWNER_Z);
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("before", silkSpawnerSnapshotMap(world, player, "before-break"));
+        boolean accepted = player.breakBlock(target);
+        evidence.put("break_return", accepted);
+        evidence.put("immediate", silkSpawnerSnapshotMap(world, player, "immediate-after-break"));
+        writeEvent("silk_spawner_break_request", evidence);
+        sender.sendMessage("STACKLAB SILKSPAWNER BREAK " + gson.toJson(evidence));
+        return true;
+    }
+
+    private boolean silkSpawnerSnapshot(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab silkspawnersnapshot <player> [label]");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        String label = args.length > 2 ? args[2] : "manual";
+        Map<String, Object> snapshot = silkSpawnerSnapshotMap(requireWorld(), player, label);
+        writeEvent("silk_spawner_snapshot", snapshot);
+        sender.sendMessage("STACKLAB SILKSPAWNER SNAPSHOT " + gson.toJson(snapshot));
+        return true;
+    }
+
+    private Map<String, Object> silkSpawnerSnapshotMap(World world, Player player, String label) {
+        Block target = world.getBlockAt(SILK_SPAWNER_X, SILK_SPAWNER_Y, SILK_SPAWNER_Z);
+        Location center = new Location(world, SILK_SPAWNER_X, SILK_SPAWNER_Y, SILK_SPAWNER_Z);
+        int groundSpawnerItems = world.getEntitiesByClass(Item.class).stream()
+            .filter(item -> item.getLocation().distanceSquared(center) <= 256.0)
+            .filter(item -> item.getItemStack().getType() == Material.SPAWNER)
+            .mapToInt(item -> item.getItemStack().getAmount())
+            .sum();
+        int inventorySpawnerItems = player.getInventory().all(Material.SPAWNER).values().stream()
+            .mapToInt(ItemStack::getAmount)
+            .sum();
+        int blockSpawner = target.getType() == Material.SPAWNER ? 1 : 0;
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("label", label);
+        result.put("block_type", target.getType().name());
+        result.put("block_spawner", blockSpawner);
+        result.put("ground_spawner_items", groundSpawnerItems);
+        result.put("inventory_spawner_items", inventorySpawnerItems);
+        result.put("total_spawners", blockSpawner + groundSpawnerItems + inventorySpawnerItems);
+        result.put("cancel_enabled", cancelSilkSpawnerBreak);
+        result.put("cancelled_breaks", silkSpawnerCancelledBreaks);
+        return result;
     }
 
 
@@ -1042,6 +1174,21 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         } catch (IOException exception) {
             getLogger().warning("Could not write evidence: " + exception.getMessage());
         }
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
+    public void onSilkSpawnerLateCancel(BlockBreakEvent event) {
+        Block block = event.getBlock();
+        if (!cancelSilkSpawnerBreak) return;
+        if (!block.getWorld().getName().equals("world")) return;
+        if (block.getX() != SILK_SPAWNER_X || block.getY() != SILK_SPAWNER_Y || block.getZ() != SILK_SPAWNER_Z) return;
+        event.setCancelled(true);
+        silkSpawnerCancelledBreaks++;
+        writeEvent("silk_spawner_late_cancel", Map.of(
+            "player", event.getPlayer().getName(),
+            "block", block.getType().name(),
+            "cancelled_breaks", silkSpawnerCancelledBreaks
+        ));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
