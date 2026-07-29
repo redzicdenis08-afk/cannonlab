@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "startedAt": "2026-07-29T13:42:40.731Z",
+  "startedAt": "2026-07-29T13:52:01.386Z",
   "host": "127.0.0.1",
   "port": 25566,
   "version": "1.21.11",
@@ -8,7 +8,7 @@
   "claimsVerified": false,
   "trials": [],
   "fatal": "Error: Four-direction claim witness failed: {\"label\":\"direction-setup\",\"center_chunk_x\":0,\"center_chunk_z\":0,\"center_tag\":\"Attackers\",\"center_wilderness\":false,\"east_near_chunk_x\":1,\"east_near_chunk_z\":0,\"east_near_tag\":\"Victims\",\"east_near_wilderness\":false,\"east_far_chunk_x\":5,\"east_far_chunk_z\":0,\"east_far_tag\":\"Wilderness\",\"east_far_wilderness\":true,\"west_near_chunk_x\":-1,\"west_near_chunk_z\":0,\"west_near_tag\":\"Victims\",\"west_near_wilderness\":false,\"west_far_chunk_x\":-5,\"west_far_chunk_z\":0,\"west_far_tag\":\"Wilderness\",\"west_far_wilderness\":true,\"south_near_chunk_x\":0,\"south_near_chunk_z\":1,\"south_near_tag\":\"Victims\",\"south_near_wilderness\":false,\"south_far_chunk_x\":0,\"south_far_chunk_z\":5,\"south_far_tag\":\"Wilderness\",\"south_far_wilderness\":true,\"north_near_chunk_x\":0,\"north_near_chunk_z\":-1,\"north_near_tag\":\"Victims\",\"north_near_wilderness\":false,\"north_far_chunk_x\":0,\"north_far_chunk_z\":-5,\"north_far_tag\":\"Wilderness\",\"north_far_wilderness\":true,\"verified\":true}\n    at setupFactions (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-direction-phase.js:234:21)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async main (/home/runner/work/cannonlab/cannonlab/phaselab-harness/private-stack-direction-phase.js:586:5)",
-  "finishedAt": "2026-07-29T13:42:57.919Z",
+  "finishedAt": "2026-07-29T13:52:25.747Z",
   "successCount": 0,
   "totalCount": 0,
   "byFamily": {},
