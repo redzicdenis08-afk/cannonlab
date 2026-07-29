@@ -22,6 +22,7 @@ import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.block.BlockMultiPlaceEvent;
+import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.block.BlockPistonExtendEvent;
 import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
@@ -29,6 +30,7 @@ import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.inventory.BrewEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryMoveItemEvent;
+import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.event.player.PlayerTeleportEvent;
 import org.bukkit.inventory.ItemStack;
@@ -84,6 +86,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
                     case "alchemyfinal" -> alchemyFinal(sender);
+                    case "chestmerge" -> chestMerge(sender, args);
                     case "tick" -> tick(sender, args);
                     case "cancelportal" -> cancelPortal(sender, args);
                     default -> false;
@@ -152,6 +155,14 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         set(world, 13, Y + 1, 9, Material.HOPPER);
         set(world, 13, Y, 9, Material.CHEST);
         set(world, 14, Y + 1, 9, Material.REDSTONE_BLOCK);
+
+        // Border-storage fixture. The victim half sits in chunk X=1 while
+        // the attacker can legally place the adjacent half in chunk X=0.
+        Block victimChestBlock = set(world, 16, Y, 14, Material.CHEST);
+        Chest victimChest = (Chest) victimChestBlock.getState();
+        victimChest.getInventory().clear();
+        victimChest.getInventory().setItem(0, new ItemStack(Material.NETHERITE_BLOCK, 27));
+        world.getBlockAt(15, Y, 14).setType(Material.AIR, false);
 
         writeEvent("arena_build", snapshotMap(world, "build"));
         sender.sendMessage("STACKLAB BUILD OK boundary=15/16 y=" + Y);
@@ -420,6 +431,60 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         return true;
     }
 
+    private boolean chestMerge(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 2) {
+            sender.sendMessage("Usage: /stacklab chestmerge <player>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        World world = requireWorld();
+        player.getInventory().setItemInMainHand(new ItemStack(Material.CHEST, 1));
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("attacker_block_before", type(world, 15, Y, 14));
+        evidence.put("victim_block_before", type(world, 16, Y, 14));
+        evidence.put("victim_count_before", inventoryCount(world.getBlockAt(16, Y, 14), Material.NETHERITE_BLOCK));
+        try {
+            Object serverPlayer = player.getClass().getMethod("getHandle").invoke(player);
+            Class<?> handClass = Class.forName("net.minecraft.world.InteractionHand");
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Object mainHand = Enum.valueOf((Class<? extends Enum>) handClass, "MAIN_HAND");
+            Class<?> directionClass = Class.forName("net.minecraft.core.Direction");
+            @SuppressWarnings({"unchecked", "rawtypes"})
+            Object up = Enum.valueOf((Class<? extends Enum>) directionClass, "UP");
+            Class<?> blockPosClass = Class.forName("net.minecraft.core.BlockPos");
+            Object blockPos = blockPosClass.getConstructor(int.class, int.class, int.class).newInstance(15, Y - 1, 14);
+            Class<?> vec3Class = Class.forName("net.minecraft.world.phys.Vec3");
+            Object hitLocation = vec3Class.getConstructor(double.class, double.class, double.class).newInstance(15.5, Y, 14.5);
+            Class<?> hitResultClass = Class.forName("net.minecraft.world.phys.BlockHitResult");
+            Object hitResult = hitResultClass
+                .getConstructor(vec3Class, directionClass, blockPosClass, boolean.class)
+                .newInstance(hitLocation, up, blockPos, false);
+            Class<?> nmsPlayerClass = Class.forName("net.minecraft.world.entity.player.Player");
+            Class<?> contextClass = Class.forName("net.minecraft.world.item.context.UseOnContext");
+            Object context = contextClass.getConstructor(nmsPlayerClass, handClass, hitResultClass)
+                .newInstance(serverPlayer, mainHand, hitResult);
+            Object nmsStack = serverPlayer.getClass().getMethod("getItemInHand", handClass).invoke(serverPlayer, mainHand);
+            Object item = nmsStack.getClass().getMethod("getItem").invoke(nmsStack);
+            Object result = item.getClass().getMethod("useOn", contextClass).invoke(item, context);
+            evidence.put("invoked", true);
+            evidence.put("result", String.valueOf(result));
+        } catch (ReflectiveOperationException exception) {
+            evidence.put("invoked", false);
+            evidence.put("error", exception.toString());
+        }
+        evidence.put("attacker_block_after", type(world, 15, Y, 14));
+        evidence.put("victim_block_after", type(world, 16, Y, 14));
+        evidence.put("victim_count_after", inventoryCount(world.getBlockAt(16, Y, 14), Material.NETHERITE_BLOCK));
+        writeEvent("server_chest_merge", evidence);
+        sender.sendMessage("STACKLAB CHEST MERGE " + gson.toJson(evidence));
+        return true;
+    }
+
     private ItemStack potion(PotionType type) {
         ItemStack item = new ItemStack(Material.POTION);
         PotionMeta meta = (PotionMeta) item.getItemMeta();
@@ -444,6 +509,9 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         result.put("piston_payload_target", type(world, 16, Y, 12));
         result.put("hopper_count", inventoryCount(world.getBlockAt(15, Y, 8), Material.DIAMOND));
         result.put("target_chest_count", inventoryCount(world.getBlockAt(16, Y, 8), Material.DIAMOND));
+        result.put("border_attacker_chest_type", type(world, 15, Y, 14));
+        result.put("border_victim_chest_type", type(world, 16, Y, 14));
+        result.put("border_victim_netherite_count", inventoryCount(world.getBlockAt(16, Y, 14), Material.NETHERITE_BLOCK));
 
         Player attacker = Bukkit.getPlayerExact("AttackerBot");
         if (attacker != null) {
@@ -451,6 +519,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             result.put("attacker_alchemy_xp", auraSkillXp(attacker, "ALCHEMY"));
             var top = attacker.getOpenInventory().getTopInventory();
             result.put("attacker_open_inventory", top.getType().name());
+            result.put("attacker_netherite_count", attacker.getInventory().all(Material.NETHERITE_BLOCK).values().stream().mapToInt(ItemStack::getAmount).sum());
             if (top.getType() == InventoryType.GRINDSTONE) {
                 result.put("grindstone_input_0", itemSummary(top.getItem(0)));
                 result.put("grindstone_input_1", itemSummary(top.getItem(1)));
@@ -658,6 +727,32 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         data.put("input_fragility", enchantLevel(event.getView().getTopInventory().getItem(0), "excellentenchants:curse_of_fragility"));
         data.put("enchanting_xp_monitor", auraEnchantingXp(player));
         writeEvent("grindstone_result_click", data);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onBorderChestPlace(BlockPlaceEvent event) {
+        Location location = event.getBlock().getLocation();
+        if (location.getBlockX() != 15 || location.getBlockY() != Y || location.getBlockZ() != 14) return;
+        writeEvent("border_chest_place", Map.of(
+            "player", event.getPlayer().getName(),
+            "cancelled", event.isCancelled(),
+            "placed", event.getBlockPlaced().getType().name(),
+            "replaced", event.getBlockReplacedState().getType().name()
+        ));
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
+    public void onBorderChestOpen(InventoryOpenEvent event) {
+        if (!(event.getPlayer() instanceof Player player)) return;
+        Location location = event.getInventory().getLocation();
+        if (location == null || location.getBlockY() != Y || location.getBlockZ() != 14) return;
+        writeEvent("border_chest_open", Map.of(
+            "player", player.getName(),
+            "cancelled", event.isCancelled(),
+            "inventory_type", event.getInventory().getType().name(),
+            "netherite_count", event.getInventory().all(Material.NETHERITE_BLOCK).values().stream().mapToInt(ItemStack::getAmount).sum(),
+            "location_x", location.getBlockX()
+        ));
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = false)
