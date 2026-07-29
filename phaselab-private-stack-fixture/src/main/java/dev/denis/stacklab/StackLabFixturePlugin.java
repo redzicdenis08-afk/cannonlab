@@ -337,13 +337,18 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         // Lock extraction until the actual BrewEvent and AuraSkills' delayed
         // before/after comparison have completed.
         set(world, 14, Y + 1, 9, Material.REDSTONE_BLOCK);
-        var inventory = stand.getInventory();
-        inventory.clear();
-        for (int slot = 0; slot < 3; slot++) inventory.setItem(slot, potion(PotionType.WATER));
-        inventory.setIngredient(new ItemStack(Material.NETHER_WART));
         stand.setFuelLevel(20);
         stand.setBrewingTime(1);
         stand.update(true, false);
+
+        // BlockState#update writes the snapshot inventory back to the world.
+        // Populate the live inventory only after that state update or the
+        // just-added potions and ingredient are erased before the next tick.
+        BrewingStand liveStand = (BrewingStand) standBlock.getState();
+        var inventory = liveStand.getInventory();
+        inventory.clear();
+        for (int slot = 0; slot < 3; slot++) inventory.setItem(slot, potion(PotionType.WATER));
+        inventory.setIngredient(new ItemStack(Material.NETHER_WART));
 
         writeEvent("alchemy_cycle_start", Map.of("label", label));
         Bukkit.getScheduler().runTaskLater(this, () -> {
@@ -368,7 +373,6 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         }
         stand.getInventory().clear();
         stand.getInventory().setItem(0, potion(PotionType.AWKWARD));
-        stand.update(true, false);
         writeEvent("alchemy_final_ready", alchemySnapshotMap(world, "final-ready"));
         sender.sendMessage("STACKLAB ALCHEMY FINAL READY");
         return true;
