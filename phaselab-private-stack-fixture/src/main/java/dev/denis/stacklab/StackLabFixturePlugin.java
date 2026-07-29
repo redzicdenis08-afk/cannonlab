@@ -161,7 +161,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         // the attacker can legally place the adjacent half in chunk X=0.
         Block victimChestBlock = set(world, 16, Y, 14, Material.CHEST);
         if (victimChestBlock.getBlockData() instanceof Directional directional) {
-            directional.setFacing(BlockFace.WEST);
+            directional.setFacing(BlockFace.NORTH);
             victimChestBlock.setBlockData(directional, false);
         }
         Chest victimChest = (Chest) victimChestBlock.getState();
