@@ -80,12 +80,42 @@ def main() -> int:
     assert finding["status"] == "confirmed", finding
     assert finding["evidence"]["confirmed_attempts"] == 3, finding
 
+    alchemy_rows = [
+        *[
+            {
+                "type": "brew_event",
+                "cancelled": False,
+            }
+            for _ in range(5)
+        ],
+        {
+            "type": "snapshot",
+            "label": "alchemy-before-take",
+            "attacker_alchemy_xp": 0.0,
+            "alchemy_chest_potions": 15,
+        },
+        {
+            "type": "alchemy_result_click",
+            "slot": 0,
+            "alchemy_xp_monitor": 50.0,
+        },
+        {
+            "type": "snapshot",
+            "label": "alchemy-after-take",
+            "attacker_alchemy_xp": 50.0,
+            "alchemy_chest_potions": 15,
+        },
+    ]
+    finding = evaluator.alchemy_amplifier(alchemy_rows)
+    assert finding["status"] == "confirmed", finding
+    assert finding["evidence"]["xp_gain"] == 50.0, finding
+
     with tempfile.TemporaryDirectory() as temporary:
         path = Path(temporary) / "evidence.jsonl"
         path.write_text("\n".join(json.dumps(row) for row in confirmed_rows()) + "\n", encoding="utf-8")
         assert len(evaluator.read_rows(path)) == 9
 
-    print("Private-stack evidence evaluator regressions passed: 5")
+    print("Private-stack evidence evaluator regressions passed: 6")
     return 0
 
 

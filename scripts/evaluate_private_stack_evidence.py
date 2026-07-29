@@ -156,6 +156,38 @@ def grindstone_xp(rows):
     )
 
 
+def alchemy_amplifier(rows):
+    w = window(rows, "alchemy-before-take", "alchemy-after-take")
+    if not w:
+        return result("inconclusive", "AuraSkills paid five brewing cycles on one potion take", reason="missing_window")
+    before, after, events = w
+    try:
+        xp_before = float(before.get("attacker_alchemy_xp"))
+        xp_after = float(after.get("attacker_alchemy_xp"))
+    except (TypeError, ValueError):
+        return result("inconclusive", "AuraSkills paid five brewing cycles on one potion take", reason="missing_xp", before=before, after=after)
+    chest_count = int(before.get("alchemy_chest_potions", 0))
+    gain = xp_after - xp_before
+    clicks = [e for e in events if e.get("type") == "alchemy_result_click"]
+    brew_events = [e for e in rows if e.get("type") == "brew_event" and e.get("cancelled") is False]
+    potion_moves = [e for e in rows if e.get("type") == "inventory_move" and e.get("item") == "POTION" and e.get("cancelled") is False]
+    exact_five_cycle_witness = len(brew_events) >= 5 and chest_count >= 15
+    confirmed = exact_five_cycle_witness and gain >= 49.9 and len(clicks) >= 1
+    rejected = exact_five_cycle_witness and gain <= 10.1 and len(clicks) >= 1
+    status = "confirmed" if confirmed else "rejected" if rejected else "inconclusive"
+    return result(
+        status,
+        "AuraSkills paid five brewing cycles on one potion take",
+        xp_before=xp_before,
+        xp_after=xp_after,
+        xp_gain=gain,
+        hopper_extracted_potions=chest_count,
+        brew_events=len(brew_events),
+        potion_move_events=len(potion_moves),
+        server_click_events=clicks,
+    )
+
+
 def simple(rows, before_label, after_label, field, vulnerable, title):
     w = window(rows, before_label, after_label)
     if not w:
@@ -192,6 +224,7 @@ def main() -> int:
         "claims_verified": claims_ok,
         "claim_witness": claims,
         "findings": {
+            "auraskills_alchemy_five_cycle_amplifier": alchemy_amplifier(rows),
             "auraskills_excellentenchants_grindstone_xp": grindstone_xp(rows),
             "portal_factions": portal(rows, "factions", 3, False) if claims_ok else blocked("Cancelled portal creation duplicated a filled barrel"),
             "portal_cancel_control": portal(rows, "control", 2, True),
