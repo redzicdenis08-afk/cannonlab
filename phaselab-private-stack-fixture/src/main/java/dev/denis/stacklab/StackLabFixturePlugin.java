@@ -461,7 +461,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
             "payload", payload.name(),
             "target_before", type(world, 16, Y, 16)
         ));
-        Bukkit.getScheduler().runTaskLater(this, () -> world.getBlockAt(14, Y, 16).setType(Material.REDSTONE_BLOCK, false), 1L);
+        Bukkit.getScheduler().runTaskLater(this, () -> world.getBlockAt(14, Y, 16).setType(Material.REDSTONE_BLOCK, true), 1L);
         Bukkit.getScheduler().runTaskLater(this, () -> {
             writeEvent("dispenser_probe_end", Map.of(
                 "mode", mode,
@@ -470,7 +470,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                 "inventory_water_buckets", inventoryCount(dispenserBlock, Material.WATER_BUCKET),
                 "inventory_empty_buckets", inventoryCount(dispenserBlock, Material.BUCKET)
             ));
-            world.getBlockAt(14, Y, 16).setType(Material.AIR, false);
+            world.getBlockAt(14, Y, 16).setType(Material.AIR, true);
         }, 12L);
         sender.sendMessage("STACKLAB DISPENSER START mode=" + mode);
         return true;
