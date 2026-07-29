@@ -11,7 +11,9 @@ import org.bukkit.event.entity.EntityChangeBlockEvent;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.HashSet;
 import java.util.Set;
 
 public final class ModernContainerGuardPlugin extends JavaPlugin implements Listener {
@@ -35,12 +37,23 @@ public final class ModernContainerGuardPlugin extends JavaPlugin implements List
             }
 
             @SuppressWarnings("unchecked")
-            Set<Material> containers = (Set<Material>) rawContainers;
+            Set<Material> containers = new HashSet<>((Set<Material>) rawContainers);
             boolean crafterAdded = containers.add(Material.CRAFTER);
             boolean potAdded = containers.add(Material.DECORATED_POT);
             if (!containers.contains(Material.CRAFTER) || !containers.contains(Material.DECORATED_POT)) {
                 throw new IllegalStateException("Could not register modern protected containers");
             }
+
+            setField(protectionConfig, "customContainersMat", containers);
+            Object namesValue = getField(protectionConfig, "customContainers");
+            if (!(namesValue instanceof Set<?> rawNames)) {
+                throw new IllegalStateException("FactionsUUID custom container names are unavailable");
+            }
+            Set<String> names = new HashSet<>();
+            for (Object value : rawNames) names.add(String.valueOf(value));
+            names.add(Material.CRAFTER.name());
+            names.add(Material.DECORATED_POT.name());
+            setField(protectionConfig, "customContainers", names);
 
             getServer().getPluginManager().registerEvents(this, this);
             getLogger().info("FactionsUUID modern-container guard enabled; CRAFTER added=" + crafterAdded + ", DECORATED_POT added=" + potAdded);
@@ -63,5 +76,17 @@ public final class ModernContainerGuardPlugin extends JavaPlugin implements List
     private Object invoke(Object target, String methodName) throws ReflectiveOperationException {
         Method method = target.getClass().getMethod(methodName);
         return method.invoke(target);
+    }
+
+    private Object getField(Object target, String fieldName) throws ReflectiveOperationException {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(target);
+    }
+
+    private void setField(Object target, String fieldName, Object value) throws ReflectiveOperationException {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(target, value);
     }
 }
