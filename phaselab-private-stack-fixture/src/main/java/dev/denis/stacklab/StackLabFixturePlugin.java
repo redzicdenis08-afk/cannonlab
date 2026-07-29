@@ -88,6 +88,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
                     case "break" -> breakBlock(sender, args);
                     case "alchemycycle" -> alchemyCycle(sender, args.length > 1 ? args[1] : "manual");
                     case "alchemyfinal" -> alchemyFinal(sender);
+                    case "auramana" -> auraMana(sender, args);
                     case "tick" -> tick(sender, args);
                     case "cancelportal" -> cancelPortal(sender, args);
                     default -> false;
@@ -105,6 +106,7 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         try {
             Class<? extends Event> eventClass = Class.forName(className).asSubclass(Event.class);
             Bukkit.getPluginManager().registerEvent(eventClass, this, EventPriority.MONITOR, (listener, event) -> {
+                if (!event.getClass().getName().equals(className)) return;
                 Map<String, Object> data = new LinkedHashMap<>();
                 data.put("event_class", event.getClass().getName());
                 try {
@@ -142,6 +144,39 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         } catch (ReflectiveOperationException | RuntimeException exception) {
             writeEvent("optional_event_registration_failed", Map.of("class", className, "error", exception.toString()));
         }
+    }
+
+    private boolean auraMana(org.bukkit.command.CommandSender sender, String[] args) {
+        if (args.length < 3) {
+            sender.sendMessage("Usage: /stacklab auramana <player> <amount>");
+            return true;
+        }
+        Player player = Bukkit.getPlayerExact(args[1]);
+        if (player == null) {
+            sender.sendMessage("Player not online: " + args[1]);
+            return true;
+        }
+        double amount = Double.parseDouble(args[2]);
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("player", player.getName());
+        evidence.put("requested", amount);
+        try {
+            Class<?> apiClass = Class.forName("dev.aurelium.auraskills.api.AuraSkillsApi");
+            Object api = apiClass.getMethod("get").invoke(null);
+            Object user = apiClass.getMethod("getUser", java.util.UUID.class).invoke(api, player.getUniqueId());
+            Class<?> skillsUserClass = Class.forName("dev.aurelium.auraskills.api.user.SkillsUser");
+            evidence.put("before", skillsUserClass.getMethod("getMana").invoke(user));
+            evidence.put("max", skillsUserClass.getMethod("getMaxMana").invoke(user));
+            skillsUserClass.getMethod("setMana", double.class).invoke(user, amount);
+            evidence.put("after", skillsUserClass.getMethod("getMana").invoke(user));
+            evidence.put("ok", true);
+        } catch (ReflectiveOperationException | RuntimeException exception) {
+            evidence.put("ok", false);
+            evidence.put("error", exception.toString());
+        }
+        writeEvent("aura_mana_set", evidence);
+        sender.sendMessage("STACKLAB AURA MANA " + gson.toJson(evidence));
+        return true;
     }
 
     private boolean build(org.bukkit.command.CommandSender sender) {
