@@ -20,6 +20,12 @@ This document is the canonical source of truth for PhaseLab's authorized Sakura 
 - Translated client: Minecraft 1.21.11 through ViaVersion + ViaBackwards 5.9.0.
 - Bot observations are diagnostic only. Final verdicts use plugin snapshots and server-originated witnesses.
 
+## Private plugin-stack parity
+
+**Status: incomplete [unknown].**
+
+The exact PhaseLab reference runtime currently proves pinned public Sakura plus ViaVersion/ViaBackwards behavior. Its public Sakura hash and Via 5.9.0 pair are not promoted to live-server identity. The lab does not yet include a hash-locked export of the live backend, Velocity, FactionsUUID, AuraSkills, ExcellentEnchants, Vault, FactionsUUIDPlus, or the observed custom integration plugins. `profiles/phaselab/extremecraft-plugin-stack-observed-v1.json` preserves the known names without guessing unknown versions. `scripts/phaselab_stack_audit.py` inventories, locks, verifies, and stages only operator-supplied live exports. Until that lock passes with backend, proxy, plugin, and configuration fingerprints, the laboratory must not be called identical to the live server.
+
 ## Retired false-positive rules
 
 1. **No correction packet is not acceptance.** A server or proxy may ignore movement silently.

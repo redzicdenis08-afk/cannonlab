@@ -1,0 +1,14 @@
+name: PhaseLabStackProbe
+version: ${version}
+main: dev.denis.phaselab.stack.StackProbePlugin
+api-version: '1.21'
+authors: [Denis]
+description: OP-only plugin and runtime fingerprint exporter for an authorized private PhaseLab stack.
+commands:
+  phasestack:
+    description: Export loaded server and plugin identity evidence.
+    usage: /phasestack <status|export>
+    permission: phaselab.stack.admin
+permissions:
+  phaselab.stack.admin:
+    default: op

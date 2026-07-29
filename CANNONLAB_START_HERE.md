@@ -16,6 +16,8 @@ CannonLab can build its Java 25 plugin, build pinned public Sakura 26.1.2, boot 
 
 Start with `src/`, `scripts/build-sakura-26.1.2.sh`, `scripts/cloud-smoke.sh`, `scenarios/` and `README.md`.
 
+For private movement/exploit-stack parity, also read `docs/PHASELAB_STACK_PARITY.md`, inspect `profiles/phaselab/extremecraft-plugin-stack-observed-v1.json`, and use `scripts/phaselab_stack_audit.py`. Unknown private plugin versions are blockers, not invitations to install arbitrary latest releases.
+
 ### Schematic and placement forensics
 
 The intake layer supports Sponge v2 and Litematica, deterministic compatible conversion, block-state and block-entity checks, redstone support checks, dispenser counts, separate block-entity pressure, and all 256 X/Z chunk-local placement offsets.
