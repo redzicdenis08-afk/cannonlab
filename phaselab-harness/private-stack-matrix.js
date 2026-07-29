@@ -311,7 +311,7 @@ async function main () {
       await command(phaseBot, '/stacklab snapshot alchemy-before-take', 300)
       let clickError = null
       try {
-        await attackerBot.clickWindow(0, 0, 0)
+        await attackerBot.clickWindow(1, 0, 0)
       } catch (error) {
         clickError = String(error.stack || error)
       }

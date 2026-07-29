@@ -418,7 +418,10 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         }
         var inventory = stand.getInventory();
         inventory.clear();
-        inventory.setItem(0, potion(PotionType.AWKWARD));
+        // The hopper extraction order left AuraSkills' five-cycle state on
+        // brewing slot 1 in the exact runtime. Use that proven accumulated
+        // slot for the final player take.
+        inventory.setItem(1, potion(PotionType.AWKWARD));
         writeEvent("alchemy_final_ready", alchemySnapshotMap(world, "final-ready"));
         sender.sendMessage("STACKLAB ALCHEMY FINAL READY");
         return true;
