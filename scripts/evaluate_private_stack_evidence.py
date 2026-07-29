@@ -218,7 +218,10 @@ def border_chest(rows):
     stolen = (
         int(before.get("border_victim_netherite_count", 0)) >= 27
         and int(after.get("border_victim_netherite_count", 0)) < int(before.get("border_victim_netherite_count", 0))
-        and int(after.get("attacker_netherite_count", 0)) > 0
+        and (
+            int(after.get("attacker_netherite_count", 0)) > 0
+            or int(after.get("border_hopper_netherite_count", 0)) > 0
+        )
     )
     denied = opens and all(e.get("cancelled") is True for e in opens)
     status = "confirmed" if merges and placed and stolen else "rejected" if merges and placed and denied else "inconclusive"

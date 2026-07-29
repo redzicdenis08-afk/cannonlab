@@ -295,6 +295,7 @@ async function main () {
         /STACKLAB CHEST MERGE .*"invoked":true/,
         6000
       )
+      await sleep(1400)
       let openError = null
       let visibleNetherite = 0
       try {
