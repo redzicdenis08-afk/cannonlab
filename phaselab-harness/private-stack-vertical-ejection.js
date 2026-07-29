@@ -350,6 +350,25 @@ function captureAllCorrections (bot, vehicleId) {
   }
 }
 
+function classifyStageEvents (events, expected) {
+  const expectedRelocations = []
+  const setbacks = []
+  for (const event of events) {
+    if (event.type === 'player_position') {
+      const packet = event.packet || {}
+      const close = Number.isFinite(packet.x) && Number.isFinite(packet.y) && Number.isFinite(packet.z)
+        && Math.abs(packet.x - expected.x) <= 1.0
+        && Math.abs(packet.y - expected.y) <= 1.0
+        && Math.abs(packet.z - expected.z) <= 1.0
+      if (close) expectedRelocations.push(event)
+      else setbacks.push(event)
+    } else {
+      setbacks.push(event)
+    }
+  }
+  return { expectedRelocations, setbacks }
+}
+
 async function remountExistingVehicle (phaseBot, attackerBot, trial, entity, acceptedY) {
   const response = await commandExpect(
     phaseBot,
@@ -391,42 +410,65 @@ async function runEjectionTrial (phaseBot, attackerBot, trial, run) {
   const start = { x: mountedVehicle.position.x, y: mountedVehicle.position.y, z: mountedVehicle.position.z }
   await command(phaseBot, `/summon minecraft:item ${start.x} 58.5 ${start.z} {Item:{id:"minecraft:netherite_block",count:1}}`, 100)
 
-  const corrections = captureAllCorrections(attackerBot, mountedVehicle.id)
+  const telemetry = captureAllCorrections(attackerBot, mountedVehicle.id)
   const started = Date.now()
   let packetCount = 0
   const checkpoints = []
   const remounts = []
 
   // The proven primitive: one four-block vehicle burst ejects the player downward.
+  const firstEventIndex = telemetry.events.length
   packetCount += await sendDownSegment(attackerBot, start.y - 4.0, false)
   await sleep(250)
   const firstY = start.y - 4.0
   const firstPlayerAccepted = await serverWitness(phaseBot, verticalPlayerSelector(start.x, firstY, start.z, 3.0), `EJECT_PLAYER_${trial.id}_${run}`)
   const firstVehicleStayed = await serverWitness(phaseBot, verticalVehicleSelector(trial.vehicle, start.x, start.y, start.z, 3.0), `EJECT_VEHICLE_TOP_${trial.id}_${run}`)
   const firstVehicleLower = await serverWitness(phaseBot, verticalVehicleSelector(trial.vehicle, start.x, firstY, start.z, 3.0), `EJECT_VEHICLE_LOWER_${trial.id}_${run}`)
+  const firstClassification = classifyStageEvents(
+    telemetry.events.slice(firstEventIndex),
+    { x: start.x, y: firstY, z: start.z }
+  )
+  const setbacks = [...firstClassification.setbacks]
+  const expectedRelocations = [...firstClassification.expectedRelocations]
   checkpoints.push({
     stage: 'first_eject',
     targetY: firstY,
     playerAccepted: firstPlayerAccepted,
     vehicleStayedTop: firstVehicleStayed,
-    vehicleLower: firstVehicleLower
+    vehicleLower: firstVehicleLower,
+    expectedRelocations: firstClassification.expectedRelocations.length,
+    setbacks: firstClassification.setbacks.length
   })
   attackerBot.vehicle = null
   attackerBot.entity.vehicle = null
 
   let acceptedY = firstPlayerAccepted ? firstY : start.y
   if (firstPlayerAccepted && trial.chain === 'player') {
-    while (acceptedY > TARGET_Y + 1e-9 && corrections.events.length === 0) {
+    while (acceptedY > TARGET_Y + 1e-9 && setbacks.length === 0) {
       const targetY = Math.max(TARGET_Y, acceptedY - trial.segmentLength)
+      const stageEventIndex = telemetry.events.length
       packetCount += await sendPlayerDownSegment(attackerBot, acceptedY, targetY, trial)
       await sleep(trial.pauseMs)
       const accepted = await serverWitness(phaseBot, verticalPlayerSelector(start.x, targetY, start.z, 3.0), `PLAYER_CHAIN_${trial.id}_${run}_${targetY}`)
-      checkpoints.push({ stage: 'player_chain', fromY: acceptedY, targetY, accepted, corrections: corrections.events.length })
-      if (!accepted || corrections.events.length > 0) break
+      const classification = classifyStageEvents(
+        telemetry.events.slice(stageEventIndex),
+        { x: start.x, y: targetY, z: start.z }
+      )
+      expectedRelocations.push(...classification.expectedRelocations)
+      setbacks.push(...classification.setbacks)
+      checkpoints.push({
+        stage: 'player_chain',
+        fromY: acceptedY,
+        targetY,
+        accepted,
+        expectedRelocations: classification.expectedRelocations.length,
+        setbacks: classification.setbacks.length
+      })
+      if (!accepted || classification.setbacks.length > 0) break
       acceptedY = targetY
     }
   } else if (firstPlayerAccepted && trial.chain === 'remount') {
-    while (acceptedY > TARGET_Y + 1e-9 && corrections.events.length === 0) {
+    while (acceptedY > TARGET_Y + 1e-9 && setbacks.length === 0) {
       let remount
       try {
         remount = await remountExistingVehicle(phaseBot, attackerBot, trial, mountedVehicle, acceptedY)
@@ -436,19 +478,34 @@ async function runEjectionTrial (phaseBot, attackerBot, trial, run) {
         break
       }
       const targetY = Math.max(TARGET_Y, acceptedY - trial.segmentLength)
+      const stageEventIndex = telemetry.events.length
       packetCount += await sendDownSegment(attackerBot, targetY, false)
       await sleep(trial.pauseMs)
       const playerAccepted = await serverWitness(phaseBot, verticalPlayerSelector(start.x, targetY, start.z, 3.0), `REMOUNT_CHAIN_PLAYER_${trial.id}_${run}_${targetY}`)
       const vehicleAtTarget = await serverWitness(phaseBot, verticalVehicleSelector(trial.vehicle, start.x, targetY, start.z, 3.0), `REMOUNT_CHAIN_VEHICLE_${trial.id}_${run}_${targetY}`)
-      checkpoints.push({ stage: 'remount_chain', fromY: acceptedY, targetY, playerAccepted, vehicleAtTarget, corrections: corrections.events.length })
+      const classification = classifyStageEvents(
+        telemetry.events.slice(stageEventIndex),
+        { x: start.x, y: targetY, z: start.z }
+      )
+      expectedRelocations.push(...classification.expectedRelocations)
+      setbacks.push(...classification.setbacks)
+      checkpoints.push({
+        stage: 'remount_chain',
+        fromY: acceptedY,
+        targetY,
+        playerAccepted,
+        vehicleAtTarget,
+        expectedRelocations: classification.expectedRelocations.length,
+        setbacks: classification.setbacks.length
+      })
       attackerBot.vehicle = null
       attackerBot.entity.vehicle = null
-      if (!playerAccepted || corrections.events.length > 0) break
+      if (!playerAccepted || classification.setbacks.length > 0) break
       acceptedY = targetY
     }
   }
 
-  corrections.stop()
+  telemetry.stop()
   await sleep(700)
   const playerBelow = await serverWitness(phaseBot, verticalPlayerSelector(start.x, TARGET_Y, start.z, 6.0), `CHAIN_FINAL_PLAYER_${trial.id}_${run}`)
   const netheriteCount = attackerBot.inventory.items().filter(item => item.name === 'netherite_block').reduce((sum, item) => sum + item.count, 0)
@@ -469,14 +526,16 @@ async function runEjectionTrial (phaseBot, attackerBot, trial, run) {
     packetCount,
     checkpoints,
     remounts,
-    correctionCount: corrections.events.length,
-    firstCorrection: corrections.events[0] || null,
+    telemetryCount: telemetry.events.length,
+    expectedRelocationCount: expectedRelocations.length,
+    setbackCount: setbacks.length,
+    firstSetback: setbacks[0] || null,
     playerBelow,
     netheriteCount,
     elapsedMs: Date.now() - started
   }
   result.serverAuthoritativeSuccess = Boolean(
-    acceptedY <= TARGET_Y + 1e-9 && playerBelow && netheriteCount >= 1 && corrections.events.length === 0
+    acceptedY <= TARGET_Y + 1e-9 && playerBelow && netheriteCount >= 1 && setbacks.length === 0
   )
   report.trials.push(result)
   record('vertical_ejection_trial', result)
@@ -491,15 +550,11 @@ async function main () {
 
   report.scope = 'authorized exact private Sakura/Factions vertical ejection chain matrix'
   const trialPlan = [
-    { id: 'boat-player-air-hcoll-fast', vehicle: 'boat', chain: 'player', onGround: false, horizontalCollision: true, packetDelayMs: 0, segmentLength: 4, pauseMs: 100, repeats: 2 },
+    { id: 'boat-player-air-hcoll-fast', vehicle: 'boat', chain: 'player', onGround: false, horizontalCollision: true, packetDelayMs: 0, segmentLength: 4, pauseMs: 100, repeats: 3 },
     { id: 'boat-player-air-hcoll-50ms', vehicle: 'boat', chain: 'player', onGround: false, horizontalCollision: true, packetDelayMs: 50, segmentLength: 4, pauseMs: 100, repeats: 2 },
     { id: 'boat-player-ground-hcoll-fast', vehicle: 'boat', chain: 'player', onGround: true, horizontalCollision: true, packetDelayMs: 0, segmentLength: 4, pauseMs: 100, repeats: 2 },
-    { id: 'boat-remount-anchor4', vehicle: 'boat', chain: 'remount', onGround: false, horizontalCollision: true, packetDelayMs: 0, segmentLength: 4, pauseMs: 120, repeats: 2 },
-    { id: 'horse-player-air-hcoll-fast', vehicle: 'horse', chain: 'player', onGround: false, horizontalCollision: true, packetDelayMs: 0, segmentLength: 4, pauseMs: 100, repeats: 2 },
-    { id: 'horse-player-air-hcoll-50ms', vehicle: 'horse', chain: 'player', onGround: false, horizontalCollision: true, packetDelayMs: 50, segmentLength: 4, pauseMs: 100, repeats: 2 },
-    { id: 'horse-remount-anchor4', vehicle: 'horse', chain: 'remount', onGround: false, horizontalCollision: true, packetDelayMs: 0, segmentLength: 4, pauseMs: 120, repeats: 2 }
+    { id: 'boat-remount-anchor4', vehicle: 'boat', chain: 'remount', onGround: false, horizontalCollision: true, packetDelayMs: 0, segmentLength: 4, pauseMs: 120, repeats: 2 }
   ]
-
   try {
     await command(phaseBot, '/gamerule doDaylightCycle false')
     await command(phaseBot, '/gamerule doFireTick false')
