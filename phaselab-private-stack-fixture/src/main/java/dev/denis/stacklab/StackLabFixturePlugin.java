@@ -213,8 +213,14 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         }
         World world = requireWorld();
         Block sourceBlock = world.getBlockAt(TREE_X, TREE_Y, TREE_Z);
+        boolean sourceRestored = false;
+        if (sourceBlock.getType() != Material.OAK_LOG) {
+            sourceBlock.setType(Material.OAK_LOG, false);
+            sourceRestored = true;
+        }
         Map<String, Object> evidence = new LinkedHashMap<>();
         evidence.put("player", player.getName());
+        evidence.put("source_restored", sourceRestored);
         evidence.put("before", treecapSnapshotMap(world, player, "before-invoke"));
         try {
             Object treecapitator = findTreecapitatorListener();
