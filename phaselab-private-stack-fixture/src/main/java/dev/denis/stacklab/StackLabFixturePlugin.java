@@ -467,7 +467,6 @@ public final class StackLabFixturePlugin extends JavaPlugin implements Listener 
         if (fullInventory) {
             for (int slot = copies; slot < 36; slot++) {
                 ItemStack filler = new ItemStack(Material.DIAMOND_BLOCK, 64);
-                filler.addUnsafeEnchantment(soulbound, 1);
                 player.getInventory().setItem(slot, filler);
             }
         }

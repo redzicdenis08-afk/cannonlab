@@ -10,6 +10,7 @@ on:
       - research/phaselab-ability-witness
       - research/phaselab-soulbound-dupe
       - research/phaselab-soulbound-full-inventory
+      - research/phaselab-soulbound-resource-dupe
     paths:
       - 'phaselab-private-stack-fixture/**'
       - 'phaselab-harness/private-stack-matrix.js'
@@ -254,7 +255,7 @@ jobs:
               'fatal': result.get('fatal'),
           }
           print(summary)
-          print('::notice title=SoulboundResult::' + '; '.join(f'{key}={value}' for key, value in summary.items()))
+          print('::notice title=SoulboundResourceResult::' + '; '.join(f'{key}={value}' for key, value in summary.items()))
           if result.get('fatal'):
               raise SystemExit(1)
           PY
