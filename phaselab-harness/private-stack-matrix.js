@@ -1,0 +1,246 @@
+'use strict'
+
+const fs = require('fs')
+const path = require('path')
+const mineflayer = require('mineflayer')
+const { Vec3 } = require('vec3')
+
+const HOST = process.env.PHASELAB_HOST || '127.0.0.1'
+const PORT = Number(process.env.PHASELAB_PORT || 25566)
+const OUTPUT_DIR = path.resolve(process.env.PHASELAB_OUTPUT || 'output-private-stack')
+const VERSION = '1.21.11'
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+
+fs.mkdirSync(OUTPUT_DIR, { recursive: true })
+const transcript = []
+const results = {
+  startedAt: new Date().toISOString(),
+  host: HOST,
+  port: PORT,
+  version: VERSION,
+  phases: []
+}
+
+function record (type, data = {}) {
+  const row = { ts: new Date().toISOString(), type, ...data }
+  transcript.push(row)
+  process.stdout.write(`${JSON.stringify(row)}\n`)
+}
+
+function onceWithTimeout (emitter, eventName, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    let settled = false
+    const timer = setTimeout(() => finish(new Error(`Timeout waiting for ${eventName}`)), timeoutMs)
+    const handler = (...args) => finish(null, args)
+    function finish (error, value) {
+      if (settled) return
+      settled = true
+      clearTimeout(timer)
+      emitter.removeListener(eventName, handler)
+      if (error) reject(error)
+      else resolve(value)
+    }
+    emitter.once(eventName, handler)
+  })
+}
+
+async function connect (username) {
+  const bot = mineflayer.createBot({
+    host: HOST,
+    port: PORT,
+    username,
+    auth: 'offline',
+    version: VERSION,
+    checkTimeoutInterval: 30000
+  })
+  bot.on('messagestr', message => record('chat', { username, message: String(message) }))
+  bot.on('kicked', reason => record('kicked', { username, reason: String(reason) }))
+  bot.on('error', error => record('bot_error', { username, error: String(error.stack || error) }))
+  await onceWithTimeout(bot, 'spawn', 45000)
+  record('spawn', { username, position: bot.entity.position })
+  return bot
+}
+
+async function command (bot, text, delay = 450) {
+  record('command', { username: bot.username, text })
+  bot.chat(text)
+  await sleep(delay)
+}
+
+async function waitForInventoryItem (bot, itemName, timeoutMs = 4000) {
+  const deadline = Date.now() + timeoutMs
+  while (Date.now() < deadline) {
+    const item = bot.inventory.items().find(entry => entry.name === itemName)
+    if (item) return item
+    await sleep(100)
+  }
+  return null
+}
+
+async function equipAndActivate (bot, itemName, blockPos, faceVector) {
+  const item = await waitForInventoryItem(bot, itemName)
+  if (!item) throw new Error(`${bot.username} missing ${itemName}`)
+  await bot.equip(item, 'hand')
+  await sleep(150)
+  const block = bot.blockAt(blockPos)
+  if (!block) throw new Error(`Missing target block at ${blockPos}`)
+  await bot.lookAt(block.position.offset(0.5, 0.5, 0.5), true)
+  await bot.activateBlock(block, faceVector)
+  await sleep(1500)
+  return {
+    target: block.name,
+    heldAfter: bot.heldItem ? { name: bot.heldItem.name, count: bot.heldItem.count } : null
+  }
+}
+
+async function equipAndDig (bot, itemName, blockPos) {
+  const item = await waitForInventoryItem(bot, itemName)
+  if (!item) throw new Error(`${bot.username} missing ${itemName}`)
+  await bot.equip(item, 'hand')
+  const block = bot.blockAt(blockPos)
+  if (!block) throw new Error(`Missing dig block at ${blockPos}`)
+  await bot.lookAt(block.position.offset(0.5, 0.5, 0.5), true)
+  await bot.dig(block, true)
+  await sleep(1200)
+  return { target: block.name }
+}
+
+async function phase (name, fn) {
+  const started = Date.now()
+  try {
+    const detail = await fn()
+    const entry = { name, ok: true, elapsedMs: Date.now() - started, detail }
+    results.phases.push(entry)
+    record('phase_result', entry)
+  } catch (error) {
+    const entry = { name, ok: false, elapsedMs: Date.now() - started, error: String(error.stack || error) }
+    results.phases.push(entry)
+    record('phase_result', entry)
+  }
+}
+
+async function main () {
+  const phaseBot = await connect('PhaseBot')
+  const victimBot = await connect('VictimBot')
+  const attackerBot = await connect('AttackerBot')
+  const bots = [phaseBot, victimBot, attackerBot]
+
+  try {
+    await command(phaseBot, '/gamerule doDaylightCycle false')
+    await command(phaseBot, '/time set day')
+    await command(phaseBot, '/difficulty peaceful')
+    await command(phaseBot, '/gamemode creative PhaseBot')
+    await command(phaseBot, '/gamemode survival VictimBot')
+    await command(phaseBot, '/gamemode survival AttackerBot')
+    await command(phaseBot, '/effect give VictimBot minecraft:resistance infinite 255 true')
+    await command(phaseBot, '/effect give AttackerBot minecraft:resistance infinite 255 true')
+
+    await phase('factions_setup', async () => {
+      await command(phaseBot, '/tp VictimBot 17.5 65 21.5')
+      await command(victimBot, '/f create Victims', 900)
+      await command(victimBot, '/f claim', 900)
+      await command(phaseBot, '/tp AttackerBot 14.5 65 21.5')
+      await command(attackerBot, '/f create Attackers', 900)
+      await command(attackerBot, '/f claim', 900)
+      await command(victimBot, '/f show', 400)
+      await command(attackerBot, '/f show', 400)
+      return { victim: victimBot.entity.position, attacker: attackerBot.entity.position }
+    })
+
+    for (let run = 1; run <= 3; run++) {
+      await phase(`portal_factions_run_${run}`, async () => {
+        await command(phaseBot, '/kill @e[type=minecraft:item]', 250)
+        await command(phaseBot, '/stacklab cancelportal false')
+        await command(phaseBot, '/stacklab portalbuild', 700)
+        await command(phaseBot, '/clear AttackerBot')
+        await command(phaseBot, '/give AttackerBot minecraft:ender_eye 1')
+        await command(phaseBot, '/tp AttackerBot 14.25 65 21.5 -90 0', 500)
+        const interaction = await equipAndActivate(attackerBot, 'ender_eye', new Vec3(15, 65, 21), new Vec3(-1, 0, 0))
+        await command(phaseBot, `/stacklab portalsnapshot factions-${run}`, 400)
+        return interaction
+      })
+    }
+
+    for (let run = 1; run <= 2; run++) {
+      await phase(`portal_cancel_control_${run}`, async () => {
+        await command(phaseBot, '/kill @e[type=minecraft:item]', 250)
+        await command(phaseBot, '/stacklab cancelportal true')
+        await command(phaseBot, '/stacklab portalbuild', 700)
+        await command(phaseBot, '/clear AttackerBot')
+        await command(phaseBot, '/give AttackerBot minecraft:ender_eye 1')
+        await command(phaseBot, '/tp AttackerBot 14.25 65 21.5 -90 0', 500)
+        const interaction = await equipAndActivate(attackerBot, 'ender_eye', new Vec3(15, 65, 21), new Vec3(-1, 0, 0))
+        await command(phaseBot, `/stacklab portalsnapshot control-${run}`, 400)
+        return interaction
+      })
+    }
+    await command(phaseBot, '/stacklab cancelportal false')
+
+    await phase('treefeller_claim_boundary', async () => {
+      await command(phaseBot, '/stacklab build', 650)
+      await command(phaseBot, '/stacklab snapshot tree-before')
+      await command(phaseBot, '/stacklab give AttackerBot diamond_axe excellentenchants:treefeller 1', 500)
+      await command(phaseBot, '/tp AttackerBot 14.25 65 0.5 -90 0', 500)
+      const dig = await equipAndDig(attackerBot, 'diamond_axe', new Vec3(15, 65, 0))
+      await command(phaseBot, '/stacklab snapshot tree-after')
+      return dig
+    })
+
+    await phase('tunnel_claim_boundary', async () => {
+      await command(phaseBot, '/stacklab build', 650)
+      await command(phaseBot, '/stacklab snapshot tunnel-before')
+      await command(phaseBot, '/stacklab give AttackerBot diamond_pickaxe excellentenchants:tunnel 3', 500)
+      await command(phaseBot, '/tp AttackerBot 14.25 66 4.5 -90 0', 500)
+      const dig = await equipAndDig(attackerBot, 'diamond_pickaxe', new Vec3(15, 66, 4))
+      await command(phaseBot, '/stacklab snapshot tunnel-after')
+      return dig
+    })
+
+    await phase('blast_mining_claim_boundary', async () => {
+      await command(phaseBot, '/stacklab build', 650)
+      await command(phaseBot, '/stacklab snapshot blast-before')
+      await command(phaseBot, '/stacklab give AttackerBot diamond_pickaxe excellentenchants:blast_mining 10', 500)
+      await command(phaseBot, '/tp AttackerBot 14.25 66 4.5 -90 0', 500)
+      const dig = await equipAndDig(attackerBot, 'diamond_pickaxe', new Vec3(15, 66, 4))
+      await command(phaseBot, '/stacklab snapshot blast-after')
+      return dig
+    })
+
+    await phase('piston_claim_boundary', async () => {
+      await command(phaseBot, '/stacklab build', 650)
+      await command(phaseBot, '/stacklab snapshot piston-before')
+      await command(phaseBot, '/tp AttackerBot 13.5 65 11.5 0 0', 400)
+      const lever = attackerBot.blockAt(new Vec3(14, 65, 11))
+      if (!lever) throw new Error('Lever missing')
+      await attackerBot.lookAt(lever.position.offset(0.5, 0.5, 0.5), true)
+      await attackerBot.activateBlock(lever)
+      await sleep(900)
+      await command(phaseBot, '/stacklab snapshot piston-after')
+      return { lever: lever.name }
+    })
+
+    await phase('hopper_cross_boundary', async () => {
+      await command(phaseBot, '/stacklab build', 650)
+      await command(phaseBot, '/stacklab snapshot hopper-before')
+      await sleep(4500)
+      await command(phaseBot, '/stacklab snapshot hopper-after')
+      return { waitedMs: 4500 }
+    })
+  } finally {
+    results.finishedAt = new Date().toISOString()
+    fs.writeFileSync(path.join(OUTPUT_DIR, 'private-stack-results.json'), JSON.stringify(results, null, 2))
+    fs.writeFileSync(path.join(OUTPUT_DIR, 'private-stack-transcript.jsonl'), transcript.map(row => JSON.stringify(row)).join('\n') + '\n')
+    for (const bot of bots) {
+      try { bot.quit('matrix complete') } catch {}
+    }
+  }
+}
+
+main().catch(error => {
+  record('fatal', { error: String(error.stack || error) })
+  results.fatal = String(error.stack || error)
+  results.finishedAt = new Date().toISOString()
+  fs.writeFileSync(path.join(OUTPUT_DIR, 'private-stack-results.json'), JSON.stringify(results, null, 2))
+  fs.writeFileSync(path.join(OUTPUT_DIR, 'private-stack-transcript.jsonl'), transcript.map(row => JSON.stringify(row)).join('\n') + '\n')
+  process.exitCode = 1
+})

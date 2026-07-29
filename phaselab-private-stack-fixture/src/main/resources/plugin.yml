@@ -1,0 +1,14 @@
+name: StackLabFixture
+version: ${version}
+main: dev.denis.stacklab.StackLabFixturePlugin
+api-version: '1.21'
+authors: [Denis]
+description: Deterministic server-side fixture and witness logger for an authorized private plugin-stack lab.
+commands:
+  stacklab:
+    description: Build, reset, inspect, or equip the private stack test arena.
+    usage: /stacklab <build|portalbuild|reset|snapshot|portalsnapshot|give|tick|cancelportal>
+    permission: stacklab.admin
+permissions:
+  stacklab.admin:
+    default: op
