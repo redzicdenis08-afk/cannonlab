@@ -1,5 +1,9 @@
 name: dual-c36
-# Charges beside the payload instead of further behind it. The line design
+# Six shots to resolve the shot-1 anomaly: 71.5 then 15.5/15.5 on line-c36,
+# 48.5 then 15.5/15.5 on dual-c36. Twice the high value landed on shot 1,
+# which is a first-paste state difference rather than noise. If only shot 1
+# is high across six, the repeatable range is 15.5 and the rest is an
+# artefact. Charges beside the payload instead of further behind it. The line design
 # saturated at 15.5 blocks because charges past ~12 fall outside the blast
 # radius. Target at 30 so an improvement over 15.5 is visible and a hit is
 # possible.
@@ -22,7 +26,7 @@ target:
   layers: 1
   spacing: 3
 run:
-  shots: 3
+  shots: 6
   warmup-ticks: 60
   max-shot-ticks: 300
   quiet-ticks: 160

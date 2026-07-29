@@ -57,6 +57,7 @@ jobs:
           - scenario: dual-c36.yml
             fixture: dual-cannon-c36
             tag: dual-c36
+            shots: '6'
           - scenario: line-c36.yml
             fixture: basic-cannon-c36
             tag: line-c36
@@ -95,7 +96,7 @@ jobs:
         env:
           CANNONLAB_SCENARIO: ${{ matrix.variant.scenario }}
           CANNONLAB_SERVER_LABEL: Paper 26.1.2 ${{ matrix.variant.fixture }}
-          CANNONLAB_EXPECTED_SHOTS: '3'
+          CANNONLAB_EXPECTED_SHOTS: ${{ matrix.variant.shots || '3' }}
           # 510 dispensers fire together; the single-TNT assumption does not hold.
           CANNONLAB_STRICT_SINGLE_TNT: 'false'
           CANNONLAB_MIN_TNT_PER_SHOT: '1'
