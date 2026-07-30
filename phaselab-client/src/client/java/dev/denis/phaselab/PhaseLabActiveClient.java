@@ -8,12 +8,15 @@ import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.BlockHitResult;
 import net.minecraft.world.phys.Vec3;
+import net.minecraft.world.phys.shapes.VoxelShape;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.BufferedWriter;
@@ -31,20 +34,20 @@ import java.util.UUID;
 /**
  * Player-only black-box phase research harness for the ExtremeCraft Test Lab.
  *
- * Active scenarios are hard-locked to the exact multiplayer address
- * extremecraft.net:25565. The runner only changes ordinary client key states.
- * It never constructs movement packets or directly changes entity position,
- * velocity, collision, or bounding boxes.
+ * Active scenarios are hard-locked to extremecraft.net:25565 and only change
+ * ordinary client key states. Geometry validation rejects targets above/below
+ * the vehicle and distinguishes crossing through the selected block corridor
+ * from simply driving around an edge.
  */
 public final class PhaseLabActiveClient implements ClientModInitializer {
-    private static final String VERSION = "6.1.0";
+    private static final String VERSION = "6.2.0";
     private static final String ALLOWED_HOST = "extremecraft.net";
     private static final int ALLOWED_PORT = 25565;
 
     private static final String[] SCENARIOS = {
-        "AUTO_DEEP_SWEEP",
         "PRESS_FORWARD_SHORT",
         "PRESS_FORWARD_LONG",
+        "AUTO_DEEP_SWEEP",
         "PULSE_FAST",
         "PULSE_MEDIUM",
         "PULSE_SLOW",
@@ -69,13 +72,19 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
     private static final double CROSSING_MARGIN = 0.15D;
     private static final int PERSISTENT_CROSSING_TICKS = 8;
     private static final double CORRECTION_STEP = 0.35D;
+    private static final double START_CORRIDOR_MARGIN = 0.50D;
+    private static final double CROSSING_CORRIDOR_MARGIN = 0.10D;
+    private static final double VERTICAL_EPSILON = 0.01D;
     private static final DateTimeFormatter FILE_TIME =
         DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
 
     private static final String HEADER =
         "utc_timestamp,run_id,version,server_address,lock_ok,scenario,tick,event,detail," +
+        "target_x,target_y,target_z,target_collidable,target_vertical_overlap," +
         "barrier_axis,barrier_threshold,barrier_direction,progress,max_progress," +
-        "persistent_crossing_ticks,max_persistent_crossing_ticks,correction_candidates,max_backward_step," +
+        "lateral_offset,within_target_corridor,any_crossing_ticks,max_any_crossing_ticks," +
+        "corridor_crossing_ticks,max_corridor_crossing_ticks,max_corridor_progress," +
+        "correction_candidates,max_backward_step," +
         "player_x,player_y,player_z,player_dx,player_dy,player_dz,mounted,horizontal_collision,in_water,in_lava," +
         "vehicle_id,vehicle_type,vehicle_x,vehicle_y,vehicle_z,vehicle_dx,vehicle_dy,vehicle_dz,vehicle_box_clear," +
         "key_forward,key_back,key_left,key_right,key_shift";
@@ -102,15 +111,21 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
     private static double maxPlayerTravel;
     private static double maxVehicleTravel;
     private static double maxProgress;
+    private static double maxCorridorProgress;
     private static double previousProgress;
-    private static int persistentCrossingTicks;
-    private static int maxPersistentCrossingTicks;
+    private static int anyCrossingTicks;
+    private static int maxAnyCrossingTicks;
+    private static int corridorCrossingTicks;
+    private static int maxCorridorCrossingTicks;
     private static int correctionCandidates;
     private static double maxBackwardStep;
+    private static double maxLateralOffset;
     private static int dismountTick = -1;
     private static boolean sawCollision;
     private static boolean sawWater;
     private static boolean sawLava;
+    private static boolean targetCollidable;
+    private static boolean targetVerticalOverlap;
 
     private static final BufferedWriter[] WRITERS = new BufferedWriter[2];
     private static final Path[] OUTPUT_PATHS = new Path[2];
@@ -156,11 +171,13 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
         boolean lockOk = isAllowedServer(client);
         if (lastLockState == null || lastLockState != lockOk) {
             lastLockState = lockOk;
-            if (lockOk) {
-                message(player, "ExtremeCraft Test Lab lock verified. Active runner armed.", false);
-            } else {
-                message(player, "LOCKED: active runner only works on " + ALLOWED_HOST + ":" + ALLOWED_PORT + ".", false);
-            }
+            message(
+                player,
+                lockOk
+                    ? "ExtremeCraft lock verified. Geometry-aware runner armed."
+                    : "LOCKED: active runner only works on " + ALLOWED_HOST + ":" + ALLOWED_PORT + ".",
+                false
+            );
         }
 
         if (running && !lockOk) {
@@ -205,18 +222,43 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
             return;
         }
 
-        Barrier detected = detectBarrier(client);
-        if (detected != null) {
-            barrier = detected;
-        }
+        barrier = detectBarrier(client);
         if (barrier == null) {
-            message(player, "Look directly at the SIDE of the wall, then press F12.", false);
+            message(player, "Look directly at a vertical wall face, then press F12.", false);
+            return;
+        }
+
+        targetCollidable = isTargetCollidable(client, barrier);
+        if (!targetCollidable) {
+            message(player, "INVALID TARGET: selected block has no collision. Aim at a solid bottom wall block.", false);
+            barrier = null;
+            return;
+        }
+
+        targetVerticalOverlap = targetOverlapsVehicleHeight(client, vehicle, barrier);
+        if (!targetVerticalOverlap) {
+            AABB box = vehicle.getBoundingBox();
+            message(
+                player,
+                "INVALID HEIGHT: target Y=" + barrier.blockPos().getY()
+                    + " does not overlap vehicle box Y=" + number(box.minY) + ".." + number(box.maxY)
+                    + ". Aim at the lowest blocking row.",
+                false
+            );
+            barrier = null;
+            return;
+        }
+
+        if (!barrier.withinCorridor(vehicle.position(), START_CORRIDOR_MARGIN)) {
+            message(player, "INVALID ALIGNMENT: center the vehicle on the selected wall block.", false);
+            barrier = null;
             return;
         }
 
         double initialProgress = barrier.progress(vehicle.position());
         if (initialProgress >= -0.05D) {
             message(player, "Vehicle must start on the front side of the selected wall.", false);
+            barrier = null;
             return;
         }
 
@@ -230,11 +272,15 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
         maxPlayerTravel = 0.0D;
         maxVehicleTravel = 0.0D;
         maxProgress = initialProgress;
+        maxCorridorProgress = initialProgress;
         previousProgress = initialProgress;
-        persistentCrossingTicks = 0;
-        maxPersistentCrossingTicks = 0;
+        anyCrossingTicks = 0;
+        maxAnyCrossingTicks = 0;
+        corridorCrossingTicks = 0;
+        maxCorridorCrossingTicks = 0;
         correctionCandidates = 0;
         maxBackwardStep = 0.0D;
+        maxLateralOffset = barrier.lateralOffset(vehicle.position());
         dismountTick = -1;
         sawCollision = false;
         sawWater = false;
@@ -245,10 +291,15 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
         }
 
         running = true;
-        writeRow("START", "locked_player_only;initial_progress=" + number(initialProgress), player);
+        writeRow(
+            "START",
+            "geometry_validated;initial_progress=" + number(initialProgress)
+                + ";target=" + barrier.blockPos().toShortString(),
+            player
+        );
         message(
             player,
-            "RUNNING " + scenario() + " | lock=" + runServerAddress + " | F12 aborts.",
+            "RUNNING " + scenario() + " | target=" + barrier.blockPos().toShortString() + " | F12 aborts.",
             false
         );
     }
@@ -280,9 +331,9 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
         setAllMovement(client, false, false, false, false, false);
 
         switch (scenario()) {
-            case "AUTO_DEEP_SWEEP" -> applyAutoDeep(client);
             case "PRESS_FORWARD_SHORT" -> client.options.keyUp.setDown(scenarioTick <= 80);
             case "PRESS_FORWARD_LONG" -> client.options.keyUp.setDown(scenarioTick <= 200);
+            case "AUTO_DEEP_SWEEP" -> applyAutoDeep(client);
             case "PULSE_FAST" -> client.options.keyUp.setDown(scenarioTick <= 180 && scenarioTick % 4 < 3);
             case "PULSE_MEDIUM" -> client.options.keyUp.setDown(scenarioTick <= 180 && scenarioTick % 8 < 6);
             case "PULSE_SLOW" -> client.options.keyUp.setDown(scenarioTick <= 180 && scenarioTick % 16 < 12);
@@ -363,9 +414,9 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
 
     private static int scenarioDuration() {
         return switch (scenario()) {
-            case "AUTO_DEEP_SWEEP" -> 270;
             case "PRESS_FORWARD_SHORT" -> 110;
             case "PRESS_FORWARD_LONG" -> 220;
+            case "AUTO_DEEP_SWEEP" -> 270;
             case "PULSE_FAST", "PULSE_MEDIUM", "PULSE_SLOW",
                  "FORWARD_LEFT", "FORWARD_RIGHT",
                  "STEER_OSCILLATE_FAST", "STEER_OSCILLATE_SLOW",
@@ -406,7 +457,13 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
         Vec3 vehiclePosition = observedVehicle.position();
         maxVehicleTravel = Math.max(maxVehicleTravel, vehiclePosition.distanceTo(vehicleStart));
         double progress = barrier.progress(vehiclePosition);
+        double lateralOffset = barrier.lateralOffset(vehiclePosition);
+        boolean withinCorridor = barrier.withinCorridor(vehiclePosition, CROSSING_CORRIDOR_MARGIN);
         maxProgress = Math.max(maxProgress, progress);
+        maxLateralOffset = Math.max(maxLateralOffset, lateralOffset);
+        if (withinCorridor) {
+            maxCorridorProgress = Math.max(maxCorridorProgress, progress);
+        }
 
         if (Double.isFinite(previousProgress)) {
             double step = progress - previousProgress;
@@ -431,18 +488,28 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
         sawLava |= observedVehicle.isInLava();
 
         if (progress > CROSSING_MARGIN) {
-            persistentCrossingTicks++;
-            maxPersistentCrossingTicks = Math.max(maxPersistentCrossingTicks, persistentCrossingTicks);
+            anyCrossingTicks++;
+            maxAnyCrossingTicks = Math.max(maxAnyCrossingTicks, anyCrossingTicks);
+            if (withinCorridor) {
+                corridorCrossingTicks++;
+                maxCorridorCrossingTicks = Math.max(maxCorridorCrossingTicks, corridorCrossingTicks);
+            } else {
+                corridorCrossingTicks = 0;
+            }
         } else {
-            persistentCrossingTicks = 0;
+            anyCrossingTicks = 0;
+            corridorCrossingTicks = 0;
         }
     }
 
     private static String classify() {
-        if (maxPersistentCrossingTicks >= PERSISTENT_CROSSING_TICKS) {
+        if (maxCorridorCrossingTicks >= PERSISTENT_CROSSING_TICKS) {
             return "LOCAL_REPRODUCED";
         }
-        if (maxProgress > CROSSING_MARGIN) {
+        if (maxAnyCrossingTicks >= PERSISTENT_CROSSING_TICKS) {
+            return "LATERAL_ESCAPE";
+        }
+        if (maxCorridorProgress > CROSSING_MARGIN) {
             return "LOCAL_TRANSIENT";
         }
         if (correctionCandidates > 0) {
@@ -480,7 +547,10 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
                     + ";max_player_travel=" + number(maxPlayerTravel)
                     + ";max_vehicle_travel=" + number(maxVehicleTravel)
                     + ";max_progress=" + number(maxProgress)
-                    + ";max_persistent_crossing_ticks=" + maxPersistentCrossingTicks
+                    + ";max_corridor_progress=" + number(maxCorridorProgress)
+                    + ";max_any_crossing_ticks=" + maxAnyCrossingTicks
+                    + ";max_corridor_crossing_ticks=" + maxCorridorCrossingTicks
+                    + ";max_lateral_offset=" + number(maxLateralOffset)
                     + ";correction_candidates=" + correctionCandidates
                     + ";max_backward_step=" + number(maxBackwardStep)
                     + ";dismount_tick=" + dismountTick
@@ -508,14 +578,42 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
             return null;
         }
         Direction face = hit.getDirection();
-        var pos = hit.getBlockPos();
+        BlockPos pos = hit.getBlockPos();
         return switch (face) {
-            case WEST -> new Barrier('X', pos.getX() + 1.0D, 1.0D, "X+ beyond block " + pos.toShortString());
-            case EAST -> new Barrier('X', pos.getX(), -1.0D, "X- beyond block " + pos.toShortString());
-            case NORTH -> new Barrier('Z', pos.getZ() + 1.0D, 1.0D, "Z+ beyond block " + pos.toShortString());
-            case SOUTH -> new Barrier('Z', pos.getZ(), -1.0D, "Z- beyond block " + pos.toShortString());
+            case WEST -> new Barrier('X', pos.getX() + 1.0D, 1.0D, pos, "X+ beyond block " + pos.toShortString());
+            case EAST -> new Barrier('X', pos.getX(), -1.0D, pos, "X- beyond block " + pos.toShortString());
+            case NORTH -> new Barrier('Z', pos.getZ() + 1.0D, 1.0D, pos, "Z+ beyond block " + pos.toShortString());
+            case SOUTH -> new Barrier('Z', pos.getZ(), -1.0D, pos, "Z- beyond block " + pos.toShortString());
             default -> null;
         };
+    }
+
+    private static boolean isTargetCollidable(Minecraft client, Barrier target) {
+        if (client.level == null) {
+            return false;
+        }
+        VoxelShape shape = client.level
+            .getBlockState(target.blockPos())
+            .getCollisionShape(client.level, target.blockPos());
+        return !shape.isEmpty();
+    }
+
+    private static boolean targetOverlapsVehicleHeight(Minecraft client, Entity vehicle, Barrier target) {
+        if (client.level == null) {
+            return false;
+        }
+        VoxelShape shape = client.level
+            .getBlockState(target.blockPos())
+            .getCollisionShape(client.level, target.blockPos());
+        if (shape.isEmpty()) {
+            return false;
+        }
+        AABB local = shape.bounds();
+        double targetMinY = target.blockPos().getY() + local.minY;
+        double targetMaxY = target.blockPos().getY() + local.maxY;
+        AABB vehicleBox = vehicle.getBoundingBox();
+        return vehicleBox.maxY > targetMinY + VERTICAL_EPSILON
+            && vehicleBox.minY < targetMaxY - VERTICAL_EPSILON;
     }
 
     private static boolean isAllowedServer(Minecraft client) {
@@ -579,7 +677,7 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
         closeOutputs();
         Path configDir = FabricLoader.getInstance().getConfigDir().resolve("phaselab");
         Path gameDir = Minecraft.getInstance().gameDirectory.toPath();
-        OUTPUT_PATHS[0] = configDir.resolve("extremecraft-v6.1-" + runId + ".csv");
+        OUTPUT_PATHS[0] = configDir.resolve("extremecraft-v6.2-" + runId + ".csv");
         OUTPUT_PATHS[1] = gameDir.resolve("PHASELAB_EXTREMECRAFT_LATEST.csv");
         summaryPath = gameDir.resolve("PHASELAB_EXTREMECRAFT_SUMMARY.txt");
 
@@ -630,7 +728,14 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
         double progress = vehiclePos == null || barrier == null
             ? Double.NaN
             : barrier.progress(vehiclePos);
+        double lateralOffset = vehiclePos == null || barrier == null
+            ? Double.NaN
+            : barrier.lateralOffset(vehiclePos);
+        boolean withinCorridor = vehiclePos != null
+            && barrier != null
+            && barrier.withinCorridor(vehiclePos, CROSSING_CORRIDOR_MARGIN);
         Minecraft client = Minecraft.getInstance();
+        BlockPos target = barrier == null ? null : barrier.blockPos();
 
         String row = String.join(",",
             csv(Instant.now().toString()),
@@ -642,13 +747,23 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
             Integer.toString(scenarioTick),
             csv(event),
             csv(detail),
+            target == null ? "" : Integer.toString(target.getX()),
+            target == null ? "" : Integer.toString(target.getY()),
+            target == null ? "" : Integer.toString(target.getZ()),
+            Boolean.toString(targetCollidable),
+            Boolean.toString(targetVerticalOverlap),
             barrier == null ? "" : csv(Character.toString(barrier.axis())),
             barrier == null ? "" : number(barrier.threshold()),
             barrier == null ? "" : number(barrier.direction()),
             number(progress),
             number(maxProgress),
-            Integer.toString(persistentCrossingTicks),
-            Integer.toString(maxPersistentCrossingTicks),
+            number(lateralOffset),
+            Boolean.toString(withinCorridor),
+            Integer.toString(anyCrossingTicks),
+            Integer.toString(maxAnyCrossingTicks),
+            Integer.toString(corridorCrossingTicks),
+            Integer.toString(maxCorridorCrossingTicks),
+            number(maxCorridorProgress),
             Integer.toString(correctionCandidates),
             number(maxBackwardStep),
             vectorField(playerPos, 0),
@@ -700,7 +815,7 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
         if (summaryPath == null) {
             return;
         }
-        String text = "PhaseLab ExtremeCraft Locked v" + VERSION + System.lineSeparator()
+        String text = "PhaseLab ExtremeCraft Geometry v" + VERSION + System.lineSeparator()
             + "allowed_server=" + ALLOWED_HOST + ":" + ALLOWED_PORT + System.lineSeparator()
             + "connected_server=" + clean(runServerAddress) + System.lineSeparator()
             + "run=" + runId + System.lineSeparator()
@@ -708,17 +823,23 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
             + "verdict=" + verdict + System.lineSeparator()
             + "reason=" + clean(reason) + System.lineSeparator()
             + "barrier=" + (barrier == null ? "none" : barrier.description()) + System.lineSeparator()
+            + "target_block=" + (barrier == null ? "none" : barrier.blockPos().toShortString()) + System.lineSeparator()
+            + "target_collidable=" + targetCollidable + System.lineSeparator()
+            + "target_vertical_overlap=" + targetVerticalOverlap + System.lineSeparator()
             + "max_player_travel=" + number(maxPlayerTravel) + System.lineSeparator()
             + "max_vehicle_travel=" + number(maxVehicleTravel) + System.lineSeparator()
             + "max_progress=" + number(maxProgress) + System.lineSeparator()
-            + "max_persistent_crossing_ticks=" + maxPersistentCrossingTicks + System.lineSeparator()
+            + "max_corridor_progress=" + number(maxCorridorProgress) + System.lineSeparator()
+            + "max_any_crossing_ticks=" + maxAnyCrossingTicks + System.lineSeparator()
+            + "max_corridor_crossing_ticks=" + maxCorridorCrossingTicks + System.lineSeparator()
+            + "max_lateral_offset=" + number(maxLateralOffset) + System.lineSeparator()
             + "correction_candidates=" + correctionCandidates + System.lineSeparator()
             + "max_backward_step=" + number(maxBackwardStep) + System.lineSeparator()
             + "dismount_tick=" + dismountTick + System.lineSeparator()
             + "collision=" + sawCollision + System.lineSeparator()
             + "water=" + sawWater + System.lineSeparator()
             + "lava=" + sawLava + System.lineSeparator()
-            + "note=LOCAL_REPRODUCED is client-observed evidence and must be checked against server persistence."
+            + "note=LOCAL_REPRODUCED now requires persistent crossing inside the selected solid block corridor."
             + System.lineSeparator();
 
         try {
@@ -789,10 +910,38 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
         player.displayClientMessage(Component.literal("[PhaseLab] " + text), actionBar);
     }
 
-    private record Barrier(char axis, double threshold, double direction, String description) {
+    private record Barrier(
+        char axis,
+        double threshold,
+        double direction,
+        BlockPos blockPos,
+        String description
+    ) {
         double progress(Vec3 position) {
             double coordinate = axis == 'X' ? position.x : position.z;
             return direction * (coordinate - threshold);
+        }
+
+        double lateralCoordinate(Vec3 position) {
+            return axis == 'X' ? position.z : position.x;
+        }
+
+        double lateralMin() {
+            return axis == 'X' ? blockPos.getZ() : blockPos.getX();
+        }
+
+        double lateralMax() {
+            return lateralMin() + 1.0D;
+        }
+
+        boolean withinCorridor(Vec3 position, double margin) {
+            double lateral = lateralCoordinate(position);
+            return lateral >= lateralMin() - margin && lateral <= lateralMax() + margin;
+        }
+
+        double lateralOffset(Vec3 position) {
+            double center = lateralMin() + 0.5D;
+            return Math.abs(lateralCoordinate(position) - center);
         }
     }
 }
