@@ -5,6 +5,7 @@ on:
     branches:
       - feature/phaselab-client
       - fix/phaselab-passive-telemetry-v4.1
+      - fix/phaselab-admin-telemetry-v4.2
     paths:
       - 'phaselab-client/**'
       - '.github/workflows/build-phaselab-client.yml'
@@ -49,7 +50,7 @@ jobs:
         working-directory: phaselab-client
         shell: bash
         run: |
-          JAR='build/libs/phaselab-client-4.1.0.jar'
+          JAR='build/libs/phaselab-client-4.2.0.jar'
           test -f "$JAR"
           jar tf "$JAR" | tee jar-contents.txt
           jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseTelemetryClient.class'
@@ -59,7 +60,7 @@ jobs:
           ! jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseLabClient.class'
           ! jar tf "$JAR" | grep -F 'dev/denis/phaselab/BoatPhaseClient.class'
           unzip -p "$JAR" fabric.mod.json | tee built-fabric.mod.json
-          grep -F '"version": "4.1.0"' built-fabric.mod.json
+          grep -F '"version": "4.2.0"' built-fabric.mod.json
           grep -F '"fabricloader": ">=0.19.2"' built-fabric.mod.json
           grep -F 'dev.denis.phaselab.PhaseTelemetryClient' built-fabric.mod.json
           ! grep -F 'BoatPhaseClient' built-fabric.mod.json
@@ -69,12 +70,15 @@ jobs:
           grep -F 'onVehicleCorrectionHead' telemetry-javap.txt
           grep -F 'onVehicleCorrectionTail' telemetry-javap.txt
           grep -F 'onServerOpenScreen' telemetry-javap.txt
+          grep -F 'PHASELAB_LATEST.csv' telemetry-javap.txt
+          grep -F 'TEST_START' telemetry-javap.txt
+          grep -F 'detail_20hz' telemetry-javap.txt
 
       - name: Upload build evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-build-log-v4.1
+          name: phaselab-build-log-v4.2
           path: |
             phaselab-client/build.log
             phaselab-client/jar-contents.txt
@@ -86,6 +90,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-admin-telemetry-4.1.0-mc1.21.11
-          path: phaselab-client/build/libs/phaselab-client-4.1.0.jar
+          name: phaselab-admin-telemetry-4.2.0-mc1.21.11
+          path: phaselab-client/build/libs/phaselab-client-4.2.0.jar
           if-no-files-found: error
