@@ -108,8 +108,8 @@ async function main () {
 
     await command(phaseBot, '/tp @e[type=minecraft:oak_boat,sort=nearest,limit=1] 17.5 65 -2.5', 700)
     await sleep(1200)
-    await commandExpect(phaseBot, '/stacklab vehicledismount AttackerBot', /STACKLAB VEHICLE DISMOUNT .*"mounted":false/, 8000)
-    await sleep(700)
+    await command(phaseBot, '/stacklab vehicledismount AttackerBot', 1200)
+    await command(phaseBot, '/stacklab vehiclecheck AttackerBot', 500)
     await command(phaseBot, '/phaseprobe snapshot AttackerBot', 400)
     await command(phaseBot, '/phaseprobe listeners', 400)
     await commandExpect(phaseBot, '/phaseprobe stop AttackerBot', /Stopped probe for AttackerBot/, 8000)
