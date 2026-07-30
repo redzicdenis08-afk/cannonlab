@@ -1,13 +1,13 @@
 name: PhaseLabServer
-version: 5.0.0
+version: 5.1.0
 main: dev.denis.phaselab.server.PhaseLabServerPlugin
 api-version: '1.21'
 author: Denis + OpenAI
-description: Signed, region-locked PhaseLab red-team harness with authoritative verdicts and rollback.
+description: One-command bounded PhaseLab vehicle test harness with authoritative verdicts and rollback.
 commands:
   phaselab:
-    description: Configure and authorize the PhaseLab test harness.
-    usage: /phaselab <status|setcorner1|setcorner2|setbarrier|authorize|abort|exportlock>
+    description: Start, inspect, or abort the PhaseLab test harness.
+    usage: /phaselab <quickstart [seconds]|status|abort>
     permission: phaselab.admin
 permissions:
   phaselab.admin:
