@@ -33,10 +33,10 @@ import java.util.Locale;
 public final class BoatPhaseClient implements ClientModInitializer {
     private static final double STEP = 0.25D;
     private static final double BOAT_FORWARD_SEGMENT = 2.0D;
-    private static final double HORSE_FORWARD_SEGMENT = 4.0D;
+    private static final double HORSE_FORWARD_SEGMENT = 8.0D;
     private static final double DOWN_SEGMENT = 0.75D;
     private static final int BOAT_PACKETS_PER_TICK = 1;
-    private static final int HORSE_PACKETS_PER_TICK = 4;
+    private static final int HORSE_PACKETS_PER_TICK = 8;
     private static final int DOWN_PACKETS_PER_TICK = 1;
     private static final int SETTLE_TICKS = 7;
     private static final int REMOUNT_TIMEOUT_TICKS = 36;
