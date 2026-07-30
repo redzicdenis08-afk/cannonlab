@@ -1,0 +1,29 @@
+name: dual-c12
+# Charges beside the payload instead of further behind it. The line design
+# saturated at 15.5 blocks because charges past ~12 fall outside the blast
+# radius. Target at 30 so an improvement over 15.5 is visible and a hit is
+# possible.
+cannon:
+  file: dual-cannon-c12.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: redstone
+  fire-input: {x: 0, y: 2, z: 0}
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: false
+target:
+  type: dry
+  direction: east
+  distance: 30
+  width: 15
+  height: 15
+  y-offset: 0
+  lateral-offset: 0
+  layers: 1
+  spacing: 3
+run:
+  shots: 3
+  warmup-ticks: 60
+  max-shot-ticks: 300
+  quiet-ticks: 160
+  shutdown-when-finished: true

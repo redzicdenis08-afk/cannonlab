@@ -1,0 +1,123 @@
+name: PerfectOne Live Diagnostic
+
+# Fast iteration loop for the operator-supplied PerfectOne cannon.
+#
+# This runs on Paper 26.1.2, not pinned Sakura, on purpose: Paper resolves in
+# minutes where Sakura takes about an hour to patch and build. That makes this
+# usable for observe-fix-repeat. Paper is NOT Sakura for cannon mechanics, so
+# nothing here is promotable evidence -- confirm any result on the Exact Sakura
+# Runtime workflow before believing it.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'cannons/perfectone-loaded.schem.b64'
+      - 'cannons/perfectone-v2-watered.schem.b64'
+      - 'scenarios/perfectone-live.yml'
+      - 'scenarios/perfectone-v2-watered.yml'
+      - 'cannons/basic-cannon-c36.schem.b64'
+      - 'cannons/dual-cannon-c12.schem.b64'
+      - 'scenarios/dual-c12.yml'
+      - 'cannons/dual-cannon-c24.schem.b64'
+      - 'scenarios/dual-c24.yml'
+      - 'cannons/dual-cannon-c36.schem.b64'
+      - 'scenarios/dual-c36.yml'
+      - 'cannons/basic-cannon-c36.schem.b64'
+      - 'scenarios/line-c36.yml'
+      - '.github/workflows/perfectone-live.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  perfectone-diagnostic:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        variant:
+          - scenario: perfectone-live.yml
+            fixture: perfectone-loaded
+            tag: perfectone-loaded
+          - scenario: perfectone-v2-watered.yml
+            fixture: perfectone-v2-watered
+            tag: perfectone-v2-watered
+          - scenario: dual-c12.yml
+            fixture: dual-cannon-c12
+            tag: dual-c12
+          - scenario: dual-c24.yml
+            fixture: dual-cannon-c24
+            tag: dual-c24
+          - scenario: dual-c36.yml
+            fixture: dual-cannon-c36
+            tag: dual-c36
+            shots: '6'
+          - scenario: line-c36.yml
+            fixture: basic-cannon-c36
+            tag: line-c36
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+
+      - name: Build CannonLab plugin
+        run: gradle clean build --stacktrace
+
+      - name: Static audit of the loaded fixture
+        run: |
+          base64 --decode cannons/${{ matrix.variant.fixture }}.schem.b64 > /tmp/fixture.schem
+          python scripts/schem-audit.py /tmp/fixture.schem \
+            --json-out ${{ matrix.variant.fixture }}-static-audit.json || true
+          python scripts/cannon-module-map.py /tmp/fixture.schem \
+            --json-out ${{ matrix.variant.fixture }}-module-map.json || true
+
+      - name: Fire PerfectOne
+        env:
+          CANNONLAB_SCENARIO: ${{ matrix.variant.scenario }}
+          CANNONLAB_SERVER_LABEL: Paper 26.1.2 ${{ matrix.variant.fixture }}
+          CANNONLAB_EXPECTED_SHOTS: ${{ matrix.variant.shots || '3' }}
+          # 510 dispensers fire together; the single-TNT assumption does not hold.
+          CANNONLAB_STRICT_SINGLE_TNT: 'false'
+          CANNONLAB_MIN_TNT_PER_SHOT: '1'
+          CANNONLAB_MIN_EXPLOSIONS_PER_SHOT: '1'
+          # Water and collisions perturb fuse lifetime; observe it, do not gate on it.
+          CANNONLAB_EXPECTED_LIFETIME: '79'
+          CANNONLAB_LIFETIME_TOLERANCE: '79'
+          CANNONLAB_ARENA_RADIUS_X: '72'
+          CANNONLAB_ARENA_RADIUS_Y: '40'
+          CANNONLAB_ARENA_RADIUS_Z: '56'
+          CANNONLAB_TIMEOUT_SECONDS: '1200'
+        run: bash scripts/cloud-smoke.sh
+
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: PerfectOne-diagnostic-${{ matrix.variant.tag }}-${{ github.run_number }}
+          path: |
+            lab-artifacts/**
+            ${{ matrix.variant.fixture }}-static-audit.json
+            ${{ matrix.variant.fixture }}-module-map.json
+          if-no-files-found: warn
+          retention-days: 30
