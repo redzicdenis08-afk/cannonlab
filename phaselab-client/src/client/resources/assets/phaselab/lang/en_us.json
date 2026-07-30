@@ -1,6 +1,7 @@
 {
   "key.categories.phaselab.telemetry": "PhaseLab Admin Telemetry",
   "key.phaselab.capture_toggle": "Pause or resume PhaseLab telemetry",
-  "key.phaselab.marker": "Write a PhaseLab test marker",
+  "key.phaselab.test_label": "Cycle PhaseLab test type",
+  "key.phaselab.test_segment": "Start or end a PhaseLab test",
   "key.phaselab.telemetry_status": "Show PhaseLab telemetry status"
 }
