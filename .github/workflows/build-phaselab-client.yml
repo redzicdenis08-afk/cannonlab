@@ -1,4 +1,4 @@
-name: Build PhaseLab Lab-Locked Pair
+name: Build PhaseLab Player Active Tester
 
 on:
   push:
@@ -7,19 +7,19 @@ on:
       - fix/phaselab-passive-telemetry-v4.1
       - fix/phaselab-admin-telemetry-v4.2
       - feature/phaselab-lablocked-v5
+      - fix/phaselab-easy-v5.1
+      - feat/phaselab-player-active-v5.2
     paths:
       - 'phaselab-client/**'
-      - 'phaselab-server/**'
       - '.github/workflows/build-phaselab-client.yml'
   pull_request:
     paths:
       - 'phaselab-client/**'
-      - 'phaselab-server/**'
       - '.github/workflows/build-phaselab-client.yml'
   workflow_dispatch:
 
 concurrency:
-  group: phaselab-pair-${{ github.ref }}
+  group: phaselab-player-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -48,88 +48,52 @@ jobs:
           set -o pipefail
           gradle clean build --stacktrace --console=plain 2>&1 | tee build.log
 
-      - name: Verify signed lab-locked client
+      - name: Verify bounded player-only client
         if: success()
         working-directory: phaselab-client
         shell: bash
         run: |
-          JAR='build/libs/phaselab-client-5.0.0.jar'
+          JAR='build/libs/phaselab-client-5.2.0.jar'
           test -f "$JAR"
           jar tf "$JAR" | tee jar-contents.txt
           jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseTelemetryClient.class'
-          jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseLabLockedClient.class'
-          jar tf "$JAR" | grep -F 'dev/denis/phaselab/net/LabMessagePayload.class'
+          jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseLabActiveClient.class'
           jar tf "$JAR" | grep -F 'dev/denis/phaselab/mixin/ClientPacketListenerMixin.class'
+          ! jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseLabLockedClient.class'
+          ! jar tf "$JAR" | grep -F 'dev/denis/phaselab/net/LabMessagePayload.class'
           ! jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseLabClient.class'
           ! jar tf "$JAR" | grep -F 'dev/denis/phaselab/BoatPhaseClient.class'
           unzip -p "$JAR" fabric.mod.json | tee built-fabric.mod.json
-          grep -F '"version": "5.0.0"' built-fabric.mod.json
-          grep -F 'dev.denis.phaselab.PhaseLabLockedClient' built-fabric.mod.json
-          javap -classpath "$JAR" -p -v dev.denis.phaselab.PhaseLabLockedClient > locked-client-javap.txt
-          grep -F 'Ed25519' locked-client-javap.txt
-          grep -F 'server-public-key.txt' locked-client-javap.txt
-          grep -F 'server-id.txt' locked-client-javap.txt
-          grep -F 'PRESS_FORWARD' locked-client-javap.txt
-          grep -F 'DISMOUNT_EDGE' locked-client-javap.txt
-          ! grep -F 'ServerboundMoveVehiclePacket' locked-client-javap.txt
-          ! grep -F 'ServerboundMovePlayerPacket' locked-client-javap.txt
-
-      - name: Build server verifier plugin
-        id: server_build
-        working-directory: phaselab-server
-        shell: bash
-        run: |
-          set -o pipefail
-          gradle clean build --stacktrace --console=plain 2>&1 | tee build.log
-
-      - name: Verify server authorization and rollback harness
-        if: success()
-        working-directory: phaselab-server
-        shell: bash
-        run: |
-          JAR='build/libs/phaselab-server-5.0.0.jar'
-          test -f "$JAR"
-          jar tf "$JAR" | tee jar-contents.txt
-          jar tf "$JAR" | grep -F 'dev/denis/phaselab/server/PhaseLabServerPlugin.class'
-          jar tf "$JAR" | grep -F 'plugin.yml'
-          jar tf "$JAR" | grep -F 'config.yml'
-          unzip -p "$JAR" plugin.yml | tee built-plugin.yml
-          grep -F 'PhaseLabServer' built-plugin.yml
-          javap -classpath "$JAR" -p -v dev.denis.phaselab.server.PhaseLabServerPlugin > server-javap.txt
-          grep -F 'Ed25519' server-javap.txt
-          grep -F 'phaselab:control' server-javap.txt
-          grep -F 'REPRODUCED' server-javap.txt
-          grep -F 'SAFETY_ABORT' server-javap.txt
-          grep -F 'client-lock' server-javap.txt
+          grep -F '"version": "5.2.0"' built-fabric.mod.json
+          grep -F 'dev.denis.phaselab.PhaseLabActiveClient' built-fabric.mod.json
+          javap -classpath "$JAR" -p -v dev.denis.phaselab.PhaseLabActiveClient > active-client-javap.txt
+          grep -F 'PRESS_FORWARD' active-client-javap.txt
+          grep -F 'DISMOUNT_EDGE' active-client-javap.txt
+          grep -F 'PHASELAB_ACTIVE_LATEST.csv' active-client-javap.txt
+          grep -F 'LOCAL_REPRODUCED' active-client-javap.txt
+          grep -F 'MAX_RUNTIME_TICKS' active-client-javap.txt
+          ! grep -F 'ServerboundMoveVehiclePacket' active-client-javap.txt
+          ! grep -F 'ServerboundMovePlayerPacket' active-client-javap.txt
+          ! grep -F 'setPos' active-client-javap.txt
+          ! grep -F 'absMoveTo' active-client-javap.txt
+          ! grep -F 'teleportTo' active-client-javap.txt
 
       - name: Upload build evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-v5-build-evidence
+          name: phaselab-player-v5.2-build-evidence
           path: |
             phaselab-client/build.log
             phaselab-client/jar-contents.txt
             phaselab-client/built-fabric.mod.json
-            phaselab-client/locked-client-javap.txt
-            phaselab-server/build.log
-            phaselab-server/jar-contents.txt
-            phaselab-server/built-plugin.yml
-            phaselab-server/server-javap.txt
+            phaselab-client/active-client-javap.txt
           if-no-files-found: warn
 
-      - name: Upload client JAR
+      - name: Upload player JAR
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-client-5.0.0-mc1.21.11
-          path: phaselab-client/build/libs/phaselab-client-5.0.0.jar
-          if-no-files-found: error
-
-      - name: Upload server JAR
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: phaselab-server-5.0.0-paper1.21.11
-          path: phaselab-server/build/libs/phaselab-server-5.0.0.jar
+          name: phaselab-player-active-5.2.0-mc1.21.11
+          path: phaselab-client/build/libs/phaselab-client-5.2.0.jar
           if-no-files-found: error
