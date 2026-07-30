@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "phaselab",
-  "version": "6.0.0",
-  "name": "PhaseLab Authorized Red-Team Campaign",
-  "description": "Fabric 1.21.11 client for bounded server-authorized vehicle/collision campaigns with server-authoritative verdicts, rollback, correction telemetry, and replayable evidence.",
+  "version": "6.1.0",
+  "name": "PhaseLab ExtremeCraft Locked",
+  "description": "Fabric 1.21.11 player-only black-box vehicle phase research harness hard-locked to extremecraft.net:25565. Runs bounded ordinary-input timing scenarios and writes local crossing/correction evidence. No server plugin required.",
   "authors": ["Denis + OpenAI"],
   "license": "MIT",
   "environment": "client",
