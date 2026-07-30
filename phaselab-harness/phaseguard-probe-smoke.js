@@ -85,7 +85,11 @@ async function main () {
     await command(phaseBot, '/gamemode creative PhaseBot')
     await command(phaseBot, '/gamemode survival VictimBot')
     await command(phaseBot, '/gamemode survival AttackerBot')
+    await command(phaseBot, '/gamerule fallDamage false')
     await command(phaseBot, '/stacklab build', 700)
+    await command(phaseBot, '/fill 0 64 -4 32 64 4 minecraft:stone', 700)
+    await command(phaseBot, '/effect give AttackerBot minecraft:resistance infinite 255 true')
+    await command(phaseBot, '/effect give VictimBot minecraft:resistance infinite 255 true')
 
     await command(phaseBot, '/tp AttackerBot 8.5 65 0.5')
     await command(attackerBot, '/f create Attackers', 900)
