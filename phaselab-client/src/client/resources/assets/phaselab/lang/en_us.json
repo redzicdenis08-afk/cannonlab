@@ -1,10 +1,10 @@
 {
   "key.categories.phaselab.telemetry": "PhaseLab Admin Telemetry",
-  "key.categories.phaselab.active_tester": "PhaseLab Player Active Tester",
+  "key.categories.phaselab.authorized_campaign": "PhaseLab Authorized Campaign",
   "key.phaselab.capture_toggle": "Pause or resume PhaseLab telemetry",
   "key.phaselab.test_label": "Cycle PhaseLab test type",
   "key.phaselab.test_segment": "Start or end a PhaseLab test",
   "key.phaselab.telemetry_status": "Show PhaseLab telemetry status",
-  "key.phaselab.active_scenario": "Cycle active input scenario",
-  "key.phaselab.active_run": "Run or abort active input scenario"
+  "key.phaselab.active_scenario": "Cycle campaign mode",
+  "key.phaselab.active_run": "Start or abort authorized campaign"
 }
