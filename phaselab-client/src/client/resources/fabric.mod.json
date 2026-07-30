@@ -1,16 +1,16 @@
 {
   "schemaVersion": 1,
   "id": "phaselab",
-  "version": "5.1.0",
-  "name": "PhaseLab Easy Red Team",
-  "description": "Fabric 1.21.11 telemetry plus bounded active vehicle tests enabled by one server command. No copied keys, server IDs, or manual client configuration.",
+  "version": "5.2.0",
+  "name": "PhaseLab Player Active Tester",
+  "description": "Fabric 1.21.11 telemetry plus short bounded player-side vehicle input scenarios with automatic wall-plane detection and local crossing evidence. No server plugin or setup commands required.",
   "authors": ["Denis + OpenAI"],
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
     "client": [
       "dev.denis.phaselab.PhaseTelemetryClient",
-      "dev.denis.phaselab.PhaseLabLockedClient"
+      "dev.denis.phaselab.PhaseLabActiveClient"
     ]
   },
   "mixins": [
