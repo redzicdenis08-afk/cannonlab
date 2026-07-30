@@ -1,0 +1,26 @@
+name: shadow384-discovery
+cannon:
+  file: ec-shadow384-v10.schem
+  origin: {x: 0, y: 0, z: 0}
+  fire-mode: redstone
+  fire-input: {x: 27, y: 2, z: 23}
+  fire-pulse-ticks: 4
+limits:
+  enforce-dispenser-limit: true
+target:
+  type: dry
+  material: cobblestone
+  direction: east
+  distance: 200
+  width: 64
+  height: 80
+  y-offset: 0
+  lateral-offset: 17
+  layers: 1
+  spacing: 3
+run:
+  shots: 1
+  warmup-ticks: 40
+  max-shot-ticks: 900
+  quiet-ticks: 200
+  shutdown-when-finished: true
