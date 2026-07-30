@@ -115,7 +115,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
     private static KeyMapping abortKey;
 
     private static final Map<String, Integer> profileIndices = new HashMap<>();
-    private static final JsonArray completedTests = new JsonArray();
+    private static JsonArray completedTests = new JsonArray();
 
     private static boolean readyMessageShown;
     private static boolean active;
@@ -519,6 +519,10 @@ public final class BoatPhaseClient implements ClientModInitializer {
                 playerCorrectionCount, vehicleCorrectionCount, separationCount,
                 remountAccepted ? "YES" : "NO"));
             message(player, "Next P press advances to the next profile for this vehicle + direction mode.");
+            if (sessionJsonl != null && summaryJson != null) {
+                message(player, "Logs: " + sessionJsonl);
+                message(player, "Summary: " + summaryJson);
+            }
         }
 
         active = false;
@@ -642,6 +646,9 @@ public final class BoatPhaseClient implements ClientModInitializer {
         try {
             sessionDirectory = FabricLoader.getInstance().getConfigDir().resolve("phaselab-verifier");
             Files.createDirectories(sessionDirectory);
+            completedTests = new JsonArray();
+            profileIndices.clear();
+            testSequence = 0;
             sessionId = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss", Locale.ROOT)
                 .withZone(ZoneOffset.UTC).format(Instant.now());
             sessionJsonl = sessionDirectory.resolve("session-" + sessionId + ".jsonl");
