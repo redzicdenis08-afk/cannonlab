@@ -303,20 +303,45 @@ jobs:
           report = json.loads(report_path.read_text(encoding='utf-8'))
           successes = int(report.get('successCount') or 0)
           families = report.get('byFamily') or {}
+          server_log = Path('phaselab-private-runtime/server.log').read_text(
+              encoding='utf-8', errors='replace'
+          )
 
           if stack == 'baseline':
               # The stimulus must remain alive or a green protected result is meaningless.
               if successes < 4:
                   raise SystemExit(f'baseline stimulus weakened: expected at least 4 successes, got {successes}')
           elif stack == 'grim-stable-2.3.73':
-              # Historical control: this pinned release is known to leave the route open.
+              # Compatibility control: 2.3.73 advertises as enabled but cannot initialize
+              # PacketEvents on pinned Sakura 26.1.2. Treat that as protection failure,
+              # never as a healthy-but-bypassable anti-cheat.
+              required_failure_markers = (
+                  'We will assume the Server version is V_1_8_8',
+                  'Failed to start PacketManager',
+              )
+              missing = [marker for marker in required_failure_markers if marker not in server_log]
+              if missing:
+                  raise SystemExit(f'expected Grim 2.3.73 compatibility failure markers missing: {missing}')
               if successes < 4:
-                  raise SystemExit(
-                      f'historical Grim control changed: expected known-vulnerable behavior, got {successes} successes'
-                  )
-              print('KNOWN_VULNERABLE: Grim 2.3.73 reproduced baseline-success vehicle routes')
+                  raise SystemExit(f'compatibility control changed unexpectedly: got {successes} successes')
+              print('INACTIVE_PROTECTION: Grim 2.3.73 failed PacketEvents initialization and matched baseline')
           elif stack == 'grim-current-2.3.74-7ae1d8f':
               # Production defense contract: no baseline-success family may cross.
+              required_health_markers = (
+                  'Loaded packetevents',
+                  'Loading block mappings for V_26_1/21',
+                  'Grim Version: 2.3.74-7ae1d8f',
+              )
+              missing = [marker for marker in required_health_markers if marker not in server_log]
+              if missing:
+                  raise SystemExit(f'current Grim health markers missing: {missing}')
+              forbidden_health_markers = (
+                  'Failed to start PacketManager',
+                  'We will assume the Server version is V_1_8_8',
+              )
+              present = [marker for marker in forbidden_health_markers if marker in server_log]
+              if present:
+                  raise SystemExit(f'current Grim is present but unhealthy: {present}')
               regressions = {
                   name: value
                   for name, value in families.items()
