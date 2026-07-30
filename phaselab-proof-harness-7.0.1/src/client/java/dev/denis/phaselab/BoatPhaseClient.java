@@ -38,7 +38,7 @@ import java.util.UUID;
  * updates, remounts, a two-second coherence window, and an optional relog.
  */
 public final class BoatPhaseClient implements ClientModInitializer {
-    private static final String MOD_VERSION = "7.0.0-proof-harness";
+    private static final String MOD_VERSION = "7.0.1-proof-harness";
     private static final String CONFIG_DIRECTORY = "phaselab-proof-harness";
     private static final String AUTHORIZED_TARGETS_FILE = "authorized-targets.txt";
     private static final int ARMING_TICKS = 10;

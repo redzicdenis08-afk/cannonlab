@@ -1,2 +1,0 @@
-b3a0d383f157a4079b6443a12580fc7aedbc7e69e62442d381d3c2a8c4c7f477  phaselab-proof-harness-7.0.0.jar
-dbb42c2210a905fda64f9d047eecf4451c6939a2275d1f9727521c34483f7fd2  PhaseLab-Proof-Harness-7.0.0.zip

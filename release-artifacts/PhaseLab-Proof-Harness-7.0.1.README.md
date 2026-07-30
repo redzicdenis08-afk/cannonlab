@@ -1,6 +1,10 @@
-# PhaseLab Proof Harness 7.0.0
+# PhaseLab Proof Harness 7.0.1
 
 Player-mod-only Fabric client for Minecraft 1.21.11. No server plugin, command, handshake, stealth, randomization, or local `noPhysics` movement is used.
+
+## 7.0.1 startup crash fix
+
+7.0.0 was manually remapped without a Mixin refmap, so its named injection selectors (`handleMovePlayer`, `handleMoveVehicle`, and `handleSetEntityPassengersPacket`) could not resolve in the runtime intermediary namespace. 7.0.1 uses the exact Minecraft 1.21.11 intermediary targets with remapping disabled for those three injection selectors. A preflight verifier confirms all three targets exist on runtime `ClientPacketListener` before release.
 
 ## What it measures
 
@@ -31,7 +35,7 @@ Profiles are fixed and non-adaptive:
 ## Setup
 
 1. Remove every older PhaseLab jar from `mods`.
-2. Install only `phaselab-proof-harness-7.0.0.jar`.
+2. Install only `phaselab-proof-harness-7.0.1.jar`.
 3. Start Minecraft and join the owned/private test server.
 4. Press `P` once. The client creates:
 
