@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/phaselab-client
+      - fix/phaselab-passive-telemetry-v4.1
     paths:
       - 'phaselab-client/**'
       - '.github/workflows/build-phaselab-client.yml'
@@ -43,46 +44,48 @@ jobs:
           set -o pipefail
           gradle clean build --stacktrace --console=plain 2>&1 | tee build.log
 
-      - name: Verify built JAR contents
+      - name: Verify passive-only JAR contents
         if: success()
         working-directory: phaselab-client
         shell: bash
         run: |
-          JAR='build/libs/phaselab-client-4.0.0.jar'
+          JAR='build/libs/phaselab-client-4.1.0.jar'
           test -f "$JAR"
           jar tf "$JAR" | tee jar-contents.txt
-          jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseLabClient.class'
           jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseTelemetryClient.class'
-          jar tf "$JAR" | grep -F 'dev/denis/phaselab/BoatPhaseClient.class'
           jar tf "$JAR" | grep -F 'dev/denis/phaselab/mixin/ClientPacketListenerMixin.class'
           jar tf "$JAR" | grep -F 'phaselab.client.mixins.json'
           jar tf "$JAR" | grep -F 'assets/phaselab/lang/en_us.json'
+          ! jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseLabClient.class'
+          ! jar tf "$JAR" | grep -F 'dev/denis/phaselab/BoatPhaseClient.class'
           unzip -p "$JAR" fabric.mod.json | tee built-fabric.mod.json
-          grep -F '"version": "4.0.0"' built-fabric.mod.json
+          grep -F '"version": "4.1.0"' built-fabric.mod.json
           grep -F '"fabricloader": ">=0.19.2"' built-fabric.mod.json
-          grep -F 'dev.denis.phaselab.BoatPhaseClient' built-fabric.mod.json
-          javap -classpath "$JAR" -p -v dev.denis.phaselab.mixin.ClientPacketListenerMixin > mixin-javap.txt
-          grep -F 'onCorrectionHead' mixin-javap.txt
-          grep -F 'onCorrectionTail' mixin-javap.txt
-          grep -F 'onServerVehicleCorrection' mixin-javap.txt
-          grep -F 'onServerOpenScreen' mixin-javap.txt
+          grep -F 'dev.denis.phaselab.PhaseTelemetryClient' built-fabric.mod.json
+          ! grep -F 'BoatPhaseClient' built-fabric.mod.json
+          javap -classpath "$JAR" -p dev.denis.phaselab.PhaseTelemetryClient > telemetry-javap.txt
+          grep -F 'onPlayerCorrectionHead' telemetry-javap.txt
+          grep -F 'onPlayerCorrectionTail' telemetry-javap.txt
+          grep -F 'onVehicleCorrectionHead' telemetry-javap.txt
+          grep -F 'onVehicleCorrectionTail' telemetry-javap.txt
+          grep -F 'onServerOpenScreen' telemetry-javap.txt
 
-      - name: Upload build log
+      - name: Upload build evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-build-log-v4.0
+          name: phaselab-build-log-v4.1
           path: |
             phaselab-client/build.log
             phaselab-client/jar-contents.txt
             phaselab-client/built-fabric.mod.json
-            phaselab-client/mixin-javap.txt
+            phaselab-client/telemetry-javap.txt
           if-no-files-found: warn
 
       - name: Upload JAR
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-client-4.0.0-mc1.21.11
-          path: phaselab-client/build/libs/phaselab-client-4.0.0.jar
+          name: phaselab-admin-telemetry-4.1.0-mc1.21.11
+          path: phaselab-client/build/libs/phaselab-client-4.1.0.jar
           if-no-files-found: error
