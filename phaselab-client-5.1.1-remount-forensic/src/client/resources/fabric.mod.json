@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "phaselab",
+  "version": "${version}",
+  "name": "PhaseLab Remount Forensic",
+  "description": "Bounded authorized remount-state verifier derived from PhaseLab Pulse 5.1, with stale-entity recovery and passenger telemetry.",
+  "authors": ["Denis + OpenAI"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.denis.phaselab.BoatPhaseClient"
+    ]
+  },
+  "mixins": [
+    "phaselab.client.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.2",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
