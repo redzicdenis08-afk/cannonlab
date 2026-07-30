@@ -1,16 +1,17 @@
 {
   "schemaVersion": 1,
   "id": "phaselab",
-  "version": "6.2.0",
-  "name": "PhaseLab ExtremeCraft Geometry",
-  "description": "Fabric 1.21.11 player-only black-box vehicle phase research harness hard-locked to extremecraft.net:25565. Rejects vertically invalid targets, distinguishes edge escapes from target-corridor crossings, and writes bounded local evidence. No server plugin required.",
+  "version": "6.3.0",
+  "name": "PhaseLab ExtremeCraft Campaign",
+  "description": "Fabric 1.21.11 player-only black-box vehicle phase research harness hard-locked to extremecraft.net:25565. Includes geometry-aware single cases and bounded full-matrix ordinary-input campaigns with local correction and persistence evidence. No server plugin required.",
   "authors": ["Denis + OpenAI"],
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
     "client": [
       "dev.denis.phaselab.PhaseTelemetryClient",
-      "dev.denis.phaselab.PhaseLabActiveClient"
+      "dev.denis.phaselab.PhaseLabActiveClient",
+      "dev.denis.phaselab.PhaseLabCampaignClient"
     ]
   },
   "mixins": [
