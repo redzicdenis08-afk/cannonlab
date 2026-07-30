@@ -11,17 +11,23 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 @Mixin(ClientPacketListener.class)
 public abstract class ClientPacketListenerMixin {
-    /**
-     * TAIL is intentional: the adaptive client classifies the position after
-     * vanilla has applied the server's authoritative correction.
-     */
+    @Inject(method = "handleMovePlayer", at = @At("HEAD"))
+    private void phaselab$beforeServerPlayerCorrection(ClientboundPlayerPositionPacket packet, CallbackInfo ci) {
+        BoatPhaseClient.onServerPlayerCorrectionHead(packet);
+    }
+
     @Inject(method = "handleMovePlayer", at = @At("TAIL"))
     private void phaselab$afterServerPlayerCorrection(ClientboundPlayerPositionPacket packet, CallbackInfo ci) {
-        BoatPhaseClient.onServerPlayerCorrectionApplied();
+        BoatPhaseClient.onServerPlayerCorrectionTail(packet);
+    }
+
+    @Inject(method = "handleMoveVehicle", at = @At("HEAD"))
+    private void phaselab$beforeServerVehicleCorrection(ClientboundMoveVehiclePacket packet, CallbackInfo ci) {
+        BoatPhaseClient.onServerVehicleCorrectionHead(packet);
     }
 
     @Inject(method = "handleMoveVehicle", at = @At("TAIL"))
     private void phaselab$afterServerVehicleCorrection(ClientboundMoveVehiclePacket packet, CallbackInfo ci) {
-        BoatPhaseClient.onServerVehicleCorrectionApplied();
+        BoatPhaseClient.onServerVehicleCorrectionTail(packet);
     }
 }

@@ -2,9 +2,11 @@
   "schemaVersion": 1,
   "id": "phaselab",
   "version": "${version}",
-  "name": "PhaseLab Client",
-  "description": "Adaptive tick-paced boat and horse movement laboratory for authorized private server testing, with forward/down modes and normal remount validation.",
-  "authors": ["Denis + OpenAI"],
+  "name": "PhaseLab Verifier",
+  "description": "Client-only bounded boat and horse verifier for authorized private clone calibration. Records packet timing, corrections, separation, environment, and manual remount stability.",
+  "authors": [
+    "Denis + OpenAI"
+  ],
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
