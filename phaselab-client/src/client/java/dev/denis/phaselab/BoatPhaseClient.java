@@ -37,14 +37,14 @@ public final class BoatPhaseClient implements ClientModInitializer {
 
     // The boat profile preserves the movement family the user reproduced by
     // hand. Horse is intentionally independent and more conservative.
-    private static final double BOAT_FORWARD_SEGMENT = 2.0D;
-    private static final double BOAT_DOWN_SEGMENT = 0.75D;
-    private static final double HORSE_FORWARD_SEGMENT = 1.0D;
-    private static final double HORSE_DOWN_SEGMENT = 0.50D;
+    private static final double BOAT_FORWARD_SEGMENT = 1.0D;
+    private static final double BOAT_DOWN_SEGMENT = 0.50D;
+    private static final double HORSE_FORWARD_SEGMENT = 0.50D;
+    private static final double HORSE_DOWN_SEGMENT = 0.25D;
 
     private static final int BOAT_FORWARD_PACKETS_PER_TICK = 1;
     private static final int BOAT_DOWN_PACKETS_PER_TICK = 1;
-    private static final int HORSE_FORWARD_PACKETS_PER_TICK = 2;
+    private static final int HORSE_FORWARD_PACKETS_PER_TICK = 1;
     private static final int HORSE_DOWN_PACKETS_PER_TICK = 1;
 
     private static final int POST_SEGMENT_SETTLE_TICKS = 10;
@@ -137,16 +137,23 @@ public final class BoatPhaseClient implements ClientModInitializer {
         Entity controlled = controlledVehicle(player);
         if (controlled == activeVehicle) {
             // Riding-player synchronization is common and is not itself a
-            // rejection. Require a quiet server window before doing more.
-            state = State.POST_SEGMENT_SETTLE;
-            stateTicks = POST_SEGMENT_SETTLE_TICKS;
-            actionbar(player, "Server synchronized the rider. Holding all movement packets...");
+            // rejection. Do not restart a remount/stabilization cycle because
+            // another sync packet arrived.
+            if (state == State.MOVING || state == State.POST_SEGMENT_SETTLE) {
+                state = State.POST_SEGMENT_SETTLE;
+                stateTicks = Math.max(stateTicks, POST_SEGMENT_SETTLE_TICKS / 2);
+            }
+            actionbar(player, "Server synchronized the rider. Holding movement while state settles...");
             return;
         }
 
         if (player.distanceToSqr(activeVehicle) <= REMOUNT_RANGE_SQUARED) {
-            beginSeparationQuiet(player,
-                "Server separated rider and vehicle. Waiting before one clean remount attempt...");
+            if (!isReconcilingState()) {
+                beginSeparationQuiet(player,
+                    "Server separated rider and vehicle. Waiting before one clean remount attempt...");
+            } else {
+                log("DUPLICATE_SEPARATION_SIGNAL", player, vehiclePosition());
+            }
             return;
         }
 
@@ -178,14 +185,20 @@ public final class BoatPhaseClient implements ClientModInitializer {
 
         Entity controlled = controlledVehicle(player);
         if (controlled == activeVehicle) {
-            state = State.POST_SEGMENT_SETTLE;
-            stateTicks = POST_SEGMENT_SETTLE_TICKS;
+            if (state == State.MOVING || state == State.POST_SEGMENT_SETTLE) {
+                state = State.POST_SEGMENT_SETTLE;
+                stateTicks = Math.max(stateTicks, POST_SEGMENT_SETTLE_TICKS / 2);
+            }
             actionbar(player, String.format(Locale.ROOT,
-                "Server retained %.2f blocks. Stabilizing the accepted position...", retainedProgress));
+                "Server retained %.2f blocks. Holding movement while state settles...", retainedProgress));
         } else if (player.distanceToSqr(activeVehicle) <= REMOUNT_RANGE_SQUARED) {
-            beginSeparationQuiet(player, String.format(Locale.ROOT,
-                "Server retained %.2f blocks and separated the rider. Waiting before remount...",
-                retainedProgress));
+            if (!isReconcilingState()) {
+                beginSeparationQuiet(player, String.format(Locale.ROOT,
+                    "Server retained %.2f blocks and separated the rider. Waiting before remount...",
+                    retainedProgress));
+            } else {
+                log("DUPLICATE_VEHICLE_SEPARATION_SIGNAL", player, serverPosition);
+            }
         } else {
             stop(player, String.format(Locale.ROOT,
                 "PARTIAL: vehicle retained %.2f blocks but ended outside normal remount reach.",
@@ -403,7 +416,18 @@ public final class BoatPhaseClient implements ClientModInitializer {
         acceptCurrentPulse(player, "PULSE_ACCEPTED_AFTER_STABLE_REMOUNT");
     }
 
+    private static boolean isReconcilingState() {
+        return state == State.SEPARATION_QUIET
+            || state == State.AUTO_REMOUNT_WAIT
+            || state == State.MANUAL_REMOUNT_WAIT
+            || state == State.REMOUNT_STABILIZE;
+    }
+
     private static void beginSeparationQuiet(LocalPlayer player, String reason) {
+        if (isReconcilingState()) {
+            log("SEPARATION_QUIET_ALREADY_ACTIVE", player, vehiclePosition());
+            return;
+        }
         separationCount++;
         reconcileAttempts++;
         state = State.SEPARATION_QUIET;

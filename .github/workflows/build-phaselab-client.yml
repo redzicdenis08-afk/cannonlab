@@ -114,7 +114,7 @@ jobs:
           SIZE="$(stat -c '%s' "$JAR")"
           mkdir -p ../phaselab-evidence
           cat > ../phaselab-evidence/latest-client-build.json <<EOF
-          {"version":"5.1.0","minecraft":"1.21.11","artifact":"phaselab-client-5.1.0.jar","sha256":"$SHA","bytes":$SIZE,"step":0.25,"boat_forward_packets_per_tick":1,"boat_down_packets_per_tick":1,"horse_forward_packets_per_tick":2,"horse_down_packets_per_tick":1,"boat_forward_segment":2.0,"boat_down_segment":0.75,"horse_forward_segment":1.0,"horse_down_segment":0.5,"pulse_reconciliation":true,"single_auto_remount_attempt":true,"manual_remount_fallback":true,"remount_stable_ticks":20,"quiet_ticks":8,"vehicle_only_client_motion":true,"correction_tail_classification":true,"single_entrypoint":true,"cardinal_snap":true,"pitch_down_mode":true,"default_toggle":"P","default_abort":"O","verified":true}
+          {"version":"5.1.0","minecraft":"1.21.11","artifact":"phaselab-client-5.1.0.jar","sha256":"$SHA","bytes":$SIZE,"step":0.25,"boat_forward_packets_per_tick":1,"boat_down_packets_per_tick":1,"horse_forward_packets_per_tick":1,"horse_down_packets_per_tick":1,"boat_forward_segment":1.0,"boat_down_segment":0.5,"horse_forward_segment":0.5,"horse_down_segment":0.25,"pulse_reconciliation":true,"single_auto_remount_attempt":true,"manual_remount_fallback":true,"remount_stable_ticks":20,"quiet_ticks":8,"vehicle_only_client_motion":true,"correction_tail_classification":true,"single_entrypoint":true,"cardinal_snap":true,"pitch_down_mode":true,"default_toggle":"P","default_abort":"O","verified":true}
           EOF
           cd ..
           git config user.name 'phaselab-bot'
