@@ -1,80 +1,97 @@
-# PhaseLab Admin Telemetry 4.2
+# PhaseLab Lab-Locked Red Team 5.0
 
-Passive, client-only Fabric 1.21.11 telemetry for servers you own or are explicitly authorized to test.
+Fabric 1.21.11 telemetry plus bounded active scenario automation for an explicitly paired PhaseLab test server.
 
-## What changed in 4.2
+## Safety and trust model
 
-- Always writes an easy-to-find `.minecraft/PHASELAB_LATEST.csv`.
-- Also keeps `.minecraft/config/phaselab/PHASELAB_LATEST.csv` and a unique archived session CSV.
-- Uses local time in filenames instead of UTC-only names.
-- Adds named test types and start/end test segments.
-- Captures 20 samples per second while a test is active, mounted, colliding, or in water/lava.
-- Keeps idle capture at one sample per second.
-- Writes `.minecraft/PHASELAB_STATUS.txt` and `.minecraft/PHASELAB_SUMMARY.txt`.
-- Reports I/O errors in chat instead of silently failing.
-- Adds dimension, block/chunk coordinates, pose, vehicle collision-box state, and passenger count.
+Active scenarios are fail-closed. They do not run merely because the player joins a server.
 
-The old active position and boat-movement classes are not included in this artifact.
+The paired PhaseLab server plugin must:
+
+1. own an Ed25519 private signing key;
+2. export its server ID and public key;
+3. configure a bounded laboratory region and barrier plane;
+4. issue a short-lived authorization tied to the player UUID and that region.
+
+The client verifies the signature, player UUID, server ID, expiry, and region before pressing any automated key. It does not send forged movement packets or directly mutate player/vehicle position.
+
+## Install the client lock
+
+After the server plugin has started once, copy these two files:
+
+```text
+plugins/PhaseLabServer/client-lock/server-id.txt
+plugins/PhaseLabServer/client-lock/server-public-key.txt
+```
+
+into:
+
+```text
+.minecraft/config/phaselab/server-id.txt
+.minecraft/config/phaselab/server-public-key.txt
+```
+
+The server private key remains in `plugins/PhaseLabServer/identity.properties` and must never be copied to the client or committed.
 
 ## Controls
 
-Controls are registered under **PhaseLab Admin Telemetry** and may be rebound:
+Telemetry controls remain available:
 
-- `F7`: cycle test type: GENERAL, MOUNT, WALL_CONTACT, WATER, CLAIM_BORDER, DISMOUNT, CONTAINER;
-- `F8`: pause or resume capture;
-- `F9`: start or end the current named test;
-- `F10`: show status, counters, and the exact easy CSV path.
+- `F7`: cycle telemetry test label;
+- `F8`: pause/resume telemetry;
+- `F9`: start/end a named telemetry segment;
+- `F10`: show telemetry status and file paths.
 
-Capture starts automatically when a world/server session becomes available.
+Signed active controls:
 
-## Recommended test rhythm
+- `F6`: cycle active scenario;
+- `F12`: run the selected scenario or abort the current one.
 
-1. Join the authorized test server.
-2. Press `F7` until the correct test type is selected.
-3. Press `F9` to start the test.
-4. Perform one action only.
-5. Press `F9` again when the result is visible.
-6. Repeat for the next test type.
+Available v5 scenarios:
 
-## Files
+- `PRESS_FORWARD`: hold forward for 160 ticks, then observe;
+- `PULSE_FORWARD`: repeated bounded forward pulses;
+- `DISMOUNT_EDGE`: forward input with a fixed two-tick dismount input;
+- `BRAKE_RELEASE`: forward pressure followed by a stationary observation window.
 
-The easiest live file is always:
+## Exact run rhythm
+
+1. Stand inside the configured PhaseLab region.
+2. Mount the test boat or vehicle.
+3. Run `/phaselab authorize <player>` as an operator.
+4. Confirm the client says `SIGNED LAB AUTH ACTIVE`.
+5. Press `F6` to select the scenario.
+6. Press `F9` to start a matching telemetry segment if desired.
+7. Press `F12` to run.
+8. The server classifies the outcome and rolls back the player and vehicle.
+9. Press `F9` to close the telemetry segment.
+
+## Server verdicts
+
+- `BLOCKED`: no meaningful crossing was observed;
+- `TRANSIENT_CROSSING`: the barrier coordinate was crossed briefly, without persistent solid overlap;
+- `FORCED_DISMOUNT`: the passenger relationship ended during a scenario that did not request a dismount;
+- `REPRODUCED`: player or vehicle remained beyond the barrier while overlapping solid blocks for the configured number of ticks;
+- `SAFETY_ABORT`: world, region, or distance limits were violated;
+- `ABORTED` / `EXPIRED`: operator/client abort or authorization expiry.
+
+## Evidence files
+
+Client telemetry:
 
 ```text
 .minecraft/PHASELAB_LATEST.csv
-```
-
-The same live session is mirrored at:
-
-```text
 .minecraft/config/phaselab/PHASELAB_LATEST.csv
-```
-
-Every connection is archived at:
-
-```text
-.minecraft/config/phaselab/telemetry-v4.2-<local-time>-<session>.csv
-```
-
-Human-readable status and summary files are written to:
-
-```text
 .minecraft/PHASELAB_STATUS.txt
 .minecraft/PHASELAB_SUMMARY.txt
 ```
 
-## Important event meanings
+Server-authoritative reports:
 
-- `TEST_START`, `TEST_END`: exact boundaries of one named player test.
-- `MOUNTED`, `DISMOUNTED`, `VEHICLE_CHANGED`: passenger relationship changed.
-- `STATE_CHANGE`: environment, collision, movement pose, or dimension changed.
-- `LOCAL_LARGE_MOVE`: client position changed by at least 0.75 blocks in one tick.
-- `SERVER_SETBACK_CORRELATED`: server correction arrived within two seconds of that move.
-- `SERVER_POSITION_PACKET`: inbound server position packet without a recent correlated move.
-- `SERVER_VEHICLE_CORRECTION`: inbound server vehicle correction.
-- `SERVER_OPEN_SCREEN`: server opened a menu/container screen.
-- `SAMPLE`: `detail_20hz` during active tests/risky states or `idle_1hz` otherwise.
+```text
+plugins/PhaseLabServer/reports/<date>.jsonl
+```
 
 ## Install
 
-Place the JAR and Fabric API in the client `mods` folder. Fabric Loader 0.19.2 or newer and Java 21 are supported.
+Place the client JAR and Fabric API in the client `mods` folder. Place the server JAR in the test server's `plugins` folder. Java 21 is the build target.
