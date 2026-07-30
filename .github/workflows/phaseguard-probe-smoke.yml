@@ -100,6 +100,23 @@ jobs:
           cp phaselab-server-probe/build/libs/PhaseGuard-Probe-1.0.0.jar phaseguard-runtime/plugins/
           curl -fL https://github.com/MilkBowl/Vault/releases/download/1.7.3/Vault.jar -o phaseguard-runtime/plugins/Vault-1.7.3.jar
 
+          download_modrinth() {
+            local version_id="$1"
+            local output="$2"
+            local json url
+            json="$(curl -fsSL "https://api.modrinth.com/v2/version/${version_id}")"
+            url="$(printf '%s' "$json" | jq -r '.files[] | select(.primary == true) | .url' | head -n 1)"
+            if [ -z "$url" ] || [ "$url" = "null" ]; then
+              url="$(printf '%s' "$json" | jq -r '.files[0].url')"
+            fi
+            test -n "$url"
+            test "$url" != "null"
+            curl -fL "$url" -o "$output"
+          }
+
+          download_modrinth I0mCQX6z phaseguard-runtime/plugins/ViaVersion-5.9.0.jar
+          download_modrinth HDbyDR7L phaseguard-runtime/plugins/ViaBackwards-5.9.0.jar
+
           sha256sum phaseguard-runtime/server.jar > phaseguard-runtime/server.sha256
           sha256sum phaseguard-runtime/plugins/*.jar | sort > phaseguard-runtime/plugins.sha256
 
