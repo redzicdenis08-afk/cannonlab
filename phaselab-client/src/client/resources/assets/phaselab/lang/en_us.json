@@ -1,5 +1,5 @@
 {
-  "key.categories.phaselab.verifier": "PhaseLab Verifier",
-  "key.phaselab.verifier_test": "Run next bounded verifier profile",
-  "key.phaselab.verifier_abort": "Abort current verifier profile"
+  "key.categories.phaselab.ratchet_vehicle": "PhaseLab Ratchet",
+  "key.phaselab.ratchet_toggle": "Start or stop adaptive vehicle ratchet",
+  "key.phaselab.ratchet_abort": "Emergency-abort adaptive vehicle ratchet"
 }

@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "id": "phaselab",
   "version": "${version}",
-  "name": "PhaseLab Verifier",
-  "description": "Client-only bounded boat and horse verifier for authorized private clone calibration. Records packet timing, corrections, separation, environment, and manual remount stability.",
+  "name": "PhaseLab Ratchet Client",
+  "description": "Client-only adaptive boat and horse ratchet for authorized private clone testing, using timed remount continuation and separate forward/down profiles.",
   "authors": [
     "Denis + OpenAI"
   ],
