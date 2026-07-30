@@ -85,7 +85,6 @@ async function main () {
     await command(phaseBot, '/gamemode creative PhaseBot')
     await command(phaseBot, '/gamemode survival VictimBot')
     await command(phaseBot, '/gamemode survival AttackerBot')
-    await command(phaseBot, '/gamerule fallDamage false')
     await command(phaseBot, '/stacklab build', 700)
     await command(phaseBot, '/fill 0 64 -4 32 64 4 minecraft:stone', 700)
     await command(phaseBot, '/effect give AttackerBot minecraft:resistance infinite 255 true')
@@ -102,12 +101,12 @@ async function main () {
     await commandExpect(phaseBot, '/stacklab claimset Victims 1 0', /STACKLAB CLAIM SET .*"actual_tag":"Victims".*"verified":true/, 8000)
 
     await commandExpect(phaseBot, '/phaseprobe start AttackerBot 180 claim-edge-smoke', /PhaseGuard probe started for AttackerBot/, 8000)
-    await command(phaseBot, '/tp AttackerBot 13.25 65 0.5 -90 45', 500)
+    await command(phaseBot, '/tp AttackerBot 13.25 65 -2.5 -90 45', 500)
     await commandExpect(phaseBot, '/stacklab boatuse AttackerBot', /STACKLAB BOAT USE .*"accepted":true/, 9000)
     await commandExpect(phaseBot, '/stacklab vehicleinteract AttackerBot OAK_BOAT', /STACKLAB VEHICLE INTERACT .*"mounted":true.*"vehicle_type":"OAK_BOAT"/, 9000)
     await sleep(1200)
 
-    await command(phaseBot, '/tp @e[type=minecraft:oak_boat,sort=nearest,limit=1] 17.5 65 0.5', 700)
+    await command(phaseBot, '/tp @e[type=minecraft:oak_boat,sort=nearest,limit=1] 17.5 65 -2.5', 700)
     await sleep(1200)
     await commandExpect(phaseBot, '/stacklab vehicledismount AttackerBot', /STACKLAB VEHICLE DISMOUNT .*"mounted":false/, 8000)
     await sleep(700)
