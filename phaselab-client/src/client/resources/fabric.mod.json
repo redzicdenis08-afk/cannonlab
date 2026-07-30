@@ -1,17 +1,15 @@
 {
   "schemaVersion": 1,
   "id": "phaselab",
-  "version": "4.0.0",
-  "name": "PhaseLab Client",
-  "description": "Client-only exact-Sakura movement laboratory with witness telemetry and a verified 0.25-step BoatPhase mode for authorized testing.",
+  "version": "4.1.0",
+  "name": "PhaseLab Admin Telemetry",
+  "description": "Passive Fabric 1.21.11 movement, vehicle, collision, environment, mount, and server-correction telemetry for authorized moderation testing.",
   "authors": ["Denis + OpenAI"],
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
     "client": [
-      "dev.denis.phaselab.PhaseLabClient",
-      "dev.denis.phaselab.PhaseTelemetryClient",
-      "dev.denis.phaselab.BoatPhaseClient"
+      "dev.denis.phaselab.PhaseTelemetryClient"
     ]
   },
   "mixins": [

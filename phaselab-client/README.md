@@ -1,61 +1,65 @@
-# PhaseLab Client 3.0
+# PhaseLab Admin Telemetry 4.1
 
-Client-only Fabric 1.21.11 position laboratory for servers you own or are explicitly authorized to test.
+Passive, client-only Fabric 1.21.11 telemetry for servers you own or are explicitly authorized to test.
 
-## Why V3 exists
+## What this build does
 
-V2 treated “no correction packet” as evidence that the server accepted a move. That was too weak: a server or proxy can silently ignore movement while leaving the client visually displaced.
+PhaseLab 4.1 observes the player and current vehicle without changing movement or collision. It records:
 
-V3 has three labels:
+- player and vehicle position/velocity;
+- mount, dismount, and vehicle-change events;
+- water, lava, swimming, fall-flying, collision, and no-physics state changes;
+- periodic one-second samples;
+- inbound player and vehicle correction packets;
+- correction handler time and correlation to a recent large local move;
+- server `OpenScreen` evidence;
+- health, air, ground state, player-to-vehicle distance, and client collision-box clearance.
 
-- `LOCAL_ONLY_NO_SETBACK`: the client moved and no setback arrived, but the server did not prove the target position.
-- `SETBACK_*`: a real server position correction arrived.
-- `SERVER_VERIFIED_WITNESS_OPEN`: a container reachable only from the target opened through a server `OpenScreen` packet.
-
-Only the third result is called server-verified.
+The previous active position and boat-movement classes are not included in this artifact.
 
 ## Controls
 
-The controls are registered under the **PhaseLab** category and can be rebound normally:
+Controls are registered under **PhaseLab Admin Telemetry** and may be rebound:
 
-- `F5`: status
-- `F6`: set or clear the block under the crosshair as the witness
-- `F7`: cycle forward, right, backward, left, down, up
-- `F8`: scan the first complete collision layer and clear exit gap
-- `F9`: apply the best geometry point and run witness verification
-- `F10`: abort and restore
+- `F8`: pause or resume capture;
+- `F9`: write a manual marker before/after an important action;
+- `F10`: show current recording, mount, water/lava, and log-path status.
 
-## Witness test rig
+Capture starts automatically when a world/server session becomes available.
 
-Use a barrel, chest, furnace, crafting table, or another block that causes the server to send an `OpenScreen` packet.
+## Recommended player test rhythm
 
-Place it so that:
+1. Join the authorized test server.
+2. Press `F9` immediately before the action being tested.
+3. Perform one action only, such as mounting, dismounting, entering water, touching a wall, crossing a test boundary, or interacting with a witness container.
+4. Press `F9` again after the result is visible.
+5. Repeat with a fresh marker pair for the next action.
 
-- it is within about 5.5 blocks of the intended target position;
-- it is at least about 6.25 blocks from the starting eye position;
-- it is exposed and can be right-clicked;
-- it cannot be opened from the start position.
+This creates clean evidence windows instead of one ambiguous movement soup.
 
-Look directly at it and press the Witness key before scanning/applying.
+## Logs
 
-## Verification model
-
-- Registered keybindings avoid Feather/Dawn raw-function-key conflicts.
-- Uses `absSnapTo` plus explicit full position/rotation packets.
-- Scans actual player-sized collision boxes using the current pose.
-- Detects the first clear interval after a real collision layer.
-- Scores interior gap points by clearance instead of choosing the farthest offset.
-- Tests scan candidates twice.
-- Hooks both server position-correction and server open-screen packets.
-- Refuses to call an apply successful without target-only witness proof.
-- Automatically restores on correction or witness timeout.
-
-Logs are written to:
+Each connection receives a unique session file:
 
 ```text
-.minecraft/config/phaselab/phaselab-v3-*.csv
+.minecraft/config/phaselab/telemetry-v4.1-<timestamp>-<session>.csv
 ```
+
+The old stale-correlation bug is fixed. A large local move expires after two seconds and is consumed by the next correction packet, so unrelated later teleports cannot inherit an ancient snap timestamp.
+
+## Event meanings
+
+- `SESSION_START`: logger initialized for the current connection.
+- `MANUAL_MARK`: player pressed F9.
+- `MOUNTED`, `DISMOUNTED`, `VEHICLE_CHANGED`: passenger relationship changed.
+- `STATE_CHANGE`: water/lava/collision/swimming/fall-flying/no-physics changed.
+- `LOCAL_LARGE_MOVE`: client position changed by at least 0.75 blocks in one tick.
+- `SERVER_SETBACK_CORRELATED`: server correction arrived within two seconds of that move.
+- `SERVER_POSITION_PACKET`: inbound server position packet without a recent correlated move.
+- `SERVER_VEHICLE_CORRECTION`: inbound server vehicle correction.
+- `SERVER_OPEN_SCREEN`: server opened a menu/container screen.
+- `SAMPLE`: periodic one-second state snapshot.
 
 ## Install
 
-Place the JAR and Fabric API in the client `mods` folder. Fabric Loader 0.19.2 or newer is supported. No server plugin is required.
+Place the JAR and Fabric API in the client `mods` folder. Fabric Loader 0.19.2 or newer and Java 21 are supported.

@@ -1,7 +1,5 @@
 package dev.denis.phaselab.mixin;
 
-import dev.denis.phaselab.BoatPhaseClient;
-import dev.denis.phaselab.PhaseLabClient;
 import dev.denis.phaselab.PhaseTelemetryClient;
 import net.minecraft.client.multiplayer.ClientPacketListener;
 import net.minecraft.network.protocol.game.ClientboundMoveVehiclePacket;
@@ -12,26 +10,31 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
+/** Passive hooks for inbound server evidence only. */
 @Mixin(ClientPacketListener.class)
 public abstract class ClientPacketListenerMixin {
     @Inject(method = "handleMovePlayer", at = @At("HEAD"))
-    private void phaselab$recordServerCorrectionHead(ClientboundPlayerPositionPacket packet, CallbackInfo ci) {
-        PhaseTelemetryClient.onCorrectionHead();
-        PhaseLabClient.onServerPositionCorrection();
+    private void phaselab$recordPlayerCorrectionHead(ClientboundPlayerPositionPacket packet, CallbackInfo ci) {
+        PhaseTelemetryClient.onPlayerCorrectionHead();
     }
 
     @Inject(method = "handleMovePlayer", at = @At("TAIL"))
-    private void phaselab$recordServerCorrectionTail(ClientboundPlayerPositionPacket packet, CallbackInfo ci) {
-        PhaseTelemetryClient.onCorrectionTail();
+    private void phaselab$recordPlayerCorrectionTail(ClientboundPlayerPositionPacket packet, CallbackInfo ci) {
+        PhaseTelemetryClient.onPlayerCorrectionTail();
     }
 
     @Inject(method = "handleMoveVehicle", at = @At("HEAD"))
-    private void phaselab$recordServerVehicleCorrection(ClientboundMoveVehiclePacket packet, CallbackInfo ci) {
-        BoatPhaseClient.onServerVehicleCorrection();
+    private void phaselab$recordVehicleCorrectionHead(ClientboundMoveVehiclePacket packet, CallbackInfo ci) {
+        PhaseTelemetryClient.onVehicleCorrectionHead();
+    }
+
+    @Inject(method = "handleMoveVehicle", at = @At("TAIL"))
+    private void phaselab$recordVehicleCorrectionTail(ClientboundMoveVehiclePacket packet, CallbackInfo ci) {
+        PhaseTelemetryClient.onVehicleCorrectionTail();
     }
 
     @Inject(method = "handleOpenScreen", at = @At("HEAD"))
     private void phaselab$recordServerOpenScreen(ClientboundOpenScreenPacket packet, CallbackInfo ci) {
-        PhaseLabClient.onServerOpenScreen();
+        PhaseTelemetryClient.onServerOpenScreen();
     }
 }
