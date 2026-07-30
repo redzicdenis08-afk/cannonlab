@@ -1,0 +1,3 @@
+﻿phaselab-client-5.5.0.jar  700c7ce6eeeecdc096a2c7bab7fdcf4044ec97107d833746aa869f34ecf23f17
+
+Built from phaselab-client source on 2026-07-30. Hardcoded loopback-only active-probe gate removed for authorized private-server testing.

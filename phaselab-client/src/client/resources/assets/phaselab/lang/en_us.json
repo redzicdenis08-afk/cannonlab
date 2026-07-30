@@ -1,0 +1,6 @@
+{
+  "key.categories.phaselab.verifier": "PhaseLab Verifier",
+  "key.phaselab.verifier_test": "Run next bounded verifier profile",
+  "key.phaselab.verifier_ratchet": "Run lab-locked bamboo raft wall probe",
+  "key.phaselab.verifier_abort": "Abort current verifier profile"
+}

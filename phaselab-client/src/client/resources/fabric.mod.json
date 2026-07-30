@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "phaselab",
+  "version": "${version}",
+  "name": "PhaseLab Verifier",
+  "description": "Authorized red-team verifier for private PhaseLab testing. Runs bounded vehicle probes and records correction/passenger telemetry.",
+  "authors": [
+    "Denis + OpenAI"
+  ],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.denis.phaselab.BoatPhaseClient"
+    ]
+  },
+  "mixins": [
+    "phaselab.client.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.2",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
