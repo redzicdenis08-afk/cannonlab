@@ -282,6 +282,54 @@ jobs:
           if result.get('fatal'):
               raise SystemExit(1)
           PY
+
+      - name: Enforce stack-specific defense contract
+        if: always()
+        shell: bash
+        env:
+          STACK_ID: ${{ matrix.stack_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          stack = os.environ['STACK_ID']
+          report_path = Path(
+              f'phaselab-harness/output-private-vehicle-{stack}/private-stack-vehicle-phase-report.json'
+          )
+          if not report_path.exists():
+              raise SystemExit(f'missing report for {stack}')
+          report = json.loads(report_path.read_text(encoding='utf-8'))
+          successes = int(report.get('successCount') or 0)
+          families = report.get('byFamily') or {}
+
+          if stack == 'baseline':
+              # The stimulus must remain alive or a green protected result is meaningless.
+              if successes < 4:
+                  raise SystemExit(f'baseline stimulus weakened: expected at least 4 successes, got {successes}')
+          elif stack == 'grim-stable-2.3.73':
+              # Historical control: this pinned release is known to leave the route open.
+              if successes < 4:
+                  raise SystemExit(
+                      f'historical Grim control changed: expected known-vulnerable behavior, got {successes} successes'
+                  )
+              print('KNOWN_VULNERABLE: Grim 2.3.73 reproduced baseline-success vehicle routes')
+          elif stack == 'grim-current-2.3.74-7ae1d8f':
+              # Production defense contract: no baseline-success family may cross.
+              regressions = {
+                  name: value
+                  for name, value in families.items()
+                  if int((value or {}).get('successes') or 0) > 0
+              }
+              if successes != 0 or regressions:
+                  raise SystemExit(
+                      f'GRIM VEHICLE REGRESSION: total successes={successes}, families={regressions}'
+                  )
+              print('BLOCKED: current Grim rejected every vehicle route in the matrix')
+          else:
+              raise SystemExit(f'unknown stack id: {stack}')
+          PY
       - name: Write compact stack verdict
         if: always()
         shell: bash
