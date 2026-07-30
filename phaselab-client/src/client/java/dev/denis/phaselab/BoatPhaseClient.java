@@ -20,8 +20,6 @@ import net.minecraft.network.protocol.game.ClientboundPlayerPositionPacket;
 import net.minecraft.network.protocol.game.ServerboundMoveVehiclePacket;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.entity.Entity;
-import net.minecraft.world.entity.animal.horse.AbstractHorse;
-import net.minecraft.world.entity.vehicle.AbstractBoat;
 import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
 
@@ -572,7 +570,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
         Entity subject = vehicle != null ? vehicle : player;
         if (subject == null) return env;
         BlockPos center = BlockPos.containing(subject.position());
-        env.addProperty("dimension", client.level.dimension().location().toString());
+        env.addProperty("dimension", client.level.dimension().toString());
         env.addProperty("chunk_loaded", client.level.hasChunkAt(center));
         env.addProperty("collision_free", client.level.noCollision(subject, subject.getBoundingBox().deflate(0.01D)));
         env.addProperty("in_water", subject.isInWater());
@@ -655,8 +653,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
             start.addProperty("mod_version", "5.2.0");
             start.addProperty("minecraft", "1.21.11");
             start.addProperty("server_address", client.getCurrentServer() == null ? "singleplayer" : client.getCurrentServer().ip);
-            start.addProperty("server_brand", client.getConnection() == null ? "" : String.valueOf(client.getConnection().getServerBrand()));
-            start.addProperty("player_name", player.getGameProfile().name());
+                        start.addProperty("player_name", player.getGameProfile().name());
             start.addProperty("player_uuid", player.getUUID().toString());
             start.addProperty("latency_ms", latency(player));
             append(start);
@@ -684,8 +681,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
         summary.addProperty("mod_version", "5.2.0");
         summary.addProperty("minecraft", "1.21.11");
         summary.addProperty("server_address", client == null || client.getCurrentServer() == null ? "singleplayer" : client.getCurrentServer().ip);
-        summary.addProperty("server_brand", client == null || client.getConnection() == null ? "" : String.valueOf(client.getConnection().getServerBrand()));
-        summary.addProperty("player", player == null ? "" : player.getGameProfile().name());
+                summary.addProperty("player", player == null ? "" : player.getGameProfile().name());
         summary.addProperty("latency_ms", player == null ? -1 : latency(player));
         summary.add("tests", completedTests);
         JsonObject ladders = new JsonObject();
@@ -725,8 +721,10 @@ public final class BoatPhaseClient implements ClientModInitializer {
     }
 
     private static VehicleKind classifyVehicle(Entity entity) {
-        if (entity instanceof AbstractBoat) return VehicleKind.BOAT;
-        if (entity instanceof AbstractHorse) return VehicleKind.HORSE;
+        if (entity == null) return null;
+        String type = entity.getType().toString().toLowerCase(Locale.ROOT);
+        if (type.contains("boat")) return VehicleKind.BOAT;
+        if (type.contains("horse")) return VehicleKind.HORSE;
         return null;
     }
 
