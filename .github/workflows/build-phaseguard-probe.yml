@@ -1,0 +1,90 @@
+name: Build PhaseGuard Probe
+
+on:
+  push:
+    branches:
+      - feat/phaselab-client-5.1-pulse
+      - feat/phaseguard-server-probe
+    paths:
+      - 'phaselab-server-probe/**'
+      - '.github/workflows/build-phaseguard-probe.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phaseguard-probe-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Java 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.1'
+
+      - name: Build server probe
+        run: gradle -p phaselab-server-probe clean build --stacktrace --console=plain
+
+      - name: Verify artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          JAR='phaselab-server-probe/build/libs/PhaseGuard-Probe-1.0.0.jar'
+          test -f "$JAR"
+          python - <<'PY'
+          import hashlib
+          import json
+          import zipfile
+          from pathlib import Path
+
+          jar = Path('phaselab-server-probe/build/libs/PhaseGuard-Probe-1.0.0.jar')
+          with zipfile.ZipFile(jar) as archive:
+              names = set(archive.namelist())
+              required = {
+                  'dev/denis/phaseguard/PhaseGuardProbePlugin.class',
+                  'plugin.yml',
+              }
+              missing = sorted(required - names)
+              if missing:
+                  raise SystemExit(f'missing entries: {missing}')
+              plugin = archive.read('plugin.yml').decode('utf-8')
+              for needle in [
+                  'name: PhaseGuardProbe',
+                  'main: dev.denis.phaseguard.PhaseGuardProbePlugin',
+                  'phaseprobe:',
+              ]:
+                  if needle not in plugin:
+                      raise SystemExit(f'plugin.yml missing {needle!r}')
+          receipt = {
+              'artifact': jar.name,
+              'bytes': jar.stat().st_size,
+              'sha256': hashlib.sha256(jar.read_bytes()).hexdigest(),
+              'java': 25,
+              'paper_api': '26.1.2',
+              'verified': True,
+          }
+          Path('phaselab-server-probe/build-receipt.json').write_text(json.dumps(receipt, indent=2) + '\n')
+          print(receipt)
+          PY
+
+      - name: Upload PhaseGuard Probe
+        uses: actions/upload-artifact@v4
+        with:
+          name: phaseguard-probe-1.0.0
+          if-no-files-found: error
+          path: |
+            phaselab-server-probe/build/libs/PhaseGuard-Probe-1.0.0.jar
+            phaselab-server-probe/build-receipt.json

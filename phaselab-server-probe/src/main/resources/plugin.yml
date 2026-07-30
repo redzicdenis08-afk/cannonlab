@@ -1,0 +1,14 @@
+name: PhaseGuardProbe
+version: ${version}
+main: dev.denis.phaseguard.PhaseGuardProbePlugin
+api-version: '1.21'
+authors: [Denis]
+description: Server-authoritative vehicle, mount, claim, fluid, collision, and listener-priority probe for an authorized private test stack.
+commands:
+  phaseprobe:
+    description: Start or inspect a server-authoritative vehicle phase diagnostic session.
+    usage: /phaseprobe <start|stop|snapshot|listeners|status>
+    permission: phaseguardprobe.admin
+permissions:
+  phaseguardprobe.admin:
+    default: op
