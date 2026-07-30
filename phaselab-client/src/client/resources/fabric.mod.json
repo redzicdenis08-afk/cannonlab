@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "phaselab",
-  "version": "5.2.0",
-  "name": "PhaseLab Player Active Tester",
-  "description": "Fabric 1.21.11 telemetry plus short bounded player-side vehicle input scenarios with automatic wall-plane detection and local crossing evidence. No server plugin or setup commands required.",
+  "version": "6.0.0",
+  "name": "PhaseLab Authorized Red-Team Campaign",
+  "description": "Fabric 1.21.11 client for bounded server-authorized vehicle/collision campaigns with server-authoritative verdicts, rollback, correction telemetry, and replayable evidence.",
   "authors": ["Denis + OpenAI"],
   "license": "MIT",
   "environment": "client",

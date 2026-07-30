@@ -1,15 +1,15 @@
 name: PhaseLabServer
-version: 5.1.0
+version: 6.0.0
 main: dev.denis.phaselab.server.PhaseLabServerPlugin
 api-version: '1.21'
 author: Denis + OpenAI
-description: One-command bounded PhaseLab vehicle test harness with authoritative verdicts and rollback.
+description: Authorized bounded PhaseLab campaign referee with live-stack verdicts, evidence, and rollback.
 commands:
   phaselab:
-    description: Start, inspect, or abort the PhaseLab test harness.
+    description: Authorize, inspect, or abort the PhaseLab campaign.
     usage: /phaselab <quickstart [seconds]|status|abort>
     permission: phaselab.admin
 permissions:
   phaselab.admin:
-    description: Operate the PhaseLab test harness.
+    description: Operate the authorized PhaseLab campaign.
     default: op

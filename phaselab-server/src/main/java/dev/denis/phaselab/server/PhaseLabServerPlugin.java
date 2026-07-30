@@ -12,9 +12,11 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.messaging.PluginMessageListener;
+import org.bukkit.util.BoundingBox;
 import org.bukkit.util.RayTraceResult;
 import org.bukkit.util.Vector;
 import org.jetbrains.annotations.NotNull;
@@ -34,13 +36,26 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Server-authoritative PhaseLab campaign referee.
+ *
+ * This plugin does not disable or bypass anti-cheat. Grim/NCE, claim checks,
+ * proxy handling, and the rest of the live test stack remain active. The plugin
+ * only authorizes a bounded lab session, observes server state, records verdicts,
+ * and restores the player/vehicle after every case.
+ */
 public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMessageListener, CommandExecutor, Listener {
+    private static final String VERSION = "6.0.0";
     private static final String CHANNEL = "phaselab:control";
     private static final Set<String> SCENARIOS = Set.of(
         "PRESS_FORWARD",
         "PULSE_FORWARD",
+        "FORWARD_LEFT",
+        "FORWARD_RIGHT",
+        "BRAKE_RELEASE",
+        "FORWARD_BACK_PULSE",
         "DISMOUNT_EDGE",
-        "BRAKE_RELEASE"
+        "IDLE_CONTROL"
     );
 
     private final Map<UUID, Session> sessions = new ConcurrentHashMap<>();
@@ -55,7 +70,7 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
             getCommand("phaselab").setExecutor(this);
         }
         getServer().getScheduler().runTaskTimer(this, this::tickSessions, 1L, 1L);
-        getLogger().info("PhaseLab Server v5.1 active. Mount a test vehicle, face the wall, and run /phaselab quickstart.");
+        getLogger().info("PhaseLab Server v" + VERSION + " active. Grim/NCE remain enabled. Mount, face wall, /phaselab quickstart.");
     }
 
     @Override
@@ -98,8 +113,7 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
                         return true;
                     }
                 }
-                seconds = Math.max(60, Math.min(1800, seconds));
-                quickstart(player, seconds);
+                quickstart(player, Math.max(60, Math.min(1800, seconds)));
             }
             case "status" -> sendStatus(sender);
             case "abort" -> {
@@ -109,10 +123,10 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
                 }
                 Session session = sessions.get(player.getUniqueId());
                 if (session == null) {
-                    sender.sendMessage("[PhaseLab] No active authorization.");
+                    sender.sendMessage("[PhaseLab] No active lab session.");
                 } else {
                     finish(session, "ABORTED", "operator_abort", true);
-                    sender.sendMessage("[PhaseLab] Test aborted and rolled back.");
+                    sender.sendMessage("[PhaseLab] Active case aborted and rolled back.");
                 }
             }
             default -> sender.sendMessage("[PhaseLab] Usage: /phaselab <quickstart [seconds]|status|abort>");
@@ -123,7 +137,7 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
     private void quickstart(Player player, int seconds) {
         Entity vehicle = player.getVehicle();
         if (vehicle == null) {
-            player.sendMessage("[PhaseLab] Mount the test boat/vehicle first.");
+            player.sendMessage("[PhaseLab] Mount the lab boat/vehicle first.");
             return;
         }
 
@@ -133,27 +147,25 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
             return;
         }
 
-        Session old = sessions.get(player.getUniqueId());
-        if (old != null && old.running) {
-            finish(old, "ABORTED", "replaced_by_quickstart", true);
+        Session previous = sessions.remove(player.getUniqueId());
+        if (previous != null && previous.running) {
+            finish(previous, "ABORTED", "replaced_by_quickstart", true);
         }
 
         Location vehicleLocation = vehicle.getLocation();
-        Block hit = barrier.block;
-        int minX = Math.min(vehicleLocation.getBlockX(), hit.getX()) - 12;
-        int maxX = Math.max(vehicleLocation.getBlockX(), hit.getX()) + 12;
-        int minY = Math.min(vehicleLocation.getBlockY(), hit.getY()) - 6;
-        int maxY = Math.max(vehicleLocation.getBlockY(), hit.getY()) + 8;
-        int minZ = Math.min(vehicleLocation.getBlockZ(), hit.getZ()) - 12;
-        int maxZ = Math.max(vehicleLocation.getBlockZ(), hit.getZ()) + 12;
-
+        Block hit = barrier.block();
         Region region = new Region(
             player.getWorld().getName(),
-            minX, minY, minZ,
-            maxX, maxY, maxZ,
-            barrier.axis,
-            barrier.coordinate
+            Math.min(vehicleLocation.getBlockX(), hit.getX()) - 12,
+            Math.min(vehicleLocation.getBlockY(), hit.getY()) - 6,
+            Math.min(vehicleLocation.getBlockZ(), hit.getZ()) - 12,
+            Math.max(vehicleLocation.getBlockX(), hit.getX()) + 12,
+            Math.max(vehicleLocation.getBlockY(), hit.getY()) + 8,
+            Math.max(vehicleLocation.getBlockZ(), hit.getZ()) + 12,
+            barrier.axis(),
+            barrier.coordinate()
         );
+
         long expires = System.currentTimeMillis() + seconds * 1000L;
         String nonce = UUID.randomUUID().toString();
         Session session = new Session(player, nonce, expires, region);
@@ -161,20 +173,22 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
 
         send(player, String.join("|",
             "AUTH",
-            "1",
+            "2",
             player.getUniqueId().toString(),
             Long.toString(expires),
-            Integer.toString(region.minX),
-            Integer.toString(region.minY),
-            Integer.toString(region.minZ),
-            Integer.toString(region.maxX),
-            Integer.toString(region.maxY),
-            Integer.toString(region.maxZ),
-            nonce
+            Integer.toString(region.minX()),
+            Integer.toString(region.minY()),
+            Integer.toString(region.minZ()),
+            Integer.toString(region.maxX()),
+            Integer.toString(region.maxY()),
+            Integer.toString(region.maxZ()),
+            nonce,
+            region.axis(),
+            decimal(region.barrier())
         ));
 
-        player.sendMessage("[PhaseLab] READY for " + seconds + " seconds. Wall=" + region.axis + "="
-            + String.format(Locale.ROOT, "%.2f", region.barrier) + ". Press F6 to select and F12 to run.");
+        player.sendMessage("[PhaseLab] AUTHORIZED LAB READY for " + seconds + "s. Wall=" + region.axis() + "="
+            + decimal(region.barrier()) + ". Press F6 for mode and F12 to start the campaign.");
         writeReport(session, "AUTHORIZED", "quickstart");
     }
 
@@ -190,9 +204,8 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
 
         double[] heights = {0.45D, 1.20D, 1.95D};
         for (double height : heights) {
-            Location start = origin.clone().add(0.0D, height, 0.0D);
             RayTraceResult result = world.rayTraceBlocks(
-                start,
+                origin.clone().add(0.0D, height, 0.0D),
                 direction,
                 16.0D,
                 FluidCollisionMode.NEVER,
@@ -203,31 +216,31 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
                 break;
             }
         }
-        if (hit == null) {
+        if (hit == null || hit.isPassable()) {
             return null;
         }
 
         boolean xAxis = Math.abs(direction.getX()) >= Math.abs(direction.getZ());
         if (xAxis) {
-            double coordinate = direction.getX() >= 0.0D ? hit.getX() : hit.getX() + 1.0D;
+            double coordinate = direction.getX() >= 0.0D ? hit.getX() + 1.0D : hit.getX();
             return new Barrier("X", coordinate, hit);
         }
-        double coordinate = direction.getZ() >= 0.0D ? hit.getZ() : hit.getZ() + 1.0D;
+        double coordinate = direction.getZ() >= 0.0D ? hit.getZ() + 1.0D : hit.getZ();
         return new Barrier("Z", coordinate, hit);
     }
 
     private void sendStatus(CommandSender sender) {
-        sender.sendMessage("[PhaseLab] v5.1 sessions=" + sessions.size());
+        sender.sendMessage("[PhaseLab] server_v=" + VERSION + " sessions=" + sessions.size());
         if (sender instanceof Player player) {
             Session session = sessions.get(player.getUniqueId());
             if (session == null) {
-                sender.sendMessage("[PhaseLab] You are not authorized. Mount, face wall, run /phaselab quickstart.");
-            } else {
-                long seconds = Math.max(0L, (session.expiresEpochMs - System.currentTimeMillis()) / 1000L);
-                sender.sendMessage("[PhaseLab] authorized=" + seconds + "s running=" + session.running
-                    + " scenario=" + safe(session.scenario)
-                    + " barrier=" + session.region.axis + "=" + session.region.barrier);
+                sender.sendMessage("[PhaseLab] Not authorized. Mount, face wall, /phaselab quickstart.");
+                return;
             }
+            long seconds = Math.max(0L, (session.expiresEpochMs - System.currentTimeMillis()) / 1000L);
+            sender.sendMessage("[PhaseLab] authorized=" + seconds + "s ready=" + session.clientReady
+                + " running=" + session.running + " case=" + safe(session.caseId)
+                + " scenario=" + safe(session.scenario));
         }
     }
 
@@ -260,18 +273,21 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
         switch (parts[0]) {
             case "READY" -> {
                 session.clientReady = true;
-                send(player, "ACK|" + session.nonce + "|READY|" + value(parts, 2));
+                send(player, "ACK|" + session.nonce + "|READY|" + clean(value(parts, 2)));
             }
             case "START" -> {
-                if (parts.length < 3) {
-                    send(player, "ERROR|missing_scenario");
+                if (parts.length < 4) {
+                    send(player, "ERROR|missing_case_or_scenario");
                 } else {
-                    start(session, parts[2]);
+                    start(session, parts[2], parts[3]);
                 }
             }
             case "FINISH" -> {
-                if (session.running) {
+                String suppliedCase = value(parts, 2);
+                if (session.running && session.caseId.equals(suppliedCase)) {
                     finish(session, classify(session), detail(session, "client_finish"), true);
+                } else {
+                    send(player, "ERROR|finish_case_mismatch");
                 }
             }
             case "ABORT" -> finish(session, "ABORTED", clean(value(parts, 2)), true);
@@ -286,45 +302,64 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
             && System.currentTimeMillis() < session.expiresEpochMs;
     }
 
-    private void start(Session session, String scenario) {
+    private void start(Session session, String caseId, String scenario) {
         Player player = Bukkit.getPlayer(session.playerId);
         if (player == null || !player.isOnline()) {
             sessions.remove(session.playerId);
             return;
         }
-        if (!SCENARIOS.contains(scenario)) {
-            send(player, "ERROR|scenario_not_allowed");
+        if (session.running) {
+            send(player, "ERROR|case_already_running");
             return;
         }
         if (!session.clientReady) {
             send(player, "ERROR|client_not_ready_run_quickstart_again");
             return;
         }
+        if (!SCENARIOS.contains(scenario)) {
+            send(player, "ERROR|scenario_not_allowed");
+            return;
+        }
+        if (caseId == null || !caseId.matches("[A-Z0-9_]{3,64}")) {
+            send(player, "ERROR|invalid_case_id");
+            return;
+        }
+
         Entity vehicle = player.getVehicle();
         if (vehicle == null) {
             send(player, "ERROR|mount_required");
             return;
         }
         if (!session.region.contains(player.getLocation()) || !session.region.contains(vehicle.getLocation())) {
-            send(player, "LOCKED|outside_quickstart_region");
+            send(player, "LOCKED|outside_authorized_region");
+            return;
+        }
+        if (hasNearbyOtherPlayer(player, 8.0D)) {
+            send(player, "ERROR|another_player_near_lab");
             return;
         }
 
+        session.caseId = caseId;
         session.scenario = scenario;
         session.running = true;
         session.ticks = 0;
         session.playerStart = player.getLocation().clone();
         session.vehicle = vehicle;
         session.vehicleStart = vehicle.getLocation().clone();
-        session.direction = session.region.coordinate(session.vehicleStart) <= session.region.barrier ? 1.0D : -1.0D;
+        session.playerVelocity = player.getVelocity().clone();
+        session.vehicleVelocity = vehicle.getVelocity().clone();
+        session.direction = session.region.coordinate(session.vehicleStart) <= session.region.barrier() ? 1.0D : -1.0D;
         session.maxPlayerProgress = Double.NEGATIVE_INFINITY;
         session.maxVehicleProgress = Double.NEGATIVE_INFINITY;
         session.persistentCrossingTicks = 0;
+        session.maxPersistentCrossingTicks = 0;
+        session.solidOverlapTicks = 0;
+        session.maxSolidOverlapTicks = 0;
         session.dismountedTick = -1;
         session.startedAt = Instant.now();
 
-        send(player, "ACK|" + session.nonce + "|START|" + scenario);
-        writeReport(session, "STARTED", "scenario_started");
+        send(player, "ACK|" + session.nonce + "|START|" + caseId);
+        writeReport(session, "STARTED", "case_started");
     }
 
     private void tickSessions() {
@@ -352,11 +387,15 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
                 finish(session, "SAFETY_ABORT", "vehicle_missing", true);
                 continue;
             }
+            if (hasNearbyOtherPlayer(player, 8.0D)) {
+                finish(session, "SAFETY_ABORT", "another_player_entered_lab", true);
+                continue;
+            }
 
             Location playerLocation = player.getLocation();
             Location vehicleLocation = vehicle.getLocation();
             if (!session.region.contains(playerLocation) || !session.region.contains(vehicleLocation)) {
-                finish(session, "SAFETY_ABORT", "left_quickstart_region", true);
+                finish(session, "SAFETY_ABORT", "left_authorized_region", true);
                 continue;
             }
 
@@ -368,17 +407,28 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
             }
 
             double playerProgress = session.direction
-                * (session.region.coordinate(playerLocation) - session.region.barrier);
+                * (session.region.coordinate(playerLocation) - session.region.barrier());
             double vehicleProgress = session.direction
-                * (session.region.coordinate(vehicleLocation) - session.region.barrier);
+                * (session.region.coordinate(vehicleLocation) - session.region.barrier());
             session.maxPlayerProgress = Math.max(session.maxPlayerProgress, playerProgress);
             session.maxVehicleProgress = Math.max(session.maxVehicleProgress, vehicleProgress);
 
             double threshold = getConfig().getDouble("penetration-threshold-blocks", 0.35D);
             if (vehicleProgress > threshold) {
                 session.persistentCrossingTicks++;
+                session.maxPersistentCrossingTicks = Math.max(
+                    session.maxPersistentCrossingTicks,
+                    session.persistentCrossingTicks
+                );
             } else {
                 session.persistentCrossingTicks = 0;
+            }
+
+            if (overlapsSolid(vehicle)) {
+                session.solidOverlapTicks++;
+                session.maxSolidOverlapTicks = Math.max(session.maxSolidOverlapTicks, session.solidOverlapTicks);
+            } else {
+                session.solidOverlapTicks = 0;
             }
 
             if (session.dismountedTick < 0 && player.getVehicle() == null) {
@@ -387,7 +437,7 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
 
             int required = getConfig().getInt("required-persistent-crossing-ticks", 5);
             if (session.persistentCrossingTicks >= required) {
-                finish(session, "REPRODUCED", detail(session, "persistent_crossing"), true);
+                finish(session, "REPRODUCED", detail(session, "persistent_server_crossing"), true);
                 continue;
             }
 
@@ -401,7 +451,7 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
     private String classify(Session session) {
         int required = getConfig().getInt("required-persistent-crossing-ticks", 5);
         double threshold = getConfig().getDouble("penetration-threshold-blocks", 0.35D);
-        if (session.persistentCrossingTicks >= required) {
+        if (session.maxPersistentCrossingTicks >= required) {
             return "REPRODUCED";
         }
         if (session.maxVehicleProgress > threshold) {
@@ -415,30 +465,44 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
 
     private String detail(Session session, String reason) {
         return clean("reason=" + reason
+            + ";case=" + safe(session.caseId)
             + ";scenario=" + safe(session.scenario)
             + ";ticks=" + session.ticks
             + ";vehicle_progress=" + decimal(session.maxVehicleProgress)
             + ";player_progress=" + decimal(session.maxPlayerProgress)
+            + ";max_crossing_ticks=" + session.maxPersistentCrossingTicks
+            + ";max_solid_overlap_ticks=" + session.maxSolidOverlapTicks
             + ";dismount_tick=" + session.dismountedTick);
     }
 
     private void finish(Session session, String verdict, String detail, boolean restore) {
         Player player = Bukkit.getPlayer(session.playerId);
         boolean wasRunning = session.running;
+        String finishedCase = safe(session.caseId);
         if (restore && wasRunning) {
             rollback(session);
         }
         session.running = false;
         writeReport(session, verdict, detail);
         if (player != null && player.isOnline()) {
-            send(player, "RESULT|" + session.nonce + "|" + clean(verdict) + "|" + clean(detail));
+            send(player, "RESULT|" + session.nonce + "|" + clean(verdict) + "|" + clean(detail) + "|" + finishedCase);
         }
+        resetCase(session);
+    }
+
+    private void resetCase(Session session) {
         session.ticks = 0;
+        session.caseId = "NONE";
         session.scenario = "NONE";
         session.playerStart = null;
         session.vehicleStart = null;
+        session.playerVelocity = null;
+        session.vehicleVelocity = null;
         session.vehicle = null;
         session.persistentCrossingTicks = 0;
+        session.maxPersistentCrossingTicks = 0;
+        session.solidOverlapTicks = 0;
+        session.maxSolidOverlapTicks = 0;
         session.dismountedTick = -1;
     }
 
@@ -451,18 +515,57 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
         Entity vehicle = session.vehicle;
         if (vehicle != null && vehicle.isValid() && session.vehicleStart != null) {
             vehicle.eject();
+            vehicle.setVelocity(new Vector(0.0D, 0.0D, 0.0D));
             vehicle.teleport(session.vehicleStart);
         }
+        player.setVelocity(new Vector(0.0D, 0.0D, 0.0D));
         player.teleport(session.playerStart);
 
         if (vehicle != null && vehicle.isValid()) {
-            Bukkit.getScheduler().runTask(this, () -> {
+            Bukkit.getScheduler().runTaskLater(this, () -> {
                 Player current = Bukkit.getPlayer(session.playerId);
                 if (current != null && current.isOnline() && vehicle.isValid()) {
+                    vehicle.setVelocity(new Vector(0.0D, 0.0D, 0.0D));
                     vehicle.addPassenger(current);
                 }
-            });
+            }, 2L);
         }
+    }
+
+    private boolean overlapsSolid(Entity entity) {
+        BoundingBox box = entity.getBoundingBox().expand(-0.001D);
+        World world = entity.getWorld();
+        int minX = (int) Math.floor(box.getMinX());
+        int minY = (int) Math.floor(box.getMinY());
+        int minZ = (int) Math.floor(box.getMinZ());
+        int maxX = (int) Math.floor(box.getMaxX());
+        int maxY = (int) Math.floor(box.getMaxY());
+        int maxZ = (int) Math.floor(box.getMaxZ());
+
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    Block block = world.getBlockAt(x, y, z);
+                    if (!block.isPassable() && block.getBoundingBox().overlaps(box)) {
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
+    private boolean hasNearbyOtherPlayer(Player player, double radius) {
+        double radiusSquared = radius * radius;
+        for (Player other : player.getWorld().getPlayers()) {
+            if (other.getUniqueId().equals(player.getUniqueId())) {
+                continue;
+            }
+            if (other.getLocation().distanceSquared(player.getLocation()) <= radiusSquared) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void writeReport(Session session, String verdict, String detail) {
@@ -470,16 +573,20 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
         Path file = reports.resolve(LocalDate.now() + ".jsonl");
         String line = "{"
             + "\"timestamp\":\"" + json(Instant.now().toString()) + "\","
+            + "\"server_version\":\"" + VERSION + "\","
             + "\"player_uuid\":\"" + json(session.playerId.toString()) + "\","
             + "\"player_name\":\"" + json(session.playerName) + "\","
+            + "\"case_id\":\"" + json(safe(session.caseId)) + "\","
             + "\"scenario\":\"" + json(safe(session.scenario)) + "\","
             + "\"verdict\":\"" + json(verdict) + "\","
             + "\"detail\":\"" + json(detail) + "\","
             + "\"ticks\":" + session.ticks + ","
-            + "\"barrier_axis\":\"" + json(session.region.axis) + "\","
-            + "\"barrier_coordinate\":" + decimal(session.region.barrier) + ","
+            + "\"barrier_axis\":\"" + json(session.region.axis()) + "\","
+            + "\"barrier_coordinate\":" + decimal(session.region.barrier()) + ","
             + "\"max_vehicle_progress\":" + decimal(session.maxVehicleProgress) + ","
-            + "\"max_player_progress\":" + decimal(session.maxPlayerProgress)
+            + "\"max_player_progress\":" + decimal(session.maxPlayerProgress) + ","
+            + "\"max_crossing_ticks\":" + session.maxPersistentCrossingTicks + ","
+            + "\"max_solid_overlap_ticks\":" + session.maxSolidOverlapTicks
             + "}\n";
         try {
             Files.createDirectories(reports);
@@ -587,6 +694,17 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
         }
     }
 
+    @EventHandler
+    public void onDamage(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Player player)) {
+            return;
+        }
+        Session session = sessions.get(player.getUniqueId());
+        if (session != null && session.running) {
+            finish(session, "SAFETY_ABORT", "player_damage:" + event.getCause().name(), true);
+        }
+    }
+
     private record Barrier(String axis, double coordinate, Block block) {
     }
 
@@ -626,15 +744,21 @@ public final class PhaseLabServerPlugin extends JavaPlugin implements PluginMess
         private final Region region;
         private boolean clientReady;
         private boolean running;
+        private String caseId = "NONE";
         private String scenario = "NONE";
         private int ticks;
         private Location playerStart;
         private Location vehicleStart;
+        private Vector playerVelocity;
+        private Vector vehicleVelocity;
         private Entity vehicle;
         private double direction;
         private double maxPlayerProgress = Double.NEGATIVE_INFINITY;
         private double maxVehicleProgress = Double.NEGATIVE_INFINITY;
         private int persistentCrossingTicks;
+        private int maxPersistentCrossingTicks;
+        private int solidOverlapTicks;
+        private int maxSolidOverlapTicks;
         private int dismountedTick = -1;
         private Instant startedAt;
 
