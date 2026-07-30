@@ -21,232 +21,319 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
-/**
- * Passive, player-side PhaseLab telemetry for authorized server testing.
- *
- * This class never changes player/vehicle position, collision, velocity, or
- * outbound movement packets. It only records client state and inbound server
- * correction events so moderators can distinguish normal teleports, local
- * visual movement, dismounts, and real server setbacks.
- */
+/** Passive telemetry only. It never mutates movement or sends custom packets. */
 public final class PhaseTelemetryClient implements ClientModInitializer {
-    private static final String VERSION = "4.1.0";
+    private static final String VERSION = "4.2.0";
     private static final double LARGE_MOVE_THRESHOLD = 0.75D;
     private static final long CORRELATION_WINDOW_NANOS = 2_000_000_000L;
-    private static final int PERIODIC_SAMPLE_TICKS = 20;
+    private static final DateTimeFormatter FILE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
+    private static final String[] TEST_LABELS = {
+        "GENERAL", "MOUNT", "WALL_CONTACT", "WATER", "CLAIM_BORDER", "DISMOUNT", "CONTAINER"
+    };
+    private static final String HEADER =
+        "utc_timestamp,local_timestamp,session_id,tick,segment_id,segment_label,event,detail," +
+        "since_local_move_ms,handler_ms,reference_x,reference_y,reference_z," +
+        "player_x,player_y,player_z,player_dx,player_dy,player_dz,yaw,pitch,health,air," +
+        "on_ground,horizontal_collision,no_physics,in_water,in_lava,swimming,sneaking,sprinting," +
+        "fall_flying,passenger,player_box_clear,pose,block_x,block_y,block_z,chunk_x,chunk_z,dimension," +
+        "vehicle_id,vehicle_type,vehicle_x,vehicle_y,vehicle_z,vehicle_dx,vehicle_dy,vehicle_dz," +
+        "vehicle_on_ground,vehicle_no_physics,vehicle_box_clear,vehicle_passengers,player_vehicle_distance";
 
     private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
         Identifier.fromNamespaceAndPath("phaselab", "telemetry")
     );
-
-    private static KeyMapping captureToggleKey;
-    private static KeyMapping markerKey;
+    private static KeyMapping pauseKey;
+    private static KeyMapping labelKey;
+    private static KeyMapping segmentKey;
     private static KeyMapping statusKey;
+
+    private static final BufferedWriter[] WRITERS = new BufferedWriter[3];
+    private static final Path[] OUTPUT_PATHS = new Path[3];
+    private static Path statusPath;
+    private static Path summaryPath;
 
     private static boolean connected;
     private static boolean recording = true;
-    private static long tickCounter;
+    private static boolean segmentActive;
+    private static boolean ioWarningShown;
+    private static long tick;
+    private static long lastStatusTick;
+    private static int segmentId;
+    private static int labelIndex;
     private static String sessionId;
-    private static Path logPath;
-    private static BufferedWriter logWriter;
-    private static boolean ioFailed;
+    private static String lastEvent = "none";
+    private static String lastIoError = "none";
 
-    private static Vec3 lastTickPosition;
+    private static long rows;
+    private static long playerPackets;
+    private static long vehiclePackets;
+    private static long mountEvents;
+    private static long stateEvents;
+    private static long testSegments;
+
+    private static Vec3 lastPlayerPosition;
     private static Vec3 lastVehiclePosition;
-    private static Vec3 lastLargeMoveFrom;
     private static Vec3 lastLargeMoveTo;
     private static long lastLargeMoveNanos;
+    private static int lastVehicleId = Integer.MIN_VALUE;
+    private static boolean lastWater;
+    private static boolean lastLava;
+    private static boolean lastCollision;
+    private static boolean lastNoPhysics;
+    private static boolean lastSwimming;
+    private static boolean lastFallFlying;
+    private static String lastDimension = "unknown";
 
     private static boolean playerCorrectionPending;
     private static Vec3 playerCorrectionBefore;
     private static long playerCorrectionHeadNanos;
-
     private static boolean vehicleCorrectionPending;
     private static Vec3 vehicleCorrectionBefore;
     private static long vehicleCorrectionHeadNanos;
 
-    private static int lastVehicleId = Integer.MIN_VALUE;
-    private static boolean lastInWater;
-    private static boolean lastInLava;
-    private static boolean lastHorizontalCollision;
-    private static boolean lastNoPhysics;
-    private static boolean lastSwimming;
-    private static boolean lastFallFlying;
-
     @Override
     public void onInitializeClient() {
-        captureToggleKey = register("key.phaselab.capture_toggle", GLFW.GLFW_KEY_F8);
-        markerKey = register("key.phaselab.marker", GLFW.GLFW_KEY_F9);
+        labelKey = register("key.phaselab.test_label", GLFW.GLFW_KEY_F7);
+        pauseKey = register("key.phaselab.capture_toggle", GLFW.GLFW_KEY_F8);
+        segmentKey = register("key.phaselab.test_segment", GLFW.GLFW_KEY_F9);
         statusKey = register("key.phaselab.telemetry_status", GLFW.GLFW_KEY_F10);
-        ClientTickEvents.END_CLIENT_TICK.register(PhaseTelemetryClient::onClientTick);
+        ClientTickEvents.END_CLIENT_TICK.register(PhaseTelemetryClient::tickClient);
     }
 
-    private static KeyMapping register(String translationKey, int defaultKey) {
+    private static KeyMapping register(String key, int code) {
         return KeyBindingHelper.registerKeyBinding(new KeyMapping(
-            translationKey,
-            InputConstants.Type.KEYSYM,
-            defaultKey,
-            CATEGORY
+            key, InputConstants.Type.KEYSYM, code, CATEGORY
         ));
     }
 
-    private static void onClientTick(Minecraft client) {
+    private static void tickClient(Minecraft client) {
         LocalPlayer player = client.player;
         if (player == null || client.level == null) {
             if (connected) {
-                append("DISCONNECT", "client player/level became unavailable", -1.0D, -1.0D, null, null);
+                append("DISCONNECT", "player_or_level_unavailable", -1.0D, -1.0D, null, null);
+                writeSummary("disconnect");
             }
-            resetDisconnectedState();
+            resetDisconnected();
             return;
         }
 
         if (!connected) {
-            connected = true;
-            tickCounter = 0L;
-            recording = true;
-            openSession();
-            initializeState(player);
-            append("SESSION_START", "PhaseLab passive telemetry v" + VERSION, -1.0D, -1.0D, null, player);
-            message(player, "Telemetry active. F8 pause/resume, F9 mark, F10 status.", false);
+            beginSession(player);
         }
 
-        tickCounter++;
+        tick++;
         handleKeys(player);
 
         Vec3 current = player.position();
         Entity vehicle = player.getVehicle();
-        Vec3 vehiclePosition = vehicle == null ? null : vehicle.position();
         long now = System.nanoTime();
 
-        if (recording && lastTickPosition != null) {
-            double moved = current.distanceTo(lastTickPosition);
+        if (recording && lastPlayerPosition != null) {
+            double moved = current.distanceTo(lastPlayerPosition);
             if (moved >= LARGE_MOVE_THRESHOLD) {
-                lastLargeMoveFrom = lastTickPosition;
                 lastLargeMoveTo = current;
                 lastLargeMoveNanos = now;
-                append("LOCAL_LARGE_MOVE", String.format(Locale.ROOT, "tick_distance=%.3f", moved), 0.0D, 0.0D, lastTickPosition, player);
+                append(
+                    "LOCAL_LARGE_MOVE",
+                    String.format(Locale.ROOT, "tick_distance=%.3f", moved),
+                    0.0D,
+                    0.0D,
+                    lastPlayerPosition,
+                    player
+                );
             }
         }
-
         if (lastLargeMoveNanos != 0L && now - lastLargeMoveNanos > CORRELATION_WINDOW_NANOS) {
-            lastLargeMoveNanos = 0L;
-            lastLargeMoveFrom = null;
-            lastLargeMoveTo = null;
+            clearLargeMove();
         }
 
         if (recording) {
-            detectMountTransition(player, vehicle);
-            detectStateTransition(player);
-            if (tickCounter % PERIODIC_SAMPLE_TICKS == 0L) {
-                append("SAMPLE", "periodic_1s", ageOfLargeMoveMs(now), -1.0D, lastLargeMoveTo, player);
+            detectMount(player, vehicle);
+            detectState(player);
+            boolean detail = segmentActive
+                || player.isPassenger()
+                || player.horizontalCollision
+                || player.isInWater()
+                || player.isInLava();
+            int interval = detail ? 1 : 20;
+            if (tick % interval == 0L) {
+                append(
+                    "SAMPLE",
+                    detail ? "detail_20hz" : "idle_1hz",
+                    ageOfLargeMove(now),
+                    -1.0D,
+                    lastLargeMoveTo,
+                    player
+                );
             }
         }
 
-        lastTickPosition = current;
-        lastVehiclePosition = vehiclePosition;
+        lastPlayerPosition = current;
+        lastVehiclePosition = vehicle == null ? null : vehicle.position();
+    }
+
+    private static void beginSession(LocalPlayer player) {
+        connected = true;
+        recording = true;
+        segmentActive = false;
+        tick = 0L;
+        lastStatusTick = 0L;
+        segmentId = 0;
+        labelIndex = 0;
+        resetCounters();
+        openOutputs(player);
+        initializeState(player);
+        append("SESSION_START", "PhaseLab_passive_v" + VERSION, -1.0D, -1.0D, null, player);
+        message(player, "Telemetry v" + VERSION + " active. F7 type, F8 pause, F9 test start/end, F10 status.", false);
+        if (OUTPUT_PATHS[2] != null) {
+            message(player, "Easy CSV: " + OUTPUT_PATHS[2].toAbsolutePath(), false);
+        }
     }
 
     private static void handleKeys(LocalPlayer player) {
-        while (captureToggleKey.consumeClick()) {
+        while (labelKey.consumeClick()) {
+            if (segmentActive) {
+                message(player, "End the current test with F9 before changing type.", false);
+            } else {
+                labelIndex = (labelIndex + 1) % TEST_LABELS.length;
+                append("TEST_LABEL", "selected=" + label(), ageOfLargeMove(System.nanoTime()), -1.0D, null, player);
+                message(player, "Test type: " + label(), true);
+            }
+        }
+
+        while (pauseKey.consumeClick()) {
             if (recording) {
-                append("CAPTURE_PAUSED", "manual", ageOfLargeMoveMs(System.nanoTime()), -1.0D, lastLargeMoveTo, player);
+                append("CAPTURE_PAUSED", "manual", ageOfLargeMove(System.nanoTime()), -1.0D, null, player);
                 recording = false;
                 message(player, "Telemetry paused. F8 resumes it.", false);
             } else {
                 recording = true;
-                append("CAPTURE_RESUMED", "manual", ageOfLargeMoveMs(System.nanoTime()), -1.0D, lastLargeMoveTo, player);
+                append("CAPTURE_RESUMED", "manual", ageOfLargeMove(System.nanoTime()), -1.0D, null, player);
                 message(player, "Telemetry resumed.", false);
             }
         }
 
-        while (markerKey.consumeClick()) {
-            append("MANUAL_MARK", "F9 marker", ageOfLargeMoveMs(System.nanoTime()), -1.0D, lastLargeMoveTo, player);
-            message(player, "Marker saved at tick " + tickCounter + ".", true);
+        while (segmentKey.consumeClick()) {
+            if (!segmentActive) {
+                segmentId++;
+                segmentActive = true;
+                append("TEST_START", "label=" + label(), ageOfLargeMove(System.nanoTime()), -1.0D, null, player);
+                message(player, "TEST " + segmentId + " START: " + label(), false);
+            } else {
+                append("TEST_END", "label=" + label(), ageOfLargeMove(System.nanoTime()), -1.0D, null, player);
+                segmentActive = false;
+                message(player, "TEST " + segmentId + " END: " + label(), false);
+            }
         }
 
         while (statusKey.consumeClick()) {
-            append("STATUS", recording ? "recording" : "paused", ageOfLargeMoveMs(System.nanoTime()), -1.0D, lastLargeMoveTo, player);
-            String pathText = logPath == null ? "not-open" : logPath.toAbsolutePath().toString();
-            message(player,
+            append("STATUS", recording ? "recording" : "paused", ageOfLargeMove(System.nanoTime()), -1.0D, null, player);
+            writeSummary("live_status");
+            message(
+                player,
                 "recording=" + recording
-                    + " | mounted=" + player.isPassenger()
-                    + " | water=" + player.isInWater()
-                    + " | lava=" + player.isInLava()
-                    + " | log=" + pathText,
+                    + " | test=" + (segmentActive ? segmentId + ":" + label() : "none")
+                    + " | rows=" + rows
+                    + " | playerPackets=" + playerPackets
+                    + " | vehiclePackets=" + vehiclePackets,
                 false
             );
+            if (OUTPUT_PATHS[2] != null) {
+                message(player, "Open: " + OUTPUT_PATHS[2].toAbsolutePath(), false);
+            }
         }
+    }
+
+    private static String label() {
+        return TEST_LABELS[labelIndex];
     }
 
     private static void initializeState(LocalPlayer player) {
         Entity vehicle = player.getVehicle();
-        lastTickPosition = player.position();
+        lastPlayerPosition = player.position();
         lastVehiclePosition = vehicle == null ? null : vehicle.position();
         lastVehicleId = vehicle == null ? -1 : vehicle.getId();
-        lastInWater = player.isInWater();
-        lastInLava = player.isInLava();
-        lastHorizontalCollision = player.horizontalCollision;
+        lastWater = player.isInWater();
+        lastLava = player.isInLava();
+        lastCollision = player.horizontalCollision;
         lastNoPhysics = player.noPhysics;
         lastSwimming = player.isSwimming();
         lastFallFlying = player.isFallFlying();
+        lastDimension = dimension(player);
     }
 
-    private static void detectMountTransition(LocalPlayer player, Entity vehicle) {
-        int vehicleId = vehicle == null ? -1 : vehicle.getId();
-        if (vehicleId == lastVehicleId) {
+    private static void detectMount(LocalPlayer player, Entity vehicle) {
+        int currentId = vehicle == null ? -1 : vehicle.getId();
+        if (currentId == lastVehicleId) {
             return;
         }
 
         String event;
         String detail;
-        if (lastVehicleId == -1 && vehicleId != -1) {
+        if (lastVehicleId == -1 && currentId != -1) {
             event = "MOUNTED";
-            detail = "vehicle_id=" + vehicleId + ";vehicle_type=" + vehicleType(vehicle);
-        } else if (lastVehicleId != -1 && vehicleId == -1) {
+            detail = "vehicle_id=" + currentId + ";vehicle_type=" + vehicleType(vehicle);
+        } else if (lastVehicleId != -1 && currentId == -1) {
             event = "DISMOUNTED";
             detail = "previous_vehicle_id=" + lastVehicleId;
         } else {
             event = "VEHICLE_CHANGED";
-            detail = "previous_vehicle_id=" + lastVehicleId + ";vehicle_id=" + vehicleId + ";vehicle_type=" + vehicleType(vehicle);
+            detail = "previous_vehicle_id=" + lastVehicleId
+                + ";vehicle_id=" + currentId
+                + ";vehicle_type=" + vehicleType(vehicle);
         }
-        append(event, detail, ageOfLargeMoveMs(System.nanoTime()), -1.0D, vehicle == null ? lastVehiclePosition : vehicle.position(), player);
-        lastVehicleId = vehicleId;
+        append(
+            event,
+            detail,
+            ageOfLargeMove(System.nanoTime()),
+            -1.0D,
+            vehicle == null ? lastVehiclePosition : vehicle.position(),
+            player
+        );
+        lastVehicleId = currentId;
     }
 
-    private static void detectStateTransition(LocalPlayer player) {
+    private static void detectState(LocalPlayer player) {
         List<String> changes = new ArrayList<>();
-        if (player.isInWater() != lastInWater) {
-            changes.add("water=" + player.isInWater());
-            lastInWater = player.isInWater();
+        if (player.isInWater() != lastWater) {
+            lastWater = player.isInWater();
+            changes.add("water=" + lastWater);
         }
-        if (player.isInLava() != lastInLava) {
-            changes.add("lava=" + player.isInLava());
-            lastInLava = player.isInLava();
+        if (player.isInLava() != lastLava) {
+            lastLava = player.isInLava();
+            changes.add("lava=" + lastLava);
         }
-        if (player.horizontalCollision != lastHorizontalCollision) {
-            changes.add("horizontal_collision=" + player.horizontalCollision);
-            lastHorizontalCollision = player.horizontalCollision;
+        if (player.horizontalCollision != lastCollision) {
+            lastCollision = player.horizontalCollision;
+            changes.add("horizontal_collision=" + lastCollision);
         }
         if (player.noPhysics != lastNoPhysics) {
-            changes.add("no_physics=" + player.noPhysics);
             lastNoPhysics = player.noPhysics;
+            changes.add("no_physics=" + lastNoPhysics);
         }
         if (player.isSwimming() != lastSwimming) {
-            changes.add("swimming=" + player.isSwimming());
             lastSwimming = player.isSwimming();
+            changes.add("swimming=" + lastSwimming);
         }
         if (player.isFallFlying() != lastFallFlying) {
-            changes.add("fall_flying=" + player.isFallFlying());
             lastFallFlying = player.isFallFlying();
+            changes.add("fall_flying=" + lastFallFlying);
         }
-
+        String dimension = dimension(player);
+        if (!dimension.equals(lastDimension)) {
+            lastDimension = dimension;
+            changes.add("dimension=" + dimension);
+        }
         if (!changes.isEmpty()) {
-            append("STATE_CHANGE", String.join(";", changes), ageOfLargeMoveMs(System.nanoTime()), -1.0D, null, player);
+            append("STATE_CHANGE", String.join(";", changes), ageOfLargeMove(System.nanoTime()), -1.0D, null, player);
         }
     }
 
@@ -262,41 +349,33 @@ public final class PhaseTelemetryClient implements ClientModInitializer {
             return;
         }
         playerCorrectionPending = false;
-
         LocalPlayer player = Minecraft.getInstance().player;
         if (player == null) {
+            playerCorrectionBefore = null;
             return;
         }
 
         long now = System.nanoTime();
-        double sinceMoveMs = ageOfLargeMoveMs(now);
+        double sinceMove = ageOfLargeMove(now);
         double handlerMs = (now - playerCorrectionHeadNanos) / 1_000_000.0D;
         boolean correlated = lastLargeMoveNanos != 0L && now - lastLargeMoveNanos <= CORRELATION_WINDOW_NANOS;
-        Vec3 corrected = player.position();
-        double correctionDistance = playerCorrectionBefore == null ? -1.0D : corrected.distanceTo(playerCorrectionBefore);
-
+        double distance = playerCorrectionBefore == null ? -1.0D : player.position().distanceTo(playerCorrectionBefore);
         append(
             correlated ? "SERVER_SETBACK_CORRELATED" : "SERVER_POSITION_PACKET",
-            String.format(Locale.ROOT, "correction_distance=%.3f", correctionDistance),
-            sinceMoveMs,
+            String.format(Locale.ROOT, "correction_distance=%.3f", distance),
+            sinceMove,
             handlerMs,
             playerCorrectionBefore,
             player
         );
-
         if (correlated) {
-            String speed = sinceMoveMs < 250.0D ? "FAST" : sinceMoveMs < 1_000.0D ? "NORMAL" : "DELAYED";
+            String speed = sinceMove < 250.0D ? "FAST" : sinceMove < 1_000.0D ? "NORMAL" : "DELAYED";
             message(player, String.format(Locale.ROOT,
-                "SERVER SETBACK %s after %.1f ms (%.3f blocks)",
-                speed,
-                sinceMoveMs,
-                correctionDistance
+                "SERVER SETBACK %s after %.1f ms (%.3f blocks)", speed, sinceMove, distance
             ), false);
         }
-
-        lastLargeMoveNanos = 0L;
-        lastLargeMoveFrom = null;
-        lastLargeMoveTo = null;
+        playerCorrectionBefore = null;
+        clearLargeMove();
     }
 
     public static void onVehicleCorrectionHead() {
@@ -312,61 +391,77 @@ public final class PhaseTelemetryClient implements ClientModInitializer {
             return;
         }
         vehicleCorrectionPending = false;
-
         LocalPlayer player = Minecraft.getInstance().player;
         if (player == null) {
+            vehicleCorrectionBefore = null;
             return;
         }
         Entity vehicle = player.getVehicle();
         Vec3 after = vehicle == null ? null : vehicle.position();
-        double correctionDistance = vehicleCorrectionBefore == null || after == null
+        double distance = vehicleCorrectionBefore == null || after == null
             ? -1.0D
             : after.distanceTo(vehicleCorrectionBefore);
         long now = System.nanoTime();
-
         append(
             "SERVER_VEHICLE_CORRECTION",
-            String.format(Locale.ROOT, "correction_distance=%.3f", correctionDistance),
-            ageOfLargeMoveMs(now),
+            String.format(Locale.ROOT, "correction_distance=%.3f", distance),
+            ageOfLargeMove(now),
             (now - vehicleCorrectionHeadNanos) / 1_000_000.0D,
             vehicleCorrectionBefore,
             player
         );
+        vehicleCorrectionBefore = null;
     }
 
     public static void onServerOpenScreen() {
         LocalPlayer player = Minecraft.getInstance().player;
-        append("SERVER_OPEN_SCREEN", "server opened a menu", ageOfLargeMoveMs(System.nanoTime()), -1.0D, null, player);
+        append("SERVER_OPEN_SCREEN", "server_opened_menu", ageOfLargeMove(System.nanoTime()), -1.0D, null, player);
     }
 
-    private static double ageOfLargeMoveMs(long now) {
-        if (lastLargeMoveNanos == 0L || now - lastLargeMoveNanos > CORRELATION_WINDOW_NANOS) {
-            return -1.0D;
-        }
-        return (now - lastLargeMoveNanos) / 1_000_000.0D;
-    }
+    private static synchronized void openOutputs(LocalPlayer player) {
+        closeOutputs();
+        sessionId = FILE_TIME.format(LocalDateTime.now()) + "-" + UUID.randomUUID().toString().substring(0, 8);
+        ioWarningShown = false;
+        lastIoError = "none";
 
-    private static synchronized void openSession() {
-        closeLogQuietly();
-        sessionId = Instant.now().toString().replace(':', '-') + "-" + UUID.randomUUID().toString().substring(0, 8);
-        ioFailed = false;
+        Path configDir = FabricLoader.getInstance().getConfigDir().resolve("phaselab");
+        Path gameDir = Minecraft.getInstance().gameDirectory.toPath();
+        OUTPUT_PATHS[0] = configDir.resolve("telemetry-v4.2-" + sessionId + ".csv");
+        OUTPUT_PATHS[1] = configDir.resolve("PHASELAB_LATEST.csv");
+        OUTPUT_PATHS[2] = gameDir.resolve("PHASELAB_LATEST.csv");
+        statusPath = gameDir.resolve("PHASELAB_STATUS.txt");
+        summaryPath = gameDir.resolve("PHASELAB_SUMMARY.txt");
+
         try {
-            Path directory = FabricLoader.getInstance().getConfigDir().resolve("phaselab");
-            Files.createDirectories(directory);
-            logPath = directory.resolve("telemetry-v4.1-" + sessionId + ".csv");
-            logWriter = Files.newBufferedWriter(
-                logPath,
-                StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE_NEW,
-                StandardOpenOption.WRITE
-            );
-            logWriter.write("timestamp,session_id,tick,event,detail,since_local_move_ms,handler_ms,reference_x,reference_y,reference_z,player_x,player_y,player_z,player_dx,player_dy,player_dz,yaw,pitch,health,air,on_ground,horizontal_collision,no_physics,in_water,in_lava,swimming,sneaking,sprinting,fall_flying,passenger,player_box_clear,vehicle_id,vehicle_type,vehicle_x,vehicle_y,vehicle_z,vehicle_dx,vehicle_dy,vehicle_dz,vehicle_on_ground,vehicle_no_physics,player_vehicle_distance\n");
-            logWriter.flush();
+            Files.createDirectories(configDir);
         } catch (IOException exception) {
-            ioFailed = true;
-            logWriter = null;
-            logPath = null;
+            noteIoFailure("config_directory", exception, player);
         }
+
+        for (int i = 0; i < WRITERS.length; i++) {
+            try {
+                WRITERS[i] = i == 0
+                    ? Files.newBufferedWriter(
+                        OUTPUT_PATHS[i], StandardCharsets.UTF_8,
+                        StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE
+                    )
+                    : Files.newBufferedWriter(
+                        OUTPUT_PATHS[i], StandardCharsets.UTF_8,
+                        StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE
+                    );
+                WRITERS[i].write(HEADER);
+                WRITERS[i].newLine();
+                WRITERS[i].flush();
+            } catch (IOException exception) {
+                WRITERS[i] = null;
+                noteIoFailure("open_output_" + i, exception, player);
+            }
+        }
+
+        if (!hasWriter()) {
+            message(player, "ERROR: no telemetry CSV could be opened.", false);
+        }
+        writeStatus("SESSION_OPEN", player);
     }
 
     private static synchronized void append(
@@ -377,30 +472,38 @@ public final class PhaseTelemetryClient implements ClientModInitializer {
         Vec3 reference,
         LocalPlayer player
     ) {
-        if (logWriter == null || ioFailed || (!recording && !event.startsWith("CAPTURE_") && !"DISCONNECT".equals(event))) {
+        boolean control = event.startsWith("CAPTURE_")
+            || event.startsWith("TEST_")
+            || event.startsWith("SERVER_")
+            || "STATUS".equals(event)
+            || "DISCONNECT".equals(event);
+        if ((!recording && !control) || !hasWriter()) {
             return;
         }
 
         Entity vehicle = player == null ? null : player.getVehicle();
-        Vec3 playerPosition = player == null ? null : player.position();
+        Vec3 playerPos = player == null ? null : player.position();
         Vec3 playerDelta = player == null ? null : player.getDeltaMovement();
-        Vec3 vehiclePosition = vehicle == null ? null : vehicle.position();
+        Vec3 vehiclePos = vehicle == null ? null : vehicle.position();
         Vec3 vehicleDelta = vehicle == null ? null : vehicle.getDeltaMovement();
         boolean playerBoxClear = player != null && player.level().noCollision(player, player.getBoundingBox().deflate(0.001D));
-        double playerVehicleDistance = playerPosition == null || vehiclePosition == null
-            ? -1.0D
-            : playerPosition.distanceTo(vehiclePosition);
+        boolean vehicleBoxClear = vehicle != null && vehicle.level().noCollision(vehicle, vehicle.getBoundingBox().deflate(0.001D));
+        double vehicleDistance = playerPos == null || vehiclePos == null ? -1.0D : playerPos.distanceTo(vehiclePos);
+        var block = player == null ? null : player.blockPosition();
 
         List<String> fields = new ArrayList<>();
         fields.add(csv(Instant.now().toString()));
+        fields.add(csv(ZonedDateTime.now().toString()));
         fields.add(csv(sessionId));
-        fields.add(Long.toString(tickCounter));
+        fields.add(Long.toString(tick));
+        fields.add(Integer.toString(segmentActive ? segmentId : 0));
+        fields.add(csv(segmentActive ? label() : "NONE"));
         fields.add(csv(event));
         fields.add(csv(detail));
         fields.add(number(sinceMoveMs));
         fields.add(number(handlerMs));
         addVector(fields, reference);
-        addVector(fields, playerPosition);
+        addVector(fields, playerPos);
         addVector(fields, playerDelta);
         fields.add(number(player == null ? Double.NaN : player.getYRot()));
         fields.add(number(player == null ? Double.NaN : player.getXRot()));
@@ -417,22 +520,144 @@ public final class PhaseTelemetryClient implements ClientModInitializer {
         fields.add(bool(player != null && player.isFallFlying()));
         fields.add(bool(player != null && player.isPassenger()));
         fields.add(bool(playerBoxClear));
+        fields.add(csv(player == null ? "" : player.getPose().toString()));
+        fields.add(block == null ? "" : Integer.toString(block.getX()));
+        fields.add(block == null ? "" : Integer.toString(block.getY()));
+        fields.add(block == null ? "" : Integer.toString(block.getZ()));
+        fields.add(block == null ? "" : Integer.toString(block.getX() >> 4));
+        fields.add(block == null ? "" : Integer.toString(block.getZ() >> 4));
+        fields.add(csv(player == null ? "" : dimension(player)));
         fields.add(vehicle == null ? "-1" : Integer.toString(vehicle.getId()));
         fields.add(csv(vehicleType(vehicle)));
-        addVector(fields, vehiclePosition);
+        addVector(fields, vehiclePos);
         addVector(fields, vehicleDelta);
         fields.add(bool(vehicle != null && vehicle.onGround()));
         fields.add(bool(vehicle != null && vehicle.noPhysics));
-        fields.add(number(playerVehicleDistance));
+        fields.add(bool(vehicleBoxClear));
+        fields.add(vehicle == null ? "0" : Integer.toString(vehicle.getPassengers().size()));
+        fields.add(number(vehicleDistance));
 
-        try {
-            logWriter.write(String.join(",", fields));
-            logWriter.newLine();
-            logWriter.flush();
-        } catch (IOException exception) {
-            ioFailed = true;
-            closeLogQuietly();
+        if (!writeAll(String.join(",", fields), player)) {
+            return;
         }
+        rows++;
+        lastEvent = event;
+        count(event);
+        if (!"SAMPLE".equals(event) || tick - lastStatusTick >= 20L) {
+            writeStatus(event, player);
+            lastStatusTick = tick;
+        }
+    }
+
+    private static boolean writeAll(String line, LocalPlayer player) {
+        boolean wrote = false;
+        for (int i = 0; i < WRITERS.length; i++) {
+            BufferedWriter writer = WRITERS[i];
+            if (writer == null) {
+                continue;
+            }
+            try {
+                writer.write(line);
+                writer.newLine();
+                writer.flush();
+                wrote = true;
+            } catch (IOException exception) {
+                safeClose(writer);
+                WRITERS[i] = null;
+                noteIoFailure("write_output_" + i, exception, player);
+            }
+        }
+        return wrote;
+    }
+
+    private static void count(String event) {
+        if ("SERVER_SETBACK_CORRELATED".equals(event) || "SERVER_POSITION_PACKET".equals(event)) {
+            playerPackets++;
+        } else if ("SERVER_VEHICLE_CORRECTION".equals(event)) {
+            vehiclePackets++;
+        } else if ("MOUNTED".equals(event) || "DISMOUNTED".equals(event) || "VEHICLE_CHANGED".equals(event)) {
+            mountEvents++;
+        } else if ("STATE_CHANGE".equals(event)) {
+            stateEvents++;
+        } else if ("TEST_START".equals(event)) {
+            testSegments++;
+        }
+    }
+
+    private static void writeStatus(String reason, LocalPlayer player) {
+        if (statusPath == null) {
+            return;
+        }
+        String text = "PhaseLab Admin Telemetry v" + VERSION + "\n"
+            + "updated_local=" + ZonedDateTime.now() + "\n"
+            + "reason=" + reason + "\n"
+            + "session_id=" + safe(sessionId) + "\n"
+            + "recording=" + recording + "\n"
+            + "test_active=" + segmentActive + "\n"
+            + "test_id=" + (segmentActive ? segmentId : 0) + "\n"
+            + "test_label=" + (segmentActive ? label() : "NONE") + "\n"
+            + "rows_written=" + rows + "\n"
+            + "player_packets=" + playerPackets + "\n"
+            + "vehicle_packets=" + vehiclePackets + "\n"
+            + "mount_events=" + mountEvents + "\n"
+            + "state_events=" + stateEvents + "\n"
+            + "test_segments=" + testSegments + "\n"
+            + "last_event=" + lastEvent + "\n"
+            + "session_csv=" + path(OUTPUT_PATHS[0]) + "\n"
+            + "config_latest_csv=" + path(OUTPUT_PATHS[1]) + "\n"
+            + "easy_csv=" + path(OUTPUT_PATHS[2]) + "\n"
+            + "last_io_error=" + lastIoError + "\n";
+        try {
+            Files.writeString(
+                statusPath, text, StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE
+            );
+        } catch (IOException exception) {
+            noteIoFailure("status_file", exception, player);
+        }
+    }
+
+    private static void writeSummary(String reason) {
+        if (summaryPath == null) {
+            return;
+        }
+        String text = "PhaseLab v" + VERSION + " summary\n"
+            + "reason=" + reason + "\n"
+            + "generated_local=" + ZonedDateTime.now() + "\n"
+            + "session_id=" + safe(sessionId) + "\n"
+            + "rows_written=" + rows + "\n"
+            + "player_packets=" + playerPackets + "\n"
+            + "vehicle_packets=" + vehiclePackets + "\n"
+            + "mount_events=" + mountEvents + "\n"
+            + "state_events=" + stateEvents + "\n"
+            + "test_segments=" + testSegments + "\n"
+            + "session_csv=" + path(OUTPUT_PATHS[0]) + "\n"
+            + "easy_csv=" + path(OUTPUT_PATHS[2]) + "\n"
+            + "last_io_error=" + lastIoError + "\n";
+        try {
+            Files.writeString(
+                summaryPath, text, StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE
+            );
+        } catch (IOException exception) {
+            lastIoError = "summary_file:" + exception.getClass().getSimpleName() + ":" + safe(exception.getMessage());
+        }
+    }
+
+    private static String dimension(LocalPlayer player) {
+        return player.level().dimension().toString();
+    }
+
+    private static double ageOfLargeMove(long now) {
+        if (lastLargeMoveNanos == 0L || now - lastLargeMoveNanos > CORRELATION_WINDOW_NANOS) {
+            return -1.0D;
+        }
+        return (now - lastLargeMoveNanos) / 1_000_000.0D;
+    }
+
+    private static void clearLargeMove() {
+        lastLargeMoveNanos = 0L;
+        lastLargeMoveTo = null;
     }
 
     private static String vehicleType(Entity vehicle) {
@@ -444,11 +669,11 @@ public final class PhaseTelemetryClient implements ClientModInitializer {
             fields.add("");
             fields.add("");
             fields.add("");
-            return;
+        } else {
+            fields.add(number(vector.x));
+            fields.add(number(vector.y));
+            fields.add(number(vector.z));
         }
-        fields.add(number(vector.x));
-        fields.add(number(vector.y));
-        fields.add(number(vector.z));
     }
 
     private static String number(double value) {
@@ -460,34 +685,77 @@ public final class PhaseTelemetryClient implements ClientModInitializer {
     }
 
     private static String csv(String value) {
-        if (value == null) {
-            return "";
-        }
-        return "\"" + value.replace("\"", "\"\"") + "\"";
+        return value == null ? "" : "\"" + value.replace("\"", "\"\"") + "\"";
     }
 
-    private static synchronized void closeLogQuietly() {
-        if (logWriter != null) {
-            try {
-                logWriter.close();
-            } catch (IOException ignored) {
+    private static String path(Path value) {
+        return value == null ? "not_open" : value.toAbsolutePath().toString();
+    }
+
+    private static String safe(String value) {
+        return value == null ? "" : value.replace('\n', ' ').replace('\r', ' ');
+    }
+
+    private static void noteIoFailure(String target, Exception exception, LocalPlayer player) {
+        lastIoError = target + ":" + exception.getClass().getSimpleName() + ":" + safe(exception.getMessage());
+        if (!ioWarningShown && player != null) {
+            ioWarningShown = true;
+            message(player, "Telemetry I/O warning: " + lastIoError, false);
+        }
+    }
+
+    private static boolean hasWriter() {
+        for (BufferedWriter writer : WRITERS) {
+            if (writer != null) {
+                return true;
             }
         }
-        logWriter = null;
+        return false;
     }
 
-    private static void resetDisconnectedState() {
-        closeLogQuietly();
+    private static void resetCounters() {
+        rows = 0L;
+        playerPackets = 0L;
+        vehiclePackets = 0L;
+        mountEvents = 0L;
+        stateEvents = 0L;
+        testSegments = 0L;
+        lastEvent = "none";
+    }
+
+    private static synchronized void closeOutputs() {
+        for (int i = 0; i < WRITERS.length; i++) {
+            safeClose(WRITERS[i]);
+            WRITERS[i] = null;
+        }
+    }
+
+    private static void safeClose(BufferedWriter writer) {
+        if (writer == null) {
+            return;
+        }
+        try {
+            writer.close();
+        } catch (IOException ignored) {
+        }
+    }
+
+    private static void resetDisconnected() {
+        closeOutputs();
         connected = false;
-        tickCounter = 0L;
-        lastTickPosition = null;
+        recording = true;
+        segmentActive = false;
+        tick = 0L;
+        lastStatusTick = 0L;
+        lastPlayerPosition = null;
         lastVehiclePosition = null;
-        lastLargeMoveFrom = null;
-        lastLargeMoveTo = null;
-        lastLargeMoveNanos = 0L;
+        clearLargeMove();
         playerCorrectionPending = false;
+        playerCorrectionBefore = null;
         vehicleCorrectionPending = false;
+        vehicleCorrectionBefore = null;
         lastVehicleId = Integer.MIN_VALUE;
+        lastDimension = "unknown";
     }
 
     private static void message(LocalPlayer player, String text, boolean actionBar) {

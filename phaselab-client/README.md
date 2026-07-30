@@ -1,64 +1,79 @@
-# PhaseLab Admin Telemetry 4.1
+# PhaseLab Admin Telemetry 4.2
 
 Passive, client-only Fabric 1.21.11 telemetry for servers you own or are explicitly authorized to test.
 
-## What this build does
+## What changed in 4.2
 
-PhaseLab 4.1 observes the player and current vehicle without changing movement or collision. It records:
+- Always writes an easy-to-find `.minecraft/PHASELAB_LATEST.csv`.
+- Also keeps `.minecraft/config/phaselab/PHASELAB_LATEST.csv` and a unique archived session CSV.
+- Uses local time in filenames instead of UTC-only names.
+- Adds named test types and start/end test segments.
+- Captures 20 samples per second while a test is active, mounted, colliding, or in water/lava.
+- Keeps idle capture at one sample per second.
+- Writes `.minecraft/PHASELAB_STATUS.txt` and `.minecraft/PHASELAB_SUMMARY.txt`.
+- Reports I/O errors in chat instead of silently failing.
+- Adds dimension, block/chunk coordinates, pose, vehicle collision-box state, and passenger count.
 
-- player and vehicle position/velocity;
-- mount, dismount, and vehicle-change events;
-- water, lava, swimming, fall-flying, collision, and no-physics state changes;
-- periodic one-second samples;
-- inbound player and vehicle correction packets;
-- correction handler time and correlation to a recent large local move;
-- server `OpenScreen` evidence;
-- health, air, ground state, player-to-vehicle distance, and client collision-box clearance.
-
-The previous active position and boat-movement classes are not included in this artifact.
+The old active position and boat-movement classes are not included in this artifact.
 
 ## Controls
 
 Controls are registered under **PhaseLab Admin Telemetry** and may be rebound:
 
+- `F7`: cycle test type: GENERAL, MOUNT, WALL_CONTACT, WATER, CLAIM_BORDER, DISMOUNT, CONTAINER;
 - `F8`: pause or resume capture;
-- `F9`: write a manual marker before/after an important action;
-- `F10`: show current recording, mount, water/lava, and log-path status.
+- `F9`: start or end the current named test;
+- `F10`: show status, counters, and the exact easy CSV path.
 
 Capture starts automatically when a world/server session becomes available.
 
-## Recommended player test rhythm
+## Recommended test rhythm
 
 1. Join the authorized test server.
-2. Press `F9` immediately before the action being tested.
-3. Perform one action only, such as mounting, dismounting, entering water, touching a wall, crossing a test boundary, or interacting with a witness container.
-4. Press `F9` again after the result is visible.
-5. Repeat with a fresh marker pair for the next action.
+2. Press `F7` until the correct test type is selected.
+3. Press `F9` to start the test.
+4. Perform one action only.
+5. Press `F9` again when the result is visible.
+6. Repeat for the next test type.
 
-This creates clean evidence windows instead of one ambiguous movement soup.
+## Files
 
-## Logs
-
-Each connection receives a unique session file:
+The easiest live file is always:
 
 ```text
-.minecraft/config/phaselab/telemetry-v4.1-<timestamp>-<session>.csv
+.minecraft/PHASELAB_LATEST.csv
 ```
 
-The old stale-correlation bug is fixed. A large local move expires after two seconds and is consumed by the next correction packet, so unrelated later teleports cannot inherit an ancient snap timestamp.
+The same live session is mirrored at:
 
-## Event meanings
+```text
+.minecraft/config/phaselab/PHASELAB_LATEST.csv
+```
 
-- `SESSION_START`: logger initialized for the current connection.
-- `MANUAL_MARK`: player pressed F9.
+Every connection is archived at:
+
+```text
+.minecraft/config/phaselab/telemetry-v4.2-<local-time>-<session>.csv
+```
+
+Human-readable status and summary files are written to:
+
+```text
+.minecraft/PHASELAB_STATUS.txt
+.minecraft/PHASELAB_SUMMARY.txt
+```
+
+## Important event meanings
+
+- `TEST_START`, `TEST_END`: exact boundaries of one named player test.
 - `MOUNTED`, `DISMOUNTED`, `VEHICLE_CHANGED`: passenger relationship changed.
-- `STATE_CHANGE`: water/lava/collision/swimming/fall-flying/no-physics changed.
+- `STATE_CHANGE`: environment, collision, movement pose, or dimension changed.
 - `LOCAL_LARGE_MOVE`: client position changed by at least 0.75 blocks in one tick.
 - `SERVER_SETBACK_CORRELATED`: server correction arrived within two seconds of that move.
 - `SERVER_POSITION_PACKET`: inbound server position packet without a recent correlated move.
 - `SERVER_VEHICLE_CORRECTION`: inbound server vehicle correction.
 - `SERVER_OPEN_SCREEN`: server opened a menu/container screen.
-- `SAMPLE`: periodic one-second state snapshot.
+- `SAMPLE`: `detail_20hz` during active tests/risky states or `idle_1hz` otherwise.
 
 ## Install
 

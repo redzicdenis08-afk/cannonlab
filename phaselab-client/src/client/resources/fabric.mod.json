@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "phaselab",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "name": "PhaseLab Admin Telemetry",
-  "description": "Passive Fabric 1.21.11 movement, vehicle, collision, environment, mount, and server-correction telemetry for authorized moderation testing.",
+  "description": "Passive Fabric 1.21.11 movement and server-correction telemetry with obvious latest-file export, named test segments, and high-detail vehicle sampling for authorized moderation testing.",
   "authors": ["Denis + OpenAI"],
   "license": "MIT",
   "environment": "client",
