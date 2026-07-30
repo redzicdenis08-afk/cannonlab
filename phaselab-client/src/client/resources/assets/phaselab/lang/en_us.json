@@ -1,10 +1,10 @@
 {
   "key.categories.phaselab.telemetry": "PhaseLab Admin Telemetry",
-  "key.categories.phaselab.lab_runner": "PhaseLab Easy Runner",
+  "key.categories.phaselab.active_tester": "PhaseLab Player Active Tester",
   "key.phaselab.capture_toggle": "Pause or resume PhaseLab telemetry",
   "key.phaselab.test_label": "Cycle PhaseLab test type",
   "key.phaselab.test_segment": "Start or end a PhaseLab test",
   "key.phaselab.telemetry_status": "Show PhaseLab telemetry status",
-  "key.phaselab.active_scenario": "Cycle active PhaseLab scenario",
-  "key.phaselab.active_run": "Run or abort active PhaseLab scenario"
+  "key.phaselab.active_scenario": "Cycle active input scenario",
+  "key.phaselab.active_run": "Run or abort active input scenario"
 }
