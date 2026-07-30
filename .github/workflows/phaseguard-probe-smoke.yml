@@ -238,6 +238,9 @@ jobs:
               raise SystemExit(f'priority coverage incomplete: {sorted(priorities)}')
 
           claims = {state.get('player_claim') for state in states}
+          required_claims = {'Attackers', 'Victims'}
+          if not required_claims.issubset(claims):
+              raise SystemExit(f'claim coverage incomplete: {sorted(str(value) for value in claims)}')
           print({
               'session': str(sessions[-1]),
               'rows': len(rows),
