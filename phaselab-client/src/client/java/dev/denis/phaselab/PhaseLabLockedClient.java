@@ -24,7 +24,6 @@ import java.security.Signature;
 import java.security.spec.X509EncodedKeySpec;
 import java.util.Arrays;
 import java.util.Base64;
-import java.util.Locale;
 
 /**
  * Lab-locked active runner. It only automates ordinary key states after a
@@ -54,12 +53,11 @@ public final class PhaseLabLockedClient implements ClientModInitializer {
     private static PublicKey trustedPublicKey;
     private static String expectedServerId;
     private static String trustError = "not_loaded";
-    private static boolean trustNoticeShown;
 
     @Override
     public void onInitializeClient() {
-        PayloadTypeRegistry.clientboundPlay().register(LabMessagePayload.TYPE, LabMessagePayload.CODEC);
-        PayloadTypeRegistry.serverboundPlay().register(LabMessagePayload.TYPE, LabMessagePayload.CODEC);
+        PayloadTypeRegistry.playS2C().register(LabMessagePayload.TYPE, LabMessagePayload.CODEC);
+        PayloadTypeRegistry.playC2S().register(LabMessagePayload.TYPE, LabMessagePayload.CODEC);
         ClientPlayNetworking.registerGlobalReceiver(LabMessagePayload.TYPE, (payload, context) ->
             context.client().execute(() -> handleServerMessage(context.client(), payload.message()))
         );
@@ -102,26 +100,23 @@ public final class PhaseLabLockedClient implements ClientModInitializer {
             if (running) {
                 abort(client, player, "manual_abort");
             } else {
-                start(client, player);
+                start(player);
             }
         }
 
         if (!running) {
             return;
         }
-
         if (!authorizationValid(player)) {
             abort(client, player, "authorization_expired_or_region_left");
             return;
         }
-
         runScenario(client, player);
     }
 
-    private static void start(Minecraft client, LocalPlayer player) {
+    private static void start(LocalPlayer player) {
         if (trustedPublicKey == null || expectedServerId == null) {
             message(player, "LOCKED: install server-id.txt and server-public-key.txt in config/phaselab (" + trustError + ").", false);
-            trustNoticeShown = true;
             return;
         }
         if (!authorizationValid(player)) {
@@ -135,7 +130,7 @@ public final class PhaseLabLockedClient implements ClientModInitializer {
 
         scenarioTick = 0;
         running = true;
-        send("START|" + authorization.serverId + "|" + authorization.nonce + "|" + scenario());
+        send("START|" + authorization.serverId() + "|" + authorization.nonce() + "|" + scenario());
         message(player, "RUNNING " + scenario() + " under signed lab authorization. F12 aborts.", false);
     }
 
@@ -169,7 +164,7 @@ public final class PhaseLabLockedClient implements ClientModInitializer {
 
         if (finish) {
             stopLocalKeys(client);
-            send("FINISH|" + authorization.serverId + "|" + authorization.nonce + "|" + scenario());
+            send("FINISH|" + authorization.serverId() + "|" + authorization.nonce() + "|" + scenario());
             running = false;
             message(player, "Scenario input complete. Waiting for server verdict.", false);
         }
@@ -178,7 +173,7 @@ public final class PhaseLabLockedClient implements ClientModInitializer {
     private static void abort(Minecraft client, LocalPlayer player, String reason) {
         stopLocalKeys(client);
         if (authorization != null) {
-            send("ABORT|" + authorization.serverId + "|" + authorization.nonce + "|" + clean(reason));
+            send("ABORT|" + authorization.serverId() + "|" + authorization.nonce() + "|" + clean(reason));
         }
         running = false;
         scenarioTick = 0;
@@ -196,27 +191,27 @@ public final class PhaseLabLockedClient implements ClientModInitializer {
             return false;
         }
         long now = System.currentTimeMillis();
-        if (now >= auth.expiresEpochMs || !expectedServerId.equals(auth.serverId)) {
+        if (now >= auth.expiresEpochMs() || !expectedServerId.equals(auth.serverId())) {
             return false;
         }
-        if (!player.getUUID().toString().equals(auth.playerUuid)) {
+        if (!player.getUUID().toString().equals(auth.playerUuid())) {
             return false;
         }
         int x = player.blockPosition().getX();
         int y = player.blockPosition().getY();
         int z = player.blockPosition().getZ();
-        return x >= auth.minX && x <= auth.maxX
-            && y >= auth.minY && y <= auth.maxY
-            && z >= auth.minZ && z <= auth.maxZ;
+        return x >= auth.minX() && x <= auth.maxX()
+            && y >= auth.minY() && y <= auth.maxY()
+            && z >= auth.minZ() && z <= auth.maxZ();
     }
 
-    private static void handleServerMessage(Minecraft client, String message) {
+    private static void handleServerMessage(Minecraft client, String raw) {
         LocalPlayer player = client.player;
-        if (player == null || message == null || message.isBlank()) {
+        if (player == null || raw == null || raw.isBlank()) {
             return;
         }
 
-        String[] parts = message.split("\\|", -1);
+        String[] parts = raw.split("\\|", -1);
         switch (parts[0]) {
             case "AUTH" -> handleAuthorization(player, parts);
             case "ACK" -> message(player, "Server armed scenario " + value(parts, 3) + ".", false);
@@ -308,7 +303,6 @@ public final class PhaseLabLockedClient implements ClientModInitializer {
             byte[] keyBytes = Base64.getDecoder().decode(encoded);
             trustedPublicKey = KeyFactory.getInstance("Ed25519").generatePublic(new X509EncodedKeySpec(keyBytes));
             trustError = "none";
-            trustNoticeShown = false;
         } catch (Exception exception) {
             expectedServerId = null;
             trustedPublicKey = null;
