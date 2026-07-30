@@ -1,0 +1,16 @@
+name: PhaseLabSetbackProfiler
+version: ${version}
+main: dev.denis.phaselab.profiler.PhaseLabSetbackProfiler
+api-version: '1.21'
+authors: [Denis]
+description: Passive vehicle setback and dismount profiler for authorized private-server testing.
+softdepend: [GrimAC, NoCheatEnforcer]
+commands:
+  phaseprofile:
+    description: Arm and control the passive PhaseLab setback profiler.
+    usage: /phaseprofile <arm|mode|mark|status|stop> <player> [value]
+    aliases: [pprof, phaseprof]
+    permission: phaselab.profiler.admin
+permissions:
+  phaselab.profiler.admin:
+    default: op

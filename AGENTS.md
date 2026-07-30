@@ -141,3 +141,7 @@ Stop and report honestly instead of publishing a cannon when any of these remain
 - the exact field workflow is unknown.
 
 The goal is not to create cannon-shaped files quickly. The goal is to reduce uncertainty until a design survives the correct proof ladder.
+
+## Memory check
+
+PhaseLab | Exact P-down `Y - 0.25` instant dismount is Grim setback behavior on local Sakura 26.1.2 + Grim 2.3.74 parity; baseline ejected in 5 ticks, `grim.nomodifypacket` in 7, while `grim.nosetback` retained the probe | `plugins/PhaseLabSetbackProfiler/sessions/20260730-063101-ProbeBot.jsonl`; profiler regression `20260730-064522-ProbeBot.jsonl` proved later resets are excluded | Use the passive 30-tick A/B profiler to isolate custom NoCheatEnforcer separately

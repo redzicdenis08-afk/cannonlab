@@ -1,0 +1,6 @@
+.gradle/
+build/
+*.log
+*.exit
+*.pid
+build-run.cmd
