@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "id": "phaselab",
   "version": "${version}",
-  "name": "PhaseLab Ratchet Client",
-  "description": "Client-only adaptive boat and horse ratchet for authorized private clone testing, using timed remount continuation and separate forward/down profiles.",
+  "name": "PhaseLab State-Clean Ratchet Client",
+  "description": "Client-only state-clean boat, horse, donkey and mule ratchet for authorized private clone testing, with fresh-key arming, UUID binding and stable-remount gating.",
   "authors": [
     "Denis + OpenAI"
   ],

@@ -1,5 +1,5 @@
 {
-  "key.categories.phaselab.ratchet_vehicle": "PhaseLab Ratchet",
-  "key.phaselab.ratchet_toggle": "Start or stop adaptive vehicle ratchet",
-  "key.phaselab.ratchet_abort": "Emergency-abort adaptive vehicle ratchet"
+  "key.categories.phaselab.ratchet_vehicle": "PhaseLab State-Clean Ratchet",
+  "key.phaselab.ratchet_toggle": "Start or stop state-clean vehicle ratchet",
+  "key.phaselab.ratchet_abort": "Emergency-abort state-clean vehicle ratchet"
 }
