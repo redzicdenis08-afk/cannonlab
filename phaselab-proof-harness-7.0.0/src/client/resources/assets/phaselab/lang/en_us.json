@@ -1,0 +1,15 @@
+{
+  "key.categories.phaselab.main": "PhaseLab",
+  "key.categories.phaselab.boat_phase": "PhaseLab BoatPhase",
+  "key.phaselab.status": "Show PhaseLab status",
+  "key.phaselab.witness": "Set or clear witness block",
+  "key.phaselab.direction": "Cycle probe direction",
+  "key.phaselab.scan": "Scan collision layer",
+  "key.phaselab.apply": "Apply best candidate with witness proof",
+  "key.phaselab.abort": "Abort and restore",
+  "key.phaselab.boat_toggle": "Start or stop BoatPhase",
+  "key.phaselab.boat_abort": "Emergency-stop BoatPhase",
+  "key.phaselab.proof_toggle": "Run or stop bounded proof",
+  "key.phaselab.proof_profile": "Cycle fixed proof profile",
+  "key.phaselab.proof_abort": "Emergency-stop proof harness"
+}
