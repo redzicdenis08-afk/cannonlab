@@ -1,0 +1,2 @@
+10968c7a6efce4004a21db4ef7ccf6979789bd9e707bdbb2864e120993213606  phaselab-ash-labweapon-client-6.0.0-ash-lab.jar
+0428c72b5e591178b150d1503b5429250142223603bc62214210b040f8244b80  PhaseLab-Ash-LabAuth-6.0.0-ash-lab.jar
