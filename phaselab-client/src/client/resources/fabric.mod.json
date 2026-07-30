@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "phaselab",
-  "version": "6.1.0",
-  "name": "PhaseLab ExtremeCraft Locked",
-  "description": "Fabric 1.21.11 player-only black-box vehicle phase research harness hard-locked to extremecraft.net:25565. Runs bounded ordinary-input timing scenarios and writes local crossing/correction evidence. No server plugin required.",
+  "version": "6.2.0",
+  "name": "PhaseLab ExtremeCraft Geometry",
+  "description": "Fabric 1.21.11 player-only black-box vehicle phase research harness hard-locked to extremecraft.net:25565. Rejects vertically invalid targets, distinguishes edge escapes from target-corridor crossings, and writes bounded local evidence. No server plugin required.",
   "authors": ["Denis + OpenAI"],
   "license": "MIT",
   "environment": "client",
