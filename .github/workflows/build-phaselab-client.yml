@@ -1,9 +1,9 @@
-name: Build PhaseLab ExtremeCraft Locked
+name: Build PhaseLab ExtremeCraft Geometry
 
 on:
   push:
     branches:
-      - feat/phaselab-extremecraft-locked-v6.1
+      - fix/phaselab-geometry-v6.2
     paths:
       - 'phaselab-client/**'
       - '.github/workflows/build-phaselab-client.yml'
@@ -35,19 +35,19 @@ jobs:
         with:
           gradle-version: '9.5.1'
 
-      - name: Build locked client mod
+      - name: Build geometry-aware client mod
         working-directory: phaselab-client
         shell: bash
         run: |
           set -o pipefail
           gradle clean build --stacktrace --console=plain 2>&1 | tee build.log
 
-      - name: Verify lock, deep matrix, and bounded player-only behavior
+      - name: Verify geometry validation and bounded player-only behavior
         if: success()
         working-directory: phaselab-client
         shell: bash
         run: |
-          JAR='build/libs/phaselab-client-6.1.0.jar'
+          JAR='build/libs/phaselab-client-6.2.0.jar'
           test -f "$JAR"
           jar tf "$JAR" | tee jar-contents.txt
           jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseTelemetryClient.class'
@@ -57,13 +57,16 @@ jobs:
           ! jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseLabLockedClient.class'
           ! jar tf "$JAR" | grep -F 'dev/denis/phaselab/BoatPhaseClient.class'
           unzip -p "$JAR" fabric.mod.json | tee built-fabric.mod.json
-          grep -F '"version": "6.1.0"' built-fabric.mod.json
-          grep -F 'PhaseLab ExtremeCraft Locked' built-fabric.mod.json
+          grep -F '"version": "6.2.0"' built-fabric.mod.json
+          grep -F 'PhaseLab ExtremeCraft Geometry' built-fabric.mod.json
           javap -classpath "$JAR" -p -v dev.denis.phaselab.PhaseLabActiveClient > active-client-javap.txt
           grep -F 'extremecraft.net' active-client-javap.txt
+          grep -F 'INVALID HEIGHT' active-client-javap.txt
+          grep -F 'target_vertical_overlap' active-client-javap.txt
+          grep -F 'LATERAL_ESCAPE' active-client-javap.txt
+          grep -F 'max_corridor_crossing_ticks' active-client-javap.txt
+          grep -F 'PRESS_FORWARD_SHORT' active-client-javap.txt
           grep -F 'AUTO_DEEP_SWEEP' active-client-javap.txt
-          grep -F 'DISMOUNT_T80' active-client-javap.txt
-          grep -F 'CORRECTED_OR_SETBACK' active-client-javap.txt
           grep -F 'PHASELAB_EXTREMECRAFT_LATEST.csv' active-client-javap.txt
           grep -F 'MAX_RUNTIME_TICKS' active-client-javap.txt
           ! grep -F 'ServerboundMoveVehiclePacket' active-client-javap.txt
@@ -79,7 +82,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-extremecraft-locked-v6.1-build-evidence
+          name: phaselab-extremecraft-geometry-v6.2-build-evidence
           path: |
             phaselab-client/build.log
             phaselab-client/jar-contents.txt
@@ -87,10 +90,10 @@ jobs:
             phaselab-client/active-client-javap.txt
           if-no-files-found: warn
 
-      - name: Upload locked player JAR
+      - name: Upload geometry-aware player JAR
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-extremecraft-locked-6.1.0-mc1.21.11
-          path: phaselab-client/build/libs/phaselab-client-6.1.0.jar
+          name: phaselab-extremecraft-geometry-6.2.0-mc1.21.11
+          path: phaselab-client/build/libs/phaselab-client-6.2.0.jar
           if-no-files-found: error
