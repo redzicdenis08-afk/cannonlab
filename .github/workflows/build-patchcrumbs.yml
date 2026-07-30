@@ -1,0 +1,60 @@
+name: Build Patchcrumbs 1.21.11
+
+on:
+  push:
+    branches:
+      - patchcrumbs-fabric-1.21.11
+    paths:
+      - 'tools/patchcrumbs-fabric-1.21.11/**'
+      - '.github/workflows/build-patchcrumbs.yml'
+  pull_request:
+    paths:
+      - 'tools/patchcrumbs-fabric-1.21.11/**'
+      - '.github/workflows/build-patchcrumbs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: tools/patchcrumbs-fabric-1.21.11
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Java 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.1'
+
+      - name: Build remapped Fabric jar
+        run: gradle clean build --stacktrace
+
+      - name: Verify jar contents
+        run: |
+          JAR=$(find build/libs -maxdepth 1 -type f -name '*.jar' ! -name '*-sources.jar' | head -n 1)
+          test -n "$JAR"
+          jar tf "$JAR" | grep -q '^fabric.mod.json$'
+          jar tf "$JAR" | grep -q '^com/denis/patchcrumbs/PatchcrumbsClient.class$'
+          jar tf "$JAR" | grep -q '^com/denis/patchcrumbs/mixin/ClientPacketListenerMixin.class$'
+          echo "Verified $JAR"
+
+      - name: Upload Patchcrumbs jar
+        uses: actions/upload-artifact@v4
+        with:
+          name: denis-patchcrumbs-1.21.11
+          path: |
+            tools/patchcrumbs-fabric-1.21.11/build/libs/*.jar
+            !tools/patchcrumbs-fabric-1.21.11/build/libs/*-sources.jar
+          if-no-files-found: error
