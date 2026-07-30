@@ -8,6 +8,7 @@ on:
       - feat/phaselab-client-4.3-simple
       - feat/phaselab-client-4.5-smart
       - feat/phaselab-client-4.8-adaptive
+      - feat/phaselab-client-5.1-pulse
     paths:
       - 'phaselab-client/**'
       - '.github/workflows/build-phaselab-client.yml'
@@ -55,7 +56,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          JAR="$(find build/libs -maxdepth 1 -type f -name 'phaselab-client-5.0.0.jar' -print -quit)"
+          JAR="$(find build/libs -maxdepth 1 -type f -name 'phaselab-client-5.1.0.jar' -print -quit)"
           test -n "$JAR"
           jar tf "$JAR" | tee jar-contents.txt
           python - "$JAR" <<'PY'
@@ -79,7 +80,7 @@ jobs:
               if missing:
                   raise SystemExit(f'missing JAR entries: {missing}')
               mod = json.loads(zf.read('fabric.mod.json'))
-          if mod.get('version') != '5.0.0':
+          if mod.get('version') != '5.1.0':
               raise SystemExit(f"wrong mod version: {mod.get('version')!r}")
           client_entrypoints = mod.get('entrypoints', {}).get('client', [])
           if client_entrypoints != ['dev.denis.phaselab.BoatPhaseClient']:
@@ -91,12 +92,16 @@ jobs:
           unzip -p "$JAR" fabric.mod.json | tee built-fabric.mod.json
           javap -classpath "$JAR" -p dev.denis.phaselab.BoatPhaseClient | tee boat-phase-javap.txt
           grep -F 'BOAT_FORWARD_SEGMENT' boat-phase-javap.txt
+          grep -F 'BOAT_DOWN_SEGMENT' boat-phase-javap.txt
           grep -F 'HORSE_FORWARD_SEGMENT' boat-phase-javap.txt
-          grep -F 'DOWN_SEGMENT' boat-phase-javap.txt
-          grep -F 'BOAT_PACKETS_PER_TICK' boat-phase-javap.txt
-          grep -F 'HORSE_PACKETS_PER_TICK' boat-phase-javap.txt
-          grep -F 'DOWN_PACKETS_PER_TICK' boat-phase-javap.txt
-          grep -F 'SETTLE_TICKS' boat-phase-javap.txt
+          grep -F 'HORSE_DOWN_SEGMENT' boat-phase-javap.txt
+          grep -F 'BOAT_FORWARD_PACKETS_PER_TICK' boat-phase-javap.txt
+          grep -F 'BOAT_DOWN_PACKETS_PER_TICK' boat-phase-javap.txt
+          grep -F 'HORSE_FORWARD_PACKETS_PER_TICK' boat-phase-javap.txt
+          grep -F 'HORSE_DOWN_PACKETS_PER_TICK' boat-phase-javap.txt
+          grep -F 'POST_SEGMENT_SETTLE_TICKS' boat-phase-javap.txt
+          grep -F 'SEPARATION_QUIET_TICKS' boat-phase-javap.txt
+          grep -F 'REMOUNT_STABLE_TICKS' boat-phase-javap.txt
 
       - name: Publish compact client verdict
         if: success() && github.event_name == 'push'
@@ -104,12 +109,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          JAR='build/libs/phaselab-client-5.0.0.jar'
+          JAR='build/libs/phaselab-client-5.1.0.jar'
           SHA="$(sha256sum "$JAR" | awk '{print $1}')"
           SIZE="$(stat -c '%s' "$JAR")"
           mkdir -p ../phaselab-evidence
           cat > ../phaselab-evidence/latest-client-build.json <<EOF
-          {"version":"5.0.0","minecraft":"1.21.11","artifact":"phaselab-client-5.0.0.jar","sha256":"$SHA","bytes":$SIZE,"step":0.25,"boat_packets_per_tick":1,"horse_packets_per_tick":8,"down_packets_per_tick":1,"boat_forward_segment":2.0,"horse_forward_segment":8.0,"down_segment":0.75,"adaptive_tick_pacing":true,"vehicle_only_client_motion":true,"normal_remount_validation":true,"correction_tail_classification":true,"single_entrypoint":true,"settle_ticks":7,"cardinal_snap":true,"pitch_down_mode":true,"default_toggle":"P","default_abort":"O","verified":true}
+          {"version":"5.1.0","minecraft":"1.21.11","artifact":"phaselab-client-5.1.0.jar","sha256":"$SHA","bytes":$SIZE,"step":0.25,"boat_forward_packets_per_tick":1,"boat_down_packets_per_tick":1,"horse_forward_packets_per_tick":2,"horse_down_packets_per_tick":1,"boat_forward_segment":2.0,"boat_down_segment":0.75,"horse_forward_segment":1.0,"horse_down_segment":0.5,"pulse_reconciliation":true,"single_auto_remount_attempt":true,"manual_remount_fallback":true,"remount_stable_ticks":20,"quiet_ticks":8,"vehicle_only_client_motion":true,"correction_tail_classification":true,"single_entrypoint":true,"cardinal_snap":true,"pitch_down_mode":true,"default_toggle":"P","default_abort":"O","verified":true}
           EOF
           cd ..
           git config user.name 'phaselab-bot'
@@ -123,7 +128,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-build-log-v5.0
+          name: phaselab-build-log-v5.1
           path: |
             phaselab-client/build.log
             phaselab-client/jar-contents.txt
@@ -135,6 +140,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-client-5.0.0-mc1.21.11
-          path: phaselab-client/build/libs/phaselab-client-5.0.0.jar
+          name: phaselab-client-5.1.0-mc1.21.11
+          path: phaselab-client/build/libs/phaselab-client-5.1.0.jar
           if-no-files-found: error

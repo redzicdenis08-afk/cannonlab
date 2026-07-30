@@ -25,22 +25,35 @@ import java.time.Instant;
 import java.util.Locale;
 
 /**
- * Adaptive vehicle movement laboratory for servers the user owns or is
- * authorized to test. It deliberately uses short, tick-paced segments and
- * treats a successful normal remount as the only usable proof that a vehicle
- * remained at its advanced server position after rider separation.
+ * Pulse-based vehicle movement laboratory for servers the user owns or is
+ * explicitly authorized to test.
+ *
+ * The important design rule is silence during rider/vehicle reconciliation:
+ * one short movement pulse, no movement packets while the server settles, one
+ * normal remount attempt, then a full stable-mount window before continuing.
  */
 public final class BoatPhaseClient implements ClientModInitializer {
     private static final double STEP = 0.25D;
+
+    // The boat profile preserves the movement family the user reproduced by
+    // hand. Horse is intentionally independent and more conservative.
     private static final double BOAT_FORWARD_SEGMENT = 2.0D;
-    private static final double HORSE_FORWARD_SEGMENT = 8.0D;
-    private static final double DOWN_SEGMENT = 0.75D;
-    private static final int BOAT_PACKETS_PER_TICK = 1;
-    private static final int HORSE_PACKETS_PER_TICK = 8;
-    private static final int DOWN_PACKETS_PER_TICK = 1;
-    private static final int SETTLE_TICKS = 7;
-    private static final int REMOUNT_TIMEOUT_TICKS = 36;
-    private static final int REMOUNT_INTERVAL_TICKS = 4;
+    private static final double BOAT_DOWN_SEGMENT = 0.75D;
+    private static final double HORSE_FORWARD_SEGMENT = 1.0D;
+    private static final double HORSE_DOWN_SEGMENT = 0.50D;
+
+    private static final int BOAT_FORWARD_PACKETS_PER_TICK = 1;
+    private static final int BOAT_DOWN_PACKETS_PER_TICK = 1;
+    private static final int HORSE_FORWARD_PACKETS_PER_TICK = 2;
+    private static final int HORSE_DOWN_PACKETS_PER_TICK = 1;
+
+    private static final int POST_SEGMENT_SETTLE_TICKS = 10;
+    private static final int SEPARATION_QUIET_TICKS = 8;
+    private static final int AUTO_REMOUNT_RESULT_TICKS = 12;
+    private static final int MANUAL_REMOUNT_TIMEOUT_TICKS = 120;
+    private static final int REMOUNT_STABLE_TICKS = 20;
+    private static final int MAX_RECONCILE_ATTEMPTS_PER_SEGMENT = 3;
+
     private static final double REMOUNT_RANGE_SQUARED = 25.0D;
     private static final double MAX_DISTANCE = 512.0D;
     private static final float DOWN_PITCH_THRESHOLD = 55.0F;
@@ -52,12 +65,15 @@ public final class BoatPhaseClient implements ClientModInitializer {
 
     private enum State {
         MOVING,
-        SETTLING,
-        REMOUNTING
+        POST_SEGMENT_SETTLE,
+        SEPARATION_QUIET,
+        AUTO_REMOUNT_WAIT,
+        MANUAL_REMOUNT_WAIT,
+        REMOUNT_STABILIZE
     }
 
     private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
-        Identifier.fromNamespaceAndPath("phaselab", "adaptive_vehicle")
+        Identifier.fromNamespaceAndPath("phaselab", "pulse_vehicle")
     );
 
     private static KeyMapping toggleKey;
@@ -65,22 +81,24 @@ public final class BoatPhaseClient implements ClientModInitializer {
 
     private static boolean active;
     private static boolean readyMessageShown;
-    private static LocalPlayer activePlayer;
     private static Entity activeVehicle;
     private static Mode mode;
     private static State state;
     private static Vec3 direction;
-    private static Vec3 segmentStart;
+    private static Vec3 segmentAnchor;
     private static Vec3 lastSentTarget;
     private static double segmentLength;
     private static double segmentSent;
-    private static double travelled;
-    private static int sentPackets;
+    private static double attemptedDistance;
+    private static double acceptedDistance;
     private static int packetsPerTick;
+    private static int sentPackets;
     private static int acceptedSegments;
-    private static int settleTicksRemaining;
-    private static int remountTicks;
     private static int correctionCount;
+    private static int stateTicks;
+    private static int reconcileAttempts;
+    private static int separationCount;
+    private static boolean autoRemountSent;
     private static boolean originalVehicleNoPhysics;
     private static String vehicleLabel;
     private static BufferedWriter logWriter;
@@ -102,14 +120,14 @@ public final class BoatPhaseClient implements ClientModInitializer {
         ClientTickEvents.END_CLIENT_TICK.register(BoatPhaseClient::onClientTick);
     }
 
-    /** Called at TAIL after Minecraft applies a real server player correction. */
+    /** Called at TAIL after vanilla applies a real server player correction. */
     public static void onServerPlayerCorrectionApplied() {
         if (!active) {
             return;
         }
         correctionCount++;
         LocalPlayer player = Minecraft.getInstance().player;
-        log("SERVER_PLAYER_CORRECTION", player, activeVehicle == null ? null : activeVehicle.position());
+        log("SERVER_PLAYER_CORRECTION", player, vehiclePosition());
 
         if (player == null || activeVehicle == null || activeVehicle.isRemoved()) {
             stop(player, "REJECTED: server correction removed the usable vehicle state.", true);
@@ -118,23 +136,24 @@ public final class BoatPhaseClient implements ClientModInitializer {
 
         Entity controlled = controlledVehicle(player);
         if (controlled == activeVehicle) {
-            // Riding-player sync packets are not automatically failures. Keep a
-            // short settle window and require the mount to remain authoritative.
-            state = State.SETTLING;
-            settleTicksRemaining = SETTLE_TICKS;
-            actionbar(player, "Server synced the rider; checking whether the mount remains accepted...");
+            // Riding-player synchronization is common and is not itself a
+            // rejection. Require a quiet server window before doing more.
+            state = State.POST_SEGMENT_SETTLE;
+            stateTicks = POST_SEGMENT_SETTLE_TICKS;
+            actionbar(player, "Server synchronized the rider. Holding all movement packets...");
             return;
         }
 
         if (player.distanceToSqr(activeVehicle) <= REMOUNT_RANGE_SQUARED) {
-            beginRemount(player, "Server separated rider and vehicle; validating with a normal remount...");
+            beginSeparationQuiet(player,
+                "Server separated rider and vehicle. Waiting before one clean remount attempt...");
             return;
         }
 
-        stop(player, "REJECTED: the server returned you outside remount range.", true);
+        stop(player, "PARTIAL: vehicle moved, but the server returned you outside normal remount reach.", true);
     }
 
-    /** Called at TAIL after Minecraft applies a real server vehicle correction. */
+    /** Called at TAIL after vanilla applies a real server vehicle correction. */
     public static void onServerVehicleCorrectionApplied() {
         if (!active) {
             return;
@@ -142,37 +161,36 @@ public final class BoatPhaseClient implements ClientModInitializer {
         correctionCount++;
         LocalPlayer player = Minecraft.getInstance().player;
         if (player == null || activeVehicle == null || activeVehicle.isRemoved()) {
-            stop(player, "REJECTED: the server removed or replaced the vehicle.", true);
+            stop(player, "REJECTED: server removed or replaced the vehicle.", true);
             return;
         }
 
-        Vec3 serverVehiclePosition = activeVehicle.position();
-        double progress = projectedProgress(segmentStart, serverVehiclePosition, direction);
-        log("SERVER_VEHICLE_CORRECTION", player, serverVehiclePosition);
+        Vec3 serverPosition = activeVehicle.position();
+        double retainedProgress = projectedProgress(segmentAnchor, serverPosition, direction);
+        log("SERVER_VEHICLE_CORRECTION", player, serverPosition);
 
-        if (progress >= Math.max(STEP, segmentLength * 0.45D)) {
-            // The correction retained meaningful forward/downward progress. Use
-            // the corrected position as the next authoritative segment anchor.
-            segmentStart = serverVehiclePosition;
-            lastSentTarget = serverVehiclePosition;
-            segmentSent = 0.0D;
-            Entity controlled = controlledVehicle(player);
-            if (controlled == activeVehicle) {
-                state = State.SETTLING;
-                settleTicksRemaining = SETTLE_TICKS;
-                actionbar(player, String.format(Locale.ROOT,
-                    "Server retained %.2f blocks of this segment; stabilizing...", progress));
-            } else if (player.distanceToSqr(activeVehicle) <= REMOUNT_RANGE_SQUARED) {
-                beginRemount(player, String.format(Locale.ROOT,
-                    "Server retained %.2f blocks but separated the rider; remounting...", progress));
-            } else {
-                stop(player, "PARTIAL: vehicle advanced but ended outside normal remount reach.", true);
-            }
+        if (retainedProgress < STEP * 0.45D) {
+            stop(player, String.format(Locale.ROOT,
+                "REJECTED: server returned the vehicle after %.2f blocks of segment progress.",
+                retainedProgress), true);
             return;
         }
 
-        stop(player, String.format(Locale.ROOT,
-            "REJECTED: server returned the vehicle after only %.2f segment progress.", progress), true);
+        Entity controlled = controlledVehicle(player);
+        if (controlled == activeVehicle) {
+            state = State.POST_SEGMENT_SETTLE;
+            stateTicks = POST_SEGMENT_SETTLE_TICKS;
+            actionbar(player, String.format(Locale.ROOT,
+                "Server retained %.2f blocks. Stabilizing the accepted position...", retainedProgress));
+        } else if (player.distanceToSqr(activeVehicle) <= REMOUNT_RANGE_SQUARED) {
+            beginSeparationQuiet(player, String.format(Locale.ROOT,
+                "Server retained %.2f blocks and separated the rider. Waiting before remount...",
+                retainedProgress));
+        } else {
+            stop(player, String.format(Locale.ROOT,
+                "PARTIAL: vehicle retained %.2f blocks but ended outside normal remount reach.",
+                retainedProgress), true);
+        }
     }
 
     private static void onClientTick(Minecraft client) {
@@ -186,52 +204,48 @@ public final class BoatPhaseClient implements ClientModInitializer {
         if (!readyMessageShown) {
             readyMessageShown = true;
             message(player,
-                "Adaptive 4.8 loaded. Mount a boat/horse. Face forward or look steeply down, then press P. O aborts.");
+                "Pulse 5.1 loaded. Mount boat/horse, face forward or look down, press P. O aborts.");
         }
 
         while (toggleKey.consumeClick()) {
             if (active) {
-                stop(player, "Adaptive phase stopped manually.", false);
+                stop(player, "Pulse phase stopped manually.", false);
             } else {
                 start(player);
             }
         }
         while (abortKey.consumeClick()) {
             if (active) {
-                stop(player, "Adaptive phase emergency-aborted.", false);
+                stop(player, "Pulse phase emergency-aborted.", false);
             }
         }
 
         if (!active) {
             return;
         }
-
-        activePlayer = player;
         if (activeVehicle == null || activeVehicle.isRemoved()) {
             stop(player, "Vehicle disappeared.", true);
             return;
         }
-
-        if (travelled >= MAX_DISTANCE) {
-            stop(player, "Safety limit reached.", false);
+        if (attemptedDistance >= MAX_DISTANCE) {
+            stop(player, "Safety distance reached.", false);
             return;
         }
 
         switch (state) {
-            case REMOUNTING -> tickRemount(client, player);
-            case SETTLING -> tickSettle(player);
-            case MOVING -> tickMove(player);
+            case MOVING -> tickMoving(player);
+            case POST_SEGMENT_SETTLE -> tickPostSegmentSettle(player);
+            case SEPARATION_QUIET -> tickSeparationQuiet(client, player);
+            case AUTO_REMOUNT_WAIT -> tickAutoRemountWait(player);
+            case MANUAL_REMOUNT_WAIT -> tickManualRemountWait(player);
+            case REMOUNT_STABILIZE -> tickRemountStabilize(player);
         }
     }
 
-    private static void tickMove(LocalPlayer player) {
-        Entity controlled = controlledVehicle(player);
-        if (controlled != activeVehicle) {
-            if (player.distanceToSqr(activeVehicle) <= REMOUNT_RANGE_SQUARED) {
-                beginRemount(player, "Mount state changed; validating with a normal remount...");
-            } else {
-                stop(player, "DISMOUNTED outside remount reach.", true);
-            }
+    private static void tickMoving(LocalPlayer player) {
+        if (controlledVehicle(player) != activeVehicle) {
+            beginSeparationQuiet(player,
+                "Mount state changed. Holding packets before remount validation...");
             return;
         }
 
@@ -239,110 +253,187 @@ public final class BoatPhaseClient implements ClientModInitializer {
             Vec3 next = activeVehicle.position().add(direction.scale(STEP));
             activeVehicle.noPhysics = true;
             activeVehicle.setPos(next.x, next.y, next.z);
-            // Deliberately do NOT force player.setPos(). The server's vehicle
-            // handler and passenger logic own rider synchronization.
+            // Never force player.setPos(). Vanilla passenger synchronization and
+            // the server own the rider position.
             player.connection.send(new ServerboundMoveVehiclePacket(
                 next,
                 activeVehicle.getYRot(),
                 activeVehicle.getXRot(),
-                mode == Mode.DOWN ? false : activeVehicle.onGround()
+                mode != Mode.DOWN && activeVehicle.onGround()
             ));
             lastSentTarget = next;
             segmentSent += STEP;
-            travelled += STEP;
+            attemptedDistance += STEP;
             sentPackets++;
             log("SEND_STEP", player, next);
         }
 
         actionbar(player, String.format(Locale.ROOT,
-            "%s %s | %.2f/%.2f segment | %.1f total | %d accepted segments",
+            "%s %s pulse %.2f/%.2f | accepted %.2f | packets %d",
             vehicleLabel,
             mode == Mode.DOWN ? "DOWN" : directionLabel(direction),
             segmentSent,
             segmentLength,
-            travelled,
-            acceptedSegments
+            acceptedDistance,
+            sentPackets
         ));
 
         if (segmentSent >= segmentLength - 1.0E-9D) {
-            state = State.SETTLING;
-            settleTicksRemaining = SETTLE_TICKS;
-            log("SEGMENT_SENT", player, lastSentTarget);
+            state = State.POST_SEGMENT_SETTLE;
+            stateTicks = POST_SEGMENT_SETTLE_TICKS;
+            log("PULSE_SENT", player, lastSentTarget);
         }
     }
 
-    private static void tickSettle(LocalPlayer player) {
+    private static void tickPostSegmentSettle(LocalPlayer player) {
+        if (controlledVehicle(player) != activeVehicle) {
+            beginSeparationQuiet(player,
+                "Pulse separated rider and vehicle. Waiting for server reconciliation...");
+            return;
+        }
+
+        stateTicks--;
+        actionbar(player, String.format(Locale.ROOT,
+            "Silent settle %d/%d | do not move",
+            POST_SEGMENT_SETTLE_TICKS - Math.max(stateTicks, 0),
+            POST_SEGMENT_SETTLE_TICKS
+        ));
+        if (stateTicks > 0) {
+            return;
+        }
+
+        acceptCurrentPulse(player, "PULSE_ACCEPTED_MOUNT_STABLE");
+    }
+
+    private static void tickSeparationQuiet(Minecraft client, LocalPlayer player) {
         Entity controlled = controlledVehicle(player);
-        if (controlled != activeVehicle) {
-            if (player.distanceToSqr(activeVehicle) <= REMOUNT_RANGE_SQUARED) {
-                beginRemount(player, "Segment separated rider and vehicle; trying a normal remount...");
+        if (controlled == activeVehicle) {
+            beginRemountStabilize(player, "Mount returned during the quiet window. Verifying stability...");
+            return;
+        }
+        if (!vehicleWithinRemountReach(player)) {
+            stop(player, "PARTIAL: vehicle moved beyond normal remount reach.", true);
+            return;
+        }
+
+        stateTicks--;
+        actionbar(player, String.format(Locale.ROOT,
+            "Server separated rider/vehicle. Quiet window %d/%d",
+            SEPARATION_QUIET_TICKS - Math.max(stateTicks, 0),
+            SEPARATION_QUIET_TICKS
+        ));
+        if (stateTicks > 0) {
+            return;
+        }
+
+        if (!autoRemountSent && client.gameMode != null) {
+            autoRemountSent = true;
+            client.gameMode.interact(player, activeVehicle, InteractionHand.MAIN_HAND);
+            log("AUTO_REMOUNT_SINGLE_INTERACT", player, activeVehicle.position());
+        }
+        state = State.AUTO_REMOUNT_WAIT;
+        stateTicks = AUTO_REMOUNT_RESULT_TICKS;
+    }
+
+    private static void tickAutoRemountWait(LocalPlayer player) {
+        if (controlledVehicle(player) == activeVehicle) {
+            beginRemountStabilize(player, "Server accepted the single normal remount. Stabilizing...");
+            return;
+        }
+        if (!vehicleWithinRemountReach(player)) {
+            stop(player, "PARTIAL: vehicle left normal reach before remount completed.", true);
+            return;
+        }
+
+        stateTicks--;
+        actionbar(player, "Waiting for one clean remount result...");
+        if (stateTicks > 0) {
+            return;
+        }
+
+        state = State.MANUAL_REMOUNT_WAIT;
+        stateTicks = MANUAL_REMOUNT_TIMEOUT_TICKS;
+        message(player,
+            "Auto-remount did not register. Right-click the SAME vehicle once; PhaseLab will resume automatically.");
+        log("MANUAL_REMOUNT_REQUESTED", player, activeVehicle.position());
+    }
+
+    private static void tickManualRemountWait(LocalPlayer player) {
+        if (controlledVehicle(player) == activeVehicle) {
+            beginRemountStabilize(player, "Manual remount detected. Verifying one full second of stable mount...");
+            return;
+        }
+        if (!vehicleWithinRemountReach(player)) {
+            stop(player, "PARTIAL: vehicle vanished or moved beyond normal manual-remount reach.", true);
+            return;
+        }
+
+        stateTicks--;
+        actionbar(player, String.format(Locale.ROOT,
+            "Right-click the same %s once | waiting %.1fs",
+            vehicleLabel.toLowerCase(Locale.ROOT),
+            Math.max(stateTicks, 0) / 20.0D
+        ));
+        if (stateTicks <= 0) {
+            stop(player, "REMOUNT BLOCKED: server never accepted a normal remount.", true);
+        }
+    }
+
+    private static void tickRemountStabilize(LocalPlayer player) {
+        if (controlledVehicle(player) != activeVehicle) {
+            if (reconcileAttempts >= MAX_RECONCILE_ATTEMPTS_PER_SEGMENT) {
+                stop(player, "UNSTABLE: server repeatedly separated the same pulse after remount.", true);
             } else {
-                stop(player, "DISMOUNTED after segment outside remount reach.", true);
+                beginSeparationQuiet(player,
+                    "Mount separated during stabilization. Retrying after another quiet window...");
             }
             return;
         }
 
-        settleTicksRemaining--;
+        stateTicks--;
         actionbar(player, String.format(Locale.ROOT,
-            "Settling segment... %d/%d | corrections seen: %d",
-            SETTLE_TICKS - Math.max(settleTicksRemaining, 0),
-            SETTLE_TICKS,
-            correctionCount
+            "Remount stable-check %d/%d | no movement packets",
+            REMOUNT_STABLE_TICKS - Math.max(stateTicks, 0),
+            REMOUNT_STABLE_TICKS
         ));
-        if (settleTicksRemaining > 0) {
+        if (stateTicks > 0) {
             return;
         }
 
-        acceptedSegments++;
-        segmentStart = activeVehicle.position();
-        lastSentTarget = segmentStart;
-        segmentSent = 0.0D;
-        state = State.MOVING;
-        log("SEGMENT_ACCEPTED_NO_SETBACK", player, segmentStart);
+        acceptCurrentPulse(player, "PULSE_ACCEPTED_AFTER_STABLE_REMOUNT");
     }
 
-    private static void tickRemount(Minecraft client, LocalPlayer player) {
-        Entity controlled = controlledVehicle(player);
-        if (controlled == activeVehicle) {
-            remountTicks = 0;
-            acceptedSegments++;
-            segmentStart = activeVehicle.position();
-            lastSentTarget = segmentStart;
-            segmentSent = 0.0D;
-            state = State.SETTLING;
-            settleTicksRemaining = SETTLE_TICKS;
-            message(player, "Server accepted a normal remount. Continuing from the vehicle's current position.");
-            log("REMOUNT_ACCEPTED", player, activeVehicle.position());
-            return;
-        }
-
-        remountTicks++;
-        if (activeVehicle.isRemoved() || player.distanceToSqr(activeVehicle) > REMOUNT_RANGE_SQUARED) {
-            stop(player, "REMOUNT FAILED: vehicle vanished or moved beyond normal reach.", true);
-            return;
-        }
-        if (remountTicks > REMOUNT_TIMEOUT_TICKS) {
-            stop(player, "REMOUNT BLOCKED: server refused normal interaction with the advanced vehicle.", true);
-            return;
-        }
-
-        if (client.gameMode != null && remountTicks % REMOUNT_INTERVAL_TICKS == 1) {
-            client.gameMode.interact(player, activeVehicle, InteractionHand.MAIN_HAND);
-            log("REMOUNT_INTERACT", player, activeVehicle.position());
-        }
-        actionbar(player, String.format(Locale.ROOT,
-            "Remount validation... %d/%d | distance %.2f",
-            remountTicks,
-            REMOUNT_TIMEOUT_TICKS,
-            Math.sqrt(player.distanceToSqr(activeVehicle))
-        ));
-    }
-
-    private static void beginRemount(LocalPlayer player, String reason) {
-        state = State.REMOUNTING;
-        remountTicks = 0;
+    private static void beginSeparationQuiet(LocalPlayer player, String reason) {
+        separationCount++;
+        reconcileAttempts++;
+        state = State.SEPARATION_QUIET;
+        stateTicks = SEPARATION_QUIET_TICKS;
+        autoRemountSent = false;
         message(player, reason);
-        log("REMOUNT_BEGIN", player, activeVehicle == null ? null : activeVehicle.position());
+        log("SEPARATION_QUIET_BEGIN", player, vehiclePosition());
+    }
+
+    private static void beginRemountStabilize(LocalPlayer player, String reason) {
+        state = State.REMOUNT_STABILIZE;
+        stateTicks = REMOUNT_STABLE_TICKS;
+        message(player, reason);
+        log("REMOUNT_STABILIZE_BEGIN", player, vehiclePosition());
+    }
+
+    private static void acceptCurrentPulse(LocalPlayer player, String event) {
+        Vec3 current = activeVehicle.position();
+        double retained = Math.max(0.0D, projectedProgress(segmentAnchor, current, direction));
+        acceptedDistance += retained;
+        acceptedSegments++;
+        segmentAnchor = current;
+        lastSentTarget = current;
+        segmentSent = 0.0D;
+        reconcileAttempts = 0;
+        autoRemountSent = false;
+        state = State.MOVING;
+        log(event, player, current);
+        message(player, String.format(Locale.ROOT,
+            "Pulse accepted: %.2f retained blocks. Total accepted %.2f.", retained, acceptedDistance));
     }
 
     private static void start(LocalPlayer player) {
@@ -352,7 +443,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
             return;
         }
         if (!isBoat(vehicle) && !isHorse(vehicle)) {
-            message(player, "Adaptive mode supports boats and horses only.");
+            message(player, "Pulse mode supports boats and horses only.");
             return;
         }
 
@@ -361,38 +452,50 @@ public final class BoatPhaseClient implements ClientModInitializer {
         mode = player.getXRot() >= DOWN_PITCH_THRESHOLD ? Mode.DOWN : Mode.FORWARD;
         if (mode == Mode.DOWN) {
             direction = new Vec3(0.0D, -1.0D, 0.0D);
-            segmentLength = DOWN_SEGMENT;
-            packetsPerTick = DOWN_PACKETS_PER_TICK;
+            segmentLength = horse ? HORSE_DOWN_SEGMENT : BOAT_DOWN_SEGMENT;
+            packetsPerTick = horse ? HORSE_DOWN_PACKETS_PER_TICK : BOAT_DOWN_PACKETS_PER_TICK;
         } else {
             direction = nearestCardinal(player.getYRot());
             segmentLength = horse ? HORSE_FORWARD_SEGMENT : BOAT_FORWARD_SEGMENT;
-            packetsPerTick = horse ? HORSE_PACKETS_PER_TICK : BOAT_PACKETS_PER_TICK;
+            packetsPerTick = horse ? HORSE_FORWARD_PACKETS_PER_TICK : BOAT_FORWARD_PACKETS_PER_TICK;
         }
 
         active = true;
-        activePlayer = player;
         activeVehicle = vehicle;
         state = State.MOVING;
-        segmentStart = vehicle.position();
-        lastSentTarget = segmentStart;
+        segmentAnchor = vehicle.position();
+        lastSentTarget = segmentAnchor;
         segmentSent = 0.0D;
-        travelled = 0.0D;
+        attemptedDistance = 0.0D;
+        acceptedDistance = 0.0D;
         sentPackets = 0;
         acceptedSegments = 0;
-        settleTicksRemaining = 0;
-        remountTicks = 0;
         correctionCount = 0;
+        stateTicks = 0;
+        reconcileAttempts = 0;
+        separationCount = 0;
+        autoRemountSent = false;
         originalVehicleNoPhysics = vehicle.noPhysics;
         vehicle.noPhysics = true;
         openLog();
         log("START", player, vehicle.position());
         message(player, String.format(Locale.ROOT,
-            "%s adaptive %s started. %.2f-block segments, %d x 0.25 packets per tick.",
+            "%s pulse %s started. %.2f-block pulse, %d packet(s)/tick. P stops; O aborts.",
             vehicleLabel,
             mode == Mode.DOWN ? "DOWN" : directionLabel(direction),
             segmentLength,
             packetsPerTick
         ));
+    }
+
+    private static boolean vehicleWithinRemountReach(LocalPlayer player) {
+        return activeVehicle != null
+            && !activeVehicle.isRemoved()
+            && player.distanceToSqr(activeVehicle) <= REMOUNT_RANGE_SQUARED;
+    }
+
+    private static Vec3 vehiclePosition() {
+        return activeVehicle == null ? null : activeVehicle.position();
     }
 
     private static Vec3 nearestCardinal(float yaw) {
@@ -451,32 +554,38 @@ public final class BoatPhaseClient implements ClientModInitializer {
         }
 
         if (player != null) {
-            log(rejected ? "STOP_REJECTED" : "STOP", player,
-                activeVehicle == null ? null : activeVehicle.position());
+            log(rejected ? "STOP_REJECTED" : "STOP", player, vehiclePosition());
             if (reason != null) {
                 message(player, reason + String.format(Locale.ROOT,
-                    " Travelled %.2f blocks, %d packets, %d accepted/remounted segments.",
-                    travelled, sentPackets, acceptedSegments));
+                    " Attempted %.2f, server-retained %.2f, packets %d, accepted pulses %d, separations %d.",
+                    attemptedDistance,
+                    acceptedDistance,
+                    sentPackets,
+                    acceptedSegments,
+                    separationCount
+                ));
             }
         }
 
         active = false;
-        activePlayer = null;
         activeVehicle = null;
         mode = null;
         state = null;
         direction = null;
-        segmentStart = null;
+        segmentAnchor = null;
         lastSentTarget = null;
         segmentLength = 0.0D;
         segmentSent = 0.0D;
-        travelled = 0.0D;
+        attemptedDistance = 0.0D;
+        acceptedDistance = 0.0D;
+        packetsPerTick = 0;
         sentPackets = 0;
         acceptedSegments = 0;
-        settleTicksRemaining = 0;
-        remountTicks = 0;
         correctionCount = 0;
-        packetsPerTick = 0;
+        stateTicks = 0;
+        reconcileAttempts = 0;
+        separationCount = 0;
+        autoRemountSent = false;
         closeLog();
     }
 
@@ -488,7 +597,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
                 .resolve("phaselab");
             Files.createDirectories(directory);
             Path logPath = directory.resolve(
-                "adaptive-vehicle-v4.8-" + Instant.now().toString().replace(':', '-') + ".csv"
+                "pulse-vehicle-v5.1-" + Instant.now().toString().replace(':', '-') + ".csv"
             );
             logWriter = Files.newBufferedWriter(
                 logPath,
@@ -497,7 +606,7 @@ public final class BoatPhaseClient implements ClientModInitializer {
                 StandardOpenOption.WRITE
             );
             logWriter.write(
-                "time,event,mode,state,player_x,player_y,player_z,vehicle_x,vehicle_y,vehicle_z,travelled,segment_sent,packets,accepted,corrections\n"
+                "time,event,mode,state,player_x,player_y,player_z,vehicle_x,vehicle_y,vehicle_z,attempted,accepted,segment_sent,packets,accepted_pulses,separations,corrections\n"
             );
             logWriter.flush();
         } catch (IOException exception) {
@@ -513,17 +622,19 @@ public final class BoatPhaseClient implements ClientModInitializer {
         Vec3 vehicle = vehiclePosition == null ? Vec3.ZERO : vehiclePosition;
         try {
             logWriter.write(String.format(Locale.ROOT,
-                "%s,%s,%s,%s,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.3f,%.3f,%d,%d,%d%n",
+                "%s,%s,%s,%s,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f,%.3f,%.3f,%.3f,%d,%d,%d,%d%n",
                 Instant.now(),
                 event,
                 mode == null ? "NONE" : mode,
                 state == null ? "NONE" : state,
                 playerPosition.x, playerPosition.y, playerPosition.z,
                 vehicle.x, vehicle.y, vehicle.z,
-                travelled,
+                attemptedDistance,
+                acceptedDistance,
                 segmentSent,
                 sentPackets,
                 acceptedSegments,
+                separationCount,
                 correctionCount
             ));
             logWriter.flush();
