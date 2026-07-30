@@ -64,7 +64,7 @@ jobs:
           grep -F '"fabricloader": ">=0.19.2"' built-fabric.mod.json
           grep -F 'dev.denis.phaselab.PhaseTelemetryClient' built-fabric.mod.json
           ! grep -F 'BoatPhaseClient' built-fabric.mod.json
-          javap -classpath "$JAR" -p dev.denis.phaselab.PhaseTelemetryClient > telemetry-javap.txt
+          javap -classpath "$JAR" -p -v dev.denis.phaselab.PhaseTelemetryClient > telemetry-javap.txt
           grep -F 'onPlayerCorrectionHead' telemetry-javap.txt
           grep -F 'onPlayerCorrectionTail' telemetry-javap.txt
           grep -F 'onVehicleCorrectionHead' telemetry-javap.txt
