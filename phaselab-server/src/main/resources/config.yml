@@ -1,0 +1,17 @@
+authorization-seconds: 120
+max-runtime-ticks: 240
+max-displacement-blocks: 16.0
+required-persistent-crossing-ticks: 5
+penetration-threshold-blocks: 0.35
+
+lab:
+  configured: false
+  world: world
+  min-x: 0
+  min-y: 0
+  min-z: 0
+  max-x: 0
+  max-y: 0
+  max-z: 0
+  barrier-axis: X
+  barrier-coordinate: 0.0

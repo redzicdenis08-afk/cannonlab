@@ -1,15 +1,16 @@
 {
   "schemaVersion": 1,
   "id": "phaselab",
-  "version": "4.2.0",
-  "name": "PhaseLab Admin Telemetry",
-  "description": "Passive Fabric 1.21.11 movement and server-correction telemetry with obvious latest-file export, named test segments, and high-detail vehicle sampling for authorized moderation testing.",
+  "version": "5.0.0",
+  "name": "PhaseLab Lab-Locked Red Team",
+  "description": "Fabric 1.21.11 PhaseLab telemetry plus bounded active key-input scenarios that only run under a short-lived signed authorization from the paired test-server plugin.",
   "authors": ["Denis + OpenAI"],
   "license": "MIT",
   "environment": "client",
   "entrypoints": {
     "client": [
-      "dev.denis.phaselab.PhaseTelemetryClient"
+      "dev.denis.phaselab.PhaseTelemetryClient",
+      "dev.denis.phaselab.PhaseLabLockedClient"
     ]
   },
   "mixins": [

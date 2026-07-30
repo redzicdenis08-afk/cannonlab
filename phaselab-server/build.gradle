@@ -1,0 +1,32 @@
+plugins {
+    id 'java'
+}
+
+group = 'dev.denis'
+version = '5.0.0'
+
+repositories {
+    mavenCentral()
+    maven {
+        name = 'papermc'
+        url = 'https://repo.papermc.io/repository/maven-public/'
+    }
+}
+
+dependencies {
+    compileOnly 'io.papermc.paper:paper-api:1.21.11-R0.1-SNAPSHOT'
+}
+
+java {
+    toolchain.languageVersion = JavaLanguageVersion.of(21)
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.release = 21
+    options.encoding = 'UTF-8'
+}
+
+jar {
+    archiveBaseName = 'phaselab-server'
+    archiveVersion = project.version
+}
