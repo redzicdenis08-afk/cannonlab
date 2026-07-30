@@ -1,18 +1,19 @@
 package dev.denis.phaselab;
 
 import com.mojang.blaze3d.platform.InputConstants;
-import dev.denis.phaselab.net.LabMessagePayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
-import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
-import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.Direction;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.Vec3;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.BufferedWriter;
@@ -24,73 +25,92 @@ import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
 /**
- * Authorized active PhaseLab campaign client.
+ * Player-only black-box phase research harness for the ExtremeCraft Test Lab.
  *
- * The client only automates ordinary key states. It cannot arm itself: the
- * paired server plugin must issue a short-lived player/region-bound session.
- * Every case is judged and rolled back by the server before the next case.
+ * Active scenarios are hard-locked to the exact multiplayer address
+ * extremecraft.net:25565. The runner only changes ordinary client key states.
+ * It never constructs movement packets or directly changes entity position,
+ * velocity, collision, or bounding boxes.
  */
 public final class PhaseLabActiveClient implements ClientModInitializer {
-    private static final String VERSION = "6.0.0";
-    private static final int CASE_RUNTIME_CAP = 220;
-    private static final int BETWEEN_CASE_TICKS = 24;
-    private static final DateTimeFormatter FILE_TIME = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
+    private static final String VERSION = "6.1.0";
+    private static final String ALLOWED_HOST = "extremecraft.net";
+    private static final int ALLOWED_PORT = 25565;
 
-    private static final List<CaseSpec> QUICK_CASES = List.of(
-        new CaseSpec("Q01_FORWARD_SHORT", "PRESS_FORWARD", 90, 0, 0),
-        new CaseSpec("Q02_FORWARD_LONG", "PRESS_FORWARD", 170, 0, 0),
-        new CaseSpec("Q03_PULSE_MEDIUM", "PULSE_FORWARD", 190, 12, 9),
-        new CaseSpec("Q04_LEFT_PRESSURE", "FORWARD_LEFT", 170, 0, 0),
-        new CaseSpec("Q05_RIGHT_PRESSURE", "FORWARD_RIGHT", 170, 0, 0),
-        new CaseSpec("Q06_BRAKE_RELEASE", "BRAKE_RELEASE", 140, 72, 26)
-    );
+    private static final String[] SCENARIOS = {
+        "AUTO_DEEP_SWEEP",
+        "PRESS_FORWARD_SHORT",
+        "PRESS_FORWARD_LONG",
+        "PULSE_FAST",
+        "PULSE_MEDIUM",
+        "PULSE_SLOW",
+        "FORWARD_LEFT",
+        "FORWARD_RIGHT",
+        "STEER_OSCILLATE_FAST",
+        "STEER_OSCILLATE_SLOW",
+        "BRAKE_RELEASE_SHORT",
+        "BRAKE_RELEASE_LONG",
+        "FORWARD_BACK_FAST",
+        "FORWARD_BACK_SLOW",
+        "DISMOUNT_T20",
+        "DISMOUNT_T35",
+        "DISMOUNT_T50",
+        "DISMOUNT_T65",
+        "DISMOUNT_T80",
+        "IDLE_CONTROL"
+    };
 
-    private static final List<CaseSpec> DEEP_CASES = List.of(
-        new CaseSpec("D01_FORWARD_60", "PRESS_FORWARD", 80, 0, 0),
-        new CaseSpec("D02_FORWARD_100", "PRESS_FORWARD", 120, 0, 0),
-        new CaseSpec("D03_FORWARD_160", "PRESS_FORWARD", 180, 0, 0),
-        new CaseSpec("D04_PULSE_FAST", "PULSE_FORWARD", 190, 8, 6),
-        new CaseSpec("D05_PULSE_MEDIUM", "PULSE_FORWARD", 200, 12, 9),
-        new CaseSpec("D06_PULSE_SLOW", "PULSE_FORWARD", 210, 18, 12),
-        new CaseSpec("D07_FORWARD_LEFT", "FORWARD_LEFT", 180, 0, 0),
-        new CaseSpec("D08_FORWARD_RIGHT", "FORWARD_RIGHT", 180, 0, 0),
-        new CaseSpec("D09_BRAKE_EARLY", "BRAKE_RELEASE", 135, 55, 22),
-        new CaseSpec("D10_BRAKE_LATE", "BRAKE_RELEASE", 155, 85, 28),
-        new CaseSpec("D11_OSCILLATE_FAST", "FORWARD_BACK_PULSE", 190, 8, 0),
-        new CaseSpec("D12_OSCILLATE_SLOW", "FORWARD_BACK_PULSE", 205, 14, 0),
-        new CaseSpec("D13_DISMOUNT_EARLY", "DISMOUNT_EDGE", 125, 34, 0),
-        new CaseSpec("D14_DISMOUNT_MIDDLE", "DISMOUNT_EDGE", 145, 58, 0),
-        new CaseSpec("D15_DISMOUNT_LATE", "DISMOUNT_EDGE", 170, 82, 0),
-        new CaseSpec("D16_IDLE_CONTROL", "IDLE_CONTROL", 100, 0, 0)
-    );
+    private static final int MAX_RUNTIME_TICKS = 300;
+    private static final double MAX_TRAVEL_BLOCKS = 24.0D;
+    private static final double CROSSING_MARGIN = 0.15D;
+    private static final int PERSISTENT_CROSSING_TICKS = 8;
+    private static final double CORRECTION_STEP = 0.35D;
+    private static final DateTimeFormatter FILE_TIME =
+        DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
+
+    private static final String HEADER =
+        "utc_timestamp,run_id,version,server_address,lock_ok,scenario,tick,event,detail," +
+        "barrier_axis,barrier_threshold,barrier_direction,progress,max_progress," +
+        "persistent_crossing_ticks,max_persistent_crossing_ticks,correction_candidates,max_backward_step," +
+        "player_x,player_y,player_z,player_dx,player_dy,player_dz,mounted,horizontal_collision,in_water,in_lava," +
+        "vehicle_id,vehicle_type,vehicle_x,vehicle_y,vehicle_z,vehicle_dx,vehicle_dy,vehicle_dz,vehicle_box_clear," +
+        "key_forward,key_back,key_left,key_right,key_shift";
 
     private static final KeyMapping.Category CATEGORY = KeyMapping.Category.register(
-        Identifier.fromNamespaceAndPath("phaselab", "authorized_campaign")
+        Identifier.fromNamespaceAndPath("phaselab", "active_tester")
     );
 
-    private static KeyMapping modeKey;
+    private static KeyMapping scenarioKey;
     private static KeyMapping runKey;
-    private static CampaignMode mode = CampaignMode.DEEP;
-    private static Authorization authorization;
+    private static int scenarioIndex;
+    private static boolean running;
+    private static int scenarioTick;
     private static Object lastConnection;
+    private static Boolean lastLockState;
 
-    private static boolean campaignRunning;
-    private static boolean caseRunning;
-    private static boolean waitingForAck;
-    private static boolean waitingForResult;
-    private static int cooldownTicks;
-    private static int caseTick;
-    private static int caseIndex;
-    private static String campaignId;
-    private static CaseSpec currentCase;
-    private static CaseSpec lastWinningCase;
-    private static List<CaseSpec> campaignCases = List.of();
+    private static Barrier barrier;
+    private static String runId;
+    private static String runServerAddress;
+    private static Vec3 playerStart;
+    private static Vec3 vehicleStart;
+    private static Entity trackedVehicle;
+    private static int trackedVehicleId = -1;
+    private static double maxPlayerTravel;
+    private static double maxVehicleTravel;
+    private static double maxProgress;
+    private static double previousProgress;
+    private static int persistentCrossingTicks;
+    private static int maxPersistentCrossingTicks;
+    private static int correctionCandidates;
+    private static double maxBackwardStep;
+    private static int dismountTick = -1;
+    private static boolean sawCollision;
+    private static boolean sawWater;
+    private static boolean sawLava;
 
     private static final BufferedWriter[] WRITERS = new BufferedWriter[2];
     private static final Path[] OUTPUT_PATHS = new Path[2];
@@ -98,13 +118,7 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        PayloadTypeRegistry.playS2C().register(LabMessagePayload.TYPE, LabMessagePayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(LabMessagePayload.TYPE, LabMessagePayload.CODEC);
-        ClientPlayNetworking.registerGlobalReceiver(LabMessagePayload.TYPE, (payload, context) ->
-            context.client().execute(() -> handleServerMessage(context.client(), payload.message()))
-        );
-
-        modeKey = register("key.phaselab.active_scenario", GLFW.GLFW_KEY_F6);
+        scenarioKey = register("key.phaselab.active_scenario", GLFW.GLFW_KEY_F6);
         runKey = register("key.phaselab.active_run", GLFW.GLFW_KEY_F12);
         ClientTickEvents.END_CLIENT_TICK.register(PhaseLabActiveClient::tickClient);
     }
@@ -118,171 +132,201 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
     private static void tickClient(Minecraft client) {
         Object connection = client.getConnection();
         if (connection != lastConnection) {
-            abortLocal(client, "connection_changed", false);
-            authorization = null;
+            if (running) {
+                finish(client, client.player, "CONNECTION_CHANGED", "connection_changed", false);
+            } else {
+                stopKeys(client);
+                closeOutputs();
+            }
             lastConnection = connection;
+            lastLockState = null;
+            barrier = null;
         }
 
         LocalPlayer player = client.player;
         if (player == null || client.level == null) {
-            abortLocal(client, "world_unavailable", false);
-            authorization = null;
+            if (running) {
+                finish(client, player, "WORLD_LEFT", "player_or_level_unavailable", false);
+            } else {
+                stopKeys(client);
+            }
             return;
         }
 
-        while (modeKey.consumeClick()) {
-            if (campaignRunning) {
-                message(player, "Abort the campaign with F12 before changing mode.", false);
+        boolean lockOk = isAllowedServer(client);
+        if (lastLockState == null || lastLockState != lockOk) {
+            lastLockState = lockOk;
+            if (lockOk) {
+                message(player, "ExtremeCraft Test Lab lock verified. Active runner armed.", false);
             } else {
-                mode = mode.next();
-                message(player, "Campaign mode: " + mode, true);
+                message(player, "LOCKED: active runner only works on " + ALLOWED_HOST + ":" + ALLOWED_PORT + ".", false);
+            }
+        }
+
+        if (running && !lockOk) {
+            finish(client, player, "LOCK_ABORT", "server_lock_lost", true);
+            return;
+        }
+
+        while (scenarioKey.consumeClick()) {
+            if (!lockOk) {
+                message(player, "LOCKED: join " + ALLOWED_HOST + ":" + ALLOWED_PORT + " first.", false);
+            } else if (running) {
+                message(player, "Press F12 to abort before changing scenario.", false);
+            } else {
+                scenarioIndex = (scenarioIndex + 1) % SCENARIOS.length;
+                message(player, "Scenario " + (scenarioIndex + 1) + "/" + SCENARIOS.length + ": " + scenario(), true);
             }
         }
 
         while (runKey.consumeClick()) {
-            if (campaignRunning) {
-                abortCampaign(client, player, "manual_abort");
+            if (running) {
+                finish(client, player, "ABORTED", "manual_abort", true);
             } else {
-                startCampaign(client, player);
+                start(client, player);
             }
         }
 
-        if (!campaignRunning) {
-            return;
-        }
-        if (!authorizationValid(player)) {
-            abortCampaign(client, player, "authorization_expired_or_region_left");
-            return;
-        }
-
-        if (cooldownTicks > 0) {
-            cooldownTicks--;
-            if (cooldownTicks == 0 && !waitingForAck && !waitingForResult && !caseRunning) {
-                startNextCase(client, player);
-            }
-            return;
-        }
-
-        if (caseRunning) {
-            tickCase(client, player);
+        if (running) {
+            tickRun(client, player);
         }
     }
 
-    private static void startCampaign(Minecraft client, LocalPlayer player) {
-        if (!authorizationValid(player)) {
-            message(player, "Mount the lab boat, face the wall, then run /phaselab quickstart.", false);
-            return;
-        }
-        if (!player.isPassenger()) {
-            message(player, "Mount the authorized lab vehicle before pressing F12.", false);
+    private static void start(Minecraft client, LocalPlayer player) {
+        if (!isAllowedServer(client)) {
+            message(player, "LOCKED: this build only runs on " + ALLOWED_HOST + ":" + ALLOWED_PORT + ".", false);
+            stopKeys(client);
             return;
         }
 
-        campaignCases = switch (mode) {
-            case QUICK -> QUICK_CASES;
-            case DEEP -> DEEP_CASES;
-            case REPLAY -> lastWinningCase == null ? List.of() : List.of(lastWinningCase);
-        };
-        if (campaignCases.isEmpty()) {
-            message(player, "No reproduced case exists to replay yet. Use QUICK or DEEP.", false);
+        Entity vehicle = player.getVehicle();
+        if (vehicle == null || !player.isPassenger()) {
+            message(player, "Mount the test boat or vehicle first.", false);
             return;
         }
 
-        campaignId = FILE_TIME.format(LocalDateTime.now()) + "-" + UUID.randomUUID().toString().substring(0, 8);
+        Barrier detected = detectBarrier(client);
+        if (detected != null) {
+            barrier = detected;
+        }
+        if (barrier == null) {
+            message(player, "Look directly at the SIDE of the wall, then press F12.", false);
+            return;
+        }
+
+        double initialProgress = barrier.progress(vehicle.position());
+        if (initialProgress >= -0.05D) {
+            message(player, "Vehicle must start on the front side of the selected wall.", false);
+            return;
+        }
+
+        scenarioTick = 0;
+        runId = FILE_TIME.format(LocalDateTime.now()) + "-" + UUID.randomUUID().toString().substring(0, 8);
+        runServerAddress = currentServerAddress(client);
+        playerStart = player.position();
+        vehicleStart = vehicle.position();
+        trackedVehicle = vehicle;
+        trackedVehicleId = vehicle.getId();
+        maxPlayerTravel = 0.0D;
+        maxVehicleTravel = 0.0D;
+        maxProgress = initialProgress;
+        previousProgress = initialProgress;
+        persistentCrossingTicks = 0;
+        maxPersistentCrossingTicks = 0;
+        correctionCandidates = 0;
+        maxBackwardStep = 0.0D;
+        dismountTick = -1;
+        sawCollision = false;
+        sawWater = false;
+        sawLava = false;
+
         if (!openOutputs(player)) {
             return;
         }
 
-        campaignRunning = true;
-        caseRunning = false;
-        waitingForAck = false;
-        waitingForResult = false;
-        caseIndex = 0;
-        caseTick = 0;
-        cooldownTicks = 0;
-        write("CAMPAIGN_START", "", "", "mode=" + mode + ";cases=" + campaignCases.size());
-        message(player, "ACTIVE CAMPAIGN " + mode + " started with " + campaignCases.size() + " cases. F12 aborts.", false);
-        startNextCase(client, player);
+        running = true;
+        writeRow("START", "locked_player_only;initial_progress=" + number(initialProgress), player);
+        message(
+            player,
+            "RUNNING " + scenario() + " | lock=" + runServerAddress + " | F12 aborts.",
+            false
+        );
     }
 
-    private static void startNextCase(Minecraft client, LocalPlayer player) {
-        stopKeys(client);
-        if (!campaignRunning) {
-            return;
-        }
-        if (caseIndex >= campaignCases.size()) {
-            finishCampaign(player, "NO_REPRODUCTION", "all_cases_completed");
-            return;
-        }
-        if (!player.isPassenger()) {
-            cooldownTicks = 10;
-            message(player, "Waiting for server rollback/remount before case " + (caseIndex + 1) + ".", true);
-            return;
-        }
+    private static void tickRun(Minecraft client, LocalPlayer player) {
+        scenarioTick++;
+        applyScenario(client);
+        updateMetrics(player);
+        writeRow("TICK", "active", player);
 
-        currentCase = campaignCases.get(caseIndex);
-        caseTick = 0;
-        waitingForAck = true;
-        waitingForResult = false;
-        caseRunning = false;
-        write("CASE_REQUEST", currentCase.id(), "", "family=" + currentCase.family());
-        boolean sent = send("START|" + authorization.nonce() + "|" + currentCase.id() + "|" + currentCase.family());
-        if (!sent) {
-            abortCampaign(client, player, "server_channel_unavailable");
+        if (!isAllowedServer(client)) {
+            finish(client, player, "LOCK_ABORT", "server_lock_lost", true);
+            return;
+        }
+        if (maxPlayerTravel > MAX_TRAVEL_BLOCKS || maxVehicleTravel > MAX_TRAVEL_BLOCKS) {
+            finish(client, player, "SAFETY_ABORT", "travel_cap_exceeded", true);
+            return;
+        }
+        if (scenarioTick >= MAX_RUNTIME_TICKS) {
+            finish(client, player, "SAFETY_ABORT", "runtime_cap_exceeded", true);
+            return;
+        }
+        if (scenarioTick >= scenarioDuration()) {
+            finish(client, player, classify(), "scenario_complete", true);
         }
     }
 
-    private static void tickCase(Minecraft client, LocalPlayer player) {
-        caseTick++;
-        applyCase(client, currentCase, caseTick);
+    private static void applyScenario(Minecraft client) {
+        setAllMovement(client, false, false, false, false, false);
 
-        if (!player.isPassenger() && !"DISMOUNT_EDGE".equals(currentCase.family())) {
-            write("CLIENT_DISMOUNT", currentCase.id(), "", "tick=" + caseTick);
-        }
-
-        if (caseTick >= Math.min(CASE_RUNTIME_CAP, currentCase.durationTicks())) {
-            stopKeys(client);
-            caseRunning = false;
-            waitingForResult = true;
-            write("CASE_INPUT_DONE", currentCase.id(), "", "ticks=" + caseTick);
-            send("FINISH|" + authorization.nonce() + "|" + currentCase.id());
-        }
-    }
-
-    private static void applyCase(Minecraft client, CaseSpec spec, int tick) {
-        stopKeys(client);
-        switch (spec.family()) {
-            case "PRESS_FORWARD" -> client.options.keyUp.setDown(tick <= spec.durationTicks() - 20);
-            case "PULSE_FORWARD" -> {
-                int period = Math.max(4, spec.paramA());
-                int onTicks = Math.max(2, Math.min(period - 1, spec.paramB()));
-                client.options.keyUp.setDown(tick <= spec.durationTicks() - 20 && tick % period < onTicks);
-            }
+        switch (scenario()) {
+            case "AUTO_DEEP_SWEEP" -> applyAutoDeep(client);
+            case "PRESS_FORWARD_SHORT" -> client.options.keyUp.setDown(scenarioTick <= 80);
+            case "PRESS_FORWARD_LONG" -> client.options.keyUp.setDown(scenarioTick <= 200);
+            case "PULSE_FAST" -> client.options.keyUp.setDown(scenarioTick <= 180 && scenarioTick % 4 < 3);
+            case "PULSE_MEDIUM" -> client.options.keyUp.setDown(scenarioTick <= 180 && scenarioTick % 8 < 6);
+            case "PULSE_SLOW" -> client.options.keyUp.setDown(scenarioTick <= 180 && scenarioTick % 16 < 12);
             case "FORWARD_LEFT" -> {
-                client.options.keyUp.setDown(tick <= spec.durationTicks() - 20);
-                client.options.keyLeft.setDown(tick <= spec.durationTicks() - 20);
+                client.options.keyUp.setDown(scenarioTick <= 160);
+                client.options.keyLeft.setDown(scenarioTick <= 160);
             }
             case "FORWARD_RIGHT" -> {
-                client.options.keyUp.setDown(tick <= spec.durationTicks() - 20);
-                client.options.keyRight.setDown(tick <= spec.durationTicks() - 20);
+                client.options.keyUp.setDown(scenarioTick <= 160);
+                client.options.keyRight.setDown(scenarioTick <= 160);
             }
-            case "BRAKE_RELEASE" -> {
-                int forwardUntil = Math.max(20, spec.paramA());
-                int brakeTicks = Math.max(5, spec.paramB());
-                client.options.keyUp.setDown(tick <= forwardUntil);
-                client.options.keyDown.setDown(tick > forwardUntil && tick <= forwardUntil + brakeTicks);
+            case "STEER_OSCILLATE_FAST" -> {
+                client.options.keyUp.setDown(scenarioTick <= 180);
+                client.options.keyLeft.setDown(scenarioTick <= 180 && (scenarioTick / 4) % 2 == 0);
+                client.options.keyRight.setDown(scenarioTick <= 180 && (scenarioTick / 4) % 2 != 0);
             }
-            case "FORWARD_BACK_PULSE" -> {
-                int period = Math.max(6, spec.paramA());
-                boolean forward = (tick / period) % 2 == 0;
-                client.options.keyUp.setDown(tick <= spec.durationTicks() - 20 && forward);
-                client.options.keyDown.setDown(tick <= spec.durationTicks() - 20 && !forward);
+            case "STEER_OSCILLATE_SLOW" -> {
+                client.options.keyUp.setDown(scenarioTick <= 180);
+                client.options.keyLeft.setDown(scenarioTick <= 180 && (scenarioTick / 12) % 2 == 0);
+                client.options.keyRight.setDown(scenarioTick <= 180 && (scenarioTick / 12) % 2 != 0);
             }
-            case "DISMOUNT_EDGE" -> {
-                client.options.keyUp.setDown(tick <= spec.durationTicks() - 25);
-                int dismountTick = Math.max(10, spec.paramA());
-                client.options.keyShift.setDown(tick == dismountTick || tick == dismountTick + 1);
+            case "BRAKE_RELEASE_SHORT" -> {
+                client.options.keyUp.setDown(scenarioTick <= 60);
+                client.options.keyDown.setDown(scenarioTick >= 61 && scenarioTick <= 78);
             }
+            case "BRAKE_RELEASE_LONG" -> {
+                client.options.keyUp.setDown(scenarioTick <= 100);
+                client.options.keyDown.setDown(scenarioTick >= 101 && scenarioTick <= 135);
+            }
+            case "FORWARD_BACK_FAST" -> {
+                boolean forward = scenarioTick <= 180 && (scenarioTick / 5) % 2 == 0;
+                client.options.keyUp.setDown(forward);
+                client.options.keyDown.setDown(scenarioTick <= 180 && !forward);
+            }
+            case "FORWARD_BACK_SLOW" -> {
+                boolean forward = scenarioTick <= 220 && (scenarioTick / 15) % 2 == 0;
+                client.options.keyUp.setDown(forward);
+                client.options.keyDown.setDown(scenarioTick <= 220 && !forward);
+            }
+            case "DISMOUNT_T20" -> applyDismount(client, 20);
+            case "DISMOUNT_T35" -> applyDismount(client, 35);
+            case "DISMOUNT_T50" -> applyDismount(client, 50);
+            case "DISMOUNT_T65" -> applyDismount(client, 65);
+            case "DISMOUNT_T80" -> applyDismount(client, 80);
             case "IDLE_CONTROL" -> {
             }
             default -> {
@@ -290,225 +334,351 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
         }
     }
 
-    private static void handleServerMessage(Minecraft client, String raw) {
-        LocalPlayer player = client.player;
-        if (player == null || raw == null || raw.isBlank()) {
-            return;
-        }
-        String[] parts = raw.split("\\|", -1);
-        switch (value(parts, 0)) {
-            case "AUTH" -> handleAuthorization(player, parts);
-            case "ACK" -> handleAck(player, parts);
-            case "RESULT" -> handleResult(client, player, parts);
-            case "LOCKED", "ERROR" -> abortCampaign(client, player, value(parts, 0) + ":" + value(parts, 1));
-            default -> {
-            }
+    private static void applyAutoDeep(Minecraft client) {
+        if (scenarioTick <= 40) {
+            client.options.keyUp.setDown(true);
+        } else if (scenarioTick >= 51 && scenarioTick <= 80) {
+            client.options.keyUp.setDown(true);
+            client.options.keyLeft.setDown(true);
+        } else if (scenarioTick >= 91 && scenarioTick <= 120) {
+            client.options.keyUp.setDown(true);
+            client.options.keyRight.setDown(true);
+        } else if (scenarioTick >= 131 && scenarioTick <= 175) {
+            client.options.keyUp.setDown(scenarioTick % 8 < 6);
+        } else if (scenarioTick >= 186 && scenarioTick <= 220) {
+            boolean forward = (scenarioTick / 5) % 2 == 0;
+            client.options.keyUp.setDown(forward);
+            client.options.keyDown.setDown(!forward);
+        } else if (scenarioTick >= 231 && scenarioTick <= 260) {
+            client.options.keyUp.setDown(true);
+            client.options.keyLeft.setDown((scenarioTick / 4) % 2 == 0);
+            client.options.keyRight.setDown((scenarioTick / 4) % 2 != 0);
         }
     }
 
-    private static void handleAuthorization(LocalPlayer player, String[] parts) {
-        if (parts.length != 13 || !"2".equals(parts[1])) {
-            message(player, "Rejected malformed PhaseLab authorization.", false);
+    private static void applyDismount(Minecraft client, int tick) {
+        client.options.keyUp.setDown(scenarioTick <= 95);
+        client.options.keyShift.setDown(scenarioTick == tick || scenarioTick == tick + 1);
+    }
+
+    private static int scenarioDuration() {
+        return switch (scenario()) {
+            case "AUTO_DEEP_SWEEP" -> 270;
+            case "PRESS_FORWARD_SHORT" -> 110;
+            case "PRESS_FORWARD_LONG" -> 220;
+            case "PULSE_FAST", "PULSE_MEDIUM", "PULSE_SLOW",
+                 "FORWARD_LEFT", "FORWARD_RIGHT",
+                 "STEER_OSCILLATE_FAST", "STEER_OSCILLATE_SLOW",
+                 "FORWARD_BACK_FAST" -> 200;
+            case "BRAKE_RELEASE_SHORT" -> 120;
+            case "BRAKE_RELEASE_LONG" -> 175;
+            case "FORWARD_BACK_SLOW" -> 240;
+            case "DISMOUNT_T20", "DISMOUNT_T35", "DISMOUNT_T50",
+                 "DISMOUNT_T65", "DISMOUNT_T80", "IDLE_CONTROL" -> 120;
+            default -> 120;
+        };
+    }
+
+    private static void updateMetrics(LocalPlayer player) {
+        Entity currentVehicle = player.getVehicle();
+        Entity observedVehicle = currentVehicle != null ? currentVehicle : trackedVehicle;
+
+        if (!player.isPassenger() && dismountTick < 0) {
+            dismountTick = scenarioTick;
+            writeRow("DISMOUNT", "tick=" + dismountTick, player);
+        }
+        if (currentVehicle != null && currentVehicle.getId() != trackedVehicleId) {
+            writeRow("VEHICLE_CHANGED", "from=" + trackedVehicleId + ";to=" + currentVehicle.getId(), player);
+            trackedVehicle = currentVehicle;
+            trackedVehicleId = currentVehicle.getId();
+            observedVehicle = currentVehicle;
+        }
+
+        maxPlayerTravel = Math.max(maxPlayerTravel, player.position().distanceTo(playerStart));
+        sawCollision |= player.horizontalCollision;
+        sawWater |= player.isInWater();
+        sawLava |= player.isInLava();
+
+        if (observedVehicle == null) {
             return;
         }
-        try {
-            String playerUuid = parts[2];
-            long expires = Long.parseLong(parts[3]);
-            int minX = Integer.parseInt(parts[4]);
-            int minY = Integer.parseInt(parts[5]);
-            int minZ = Integer.parseInt(parts[6]);
-            int maxX = Integer.parseInt(parts[7]);
-            int maxY = Integer.parseInt(parts[8]);
-            int maxZ = Integer.parseInt(parts[9]);
-            String nonce = parts[10];
-            String axis = parts[11];
-            double barrier = Double.parseDouble(parts[12]);
-            long now = System.currentTimeMillis();
 
-            boolean saneRegion = minX <= maxX && minY <= maxY && minZ <= maxZ
-                && maxX - minX <= 96 && maxY - minY <= 64 && maxZ - minZ <= 96;
-            if (!player.getUUID().toString().equals(playerUuid)
-                || expires <= now || expires > now + 1_900_000L
-                || !saneRegion || nonce.length() < 16 || nonce.length() > 64
-                || !("X".equals(axis) || "Z".equals(axis)) || !Double.isFinite(barrier)) {
-                message(player, "Rejected PhaseLab authorization: invalid identity, expiry, or region.", false);
-                return;
+        Vec3 vehiclePosition = observedVehicle.position();
+        maxVehicleTravel = Math.max(maxVehicleTravel, vehiclePosition.distanceTo(vehicleStart));
+        double progress = barrier.progress(vehiclePosition);
+        maxProgress = Math.max(maxProgress, progress);
+
+        if (Double.isFinite(previousProgress)) {
+            double step = progress - previousProgress;
+            if (step < -CORRECTION_STEP) {
+                correctionCandidates++;
+                maxBackwardStep = Math.max(maxBackwardStep, -step);
+                writeRow(
+                    "CORRECTION_CANDIDATE",
+                    "backward_step=" + number(-step) + ";from=" + number(previousProgress) + ";to=" + number(progress),
+                    player
+                );
             }
+        }
+        previousProgress = progress;
 
-            authorization = new Authorization(
-                playerUuid, expires, minX, minY, minZ, maxX, maxY, maxZ, nonce, axis, barrier
+        boolean vehicleBoxClear = observedVehicle.level().noCollision(
+            observedVehicle,
+            observedVehicle.getBoundingBox().deflate(0.001D)
+        );
+        sawCollision |= !vehicleBoxClear;
+        sawWater |= observedVehicle.isInWater();
+        sawLava |= observedVehicle.isInLava();
+
+        if (progress > CROSSING_MARGIN) {
+            persistentCrossingTicks++;
+            maxPersistentCrossingTicks = Math.max(maxPersistentCrossingTicks, persistentCrossingTicks);
+        } else {
+            persistentCrossingTicks = 0;
+        }
+    }
+
+    private static String classify() {
+        if (maxPersistentCrossingTicks >= PERSISTENT_CROSSING_TICKS) {
+            return "LOCAL_REPRODUCED";
+        }
+        if (maxProgress > CROSSING_MARGIN) {
+            return "LOCAL_TRANSIENT";
+        }
+        if (correctionCandidates > 0) {
+            return "CORRECTED_OR_SETBACK";
+        }
+        if (dismountTick >= 0 && !requestedDismount()) {
+            return "UNEXPECTED_DISMOUNT";
+        }
+        if (requestedDismount() && dismountTick >= 0) {
+            return "DISMOUNT_COMPLETED";
+        }
+        if (maxVehicleTravel < 0.25D) {
+            return "NO_MOVEMENT";
+        }
+        return "BLOCKED_OR_REJECTED";
+    }
+
+    private static boolean requestedDismount() {
+        return scenario().startsWith("DISMOUNT_");
+    }
+
+    private static void finish(
+        Minecraft client,
+        LocalPlayer player,
+        String verdict,
+        String reason,
+        boolean showMessage
+    ) {
+        stopKeys(client);
+        if (running) {
+            writeRow(
+                "FINISH",
+                "verdict=" + verdict
+                    + ";reason=" + clean(reason)
+                    + ";max_player_travel=" + number(maxPlayerTravel)
+                    + ";max_vehicle_travel=" + number(maxVehicleTravel)
+                    + ";max_progress=" + number(maxProgress)
+                    + ";max_persistent_crossing_ticks=" + maxPersistentCrossingTicks
+                    + ";correction_candidates=" + correctionCandidates
+                    + ";max_backward_step=" + number(maxBackwardStep)
+                    + ";dismount_tick=" + dismountTick
+                    + ";collision=" + sawCollision
+                    + ";water=" + sawWater
+                    + ";lava=" + sawLava,
+                player
             );
-            send("READY|" + nonce + "|" + VERSION);
-            message(player, "AUTHORIZED LAB READY for " + ((expires - now) / 1000L) + "s. F6 mode, F12 campaign.", false);
-        } catch (RuntimeException exception) {
-            message(player, "Rejected PhaseLab authorization: " + exception.getClass().getSimpleName(), false);
-        }
-    }
-
-    private static void handleAck(LocalPlayer player, String[] parts) {
-        if (!campaignRunning || currentCase == null) {
-            return;
-        }
-        String kind = value(parts, 2);
-        String caseId = value(parts, 3);
-        if ("START".equals(kind) && currentCase.id().equals(caseId)) {
-            waitingForAck = false;
-            caseRunning = true;
-            caseTick = 0;
-            write("CASE_START", currentCase.id(), "", "family=" + currentCase.family());
-            message(player, "CASE " + (caseIndex + 1) + "/" + campaignCases.size() + ": " + currentCase.id(), true);
-        }
-    }
-
-    private static void handleResult(Minecraft client, LocalPlayer player, String[] parts) {
-        stopKeys(client);
-        if (!campaignRunning || currentCase == null) {
-            return;
-        }
-        String verdict = value(parts, 2);
-        String detail = value(parts, 3);
-        String caseId = value(parts, 4);
-        if (!currentCase.id().equals(caseId)) {
-            abortCampaign(client, player, "result_case_mismatch");
-            return;
-        }
-
-        waitingForResult = false;
-        waitingForAck = false;
-        caseRunning = false;
-        write("CASE_RESULT", caseId, verdict, detail);
-
-        if ("REPRODUCED".equals(verdict)) {
-            lastWinningCase = currentCase;
-            finishCampaign(player, "REPRODUCED", "winner=" + currentCase.id() + ";" + detail);
-            message(player, "SERVER-AUTHORITATIVE REPRODUCTION: " + currentCase.id(), false);
-            return;
-        }
-
-        if ("SAFETY_ABORT".equals(verdict) || "EXPIRED".equals(verdict)) {
-            abortCampaign(client, player, verdict + ":" + detail);
-            return;
-        }
-
-        caseIndex++;
-        currentCase = null;
-        cooldownTicks = BETWEEN_CASE_TICKS;
-    }
-
-    private static void abortCampaign(Minecraft client, LocalPlayer player, String reason) {
-        Authorization auth = authorization;
-        if (campaignRunning && auth != null) {
-            send("ABORT|" + auth.nonce() + "|" + clean(reason));
-            write("CAMPAIGN_ABORT", currentCase == null ? "" : currentCase.id(), "ABORTED", reason);
-        }
-        abortLocal(client, reason, true);
-        if (player != null) {
-            message(player, "Campaign aborted: " + reason, false);
-        }
-    }
-
-    private static void abortLocal(Minecraft client, String reason, boolean writeSummary) {
-        stopKeys(client);
-        if (campaignRunning && writeSummary) {
-            writeSummary("ABORTED", reason);
+            writeSummary(verdict, reason);
         }
         closeOutputs();
-        campaignRunning = false;
-        caseRunning = false;
-        waitingForAck = false;
-        waitingForResult = false;
-        cooldownTicks = 0;
-        caseTick = 0;
-        caseIndex = 0;
-        currentCase = null;
+        running = false;
+        scenarioTick = 0;
+
+        if (showMessage && player != null) {
+            message(player, "RESULT: " + verdict + " | " + reason, false);
+            message(player, "CSV: " + outputPath(), false);
+            scenarioIndex = (scenarioIndex + 1) % SCENARIOS.length;
+            message(player, "Next: " + scenario(), true);
+        }
     }
 
-    private static void finishCampaign(LocalPlayer player, String verdict, String detail) {
-        write("CAMPAIGN_FINISH", currentCase == null ? "" : currentCase.id(), verdict, detail);
-        writeSummary(verdict, detail);
-        closeOutputs();
-        campaignRunning = false;
-        caseRunning = false;
-        waitingForAck = false;
-        waitingForResult = false;
-        cooldownTicks = 0;
-        caseTick = 0;
-        currentCase = null;
-        message(player, "CAMPAIGN RESULT: " + verdict + " | " + detail, false);
+    private static Barrier detectBarrier(Minecraft client) {
+        if (!(client.hitResult instanceof BlockHitResult hit)) {
+            return null;
+        }
+        Direction face = hit.getDirection();
+        var pos = hit.getBlockPos();
+        return switch (face) {
+            case WEST -> new Barrier('X', pos.getX() + 1.0D, 1.0D, "X+ beyond block " + pos.toShortString());
+            case EAST -> new Barrier('X', pos.getX(), -1.0D, "X- beyond block " + pos.toShortString());
+            case NORTH -> new Barrier('Z', pos.getZ() + 1.0D, 1.0D, "Z+ beyond block " + pos.toShortString());
+            case SOUTH -> new Barrier('Z', pos.getZ(), -1.0D, "Z- beyond block " + pos.toShortString());
+            default -> null;
+        };
     }
 
-    private static boolean authorizationValid(LocalPlayer player) {
-        Authorization auth = authorization;
-        if (auth == null || System.currentTimeMillis() >= auth.expiresEpochMs()) {
+    private static boolean isAllowedServer(Minecraft client) {
+        String address = currentServerAddress(client);
+        if (address.isEmpty()) {
             return false;
         }
-        if (!player.getUUID().toString().equals(auth.playerUuid())) {
-            return false;
+        String normalized = address.trim().toLowerCase(Locale.ROOT);
+        if (normalized.startsWith("minecraft://")) {
+            normalized = normalized.substring("minecraft://".length());
         }
-        int x = player.blockPosition().getX();
-        int y = player.blockPosition().getY();
-        int z = player.blockPosition().getZ();
-        return x >= auth.minX() && x <= auth.maxX()
-            && y >= auth.minY() && y <= auth.maxY()
-            && z >= auth.minZ() && z <= auth.maxZ();
+        int slash = normalized.indexOf('/');
+        if (slash >= 0) {
+            normalized = normalized.substring(0, slash);
+        }
+
+        String host = normalized;
+        int port = ALLOWED_PORT;
+        int firstColon = normalized.indexOf(':');
+        int lastColon = normalized.lastIndexOf(':');
+        if (firstColon > 0 && firstColon == lastColon) {
+            host = normalized.substring(0, firstColon);
+            String portText = normalized.substring(firstColon + 1);
+            try {
+                port = Integer.parseInt(portText);
+            } catch (NumberFormatException exception) {
+                return false;
+            }
+        }
+        while (host.endsWith(".")) {
+            host = host.substring(0, host.length() - 1);
+        }
+        return ALLOWED_HOST.equals(host) && port == ALLOWED_PORT;
+    }
+
+    private static String currentServerAddress(Minecraft client) {
+        var server = client.getCurrentServer();
+        return server == null || server.ip == null ? "" : server.ip;
+    }
+
+    private static void setAllMovement(
+        Minecraft client,
+        boolean forward,
+        boolean back,
+        boolean left,
+        boolean right,
+        boolean shift
+    ) {
+        client.options.keyUp.setDown(forward);
+        client.options.keyDown.setDown(back);
+        client.options.keyLeft.setDown(left);
+        client.options.keyRight.setDown(right);
+        client.options.keyShift.setDown(shift);
     }
 
     private static void stopKeys(Minecraft client) {
-        if (client == null || client.options == null) {
-            return;
-        }
-        client.options.keyUp.setDown(false);
-        client.options.keyDown.setDown(false);
-        client.options.keyLeft.setDown(false);
-        client.options.keyRight.setDown(false);
-        client.options.keyShift.setDown(false);
-        client.options.keyJump.setDown(false);
-    }
-
-    private static boolean send(String message) {
-        try {
-            ClientPlayNetworking.send(new LabMessagePayload(message));
-            return true;
-        } catch (RuntimeException ignored) {
-            return false;
-        }
+        setAllMovement(client, false, false, false, false, false);
     }
 
     private static boolean openOutputs(LocalPlayer player) {
         closeOutputs();
-        Path gameDir = Minecraft.getInstance().gameDirectory.toPath();
         Path configDir = FabricLoader.getInstance().getConfigDir().resolve("phaselab");
-        OUTPUT_PATHS[0] = gameDir.resolve("PHASELAB_CAMPAIGN_LATEST.csv");
-        OUTPUT_PATHS[1] = configDir.resolve("campaign-" + campaignId + ".csv");
-        summaryPath = gameDir.resolve("PHASELAB_CAMPAIGN_SUMMARY.txt");
+        Path gameDir = Minecraft.getInstance().gameDirectory.toPath();
+        OUTPUT_PATHS[0] = configDir.resolve("extremecraft-v6.1-" + runId + ".csv");
+        OUTPUT_PATHS[1] = gameDir.resolve("PHASELAB_EXTREMECRAFT_LATEST.csv");
+        summaryPath = gameDir.resolve("PHASELAB_EXTREMECRAFT_SUMMARY.txt");
+
         try {
             Files.createDirectories(configDir);
-            for (int i = 0; i < WRITERS.length; i++) {
-                WRITERS[i] = Files.newBufferedWriter(
-                    OUTPUT_PATHS[i], StandardCharsets.UTF_8,
-                    StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE
-                );
-                WRITERS[i].write("utc_timestamp,campaign_id,mode,case_index,case_id,family,event,verdict,detail");
-                WRITERS[i].newLine();
-                WRITERS[i].flush();
+            WRITERS[0] = Files.newBufferedWriter(
+                OUTPUT_PATHS[0],
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE_NEW,
+                StandardOpenOption.WRITE
+            );
+            WRITERS[1] = Files.newBufferedWriter(
+                OUTPUT_PATHS[1],
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING,
+                StandardOpenOption.WRITE
+            );
+            for (BufferedWriter writer : WRITERS) {
+                writer.write(HEADER);
+                writer.newLine();
+                writer.flush();
             }
             return true;
         } catch (IOException exception) {
             closeOutputs();
-            message(player, "Could not create campaign evidence: " + exception.getMessage(), false);
+            message(player, "Could not open CSV: " + clean(exception.getMessage()), false);
             return false;
         }
     }
 
-    private static synchronized void write(String event, String caseId, String verdict, String detail) {
-        if (campaignId == null) {
+    private static synchronized void writeRow(String event, String detail, LocalPlayer player) {
+        if (!hasWriter()) {
             return;
         }
-        String family = currentCase == null ? "" : currentCase.family();
-        String row = csv(Instant.now().toString()) + "," + csv(campaignId) + "," + csv(mode.name()) + ","
-            + caseIndex + "," + csv(caseId) + "," + csv(family) + "," + csv(event) + ","
-            + csv(verdict) + "," + csv(clean(detail));
-        for (BufferedWriter writer : WRITERS) {
+
+        Entity vehicle = player == null
+            ? trackedVehicle
+            : (player.getVehicle() != null ? player.getVehicle() : trackedVehicle);
+        Vec3 playerPos = player == null ? null : player.position();
+        Vec3 playerDelta = player == null ? null : player.getDeltaMovement();
+        Vec3 vehiclePos = vehicle == null ? null : vehicle.position();
+        Vec3 vehicleDelta = vehicle == null ? null : vehicle.getDeltaMovement();
+        boolean vehicleBoxClear = vehicle != null && vehicle.level().noCollision(
+            vehicle,
+            vehicle.getBoundingBox().deflate(0.001D)
+        );
+        double progress = vehiclePos == null || barrier == null
+            ? Double.NaN
+            : barrier.progress(vehiclePos);
+        Minecraft client = Minecraft.getInstance();
+
+        String row = String.join(",",
+            csv(Instant.now().toString()),
+            csv(runId),
+            csv(VERSION),
+            csv(runServerAddress),
+            Boolean.toString(isAllowedServer(client)),
+            csv(scenario()),
+            Integer.toString(scenarioTick),
+            csv(event),
+            csv(detail),
+            barrier == null ? "" : csv(Character.toString(barrier.axis())),
+            barrier == null ? "" : number(barrier.threshold()),
+            barrier == null ? "" : number(barrier.direction()),
+            number(progress),
+            number(maxProgress),
+            Integer.toString(persistentCrossingTicks),
+            Integer.toString(maxPersistentCrossingTicks),
+            Integer.toString(correctionCandidates),
+            number(maxBackwardStep),
+            vectorField(playerPos, 0),
+            vectorField(playerPos, 1),
+            vectorField(playerPos, 2),
+            vectorField(playerDelta, 0),
+            vectorField(playerDelta, 1),
+            vectorField(playerDelta, 2),
+            Boolean.toString(player != null && player.isPassenger()),
+            Boolean.toString(player != null && player.horizontalCollision),
+            Boolean.toString(player != null && player.isInWater()),
+            Boolean.toString(player != null && player.isInLava()),
+            vehicle == null ? "" : Integer.toString(vehicle.getId()),
+            vehicle == null ? "" : csv(vehicle.getType().toString()),
+            vectorField(vehiclePos, 0),
+            vectorField(vehiclePos, 1),
+            vectorField(vehiclePos, 2),
+            vectorField(vehicleDelta, 0),
+            vectorField(vehicleDelta, 1),
+            vectorField(vehicleDelta, 2),
+            Boolean.toString(vehicleBoxClear),
+            Boolean.toString(client.options.keyUp.isDown()),
+            Boolean.toString(client.options.keyDown.isDown()),
+            Boolean.toString(client.options.keyLeft.isDown()),
+            Boolean.toString(client.options.keyRight.isDown()),
+            Boolean.toString(client.options.keyShift.isDown())
+        );
+
+        for (int i = 0; i < WRITERS.length; i++) {
+            BufferedWriter writer = WRITERS[i];
             if (writer == null) {
                 continue;
             }
@@ -516,36 +686,63 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
                 writer.write(row);
                 writer.newLine();
                 writer.flush();
-            } catch (IOException ignored) {
+            } catch (IOException exception) {
+                try {
+                    writer.close();
+                } catch (IOException ignored) {
+                }
+                WRITERS[i] = null;
             }
         }
     }
 
-    private static void writeSummary(String verdict, String detail) {
+    private static void writeSummary(String verdict, String reason) {
         if (summaryPath == null) {
             return;
         }
-        String winner = lastWinningCase == null ? "none" : lastWinningCase.id();
-        String text = "PhaseLab Campaign v" + VERSION + "\n"
-            + "campaign_id=" + campaignId + "\n"
-            + "mode=" + mode + "\n"
-            + "verdict=" + verdict + "\n"
-            + "detail=" + clean(detail) + "\n"
-            + "winning_case=" + winner + "\n"
-            + "completed_cases=" + caseIndex + "\n";
+        String text = "PhaseLab ExtremeCraft Locked v" + VERSION + System.lineSeparator()
+            + "allowed_server=" + ALLOWED_HOST + ":" + ALLOWED_PORT + System.lineSeparator()
+            + "connected_server=" + clean(runServerAddress) + System.lineSeparator()
+            + "run=" + runId + System.lineSeparator()
+            + "scenario=" + scenario() + System.lineSeparator()
+            + "verdict=" + verdict + System.lineSeparator()
+            + "reason=" + clean(reason) + System.lineSeparator()
+            + "barrier=" + (barrier == null ? "none" : barrier.description()) + System.lineSeparator()
+            + "max_player_travel=" + number(maxPlayerTravel) + System.lineSeparator()
+            + "max_vehicle_travel=" + number(maxVehicleTravel) + System.lineSeparator()
+            + "max_progress=" + number(maxProgress) + System.lineSeparator()
+            + "max_persistent_crossing_ticks=" + maxPersistentCrossingTicks + System.lineSeparator()
+            + "correction_candidates=" + correctionCandidates + System.lineSeparator()
+            + "max_backward_step=" + number(maxBackwardStep) + System.lineSeparator()
+            + "dismount_tick=" + dismountTick + System.lineSeparator()
+            + "collision=" + sawCollision + System.lineSeparator()
+            + "water=" + sawWater + System.lineSeparator()
+            + "lava=" + sawLava + System.lineSeparator()
+            + "note=LOCAL_REPRODUCED is client-observed evidence and must be checked against server persistence."
+            + System.lineSeparator();
+
         try {
             Files.writeString(
-                summaryPath, text, StandardCharsets.UTF_8,
-                StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE
+                summaryPath,
+                text,
+                StandardCharsets.UTF_8,
+                StandardOpenOption.CREATE,
+                StandardOpenOption.TRUNCATE_EXISTING,
+                StandardOpenOption.WRITE
             );
         } catch (IOException ignored) {
         }
+    }
+
+    private static boolean hasWriter() {
+        return WRITERS[0] != null || WRITERS[1] != null;
     }
 
     private static synchronized void closeOutputs() {
         for (int i = 0; i < WRITERS.length; i++) {
             if (WRITERS[i] != null) {
                 try {
+                    WRITERS[i].flush();
                     WRITERS[i].close();
                 } catch (IOException ignored) {
                 }
@@ -554,12 +751,33 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
         }
     }
 
-    private static String value(String[] parts, int index) {
-        return index >= 0 && index < parts.length ? parts[index] : "";
+    private static String outputPath() {
+        return OUTPUT_PATHS[1] == null
+            ? "PHASELAB_EXTREMECRAFT_LATEST.csv"
+            : OUTPUT_PATHS[1].toAbsolutePath().toString();
+    }
+
+    private static String scenario() {
+        return SCENARIOS[scenarioIndex];
+    }
+
+    private static String vectorField(Vec3 vector, int index) {
+        if (vector == null) {
+            return "";
+        }
+        return number(index == 0 ? vector.x : index == 1 ? vector.y : vector.z);
+    }
+
+    private static String number(double value) {
+        return Double.isFinite(value)
+            ? String.format(Locale.ROOT, "%.6f", value)
+            : "";
     }
 
     private static String clean(String value) {
-        return value == null ? "" : value.replace('|', '/').replace('\n', ' ').replace('\r', ' ');
+        return value == null
+            ? ""
+            : value.replace('|', '/').replace('\n', ' ').replace('\r', ' ');
     }
 
     private static String csv(String value) {
@@ -568,36 +786,13 @@ public final class PhaseLabActiveClient implements ClientModInitializer {
     }
 
     private static void message(LocalPlayer player, String text, boolean actionBar) {
-        if (player != null) {
-            player.displayClientMessage(Component.literal("[PhaseLab] " + text), actionBar);
+        player.displayClientMessage(Component.literal("[PhaseLab] " + text), actionBar);
+    }
+
+    private record Barrier(char axis, double threshold, double direction, String description) {
+        double progress(Vec3 position) {
+            double coordinate = axis == 'X' ? position.x : position.z;
+            return direction * (coordinate - threshold);
         }
-    }
-
-    private enum CampaignMode {
-        QUICK,
-        DEEP,
-        REPLAY;
-
-        CampaignMode next() {
-            return values()[(ordinal() + 1) % values().length];
-        }
-    }
-
-    private record CaseSpec(String id, String family, int durationTicks, int paramA, int paramB) {
-    }
-
-    private record Authorization(
-        String playerUuid,
-        long expiresEpochMs,
-        int minX,
-        int minY,
-        int minZ,
-        int maxX,
-        int maxY,
-        int maxZ,
-        String nonce,
-        String barrierAxis,
-        double barrierCoordinate
-    ) {
     }
 }

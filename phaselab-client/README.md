@@ -1,64 +1,66 @@
-# PhaseLab Player Active Tester 5.2
+# PhaseLab ExtremeCraft Locked 6.1
 
-Fabric 1.21.11 player-side telemetry plus short, bounded vehicle input scenarios. It needs no server plugin, copied keys, server ID, command, or client configuration.
+Fabric 1.21.11 player-only black-box phase research harness for the ExtremeCraft Test Lab. Active scenarios are hard-locked to `extremecraft.net:25565` and refuse to run on other multiplayer addresses.
+
+No server plugin, backend access, commands, copied keys, or credentials are required.
 
 ## Install
 
-Place the JAR and Fabric API in the client `mods` folder. Remove older PhaseLab JARs first. Java 21 and Fabric Loader 0.19.2 or newer are supported.
+Place the JAR and Fabric API in the client `mods` folder. Remove every older PhaseLab JAR first. Use Java 21 and Fabric Loader 0.19.2 or newer.
 
-## Two-key operation
+## Controls
 
-- `F6`: cycle the active scenario;
-- `F12`: start the selected scenario or abort the current run.
+- `F6`: cycle the 20 bounded timing scenarios;
+- `F12`: start the selected scenario or abort immediately.
 
-The default scenario is `PRESS_FORWARD`, so the first test needs only F12.
+The default scenario is `AUTO_DEEP_SWEEP`.
 
 ## Exact first run
 
-1. Join the authorized test server.
-2. Put a boat about six blocks in front of the wall.
-3. Mount the boat and aim the crosshair at the side face of the wall.
+1. Join `extremecraft.net` using Minecraft 1.21.11.
+2. Put a boat roughly six blocks in front of the test wall.
+3. Mount it and aim the crosshair directly at a horizontal side face of the wall.
 4. Press `F12`.
-5. The client detects the far side of that wall block, runs the bounded input, stops every automated key, and prints a local verdict.
+5. The client verifies the server-address lock, detects the wall plane, runs the selected ordinary-input sequence, releases every automated key, and writes its local verdict.
 
-After a normal run it advances to the next scenario automatically.
+## Scenario matrix
 
-## Scenarios
+The matrix contains:
 
-- `PRESS_FORWARD`: continuous forward input;
-- `PULSE_FORWARD`: repeated forward pulses;
-- `FORWARD_LEFT`: forward plus left steering;
-- `FORWARD_RIGHT`: forward plus right steering;
-- `BRAKE_RELEASE`: forward pressure followed by bounded reverse braking;
-- `FORWARD_BACK_PULSE`: alternating forward and reverse inputs;
-- `DISMOUNT_EDGE`: forward input with a fixed two-tick dismount input;
-- `IDLE_CONTROL`: mounted control run with no automated movement.
+- automatic deep sweep;
+- short and long forward pressure;
+- fast, medium, and slow forward pulses;
+- sustained left/right steering;
+- fast and slow alternating steering;
+- short and long brake-release patterns;
+- fast and slow forward/back alternation;
+- dismount edges at ticks 20, 35, 50, 65, and 80;
+- idle control.
 
-Every scenario is capped at 260 ticks and 24 blocks of observed travel. F12 aborts immediately.
+Every run is capped at 300 ticks and 24 blocks of observed travel. Disconnecting, changing servers, losing the address lock, or pressing F12 releases all automated keys immediately.
 
 ## Local verdicts
 
-- `LOCAL_REPRODUCED`: the tracked vehicle remained beyond the detected far wall plane for at least five ticks;
-- `LOCAL_TRANSIENT`: the vehicle crossed the plane briefly but did not remain there;
-- `UNEXPECTED_DISMOUNT`: the passenger relationship ended during a scenario that did not request it;
-- `DISMOUNT_COMPLETED`: the explicit dismount scenario reached its dismount step;
-- `BLOCKED_OR_REJECTED`: movement occurred but the far wall plane was not crossed;
-- `NO_MOVEMENT`: the tracked vehicle moved less than 0.25 blocks;
-- `SAFETY_ABORT`: the runtime or travel cap was exceeded.
+- `LOCAL_REPRODUCED`: the tracked vehicle remained beyond the selected wall plane for at least eight consecutive client ticks;
+- `LOCAL_TRANSIENT`: the vehicle crossed briefly but did not remain there;
+- `CORRECTED_OR_SETBACK`: the client observed one or more sharp backward progress steps;
+- `UNEXPECTED_DISMOUNT`: the passenger relationship ended without a requested dismount case;
+- `DISMOUNT_COMPLETED`: the selected dismount case reached its dismount;
+- `BLOCKED_OR_REJECTED`: movement occurred but the wall plane was not crossed;
+- `NO_MOVEMENT`: the vehicle moved less than 0.25 blocks;
+- `SAFETY_ABORT`, `LOCK_ABORT`, or `CONNECTION_CHANGED`: the run ended safely.
 
-These are client-observed findings. `LOCAL_REPRODUCED` is a candidate that should be confirmed against the existing correction telemetry or server logs.
+These are client-observed black-box results. `LOCAL_REPRODUCED` is evidence to verify by moving around, waiting for corrections, and checking whether the position persists server-side.
 
-## Easy files
-
-Active-run evidence:
+## Evidence files
 
 ```text
-.minecraft/PHASELAB_ACTIVE_LATEST.csv
-.minecraft/PHASELAB_ACTIVE_SUMMARY.txt
-.minecraft/config/phaselab/active-v5.2-<run>.csv
+.minecraft/PHASELAB_EXTREMECRAFT_LATEST.csv
+.minecraft/PHASELAB_EXTREMECRAFT_SUMMARY.txt
+.minecraft/config/phaselab/extremecraft-v6.1-<run>.csv
 ```
 
-Existing correction telemetry continues automatically:
+Existing passive correction telemetry continues automatically:
 
 ```text
 .minecraft/PHASELAB_LATEST.csv
@@ -66,11 +68,4 @@ Existing correction telemetry continues automatically:
 .minecraft/PHASELAB_SUMMARY.txt
 ```
 
-Telemetry controls remain:
-
-- `F7`: cycle telemetry label;
-- `F8`: pause/resume telemetry;
-- `F9`: manually start/end a telemetry segment;
-- `F10`: show telemetry status and paths.
-
-The active runner changes only ordinary key states. It does not directly change coordinates, collision, velocity, or construct movement packets.
+The active runner changes only ordinary forward, back, left, right, and dismount key states. It does not construct movement packets or directly change coordinates, velocity, collision, or bounding boxes.
