@@ -1,0 +1,7 @@
+{
+  "key.categories.phaselab.verifier": "PhaseLab Verifier",
+  "key.phaselab.verifier_test": "Run next bounded verifier profile",
+  "key.phaselab.verifier_cycle": "Cycle bamboo raft red-team profile",
+  "key.phaselab.verifier_ratchet": "Run selected bamboo raft red-team profile",
+  "key.phaselab.verifier_abort": "Abort current verifier profile"
+}

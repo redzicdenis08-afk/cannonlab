@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "phaselab",
+  "version": "${version}",
+  "name": "PhaseLab Red-Team Verifier",
+  "description": "Target-authorized bounded red-team verifier for private PhaseLab testing. Adds mount-handshake arming, packet-only raft probes, synchronized input frames, and correction/passenger evidence.",
+  "authors": [
+    "Denis + OpenAI"
+  ],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.denis.phaselab.BoatPhaseClient"
+    ]
+  },
+  "mixins": [
+    "phaselab.client.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.2",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
