@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "id": "phaselab",
-  "version": "5.0.0",
-  "name": "PhaseLab Lab-Locked Red Team",
-  "description": "Fabric 1.21.11 PhaseLab telemetry plus bounded active key-input scenarios that only run under a short-lived signed authorization from the paired test-server plugin.",
+  "version": "5.1.0",
+  "name": "PhaseLab Easy Red Team",
+  "description": "Fabric 1.21.11 telemetry plus bounded active vehicle tests enabled by one server command. No copied keys, server IDs, or manual client configuration.",
   "authors": ["Denis + OpenAI"],
   "license": "MIT",
   "environment": "client",
