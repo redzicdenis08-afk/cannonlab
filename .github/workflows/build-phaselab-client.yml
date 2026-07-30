@@ -1,22 +1,20 @@
-name: Build PhaseLab Authorized Campaign Pair
+name: Build PhaseLab ExtremeCraft Locked
 
 on:
   push:
     branches:
-      - feature/phaselab-lab-redteam-v6
+      - feat/phaselab-extremecraft-locked-v6.1
     paths:
       - 'phaselab-client/**'
-      - 'phaselab-server/**'
       - '.github/workflows/build-phaselab-client.yml'
   pull_request:
     paths:
       - 'phaselab-client/**'
-      - 'phaselab-server/**'
       - '.github/workflows/build-phaselab-client.yml'
   workflow_dispatch:
 
 concurrency:
-  group: phaselab-v6-${{ github.ref }}
+  group: phaselab-player-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -37,96 +35,62 @@ jobs:
         with:
           gradle-version: '9.5.1'
 
-      - name: Build authorized client
+      - name: Build locked client mod
         working-directory: phaselab-client
         shell: bash
         run: |
           set -o pipefail
           gradle clean build --stacktrace --console=plain 2>&1 | tee build.log
 
-      - name: Verify authorized campaign client
+      - name: Verify lock, deep matrix, and bounded player-only behavior
+        if: success()
         working-directory: phaselab-client
         shell: bash
         run: |
-          JAR='build/libs/phaselab-client-6.0.0.jar'
+          JAR='build/libs/phaselab-client-6.1.0.jar'
           test -f "$JAR"
           jar tf "$JAR" | tee jar-contents.txt
           jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseTelemetryClient.class'
           jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseLabActiveClient.class'
-          jar tf "$JAR" | grep -F 'dev/denis/phaselab/net/LabMessagePayload.class'
           jar tf "$JAR" | grep -F 'dev/denis/phaselab/mixin/ClientPacketListenerMixin.class'
-          ! jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseLabClient.class'
+          ! jar tf "$JAR" | grep -F 'dev/denis/phaselab/net/LabMessagePayload.class'
+          ! jar tf "$JAR" | grep -F 'dev/denis/phaselab/PhaseLabLockedClient.class'
           ! jar tf "$JAR" | grep -F 'dev/denis/phaselab/BoatPhaseClient.class'
           unzip -p "$JAR" fabric.mod.json | tee built-fabric.mod.json
-          grep -F '"version": "6.0.0"' built-fabric.mod.json
-          grep -F 'dev.denis.phaselab.PhaseLabActiveClient' built-fabric.mod.json
+          grep -F '"version": "6.1.0"' built-fabric.mod.json
+          grep -F 'PhaseLab ExtremeCraft Locked' built-fabric.mod.json
           javap -classpath "$JAR" -p -v dev.denis.phaselab.PhaseLabActiveClient > active-client-javap.txt
-          grep -F 'PHASELAB_CAMPAIGN_LATEST.csv' active-client-javap.txt
-          grep -F 'AUTHORIZED LAB READY' active-client-javap.txt
-          grep -F 'DEEP_CASES' active-client-javap.txt
-          grep -F 'REPRODUCED' active-client-javap.txt
-          grep -F 'authorization_expired_or_region_left' active-client-javap.txt
+          grep -F 'extremecraft.net' active-client-javap.txt
+          grep -F 'AUTO_DEEP_SWEEP' active-client-javap.txt
+          grep -F 'DISMOUNT_T80' active-client-javap.txt
+          grep -F 'CORRECTED_OR_SETBACK' active-client-javap.txt
+          grep -F 'PHASELAB_EXTREMECRAFT_LATEST.csv' active-client-javap.txt
+          grep -F 'MAX_RUNTIME_TICKS' active-client-javap.txt
           ! grep -F 'ServerboundMoveVehiclePacket' active-client-javap.txt
           ! grep -F 'ServerboundMovePlayerPacket' active-client-javap.txt
           ! grep -F 'setPos' active-client-javap.txt
           ! grep -F 'absMoveTo' active-client-javap.txt
           ! grep -F 'teleportTo' active-client-javap.txt
-
-      - name: Build server referee
-        working-directory: phaselab-server
-        shell: bash
-        run: |
-          set -o pipefail
-          gradle clean build --stacktrace --console=plain 2>&1 | tee build.log
-
-      - name: Verify server authorization, verdicts, and rollback
-        working-directory: phaselab-server
-        shell: bash
-        run: |
-          JAR='build/libs/phaselab-server-6.0.0.jar'
-          test -f "$JAR"
-          jar tf "$JAR" | tee jar-contents.txt
-          jar tf "$JAR" | grep -F 'dev/denis/phaselab/server/PhaseLabServerPlugin.class'
-          jar tf "$JAR" | grep -F 'plugin.yml'
-          jar tf "$JAR" | grep -F 'config.yml'
-          unzip -p "$JAR" plugin.yml | tee built-plugin.yml
-          grep -F 'version: 6.0.0' built-plugin.yml
-          javap -classpath "$JAR" -p -v dev.denis.phaselab.server.PhaseLabServerPlugin > server-javap.txt
-          grep -F 'phaselab:control' server-javap.txt
-          grep -F 'quickstart' server-javap.txt
-          grep -F 'REPRODUCED' server-javap.txt
-          grep -F 'persistent_server_crossing' server-javap.txt
-          grep -F 'another_player_entered_lab' server-javap.txt
-          grep -F 'rollback' server-javap.txt
+          ! grep -F 'setDeltaMovement' active-client-javap.txt
+          ! grep -F 'noPhysics' active-client-javap.txt
+          ! grep -F 'ClientPlayNetworking' active-client-javap.txt
 
       - name: Upload build evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-v6-build-evidence
+          name: phaselab-extremecraft-locked-v6.1-build-evidence
           path: |
             phaselab-client/build.log
             phaselab-client/jar-contents.txt
             phaselab-client/built-fabric.mod.json
             phaselab-client/active-client-javap.txt
-            phaselab-server/build.log
-            phaselab-server/jar-contents.txt
-            phaselab-server/built-plugin.yml
-            phaselab-server/server-javap.txt
           if-no-files-found: warn
 
-      - name: Upload client JAR
+      - name: Upload locked player JAR
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: phaselab-client-6.0.0-mc1.21.11
-          path: phaselab-client/build/libs/phaselab-client-6.0.0.jar
-          if-no-files-found: error
-
-      - name: Upload server JAR
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: phaselab-server-6.0.0-paper1.21.11
-          path: phaselab-server/build/libs/phaselab-server-6.0.0.jar
+          name: phaselab-extremecraft-locked-6.1.0-mc1.21.11
+          path: phaselab-client/build/libs/phaselab-client-6.1.0.jar
           if-no-files-found: error
