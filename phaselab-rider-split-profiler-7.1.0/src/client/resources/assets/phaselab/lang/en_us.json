@@ -1,0 +1,5 @@
+{
+  "key.phaselab.proof_toggle": "Run or stop bounded proof",
+  "key.phaselab.proof_profile": "Cycle fixed proof profile",
+  "key.phaselab.proof_abort": "Emergency-stop proof harness"
+}

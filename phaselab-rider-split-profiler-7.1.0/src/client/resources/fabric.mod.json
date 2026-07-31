@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "phaselab",
+  "version": "${version}",
+  "name": "PhaseLab Rider Split Profiler",
+  "description": "Player-side bounded rider and vehicle split profiler with exact correction, detach, attach, remount, and post-attach ejection timing.",
+  "authors": ["Denis + OpenAI"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.denis.phaselab.BoatPhaseClient"
+    ]
+  },
+  "mixins": [
+    "phaselab.client.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.2",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
