@@ -1,0 +1,5 @@
+{
+  "key.categories.phaselab.main": "PhaseLab Persistent",
+  "key.phaselab.toggle": "Start or stop persistent stream",
+  "key.phaselab.abort": "Emergency abort"
+}

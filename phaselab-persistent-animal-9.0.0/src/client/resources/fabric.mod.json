@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "phaselab",
+  "version": "${version}",
+  "name": "PhaseLab Persistent Animal",
+  "description": "Single-mount persistent animal stream for authorized private claim testing. No remount path. Hard abort on any detach.",
+  "authors": ["Denis + OpenAI"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["dev.denis.phaselab.BoatPhaseClient"]
+  },
+  "mixins": ["phaselab.client.mixins.json"],
+  "depends": {
+    "fabricloader": ">=0.19.2",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
