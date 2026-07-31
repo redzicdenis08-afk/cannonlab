@@ -1,0 +1,36 @@
+name: Build Persistent Animal 9.0
+
+on:
+  push:
+    paths:
+      - 'phaselab-persistent-animal-9.0.0/**'
+      - '.github/workflows/build-persistent-animal.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build
+        working-directory: phaselab-persistent-animal-9.0.0
+        run: |
+          chmod +x gradlew || true
+          gradle remapJar --no-daemon --stacktrace
+
+      - name: Upload JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: phaselab-persistent-animal-9.0.0
+          path: phaselab-persistent-animal-9.0.0/build/libs/*.jar
+          if-no-files-found: error
