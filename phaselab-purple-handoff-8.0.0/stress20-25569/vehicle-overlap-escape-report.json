@@ -1,0 +1,1139 @@
+{
+  "metadata": {
+    "generatedAt": "2026-07-31T00:56:49.207Z",
+    "endpoint": "127.0.0.1:25569",
+    "vehicle": "bamboo_raft",
+    "intermediate": null,
+    "profileSet": "smoke",
+    "clientVersion": "1.21.11",
+    "serverBrand": "Sakura",
+    "wall": {
+      "minX": 1,
+      "maxX": 2,
+      "height": 6
+    },
+    "proof": "server snapshot beyond wall plus far-side barrel opened"
+  },
+  "results": [
+    {
+      "index": 0,
+      "profile": {
+        "id": "family-flat-025-r1",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 1,
+      "profile": {
+        "id": "family-flat-025-r2",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 2,
+      "profile": {
+        "id": "family-flat-025-r3",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 3,
+      "profile": {
+        "id": "family-flat-025-r4",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 4,
+      "profile": {
+        "id": "family-flat-025-r5",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 5,
+      "profile": {
+        "id": "family-flat-025-r6",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 6,
+      "profile": {
+        "id": "family-flat-025-r7",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 7,
+      "profile": {
+        "id": "family-flat-025-r8",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 8,
+      "profile": {
+        "id": "family-flat-025-r9",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 9,
+      "profile": {
+        "id": "family-flat-025-r10",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 10,
+      "profile": {
+        "id": "family-flat-025-r11",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 11,
+      "profile": {
+        "id": "family-flat-025-r12",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 12,
+      "profile": {
+        "id": "family-flat-025-r13",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 13,
+      "profile": {
+        "id": "family-flat-025-r14",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 14,
+      "profile": {
+        "id": "family-flat-025-r15",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 15,
+      "profile": {
+        "id": "family-flat-025-r16",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 16,
+      "profile": {
+        "id": "family-flat-025-r17",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 17,
+      "profile": {
+        "id": "family-flat-025-r18",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 18,
+      "profile": {
+        "id": "family-flat-025-r19",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    },
+    {
+      "index": 19,
+      "profile": {
+        "id": "family-flat-025-r20",
+        "vehicleYOffset": 0,
+        "playerStep": 0.05,
+        "playerYOffset": 0,
+        "onGround": false
+      },
+      "drive": {
+        "packets": 9,
+        "corrections": 0
+      },
+      "vehicleCorrections": 0,
+      "passengerEvents": 0,
+      "overlapSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "overlap": false,
+      "detached": false,
+      "escape": {
+        "packets": 0,
+        "corrections": 0
+      },
+      "finalSnapshot": {
+        "ok": true,
+        "line": "COURSE_SNAPSHOT player=2.350000,64.900000,0.010000 health=20.000 fire=-20 vehicle=2.350000,65.000000,0.010000",
+        "position": {
+          "x": 2.35,
+          "y": 64.9,
+          "z": 0.01
+        },
+        "health": 20,
+        "fire": -20,
+        "vehicle": "2.350000,65.000000,0.010000"
+      },
+      "beyond": true,
+      "mountedBeyond": true,
+      "exitBeyond": false,
+      "witness": {
+        "opened": true,
+        "reason": "window_open"
+      },
+      "mountedVerified": true,
+      "exitVerified": false,
+      "verified": true
+    }
+  ]
+}

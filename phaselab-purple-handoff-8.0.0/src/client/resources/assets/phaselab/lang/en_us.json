@@ -1,0 +1,5 @@
+{
+  "key.categories.phaselab.purple_handoff": "PhaseLab Purple Handoff",
+  "key.phaselab.purple_run": "Run fixed loopback reproducer",
+  "key.phaselab.purple_abort": "Abort reproducer"
+}

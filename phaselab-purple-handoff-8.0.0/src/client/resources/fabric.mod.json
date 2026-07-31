@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "id": "phaselab-purple-handoff",
+  "version": "${version}",
+  "name": "PhaseLab Purple Handoff",
+  "description": "Loopback-only bounded player-side reproducer for the verified PhaseLab one-plane vehicle validation differential.",
+  "authors": ["Denis + OpenAI"],
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": [
+      "dev.denis.phaselab.PurpleHandoffClient"
+    ]
+  },
+  "mixins": [
+    "phaselab-purple-handoff.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.2",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
