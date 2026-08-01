@@ -1,0 +1,76 @@
+name: Build MountLab SteerFlip
+
+on:
+  push:
+    branches: [mountlab-steerflip-1.21.11]
+    paths:
+      - 'mountlab-client/**'
+      - '.github/workflows/mountlab-steerflip-build.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mountlab-client/**'
+      - '.github/workflows/mountlab-steerflip-build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.5.1'
+
+      - name: Stress pure timing and safety logic
+        run: |
+          rm -rf /tmp/mountlab-stress
+          mkdir -p /tmp/mountlab-stress
+          javac -Xlint:all -Werror -d /tmp/mountlab-stress \
+            mountlab-client/src/client/java/online/coredispatch/mountlab/SteerFlipPlanner.java \
+            mountlab-client/src/client/java/online/coredispatch/mountlab/LabAddressPolicy.java \
+            mountlab-client/src/client/java/online/coredispatch/mountlab/MountLabMath.java \
+            mountlab-client/stress/MountLabStress.java
+          java -ea -cp /tmp/mountlab-stress online.coredispatch.mountlab.MountLabStress
+
+      - name: Build and inspect Fabric mod
+        run: |
+          gradle -p mountlab-client clean build --stacktrace
+          JAR=$(find mountlab-client/build/libs -maxdepth 1 -name 'mountlab-steerflip-*.jar' ! -name '*-sources.jar' | head -1)
+          test -n "$JAR"
+          unzip -t "$JAR"
+          jar tf "$JAR" | grep -q 'online/coredispatch/mountlab/MountLabClient.class'
+          jar tf "$JAR" | grep -q 'online/coredispatch/mountlab/PacketProbe.class'
+          jar tf "$JAR" | grep -q 'online/coredispatch/mountlab/mixin/ClientPlayNetworkHandlerMixin.class'
+          unzip -p "$JAR" fabric.mod.json | grep -q '"version": "1.2.0"'
+          unzip -p "$JAR" fabric.mod.json | grep -q 'mountlab.client.mixins.json'
+          unzip -p "$JAR" fabric.mod.json | grep -q '"fabricloader": ">=0.19.2"'
+          unzip -p "$JAR" | strings | grep -q 'extremecraft.net'
+          if unzip -p "$JAR" | strings | grep -E 'cancel\(|setCancelled|CallbackInfoReturnable' ; then
+            echo 'Packet cancellation primitive detected in diagnostic jar'
+            exit 1
+          fi
+          cp "$JAR" /tmp/mountlab-first.jar
+          sha256sum "$JAR"
+
+      - name: Verify reproducible clean rebuild
+        run: |
+          gradle -p mountlab-client clean build --stacktrace
+          JAR=$(find mountlab-client/build/libs -maxdepth 1 -name 'mountlab-steerflip-*.jar' ! -name '*-sources.jar' | head -1)
+          cmp /tmp/mountlab-first.jar "$JAR"
+          sha256sum "$JAR"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mountlab-steerflip-1.21.11
+          path: |
+            mountlab-client/build/libs/mountlab-steerflip-*.jar
+            !mountlab-client/build/libs/*-sources.jar
+          if-no-files-found: error
