@@ -3,6 +3,8 @@ package online.coredispatch.mountlab;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.block.Block;
+import net.minecraft.block.Blocks;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.network.ServerInfo;
 import net.minecraft.client.util.InputUtil;
@@ -13,6 +15,7 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.network.packet.c2s.play.UpdateSelectedSlotC2SPacket;
+import net.minecraft.registry.Registries;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.Box;
@@ -31,22 +34,31 @@ import java.util.List;
 import java.util.Locale;
 
 public final class MountLabClient implements ClientModInitializer {
-    private enum Phase { IDLE, SWAPPING, LOCKED }
+    private enum Phase { IDLE, SWAPPING, LOCKED, POST_DETACH }
 
     private record TickSample(
-        long elapsedNanos, int tick, Phase phase, String event, boolean attached, boolean forwardHeld,
-        int selectedSlot, boolean holdingControl, int swaps,
+        long elapsedNanos, int tick, Phase phase, String event, String packetEvents,
+        boolean attached, boolean vehicleExists, boolean graphHasPlayer, int currentVehicleId,
+        boolean forwardHeld, int selectedSlot, boolean holdingControl, int swaps,
         double playerX, double playerY, double playerZ,
         double vehicleX, double vehicleY, double vehicleZ,
+        double playerStep, double vehicleStep,
         double vehicleMoved, double playerMoved, double couplingError, double separation,
+        double playerVelX, double playerVelY, double playerVelZ,
+        double vehicleVelX, double vehicleVelY, double vehicleVelZ,
+        String playerBlock, String vehicleBlock, boolean obsidianNearby,
         double rawOverlap, double overlapDelta, double bestOverlapDelta
     ) { }
 
     private static final int[] MAX_SWAP_OPTIONS = {4, 6, 8, 10, 12, 16};
     private static final double[] THRESHOLD_OPTIONS = {0.0, 0.02, 0.04, 0.08, 0.12};
-    private static final int RETENTION_TICKS = 20;
-    private static final int MAX_TRIAL_TICKS = 200;
+    private static final int FIRST_RETENTION_MILESTONE = 20;
+    private static final int SECOND_RETENTION_MILESTONE = 100;
+    private static final int LOCKED_WATCH_TICKS = 200;
+    private static final int POST_DETACH_TICKS = 40;
+    private static final int MAX_TRIAL_TICKS = 320;
     private static final double COUPLING_ERROR_LIMIT = 0.75;
+    private static final double JUMP_EVENT_THRESHOLD = 0.75;
 
     private Phase phase = Phase.IDLE;
     private int intervalTicks = 2;
@@ -72,6 +84,8 @@ public final class MountLabClient implements ClientModInitializer {
     private String mountName;
     private Vec3d startVehiclePos = Vec3d.ZERO;
     private Vec3d startPlayerPos = Vec3d.ZERO;
+    private Vec3d previousVehiclePos = Vec3d.ZERO;
+    private Vec3d previousPlayerPos = Vec3d.ZERO;
     private double baselineOverlap;
     private double bestOverlapDelta;
     private Path csvPath;
@@ -91,44 +105,54 @@ public final class MountLabClient implements ClientModInitializer {
             finish(client, "ABORT_CONTEXT", true);
             return;
         }
-        if (client.currentScreen != null) {
-            finish(client, "ABORT_SCREEN_OPEN", true);
-            return;
-        }
         if (trialTick >= MAX_TRIAL_TICKS) {
             finish(client, "ABORT_TIMEOUT", true);
             return;
         }
-        if (!client.player.getInventory().getStack(controlSlot).isOf(controlItem)) {
-            finish(client, "ABORT_CONTROL_ITEM_MOVED", true);
-            return;
-        }
-        if (client.player.getInventory().getStack(fallbackSlot).isOf(controlItem)) {
-            finish(client, "ABORT_FALLBACK_BECAME_CONTROL", true);
-            return;
-        }
 
-        Entity vehicle = client.player.getVehicle();
-        if (vehicle == null || vehicle.getId() != vehicleId) {
-            finish(client, "DETACHED", true);
-            return;
-        }
-
-        boolean forwardHeld = isKeyPressed(client, GLFW.GLFW_KEY_W);
-        releasedForwardTicks = forwardHeld ? 0 : releasedForwardTicks + 1;
-        if (releasedForwardTicks >= 3) {
-            finish(client, "ABORT_W_RELEASED", true);
-            return;
-        }
+        String packetEvents = PacketProbe.drainEncoded();
+        Entity vehicle = client.world.getEntityById(vehicleId);
+        Entity currentVehicle = client.player.getVehicle();
+        boolean attached = currentVehicle != null && currentVehicle.getId() == vehicleId;
 
         trialTick++;
         phaseTicks++;
-        double rawOverlap = solidHorizontalOverlapDepth(client, vehicle.getBoundingBox());
-        double overlapDelta = Math.max(0.0, rawOverlap - baselineOverlap);
-        bestOverlapDelta = Math.max(bestOverlapDelta, overlapDelta);
+        boolean forwardHeld = isKeyPressed(client, GLFW.GLFW_KEY_W);
         String event = "";
 
         if (phase == Phase.SWAPPING) {
+            if (client.currentScreen != null) {
+                finish(client, "ABORT_SCREEN_OPEN", true);
+                return;
+            }
+            if (!client.player.getInventory().getStack(controlSlot).isOf(controlItem)) {
+                finish(client, "ABORT_CONTROL_ITEM_MOVED", true);
+                return;
+            }
+            if (client.player.getInventory().getStack(fallbackSlot).isOf(controlItem)) {
+                finish(client, "ABORT_FALLBACK_BECAME_CONTROL", true);
+                return;
+            }
+            releasedForwardTicks = forwardHeld ? 0 : releasedForwardTicks + 1;
+            if (releasedForwardTicks >= 3) {
+                finish(client, "ABORT_W_RELEASED", true);
+                return;
+            }
+        }
+
+        if (!attached && phase != Phase.POST_DETACH) {
+            phase = Phase.POST_DETACH;
+            phaseTicks = 0;
+            event = packetEvents.contains("PASSENGERS") ? "DETACH_AFTER_PASSENGERS" : "DETACH_FIRST_SEEN";
+            if (originalSlot >= 0 && originalSlot < 9) selectSlot(client, originalSlot);
+            status(client, event + " | watching 40 more ticks");
+        }
+
+        double rawOverlap = vehicle == null ? 0.0 : solidHorizontalOverlapDepth(client, vehicle.getBoundingBox());
+        double overlapDelta = Math.max(0.0, rawOverlap - baselineOverlap);
+        bestOverlapDelta = Math.max(bestOverlapDelta, overlapDelta);
+
+        if (phase == Phase.SWAPPING && attached && vehicle != null) {
             SteerFlipPlanner.Step step = planner.tick(overlapDelta, THRESHOLD_OPTIONS[thresholdIndex]);
             if (step.target() == SteerFlipPlanner.Target.CONTROL) selectSlot(client, controlSlot);
             else if (step.target() == SteerFlipPlanner.Target.FALLBACK) selectSlot(client, fallbackSlot);
@@ -139,27 +163,43 @@ public final class MountLabClient implements ClientModInitializer {
                 event = step.reason() == SteerFlipPlanner.Reason.OVERLAP
                     ? "LOCK_OVERLAP_" + fmt(overlapDelta)
                     : "LOCK_MAX_SWAPS";
-                status(client, "LOCKED control item | " + event);
+                status(client, "LOCKED | long-tail watch started");
             }
         }
 
-        captureTick(client, vehicle, rawOverlap, overlapDelta, forwardHeld, event);
+        double playerStep = client.player.getEntityPos().distanceTo(previousPlayerPos);
+        double vehicleStep = vehicle == null ? Double.NaN : vehicle.getEntityPos().distanceTo(previousVehiclePos);
+        if (event.isEmpty() && playerStep >= JUMP_EVENT_THRESHOLD) event = "PLAYER_STEP_JUMP_" + fmt(playerStep);
+        if (event.isEmpty() && !Double.isNaN(vehicleStep) && vehicleStep >= JUMP_EVENT_THRESHOLD) {
+            event = "VEHICLE_STEP_JUMP_" + fmt(vehicleStep);
+        }
 
-        if (phase == Phase.LOCKED && phaseTicks >= RETENTION_TICKS) {
-            Vec3d vehicleDelta = vehicle.getEntityPos().subtract(startVehiclePos);
+        if (phase == Phase.LOCKED) {
+            if (phaseTicks == FIRST_RETENTION_MILESTONE && event.isEmpty()) event = "MILESTONE_RETAINED_20T";
+            if (phaseTicks == SECOND_RETENTION_MILESTONE && event.isEmpty()) event = "MILESTONE_RETAINED_100T";
+        }
+
+        captureTick(client, vehicle, attached, rawOverlap, overlapDelta, forwardHeld, event, packetEvents,
+            playerStep, vehicleStep);
+        previousPlayerPos = client.player.getEntityPos();
+        if (vehicle != null) previousVehiclePos = vehicle.getEntityPos();
+
+        if (phase == Phase.LOCKED && phaseTicks >= LOCKED_WATCH_TICKS) {
+            Vec3d vehicleDelta = vehicle == null ? Vec3d.ZERO : vehicle.getEntityPos().subtract(startVehiclePos);
             Vec3d playerDelta = client.player.getEntityPos().subtract(startPlayerPos);
             double vehicleMoved = vehicleDelta.length();
-            double couplingError = vehicleDelta.subtract(playerDelta).length();
-            String quality = couplingError <= COUPLING_ERROR_LIMIT ? "COUPLED" : "SUSPECT";
-            finish(client, "RETAINED_20T_" + quality + "_VMOVED_" + fmt(vehicleMoved)
-                + "_ERROR_" + fmt(couplingError), false);
+            double couplingError = vehicle == null ? Double.NaN : vehicleDelta.subtract(playerDelta).length();
+            String quality = !Double.isNaN(couplingError) && couplingError <= COUPLING_ERROR_LIMIT ? "COUPLED" : "SUSPECT";
+            finish(client, "RETAINED_200T_" + quality + "_VMOVED_" + fmt(vehicleMoved)
+                + "_ERROR_" + fmt(couplingError), true);
+        } else if (phase == Phase.POST_DETACH && phaseTicks >= POST_DETACH_TICKS) {
+            finish(client, "DETACHED_POST40T", false);
         }
     }
 
-    /** Returns true only when a new trial starts, preventing interval=1 from swapping twice in the start tick. */
     private boolean handleKeys(MinecraftClient client) {
         if (client.getWindow() == null) return false;
-        if (client.currentScreen != null) {
+        if (client.currentScreen != null && phase == Phase.IDLE) {
             lastP = lastO = lastK = lastL = false;
             return false;
         }
@@ -200,7 +240,7 @@ public final class MountLabClient implements ClientModInitializer {
             return false;
         }
         if (!allowedLab(client)) {
-            status(client, "blocked: singleplayer/private-IP lab only");
+            status(client, "blocked: approved lab/server only");
             return false;
         }
         if (!isKeyPressed(client, GLFW.GLFW_KEY_W)) {
@@ -235,6 +275,8 @@ public final class MountLabClient implements ClientModInitializer {
         vehicleId = vehicle.getId();
         startVehiclePos = vehicle.getEntityPos();
         startPlayerPos = client.player.getEntityPos();
+        previousVehiclePos = startVehiclePos;
+        previousPlayerPos = startPlayerPos;
         baselineOverlap = solidHorizontalOverlapDepth(client, vehicle.getBoundingBox());
         bestOverlapDelta = 0.0;
         trialId = System.currentTimeMillis();
@@ -246,22 +288,28 @@ public final class MountLabClient implements ClientModInitializer {
         phase = Phase.SWAPPING;
         planner = new SteerFlipPlanner(intervalTicks, MAX_SWAP_OPTIONS[maxSwapIndex]);
         csvPath = prepareCsvPath();
-        samples = new ArrayList<>(MAX_TRIAL_TICKS + 4);
+        samples = new ArrayList<>(MAX_TRIAL_TICKS + 8);
+        PacketProbe.start(vehicleId, client.player.getId());
 
         selectSlot(client, controlSlot);
-        captureTick(client, vehicle, baselineOverlap, 0.0, true, "START");
+        captureTick(client, vehicle, true, baselineOverlap, 0.0, true, "START", "", 0.0, 0.0);
         status(client, "RUN " + mountName + " | " + intervalTicks + "t / "
-            + MAX_SWAP_OPTIONS[maxSwapIndex] + " swaps / delta stop " + fmt(THRESHOLD_OPTIONS[thresholdIndex]));
+            + MAX_SWAP_OPTIONS[maxSwapIndex] + " swaps | 10s late-detach capture");
         return true;
     }
 
     private void finish(MinecraftClient client, String result, boolean restoreOriginal) {
-        Entity vehicle = client.player == null ? null : client.player.getVehicle();
-        if (vehicle != null) {
-            double raw = client.world == null ? 0.0 : solidHorizontalOverlapDepth(client, vehicle.getBoundingBox());
-            captureTick(client, vehicle, raw, Math.max(0.0, raw - baselineOverlap), isKeyPressed(client, GLFW.GLFW_KEY_W), result);
-        } else {
-            captureDetached(client, result);
+        String packetEvents = PacketProbe.drainEncoded();
+        Entity vehicle = client.world == null ? null : client.world.getEntityById(vehicleId);
+        boolean attached = client.player != null && client.player.getVehicle() != null
+            && client.player.getVehicle().getId() == vehicleId;
+        if (client.player != null) {
+            double raw = vehicle == null || client.world == null ? 0.0
+                : solidHorizontalOverlapDepth(client, vehicle.getBoundingBox());
+            double playerStep = client.player.getEntityPos().distanceTo(previousPlayerPos);
+            double vehicleStep = vehicle == null ? Double.NaN : vehicle.getEntityPos().distanceTo(previousVehiclePos);
+            captureTick(client, vehicle, attached, raw, Math.max(0.0, raw - baselineOverlap),
+                isKeyPressed(client, GLFW.GLFW_KEY_W), result, packetEvents, playerStep, vehicleStep);
         }
 
         boolean saved = flushCsv();
@@ -270,6 +318,7 @@ public final class MountLabClient implements ClientModInitializer {
         }
         status(client, result + " | swaps=" + (planner == null ? 0 : planner.swaps())
             + " bestDelta=" + fmt(bestOverlapDelta) + (saved ? "" : " | CSV_WRITE_FAILED"));
+        PacketProbe.stop();
         phase = Phase.IDLE;
         planner = null;
         vehicleId = -1;
@@ -336,6 +385,33 @@ public final class MountLabClient implements ClientModInitializer {
         return best;
     }
 
+    private boolean obsidianNearby(MinecraftClient client, Entity vehicle) {
+        if (vehicle == null) return false;
+        Box box = vehicle.getBoundingBox().expand(0.35);
+        int minX = (int) Math.floor(box.minX);
+        int minY = (int) Math.floor(box.minY);
+        int minZ = (int) Math.floor(box.minZ);
+        int maxX = (int) Math.floor(box.maxX);
+        int maxY = (int) Math.floor(box.maxY);
+        int maxZ = (int) Math.floor(box.maxZ);
+        BlockPos.Mutable pos = new BlockPos.Mutable();
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    pos.set(x, y, z);
+                    Block block = client.world.getBlockState(pos).getBlock();
+                    if (block == Blocks.OBSIDIAN || block == Blocks.CRYING_OBSIDIAN) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private String blockAt(MinecraftClient client, Vec3d pos) {
+        Block block = client.world.getBlockState(BlockPos.ofFloored(pos)).getBlock();
+        return Registries.BLOCK.getId(block).toString();
+    }
+
     private boolean allowedLab(MinecraftClient client) {
         if (client.isInSingleplayer()) return true;
         ServerInfo info = client.getCurrentServerEntry();
@@ -346,70 +422,71 @@ public final class MountLabClient implements ClientModInitializer {
         try {
             Path dir = FabricLoader.getInstance().getGameDir().resolve("mountlab");
             Files.createDirectories(dir);
-            return dir.resolve("steerflip-" + trialId + ".csv");
+            return dir.resolve("late-detach-" + trialId + ".csv");
         } catch (IOException e) {
             return null;
         }
     }
 
-    private void captureTick(MinecraftClient client, Entity vehicle, double rawOverlap, double overlapDelta,
-                             boolean forwardHeld, String event) {
+    private void captureTick(MinecraftClient client, Entity vehicle, boolean attached,
+                             double rawOverlap, double overlapDelta, boolean forwardHeld,
+                             String event, String packetEvents, double playerStep, double vehicleStep) {
         if (samples == null || client.player == null) return;
         boolean holding = client.player.getMainHandStack().isOf(controlItem);
-        Vec3d vehicleDelta = vehicle.getEntityPos().subtract(startVehiclePos);
-        Vec3d playerDelta = client.player.getEntityPos().subtract(startPlayerPos);
-        samples.add(new TickSample(
-            System.nanoTime() - trialStartNanos, trialTick, phase, event,
-            client.player.getVehicle() == vehicle, forwardHeld,
-            client.player.getInventory().getSelectedSlot(), holding, planner == null ? 0 : planner.swaps(),
-            client.player.getX(), client.player.getY(), client.player.getZ(),
-            vehicle.getX(), vehicle.getY(), vehicle.getZ(),
-            vehicleDelta.length(), playerDelta.length(), vehicleDelta.subtract(playerDelta).length(),
-            vehicle.getEntityPos().distanceTo(client.player.getEntityPos()),
-            rawOverlap, overlapDelta, bestOverlapDelta
-        ));
-    }
+        boolean vehicleExists = vehicle != null;
+        boolean graphHasPlayer = vehicle != null && vehicle.getPassengerList().contains(client.player);
+        int currentVehicleId = client.player.getVehicle() == null ? -1 : client.player.getVehicle().getId();
+        Vec3d playerPos = client.player.getEntityPos();
+        Vec3d playerDelta = playerPos.subtract(startPlayerPos);
+        Vec3d playerVelocity = client.player.getVelocity();
 
-    private void captureDetached(MinecraftClient client, String event) {
-        if (samples == null) return;
-        double playerX = Double.NaN;
-        double playerY = Double.NaN;
-        double playerZ = Double.NaN;
-        double playerMoved = Double.NaN;
-        int selected = -1;
-        if (client.player != null) {
-            playerX = client.player.getX();
-            playerY = client.player.getY();
-            playerZ = client.player.getZ();
-            playerMoved = client.player.getEntityPos().distanceTo(startPlayerPos);
-            selected = client.player.getInventory().getSelectedSlot();
-        }
+        Vec3d vehiclePos = vehicle == null ? null : vehicle.getEntityPos();
+        Vec3d vehicleDelta = vehicle == null ? null : vehiclePos.subtract(startVehiclePos);
+        Vec3d vehicleVelocity = vehicle == null ? Vec3d.ZERO : vehicle.getVelocity();
+        double vehicleMoved = vehicleDelta == null ? Double.NaN : vehicleDelta.length();
+        double couplingError = vehicleDelta == null ? Double.NaN : vehicleDelta.subtract(playerDelta).length();
+        double separation = vehiclePos == null ? Double.NaN : vehiclePos.distanceTo(playerPos);
+
         samples.add(new TickSample(
-            System.nanoTime() - trialStartNanos, trialTick, phase, event, false, false,
-            selected, false, planner == null ? 0 : planner.swaps(),
-            playerX, playerY, playerZ,
-            Double.NaN, Double.NaN, Double.NaN,
-            Double.NaN, playerMoved, Double.NaN, Double.NaN,
-            0.0, 0.0, bestOverlapDelta
+            System.nanoTime() - trialStartNanos, trialTick, phase, sanitize(event), sanitize(packetEvents),
+            attached, vehicleExists, graphHasPlayer, currentVehicleId,
+            forwardHeld, client.player.getInventory().getSelectedSlot(), holding,
+            planner == null ? 0 : planner.swaps(),
+            playerPos.x, playerPos.y, playerPos.z,
+            vehiclePos == null ? Double.NaN : vehiclePos.x,
+            vehiclePos == null ? Double.NaN : vehiclePos.y,
+            vehiclePos == null ? Double.NaN : vehiclePos.z,
+            playerStep, vehicleStep,
+            vehicleMoved, playerDelta.length(), couplingError, separation,
+            playerVelocity.x, playerVelocity.y, playerVelocity.z,
+            vehicleVelocity.x, vehicleVelocity.y, vehicleVelocity.z,
+            blockAt(client, playerPos), vehiclePos == null ? "missing" : blockAt(client, vehiclePos),
+            obsidianNearby(client, vehicle), rawOverlap, overlapDelta, bestOverlapDelta
         ));
     }
 
     private boolean flushCsv() {
         if (csvPath == null || samples == null || trialStartUtc == null) return false;
-        StringBuilder csv = new StringBuilder(Math.max(16_384, samples.size() * 400));
-        csv.append("utc,elapsed_ns,trial,tick,phase,event,mount,vehicle_id,attached,forward_held,selected_slot,holding_control,swaps,interval,max_swaps,threshold,player_x,player_y,player_z,vehicle_x,vehicle_y,vehicle_z,vehicle_moved,player_moved,coupling_error,separation,raw_horizontal_overlap,overlap_delta,best_overlap_delta\n");
+        StringBuilder csv = new StringBuilder(Math.max(32_768, samples.size() * 650));
+        csv.append("utc,elapsed_ns,trial,tick,phase,event,packet_events,mount,vehicle_id,attached,vehicle_exists,graph_has_player,current_vehicle_id,forward_held,selected_slot,holding_control,swaps,interval,max_swaps,threshold,player_x,player_y,player_z,vehicle_x,vehicle_y,vehicle_z,player_step,vehicle_step,vehicle_moved,player_moved,coupling_error,separation,player_vel_x,player_vel_y,player_vel_z,vehicle_vel_x,vehicle_vel_y,vehicle_vel_z,player_block,vehicle_block,obsidian_nearby,raw_horizontal_overlap,overlap_delta,best_overlap_delta\n");
         for (TickSample sample : samples) {
             csv.append(String.join(",",
                 trialStartUtc.plusNanos(sample.elapsedNanos()).toString(), Long.toString(sample.elapsedNanos()),
                 Long.toString(trialId), Integer.toString(sample.tick()), sample.phase().name(), sample.event(),
-                mountName == null ? "unknown" : mountName, Integer.toString(vehicleId),
-                Boolean.toString(sample.attached()), Boolean.toString(sample.forwardHeld()),
-                Integer.toString(sample.selectedSlot()), Boolean.toString(sample.holdingControl()),
-                Integer.toString(sample.swaps()), Integer.toString(intervalTicks),
-                Integer.toString(MAX_SWAP_OPTIONS[maxSwapIndex]), fmt(THRESHOLD_OPTIONS[thresholdIndex]),
+                sample.packetEvents(), mountName == null ? "unknown" : mountName, Integer.toString(vehicleId),
+                Boolean.toString(sample.attached()), Boolean.toString(sample.vehicleExists()),
+                Boolean.toString(sample.graphHasPlayer()), Integer.toString(sample.currentVehicleId()),
+                Boolean.toString(sample.forwardHeld()), Integer.toString(sample.selectedSlot()),
+                Boolean.toString(sample.holdingControl()), Integer.toString(sample.swaps()),
+                Integer.toString(intervalTicks), Integer.toString(MAX_SWAP_OPTIONS[maxSwapIndex]),
+                fmt(THRESHOLD_OPTIONS[thresholdIndex]),
                 fmt(sample.playerX()), fmt(sample.playerY()), fmt(sample.playerZ()),
                 fmt(sample.vehicleX()), fmt(sample.vehicleY()), fmt(sample.vehicleZ()),
+                fmt(sample.playerStep()), fmt(sample.vehicleStep()),
                 fmt(sample.vehicleMoved()), fmt(sample.playerMoved()), fmt(sample.couplingError()), fmt(sample.separation()),
+                fmt(sample.playerVelX()), fmt(sample.playerVelY()), fmt(sample.playerVelZ()),
+                fmt(sample.vehicleVelX()), fmt(sample.vehicleVelY()), fmt(sample.vehicleVelZ()),
+                sanitize(sample.playerBlock()), sanitize(sample.vehicleBlock()), Boolean.toString(sample.obsidianNearby()),
                 fmt(sample.rawOverlap()), fmt(sample.overlapDelta()), fmt(sample.bestOverlapDelta())
             )).append('\n');
         }
@@ -424,6 +501,11 @@ public final class MountLabClient implements ClientModInitializer {
 
     private void status(MinecraftClient client, String message) {
         if (client.player != null) client.player.sendMessage(Text.literal("[MountLab] " + message), true);
+    }
+
+    private static String sanitize(String value) {
+        if (value == null) return "";
+        return value.replace(',', '|').replace('\n', ' ').replace('\r', ' ');
     }
 
     private static String fmt(double value) {
