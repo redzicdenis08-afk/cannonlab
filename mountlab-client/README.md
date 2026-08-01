@@ -4,7 +4,7 @@ A client-side Fabric lab harness for reproducing mounted control-item timing on 
 
 ## Safety boundary
 
-The mod activates only in singleplayer, localhost, `.local`, RFC1918 IPv4, loopback, or private/link-local IPv6 lab servers. It does not cancel corrections/passenger packets, spam interactions, inject vehicle movement, or bypass claim permissions.
+The mod activates in singleplayer, localhost, `.local`, RFC1918 IPv4, loopback/private IPv6 labs, and the exact authorized endpoint `extremecraft.net:25565` (or `extremecraft.net` using the default port). It does not wildcard subdomains or alternate ports. It does not cancel corrections/passenger packets, spam interactions, inject vehicle movement, or bypass claim permissions.
 
 ## Controls
 
