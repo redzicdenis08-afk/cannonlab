@@ -48,8 +48,9 @@ jobs:
           unzip -t "$JAR"
           jar tf "$JAR" | grep -q 'online/coredispatch/mountlab/MountLabClient.class'
           jar tf "$JAR" | grep -q 'online/coredispatch/mountlab/SteerFlipPlanner.class'
-          unzip -p "$JAR" fabric.mod.json | grep -q '"version": "1.1.1"'
+          unzip -p "$JAR" fabric.mod.json | grep -q '"version": "1.1.2"'
           unzip -p "$JAR" fabric.mod.json | grep -q '"fabricloader": ">=0.19.2"'
+          unzip -p "$JAR" | strings | grep -q 'extremecraft.net'
           if unzip -p "$JAR" | strings | grep -E 'SetPassengers|PlayerPositionLook|VehicleMoveC2SPacket|interactEntity' ; then
             echo 'Forbidden packet/evasion primitive detected in jar'
             exit 1
