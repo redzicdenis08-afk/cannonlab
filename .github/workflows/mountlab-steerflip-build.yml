@@ -6,6 +6,11 @@ on:
     paths:
       - 'mountlab-client/**'
       - '.github/workflows/mountlab-steerflip-build.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'mountlab-client/**'
+      - '.github/workflows/mountlab-steerflip-build.yml'
   workflow_dispatch:
 
 permissions:
