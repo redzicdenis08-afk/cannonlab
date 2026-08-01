@@ -26,10 +26,21 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 public final class MountLabClient implements ClientModInitializer {
     private enum Phase { IDLE, SWAPPING, LOCKED }
+
+    private record TickSample(
+        long elapsedNanos, int tick, Phase phase, String event, boolean attached, boolean forwardHeld,
+        int selectedSlot, boolean holdingControl, int swaps,
+        double playerX, double playerY, double playerZ,
+        double vehicleX, double vehicleY, double vehicleZ,
+        double vehicleMoved, double playerMoved, double couplingError, double separation,
+        double rawOverlap, double overlapDelta, double bestOverlapDelta
+    ) { }
 
     private static final int[] MAX_SWAP_OPTIONS = {4, 6, 8, 10, 12, 16};
     private static final double[] THRESHOLD_OPTIONS = {0.0, 0.02, 0.04, 0.08, 0.12};
@@ -49,6 +60,7 @@ public final class MountLabClient implements ClientModInitializer {
 
     private long trialId;
     private long trialStartNanos;
+    private Instant trialStartUtc;
     private int trialTick;
     private int phaseTicks;
     private int releasedForwardTicks;
@@ -63,7 +75,7 @@ public final class MountLabClient implements ClientModInitializer {
     private double baselineOverlap;
     private double bestOverlapDelta;
     private Path csvPath;
-    private StringBuilder csvBuffer;
+    private List<TickSample> samples;
     private SteerFlipPlanner planner;
 
     @Override
@@ -131,7 +143,7 @@ public final class MountLabClient implements ClientModInitializer {
             }
         }
 
-        appendTick(client, vehicle, rawOverlap, overlapDelta, forwardHeld, event);
+        captureTick(client, vehicle, rawOverlap, overlapDelta, forwardHeld, event);
 
         if (phase == Phase.LOCKED && phaseTicks >= RETENTION_TICKS) {
             Vec3d vehicleDelta = vehicle.getEntityPos().subtract(startVehiclePos);
@@ -227,17 +239,17 @@ public final class MountLabClient implements ClientModInitializer {
         bestOverlapDelta = 0.0;
         trialId = System.currentTimeMillis();
         trialStartNanos = System.nanoTime();
+        trialStartUtc = Instant.now();
         trialTick = 0;
         phaseTicks = 0;
         releasedForwardTicks = 0;
         phase = Phase.SWAPPING;
         planner = new SteerFlipPlanner(intervalTicks, MAX_SWAP_OPTIONS[maxSwapIndex]);
         csvPath = prepareCsvPath();
-        csvBuffer = new StringBuilder(16_384);
-        csvBuffer.append("utc,elapsed_ns,trial,tick,phase,event,mount,vehicle_id,attached,forward_held,selected_slot,holding_control,swaps,interval,max_swaps,threshold,player_x,player_y,player_z,vehicle_x,vehicle_y,vehicle_z,vehicle_moved,player_moved,coupling_error,separation,raw_horizontal_overlap,overlap_delta,best_overlap_delta\n");
+        samples = new ArrayList<>(MAX_TRIAL_TICKS + 4);
 
         selectSlot(client, controlSlot);
-        appendTick(client, vehicle, baselineOverlap, 0.0, true, "START");
+        captureTick(client, vehicle, baselineOverlap, 0.0, true, "START");
         status(client, "RUN " + mountName + " | " + intervalTicks + "t / "
             + MAX_SWAP_OPTIONS[maxSwapIndex] + " swaps / delta stop " + fmt(THRESHOLD_OPTIONS[thresholdIndex]));
         return true;
@@ -247,21 +259,21 @@ public final class MountLabClient implements ClientModInitializer {
         Entity vehicle = client.player == null ? null : client.player.getVehicle();
         if (vehicle != null) {
             double raw = client.world == null ? 0.0 : solidHorizontalOverlapDepth(client, vehicle.getBoundingBox());
-            appendTick(client, vehicle, raw, Math.max(0.0, raw - baselineOverlap), isKeyPressed(client, GLFW.GLFW_KEY_W), result);
+            captureTick(client, vehicle, raw, Math.max(0.0, raw - baselineOverlap), isKeyPressed(client, GLFW.GLFW_KEY_W), result);
         } else {
-            appendDetached(client, result);
+            captureDetached(client, result);
         }
 
-        flushCsv();
+        boolean saved = flushCsv();
         if (restoreOriginal && client.player != null && originalSlot >= 0 && originalSlot < 9) {
             selectSlot(client, originalSlot);
         }
         status(client, result + " | swaps=" + (planner == null ? 0 : planner.swaps())
-            + " bestDelta=" + fmt(bestOverlapDelta));
+            + " bestDelta=" + fmt(bestOverlapDelta) + (saved ? "" : " | CSV_WRITE_FAILED"));
         phase = Phase.IDLE;
         planner = null;
         vehicleId = -1;
-        csvBuffer = null;
+        samples = null;
     }
 
     private boolean isKeyPressed(MinecraftClient client, int key) {
@@ -340,57 +352,74 @@ public final class MountLabClient implements ClientModInitializer {
         }
     }
 
-    private void appendTick(MinecraftClient client, Entity vehicle, double rawOverlap, double overlapDelta,
-                            boolean forwardHeld, String event) {
-        if (csvBuffer == null || client.player == null) return;
+    private void captureTick(MinecraftClient client, Entity vehicle, double rawOverlap, double overlapDelta,
+                             boolean forwardHeld, String event) {
+        if (samples == null || client.player == null) return;
         boolean holding = client.player.getMainHandStack().isOf(controlItem);
         Vec3d vehicleDelta = vehicle.getEntityPos().subtract(startVehiclePos);
         Vec3d playerDelta = client.player.getEntityPos().subtract(startPlayerPos);
-        double couplingError = vehicleDelta.subtract(playerDelta).length();
-        double separation = vehicle.getEntityPos().distanceTo(client.player.getEntityPos());
-        csvBuffer.append(String.join(",",
-            Instant.now().toString(), Long.toString(System.nanoTime() - trialStartNanos), Long.toString(trialId),
-            Integer.toString(trialTick), phase.name(), event, mountName, Integer.toString(vehicle.getId()),
-            Boolean.toString(client.player.getVehicle() == vehicle), Boolean.toString(forwardHeld),
-            Integer.toString(client.player.getInventory().getSelectedSlot()), Boolean.toString(holding),
-            Integer.toString(planner == null ? 0 : planner.swaps()), Integer.toString(intervalTicks),
-            Integer.toString(MAX_SWAP_OPTIONS[maxSwapIndex]), fmt(THRESHOLD_OPTIONS[thresholdIndex]),
-            fmt(client.player.getX()), fmt(client.player.getY()), fmt(client.player.getZ()),
-            fmt(vehicle.getX()), fmt(vehicle.getY()), fmt(vehicle.getZ()),
-            fmt(vehicleDelta.length()), fmt(playerDelta.length()), fmt(couplingError), fmt(separation),
-            fmt(rawOverlap), fmt(overlapDelta), fmt(bestOverlapDelta))).append('\n');
+        samples.add(new TickSample(
+            System.nanoTime() - trialStartNanos, trialTick, phase, event,
+            client.player.getVehicle() == vehicle, forwardHeld,
+            client.player.getInventory().getSelectedSlot(), holding, planner == null ? 0 : planner.swaps(),
+            client.player.getX(), client.player.getY(), client.player.getZ(),
+            vehicle.getX(), vehicle.getY(), vehicle.getZ(),
+            vehicleDelta.length(), playerDelta.length(), vehicleDelta.subtract(playerDelta).length(),
+            vehicle.getEntityPos().distanceTo(client.player.getEntityPos()),
+            rawOverlap, overlapDelta, bestOverlapDelta
+        ));
     }
 
-    private void appendDetached(MinecraftClient client, String event) {
-        if (csvBuffer == null) return;
-        String playerX = "NaN";
-        String playerY = "NaN";
-        String playerZ = "NaN";
-        String playerMoved = "NaN";
+    private void captureDetached(MinecraftClient client, String event) {
+        if (samples == null) return;
+        double playerX = Double.NaN;
+        double playerY = Double.NaN;
+        double playerZ = Double.NaN;
+        double playerMoved = Double.NaN;
         int selected = -1;
         if (client.player != null) {
-            playerX = fmt(client.player.getX());
-            playerY = fmt(client.player.getY());
-            playerZ = fmt(client.player.getZ());
-            playerMoved = fmt(client.player.getEntityPos().distanceTo(startPlayerPos));
+            playerX = client.player.getX();
+            playerY = client.player.getY();
+            playerZ = client.player.getZ();
+            playerMoved = client.player.getEntityPos().distanceTo(startPlayerPos);
             selected = client.player.getInventory().getSelectedSlot();
         }
-        csvBuffer.append(String.join(",",
-            Instant.now().toString(), Long.toString(System.nanoTime() - trialStartNanos), Long.toString(trialId),
-            Integer.toString(trialTick), phase.name(), event, mountName == null ? "unknown" : mountName,
-            Integer.toString(vehicleId), "false", "false", Integer.toString(selected), "false",
-            Integer.toString(planner == null ? 0 : planner.swaps()), Integer.toString(intervalTicks),
-            Integer.toString(MAX_SWAP_OPTIONS[maxSwapIndex]), fmt(THRESHOLD_OPTIONS[thresholdIndex]),
-            playerX, playerY, playerZ, "NaN", "NaN", "NaN", "NaN", playerMoved,
-            "NaN", "NaN", "0", "0", fmt(bestOverlapDelta))).append('\n');
+        samples.add(new TickSample(
+            System.nanoTime() - trialStartNanos, trialTick, phase, event, false, false,
+            selected, false, planner == null ? 0 : planner.swaps(),
+            playerX, playerY, playerZ,
+            Double.NaN, Double.NaN, Double.NaN,
+            Double.NaN, playerMoved, Double.NaN, Double.NaN,
+            0.0, 0.0, bestOverlapDelta
+        ));
     }
 
-    private void flushCsv() {
-        if (csvPath == null || csvBuffer == null) return;
+    private boolean flushCsv() {
+        if (csvPath == null || samples == null || trialStartUtc == null) return false;
+        StringBuilder csv = new StringBuilder(Math.max(16_384, samples.size() * 400));
+        csv.append("utc,elapsed_ns,trial,tick,phase,event,mount,vehicle_id,attached,forward_held,selected_slot,holding_control,swaps,interval,max_swaps,threshold,player_x,player_y,player_z,vehicle_x,vehicle_y,vehicle_z,vehicle_moved,player_moved,coupling_error,separation,raw_horizontal_overlap,overlap_delta,best_overlap_delta\n");
+        for (TickSample sample : samples) {
+            csv.append(String.join(",",
+                trialStartUtc.plusNanos(sample.elapsedNanos()).toString(), Long.toString(sample.elapsedNanos()),
+                Long.toString(trialId), Integer.toString(sample.tick()), sample.phase().name(), sample.event(),
+                mountName == null ? "unknown" : mountName, Integer.toString(vehicleId),
+                Boolean.toString(sample.attached()), Boolean.toString(sample.forwardHeld()),
+                Integer.toString(sample.selectedSlot()), Boolean.toString(sample.holdingControl()),
+                Integer.toString(sample.swaps()), Integer.toString(intervalTicks),
+                Integer.toString(MAX_SWAP_OPTIONS[maxSwapIndex]), fmt(THRESHOLD_OPTIONS[thresholdIndex]),
+                fmt(sample.playerX()), fmt(sample.playerY()), fmt(sample.playerZ()),
+                fmt(sample.vehicleX()), fmt(sample.vehicleY()), fmt(sample.vehicleZ()),
+                fmt(sample.vehicleMoved()), fmt(sample.playerMoved()), fmt(sample.couplingError()), fmt(sample.separation()),
+                fmt(sample.rawOverlap()), fmt(sample.overlapDelta()), fmt(sample.bestOverlapDelta())
+            )).append('\n');
+        }
         try {
-            Files.writeString(csvPath, csvBuffer.toString(), StandardCharsets.UTF_8,
+            Files.writeString(csvPath, csv.toString(), StandardCharsets.UTF_8,
                 StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
-        } catch (IOException ignored) { }
+            return true;
+        } catch (IOException ignored) {
+            return false;
+        }
     }
 
     private void status(MinecraftClient client, String message) {
