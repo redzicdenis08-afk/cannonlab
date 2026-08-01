@@ -105,18 +105,17 @@ public final class MountLabClient implements ClientModInitializer {
                 swaps++;
             }
         } else if (phase == Phase.LOCKED && phaseTicks >= 20) {
-            double moved = vehicle.getPos().distanceTo(startVehiclePos);
+            double moved = vehicle.getEntityPos().distanceTo(startVehiclePos);
             finish(client, "RETAINED_20T_MOVED_" + fmt(moved), false);
         }
     }
 
     private void handleKeys(MinecraftClient client) {
         if (client.getWindow() == null) return;
-        long handle = client.getWindow().getHandle();
-        boolean p = InputUtil.isKeyPressed(handle, GLFW.GLFW_KEY_P);
-        boolean o = InputUtil.isKeyPressed(handle, GLFW.GLFW_KEY_O);
-        boolean k = InputUtil.isKeyPressed(handle, GLFW.GLFW_KEY_K);
-        boolean l = InputUtil.isKeyPressed(handle, GLFW.GLFW_KEY_L);
+        boolean p = InputUtil.isKeyPressed(client.getWindow(), GLFW.GLFW_KEY_P);
+        boolean o = InputUtil.isKeyPressed(client.getWindow(), GLFW.GLFW_KEY_O);
+        boolean k = InputUtil.isKeyPressed(client.getWindow(), GLFW.GLFW_KEY_K);
+        boolean l = InputUtil.isKeyPressed(client.getWindow(), GLFW.GLFW_KEY_L);
 
         if (p && !lastP) {
             if (phase == Phase.IDLE) start(client);
@@ -176,8 +175,8 @@ public final class MountLabClient implements ClientModInitializer {
 
         originalSlot = client.player.getInventory().getSelectedSlot();
         vehicleId = vehicle.getId();
-        startVehiclePos = vehicle.getPos();
-        startPlayerPos = client.player.getPos();
+        startVehiclePos = vehicle.getEntityPos();
+        startPlayerPos = client.player.getEntityPos();
         trialId = System.currentTimeMillis();
         trialTick = 0;
         swaps = 0;
@@ -315,7 +314,7 @@ public final class MountLabClient implements ClientModInitializer {
             Integer.toString(intervalTicks), Integer.toString(MAX_SWAP_OPTIONS[maxSwapIndex]), fmt(THRESHOLD_OPTIONS[thresholdIndex]),
             fmt(client.player.getX()), fmt(client.player.getY()), fmt(client.player.getZ()),
             fmt(vehicle.getX()), fmt(vehicle.getY()), fmt(vehicle.getZ()),
-            fmt(vehicle.getPos().distanceTo(startVehiclePos)), fmt(client.player.getPos().distanceTo(startPlayerPos)),
+            fmt(vehicle.getEntityPos().distanceTo(startVehiclePos)), fmt(client.player.getEntityPos().distanceTo(startPlayerPos)),
             fmt(overlap), fmt(bestOverlap)) + "\n";
         write(line);
     }
@@ -332,7 +331,7 @@ public final class MountLabClient implements ClientModInitializer {
             Integer.toString(client.player.getInventory().getSelectedSlot()), "false", Integer.toString(swaps),
             Integer.toString(intervalTicks), Integer.toString(MAX_SWAP_OPTIONS[maxSwapIndex]), fmt(THRESHOLD_OPTIONS[thresholdIndex]),
             fmt(client.player.getX()), fmt(client.player.getY()), fmt(client.player.getZ()),
-            "NaN", "NaN", "NaN", "NaN", fmt(client.player.getPos().distanceTo(startPlayerPos)),
+            "NaN", "NaN", "NaN", "NaN", fmt(client.player.getEntityPos().distanceTo(startPlayerPos)),
             "0", fmt(bestOverlap)) + "\n";
         write(line);
     }
