@@ -45,7 +45,7 @@ public final class MountLabStress {
         String[] allowed = {"localhost", "localhost:25565", "dev.local:25565", "127.0.0.1", "127.8.1.2:1",
             "10.0.0.5:25565", "172.16.0.1", "172.31.255.254", "192.168.1.9", "[::1]:25565", "fd00::1", "fe80::1"};
         String[] denied = {"example.com", "8.8.8.8", "172.15.1.1", "172.32.1.1", "192.169.1.1", "1.2.3.4:25565",
-            "999.1.1.1", "10.example.com", "", "[]:25565"};
+            "999.1.1.1", "10.example.com", "fctest.com", "fd-lab.example", "[::1]evil", "10.0.0.1:evil", "10.0.0.1:70000", "", "[]:25565"};
         for (String value : allowed) check(LabAddressPolicy.isPrivateLabAddress(value), "should allow " + value);
         for (String value : denied) check(!LabAddressPolicy.isPrivateLabAddress(value), "should deny " + value);
     }
