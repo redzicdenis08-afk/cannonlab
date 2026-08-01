@@ -28,8 +28,41 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '9.5.1'
-      - name: Build Fabric mod
-        run: gradle -p mountlab-client build --stacktrace
+
+      - name: Stress pure timing and safety logic
+        run: |
+          rm -rf /tmp/mountlab-stress
+          mkdir -p /tmp/mountlab-stress
+          javac -Xlint:all -Werror -d /tmp/mountlab-stress \
+            mountlab-client/src/client/java/online/coredispatch/mountlab/SteerFlipPlanner.java \
+            mountlab-client/src/client/java/online/coredispatch/mountlab/LabAddressPolicy.java \
+            mountlab-client/src/client/java/online/coredispatch/mountlab/MountLabMath.java \
+            mountlab-client/stress/MountLabStress.java
+          java -ea -cp /tmp/mountlab-stress online.coredispatch.mountlab.MountLabStress
+
+      - name: Build and inspect Fabric mod
+        run: |
+          gradle -p mountlab-client clean build --stacktrace
+          JAR=$(find mountlab-client/build/libs -maxdepth 1 -name 'mountlab-steerflip-*.jar' ! -name '*-sources.jar' | head -1)
+          test -n "$JAR"
+          unzip -t "$JAR"
+          jar tf "$JAR" | grep -q 'online/coredispatch/mountlab/MountLabClient.class'
+          jar tf "$JAR" | grep -q 'online/coredispatch/mountlab/SteerFlipPlanner.class'
+          unzip -p "$JAR" fabric.mod.json | grep -q '"version": "1.1.0"'
+          if unzip -p "$JAR" | strings | grep -E 'SetPassengers|PlayerPositionLook|VehicleMoveC2SPacket|interactEntity' ; then
+            echo 'Forbidden packet/evasion primitive detected in jar'
+            exit 1
+          fi
+          cp "$JAR" /tmp/mountlab-first.jar
+          sha256sum "$JAR"
+
+      - name: Verify reproducible clean rebuild
+        run: |
+          gradle -p mountlab-client clean build --stacktrace
+          JAR=$(find mountlab-client/build/libs -maxdepth 1 -name 'mountlab-steerflip-*.jar' ! -name '*-sources.jar' | head -1)
+          cmp /tmp/mountlab-first.jar "$JAR"
+          sha256sum "$JAR"
+
       - uses: actions/upload-artifact@v4
         with:
           name: mountlab-steerflip-1.21.11
