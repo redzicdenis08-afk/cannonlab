@@ -4,31 +4,45 @@ import java.util.Locale;
 
 /** String-only policy. It never performs DNS resolution. */
 public final class LabAddressPolicy {
+    private static final String APPROVED_SERVER = "extremecraft.net";
+    private static final int APPROVED_PORT = 25565;
+
     private LabAddressPolicy() { }
 
     public static boolean isPrivateLabAddress(String rawAddress) {
         if (rawAddress == null) return false;
-        String host = rawAddress.trim().toLowerCase(Locale.ROOT);
-        if (host.isEmpty()) return false;
+        String address = rawAddress.trim().toLowerCase(Locale.ROOT);
+        if (address.isEmpty()) return false;
 
-        if (host.startsWith("[")) {
-            int close = host.indexOf(']');
+        String host;
+        int explicitPort = -1;
+
+        if (address.startsWith("[")) {
+            int close = address.indexOf(']');
             if (close < 0) return false;
-            String suffix = host.substring(close + 1);
-            if (!validPortSuffix(suffix)) return false;
-            host = host.substring(1, close);
+            host = address.substring(1, close);
+            explicitPort = parsePortSuffix(address.substring(close + 1));
+            if (explicitPort == -2) return false;
         } else {
-            int firstColon = host.indexOf(':');
-            int lastColon = host.lastIndexOf(':');
+            int firstColon = address.indexOf(':');
+            int lastColon = address.lastIndexOf(':');
             if (firstColon > 0 && firstColon == lastColon) {
-                String suffix = host.substring(firstColon);
-                if (!validPortSuffix(suffix)) return false;
-                host = host.substring(0, firstColon);
+                host = address.substring(0, firstColon);
+                explicitPort = parsePortSuffix(address.substring(firstColon));
+                if (explicitPort == -2) return false;
+            } else {
+                host = address;
             }
         }
 
         while (host.endsWith(".")) host = host.substring(0, host.length() - 1);
         if (host.isEmpty()) return false;
+
+        // Exact authorized endpoint. No wildcard subdomains and no alternate ports.
+        if (host.equals(APPROVED_SERVER)) {
+            return explicitPort == -1 || explicitPort == APPROVED_PORT;
+        }
+
         if (host.equals("localhost") || host.endsWith(".localhost") || host.endsWith(".local")) return true;
 
         boolean ipv6 = host.indexOf(':') >= 0;
@@ -57,16 +71,17 @@ public final class LabAddressPolicy {
         return octets[0] == 0 && octets[1] == 0 && octets[2] == 0 && octets[3] == 0;
     }
 
-    private static boolean validPortSuffix(String suffix) {
-        if (suffix.isEmpty()) return true;
-        if (suffix.charAt(0) != ':' || suffix.length() == 1) return false;
+    /** Returns -1 for no port, -2 for invalid, or a valid port number. */
+    private static int parsePortSuffix(String suffix) {
+        if (suffix.isEmpty()) return -1;
+        if (suffix.charAt(0) != ':' || suffix.length() == 1) return -2;
         int port = 0;
         for (int i = 1; i < suffix.length(); i++) {
             char c = suffix.charAt(i);
-            if (c < '0' || c > '9') return false;
+            if (c < '0' || c > '9') return -2;
             port = port * 10 + (c - '0');
-            if (port > 65535) return false;
+            if (port > 65535) return -2;
         }
-        return port > 0;
+        return port > 0 ? port : -2;
     }
 }
